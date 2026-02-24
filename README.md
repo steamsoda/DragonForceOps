@@ -14,7 +14,8 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
    - `cp .env.example .env.local`
 3. Set environment values:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (recommended)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (legacy fallback)
    - `SUPABASE_SERVICE_ROLE_KEY` (server-side only)
    - `MAINTENANCE_MODE` (`true` or `false`)
 4. Run dev:
