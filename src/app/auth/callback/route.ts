@@ -10,7 +10,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
   }
 
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    supabase = await createClient();
+  } catch {
+    return NextResponse.redirect(`${origin}/login?error=supabase_config`);
+  }
+
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {

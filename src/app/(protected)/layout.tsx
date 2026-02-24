@@ -18,20 +18,31 @@ type RoleRow = {
 };
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    supabase = await createClient();
+  } catch {
+    redirect("/login?error=supabase_config");
+  }
+
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     redirect("/login");
   }
 
-  const { data: roleRows } = await supabase
+  const { data: roleRows, error: rolesError } = await supabase
     .from("user_roles")
     .select("app_roles(code)")
     .eq("user_id", user.id)
     .returns<RoleRow[]>();
+
+  if (rolesError) {
+    redirect("/unauthorized");
+  }
 
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
   const canAccess =
