@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+body {
+  background: radial-gradient(circle at 10% 20%, rgba(240, 179, 35, 0.15), transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(0, 86, 163, 0.2), transparent 40%), var(--background);
+  color: var(--foreground);
+}
+
+a {
+  color: inherit;
+}
