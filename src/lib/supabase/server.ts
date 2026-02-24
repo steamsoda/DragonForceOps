@@ -22,9 +22,15 @@ export async function createClient() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]);
-        });
+        // In Server Components, cookie writes can throw in Next.js runtime.
+        // Middleware handles session refresh persistence; here we fail softly.
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]);
+          });
+        } catch {
+          // no-op
+        }
       }
     }
   });
