@@ -23,7 +23,7 @@ export function AzureSignInButton() {
         setErrorMessage(error.message);
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to start Microsoft sign-in.");
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el acceso con Microsoft.");
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +37,7 @@ export function AzureSignInButton() {
         disabled={isLoading}
         className="inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isLoading ? "Redirecting..." : "Sign in with Microsoft 365"}
+        {isLoading ? "Redirigiendo..." : "Entrar con Microsoft 365"}
       </button>
       {errorMessage ? <p className="text-sm text-red-700">{errorMessage}</p> : null}
     </>

@@ -38,13 +38,12 @@ export function TrendCard({
     <article className="rounded-md border border-slate-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-xl font-semibold text-slate-900">{currentValue}</p>
-      <p className="mt-1 text-xs text-slate-600">Previous month: {previousValue}</p>
+      <p className="mt-1 text-xs text-slate-600">Mes anterior: {previousValue}</p>
       <p className={`mt-1 text-xs font-medium ${toneClass}`}>
         {sign}
-        {Math.abs(delta.percent).toFixed(1)}% vs previous month
+        {Math.abs(delta.percent).toFixed(1)}% contra mes anterior
       </p>
       <p className="mt-1 text-xs text-slate-600">{description}</p>
     </article>
   );
 }
-

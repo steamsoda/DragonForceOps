@@ -2,9 +2,9 @@ import { PageShell } from "@/components/ui/page-shell";
 
 export default function PendingPaymentsPage() {
   return (
-    <PageShell title="Pending Payments" subtitle="Filter by campus, team, balance bucket, and overdue days">
+    <PageShell title="Pagos pendientes" subtitle="Filtra por campus, equipo, rango de saldo y dias vencidos">
       <p className="text-sm text-slate-700">
-        TBD: list active enrollments with positive balance and `tel:` links for guardians.
+        Pendiente: listar inscripciones activas con saldo positivo y enlaces `tel:` para tutores.
       </p>
     </PageShell>
   );

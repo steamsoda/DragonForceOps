@@ -8,8 +8,10 @@ export default async function EnrollmentEditPage({
   const { playerId, enrollmentId } = await params;
 
   return (
-    <PageShell title="Edit Enrollment" subtitle={`Player: ${playerId} | Enrollment: ${enrollmentId}`}>
-      <p className="text-sm text-slate-700">TBD: update campus/status/end date and transfer flow controls.</p>
+    <PageShell title="Editar inscripcion" subtitle={`Jugador: ${playerId} | Inscripcion: ${enrollmentId}`}>
+      <p className="text-sm text-slate-700">
+        Pendiente: actualizar campus/estatus/fecha de fin y controles del flujo de cambio de campus.
+      </p>
     </PageShell>
   );
 }

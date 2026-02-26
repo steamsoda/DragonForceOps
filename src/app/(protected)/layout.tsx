@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES } from "@/lib/auth/roles";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/players", label: "Players" },
-  { href: "/pending", label: "Pending" },
+  { href: "/dashboard", label: "Panel" },
+  { href: "/players", label: "Jugadores" },
+  { href: "/pending", label: "Pendientes" },
   { href: "/reports/corte-diario", label: "Corte Diario" },
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" }
 ];
@@ -94,7 +94,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                 type="submit"
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
-                Sign out
+                Cerrar sesion
               </button>
             </form>
           </div>

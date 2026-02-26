@@ -15,19 +15,19 @@ export default async function LoginPage() {
     }
   } catch {
     return (
-      <PageShell title="Login Configuration Error" subtitle="Supabase connection failed in this environment">
+      <PageShell title="Error de configuracion de acceso" subtitle="La conexion con Supabase fallo en este entorno">
         <p className="text-sm text-slate-700">
-          Verify Preview environment variables for Supabase URL and key, then redeploy.
+          Verifica las variables de entorno de Preview para URL y llave de Supabase, y vuelve a desplegar.
         </p>
       </PageShell>
     );
   }
 
   return (
-    <PageShell title="Login" subtitle="FC Porto Dragon Force Monterrey internal app">
+    <PageShell title="Iniciar sesion" subtitle="Aplicacion interna de FC Porto Dragon Force Monterrey">
       <div className="space-y-3">
         <p className="text-sm text-slate-700">
-          Access is restricted to authorized staff. Use your Microsoft 365 account to continue.
+          El acceso esta restringido a personal autorizado. Usa tu cuenta de Microsoft 365 para continuar.
         </p>
         <AzureSignInButton />
       </div>

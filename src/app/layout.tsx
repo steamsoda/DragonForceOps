@@ -3,12 +3,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Dragon Force Ops",
-  description: "FC Porto Dragon Force Monterrey internal operations app"
+  description: "Aplicacion interna de operaciones de FC Porto Dragon Force Monterrey"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className="min-h-screen">{children}</body>
     </html>
   );

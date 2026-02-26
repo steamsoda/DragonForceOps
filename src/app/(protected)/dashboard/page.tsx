@@ -16,23 +16,23 @@ function formatCurrency(value: number) {
 const kpiCardMeta = [
   {
     key: "activeEnrollments",
-    label: "Active Enrollments",
-    description: "Current active membership records"
+    label: "Inscripciones activas",
+    description: "Registros de membresia activos actualmente"
   },
   {
     key: "pendingBalance",
-    label: "Pending Balance",
-    description: "Total positive balance across enrollments"
+    label: "Saldo pendiente",
+    description: "Saldo positivo total en las inscripciones"
   },
   {
     key: "paymentsToday",
-    label: "Payments Today",
-    description: "Posted payments since 00:00 local server time"
+    label: "Pagos de hoy",
+    description: "Pagos registrados desde las 00:00 del servidor"
   },
   {
     key: "paymentsThisMonth",
-    label: "Payments This Month",
-    description: "Posted payments in selected month"
+    label: "Pagos del mes",
+    description: "Pagos registrados en el mes seleccionado"
   }
 ] as const;
 
@@ -55,7 +55,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   ]);
 
   return (
-    <PageShell title="Dashboard" subtitle="Phase 1 operations overview">
+    <PageShell title="Panel" subtitle="Resumen operativo de Fase 1">
       <div className="space-y-4">
         <DashboardFilters
           campuses={campuses.map((campus) => ({ id: campus.id, name: campus.name }))}
@@ -66,7 +66,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           {kpiCardMeta.map((card) => {
             const value =
               card.key === "activeEnrollments"
-                ? dashboard.activeEnrollments.toLocaleString("en-US")
+                ? dashboard.activeEnrollments.toLocaleString("es-MX")
                 : formatCurrency(dashboard[card.key]);
 
             return (
@@ -76,24 +76,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <TrendCard
-            label="Payments Trend"
+            label="Tendencia de pagos"
             currentValue={formatCurrency(dashboard.paymentsThisMonth)}
             previousValue={formatCurrency(dashboard.monthlyPaymentsPrevious)}
             currentRaw={dashboard.paymentsThisMonth}
             previousRaw={dashboard.monthlyPaymentsPrevious}
-            description="Posted payments in selected month vs previous month."
+            description="Pagos registrados en el mes seleccionado contra el mes anterior."
           />
           <TrendCard
-            label="Charges Trend"
+            label="Tendencia de cargos"
             currentValue={formatCurrency(dashboard.monthlyChargesThisMonth)}
             previousValue={formatCurrency(dashboard.monthlyChargesPrevious)}
             currentRaw={dashboard.monthlyChargesThisMonth}
             previousRaw={dashboard.monthlyChargesPrevious}
-            description="Non-void charges created in selected month vs previous month."
+            description="Cargos no anulados creados en el mes seleccionado contra el mes anterior."
           />
         </div>
         <p className="text-sm text-slate-700">
-          KPIs are live from current data with campus/month filters.
+          Los indicadores se calculan con datos reales y filtros por campus/mes.
         </p>
       </div>
     </PageShell>

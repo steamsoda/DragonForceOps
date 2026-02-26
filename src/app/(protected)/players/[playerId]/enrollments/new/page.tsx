@@ -8,9 +8,9 @@ export default async function EnrollmentCreatePage({
   const { playerId } = await params;
 
   return (
-    <PageShell title="Create Enrollment" subtitle={`Player: ${playerId}`}>
+    <PageShell title="Crear inscripcion" subtitle={`Jugador: ${playerId}`}>
       <p className="text-sm text-slate-700">
-        TBD: create enrollment form with campus, pricing plan, start date, and optional initial charges.
+        Pendiente: crear formulario de inscripcion con campus, plan de precios, fecha de inicio y cargos iniciales opcionales.
       </p>
     </PageShell>
   );

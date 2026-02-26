@@ -8,9 +8,9 @@ export default async function ChargeCreatePage({
   const { enrollmentId } = await params;
 
   return (
-    <PageShell title="Create Charge" subtitle={`Enrollment: ${enrollmentId}`}>
+    <PageShell title="Crear cargo" subtitle={`Inscripcion: ${enrollmentId}`}>
       <p className="text-sm text-slate-700">
-        TBD: create charge form for inscription, uniform, tournaments, cups, trips, and events.
+        Pendiente: crear formulario de cargo para inscripcion, uniforme, torneos, copas, viajes y eventos.
       </p>
     </PageShell>
   );

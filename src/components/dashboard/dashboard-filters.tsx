@@ -19,7 +19,7 @@ export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: 
         defaultValue={selectedCampusId}
         className="rounded-md border border-slate-300 px-3 py-2 text-sm"
       >
-        <option value="">All campuses</option>
+        <option value="">Todos los campus</option>
         {campuses.map((campus) => (
           <option key={campus.id} value={campus.id}>
             {campus.name}
@@ -36,12 +36,11 @@ export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: 
         type="submit"
         className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark"
       >
-        Apply
+        Aplicar
       </button>
       <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
-        Reset
+        Limpiar
       </Link>
     </form>
   );
 }
-

@@ -8,8 +8,10 @@ export default async function ChargesPage({
   const { enrollmentId } = await params;
 
   return (
-    <PageShell title="Charges and Ledger" subtitle={`Enrollment: ${enrollmentId}`}>
-      <p className="text-sm text-slate-700">TBD: render charges table, balance, and payment posting modal.</p>
+    <PageShell title="Cargos y cuenta" subtitle={`Inscripcion: ${enrollmentId}`}>
+      <p className="text-sm text-slate-700">
+        Pendiente: mostrar tabla de cargos, saldo y modal para registrar pagos.
+      </p>
     </PageShell>
   );
 }

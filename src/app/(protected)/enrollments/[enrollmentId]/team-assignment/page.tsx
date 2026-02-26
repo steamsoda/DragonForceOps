@@ -8,8 +8,8 @@ export default async function TeamAssignmentPage({
   const { enrollmentId } = await params;
 
   return (
-    <PageShell title="Team Assignment" subtitle={`Enrollment: ${enrollmentId}`}>
-      <p className="text-sm text-slate-700">TBD: assign enrollment to one active team in same campus.</p>
+    <PageShell title="Asignacion de equipo" subtitle={`Inscripcion: ${enrollmentId}`}>
+      <p className="text-sm text-slate-700">Pendiente: asignar la inscripcion a un equipo activo del mismo campus.</p>
     </PageShell>
   );
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   return NextResponse.json(
-    { message: "TBD: post payment transaction with allocations and audit log." },
+    { message: "Pendiente: transaccion de registro de pago con asignaciones y bitacora de auditoria." },
     { status: 501 }
   );
 }
