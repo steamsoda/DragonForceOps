@@ -1,5 +1,9 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { getDashboardKpis } from "@/lib/queries/dashboard";
+import { listCampuses } from "@/lib/queries/players";
+import { getDashboardData } from "@/lib/queries/dashboard";
+import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { TrendCard } from "@/components/dashboard/trend-card";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -9,7 +13,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-const kpiCards = [
+const kpiCardMeta = [
   {
     key: "activeEnrollments",
     label: "Active Enrollments",
@@ -28,34 +32,68 @@ const kpiCards = [
   {
     key: "paymentsThisMonth",
     label: "Payments This Month",
-    description: "Posted payments for the current month"
+    description: "Posted payments in selected month"
   }
 ] as const;
 
-export default async function DashboardPage() {
-  const kpis = await getDashboardKpis();
+type SearchParams = Promise<{
+  campus?: string;
+  month?: string;
+}>;
+
+export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const selectedCampusId = params.campus ?? "";
+  const requestedMonth = params.month;
+
+  const [campuses, dashboard] = await Promise.all([
+    listCampuses(),
+    getDashboardData({
+      campusId: selectedCampusId || undefined,
+      month: requestedMonth
+    })
+  ]);
 
   return (
     <PageShell title="Dashboard" subtitle="Phase 1 operations overview">
       <div className="space-y-4">
+        <DashboardFilters
+          campuses={campuses.map((campus) => ({ id: campus.id, name: campus.name }))}
+          selectedCampusId={selectedCampusId}
+          selectedMonth={dashboard.selectedMonth}
+        />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {kpiCards.map((card) => {
+          {kpiCardMeta.map((card) => {
             const value =
               card.key === "activeEnrollments"
-                ? kpis.activeEnrollments.toLocaleString("en-US")
-                : formatCurrency(kpis[card.key]);
+                ? dashboard.activeEnrollments.toLocaleString("en-US")
+                : formatCurrency(dashboard[card.key]);
 
             return (
-              <article key={card.key} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
-                <p className="mt-1 text-xs text-slate-600">{card.description}</p>
-              </article>
+              <KpiCard key={card.key} label={card.label} value={value} description={card.description} />
             );
           })}
         </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <TrendCard
+            label="Payments Trend"
+            currentValue={formatCurrency(dashboard.paymentsThisMonth)}
+            previousValue={formatCurrency(dashboard.monthlyPaymentsPrevious)}
+            currentRaw={dashboard.paymentsThisMonth}
+            previousRaw={dashboard.monthlyPaymentsPrevious}
+            description="Posted payments in selected month vs previous month."
+          />
+          <TrendCard
+            label="Charges Trend"
+            currentValue={formatCurrency(dashboard.monthlyChargesThisMonth)}
+            previousValue={formatCurrency(dashboard.monthlyChargesPrevious)}
+            currentRaw={dashboard.monthlyChargesThisMonth}
+            previousRaw={dashboard.monthlyChargesPrevious}
+            description="Non-void charges created in selected month vs previous month."
+          />
+        </div>
         <p className="text-sm text-slate-700">
-          KPIs are live from current data. Next step: add campus/date filters and trend comparisons.
+          KPIs are live from current data with campus/month filters.
         </p>
       </div>
     </PageShell>

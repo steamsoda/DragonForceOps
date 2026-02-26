@@ -23,3 +23,15 @@
   - payments today
   - payments this month
 
+### Product Iteration
+- Refactored dashboard into modular units to avoid page bloat:
+  - `dashboard-filters` component
+  - `kpi-card` component
+  - `trend-card` component
+  - dedicated dashboard query module
+- Added dashboard filters:
+  - campus selector
+  - month selector
+- Added month-over-month trend cards:
+  - payments (selected month vs previous month)
+  - charges (selected month vs previous month)

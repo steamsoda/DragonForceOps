@@ -47,6 +47,26 @@ Use this flow to ship changes with low downtime and avoid touching `main` direct
    - `https://<preview-ref>.supabase.co/auth/v1/callback`
 4. Login once with your user, then assign role in preview DB.
 
+## Auth URL checklist (copy/paste reference)
+Use these URLs in Supabase `Authentication -> URL Configuration`.
+
+- Production app URL:
+  - `https://dragon-force-ops-steamsodas-projects.vercel.app`
+- Production callback URL:
+  - `https://dragon-force-ops-steamsodas-projects.vercel.app/auth/callback`
+- Preview branch callback URL:
+  - `https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/auth/callback`
+- Preview wildcard callback URL:
+  - `https://dragon-force-*-steamsodas-projects.vercel.app/auth/callback`
+
+Recommended setup:
+1. In production Supabase project:
+   - Keep production callback URL.
+2. In preview Supabase project:
+   - Keep preview branch callback URL.
+   - Keep preview wildcard callback URL.
+3. Avoid storing one-off deployment URLs unless actively debugging.
+
 ## Role assignment quick SQL
 Run in preview SQL editor after first successful login:
 
