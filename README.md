@@ -27,6 +27,8 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
   - `supabase/migrations/20260224090000_phase1_core.sql`
 - Initial admin role seed:
   - `supabase/migrations/20260224094000_seed_admin_user_role.sql`
+- Preview sample data seed (manual):
+  - `supabase/seeds/preview_sample_data.sql`
 - Apply using Supabase CLI or SQL editor in your project.
 
 ## Auth setup (Microsoft 365 / Azure)
