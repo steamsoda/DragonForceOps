@@ -46,3 +46,7 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
   - Production env: `MAINTENANCE_MODE=true`
   - Preview env: `MAINTENANCE_MODE=false`
   - Then use Vercel Preview deployments (feature branches / PRs) to validate live work before promoting to production.
+
+## Workflow
+- Branching and preview DB workflow:
+  - `docs/branching-workflow.md`
