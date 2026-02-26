@@ -39,3 +39,22 @@
 ### Security and Performance Guardrails
 - Added `docs/security-performance-baseline.md` with mandatory PR gates.
 - Hardened bootstrap admin fallback to never grant access in production runtime.
+
+### Billing and Collections Milestone
+- Implemented full enrollment ledger screen with live data:
+  - summary totals (cargos/pagos/saldo)
+  - detailed charges table
+  - detailed payments table
+- Implemented payment posting flow:
+  - server-side validation
+  - amount allocation to pending charges
+  - success/error feedback in Spanish
+- Implemented charge creation flow:
+  - active charge type selection
+  - server-side validation and insert
+  - redirect back to ledger with confirmation
+- Implemented pending payments workflow:
+  - live list from active enrollments with positive balances
+  - filters by campus/team/balance bucket/overdue status
+  - quick `tel:` call action and direct link to enrollment ledger
+- Added preview sample data seed script for realistic QA in preview database.

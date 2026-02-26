@@ -5,7 +5,11 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 ## Current State (as of 2026-02-26)
 - Preview auth flow works end-to-end.
 - Protected app routes are reachable after login.
-- Core pages exist for players, enrollments, charges, pending, and reports.
+- Core billing loop is working in preview:
+  - create charge
+  - post payment with allocations
+  - live ledger totals and pending balances
+- Pending payments list is functional with follow-up filters and call links.
 - Main risk is operational hardening and feature completeness, not scaffolding.
 
 ## Delivery Principles
@@ -33,8 +37,16 @@ Goal: make current features reliable for daily internal usage.
 
 Exit criteria:
 - No blocking auth errors in preview for admin users.
-- End-to-end flow works: player -> enrollment -> charge -> payment -> reports.
+- End-to-end flow works: player -> enrollment -> charge -> payment -> pending follow-up -> reports.
 - Smoke test checklist is consistently green.
+
+## Milestone Snapshot (completed)
+- Preview deployment/auth baseline stabilized.
+- Dashboard v2 live with campus/month filters and MoM trends.
+- Enrollment ledger operational with charge/payment detail.
+- Charge creation and payment posting operational.
+- Pending collections view operational with filters and call shortcuts.
+- Security/performance baseline documented and adopted.
 
 ## Phase 1B: Operational MVP Completion (next 1 to 2 weeks)
 Goal: complete the minimum operational feature set for steady use.
@@ -69,20 +81,19 @@ Goal: broader operational support and integrations.
 - Basic admin diagnostics page for auth/env/role checks.
 
 ## Prioritized Backlog (Top 10)
-1. Replace placeholder dashboard with real KPIs.
-2. Add a formal smoke test checklist doc and run it per preview deploy.
-3. Harden auth callback error handling and user-facing messages.
-4. Add integration tests for payment posting + allocations transaction.
-5. Improve pending page filters and performance.
-6. Add report-level assertions for totals.
-7. Add role assignment admin utility (or scripted SQL templates).
-8. Add cash-session guardrails and clearer variance flow.
-9. Add audit log visibility for critical financial mutations.
-10. Add release checklist for preview -> main -> production.
+1. Replace report placeholders (`corte diario`, `resumen mensual`) with real queries and totals.
+2. Add cash-session guardrails for cash payments (open session required).
+3. Add integration tests for payment posting + allocation edge cases.
+4. Add report-level assertions and reconciliation checks.
+5. Add role assignment admin utility (or scripted SQL templates).
+6. Add audit log writes for critical billing mutations.
+7. Add performance pass with index review for pending/ledger queries.
+8. Add formal smoke test checklist execution per preview deploy.
+9. Add release checklist for preview -> main -> production.
+10. Start `admin_restricted` role scope definition and enforcement.
 
 ## Working Rhythm (Recommended)
 - Plan: 1 short planning session per week (30-45 min).
 - Build: all feature work in `preview`.
 - Validate: smoke test after each significant push.
 - Release: merge to `main` only from a green preview state.
-
