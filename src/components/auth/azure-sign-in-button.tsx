@@ -10,8 +10,7 @@ export function AzureSignInButton() {
     try {
       setIsLoading(true);
       const supabase = createClient();
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
-      const redirectTo = `${appUrl}/auth/callback`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
 
       await supabase.auth.signInWithOAuth({
         provider: "azure",
