@@ -14,9 +14,11 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
    - `cp .env.example .env.local`
 3. Set environment values:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (recommended)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (legacy fallback)
    - `SUPABASE_SERVICE_ROLE_KEY` (server-side only)
    - `MAINTENANCE_MODE` (`true` or `false`)
+   - `BOOTSTRAP_ADMIN_EMAILS` (optional, comma-separated allowlist for temporary admin access)
 4. Run dev:
    - `npm run dev`
 
@@ -36,6 +38,7 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
 - First login flow:
   - Admin user signs in once so the record exists in `auth.users`.
   - Run `20260224094000_seed_admin_user_role.sql` (or re-run, idempotent) to assign `director_admin`.
+  - Temporary fallback: set `BOOTSTRAP_ADMIN_EMAILS` to allow access before role seeding is complete.
 
 ## Vercel
 - Add the same env vars in Vercel Project Settings for Preview and Production.
@@ -45,3 +48,7 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
   - Production env: `MAINTENANCE_MODE=true`
   - Preview env: `MAINTENANCE_MODE=false`
   - Then use Vercel Preview deployments (feature branches / PRs) to validate live work before promoting to production.
+
+## Workflow
+- Branching and preview DB workflow:
+  - `docs/branching-workflow.md`

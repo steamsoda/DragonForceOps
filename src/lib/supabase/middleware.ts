@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseEnv } from "@/lib/supabase/env";
 
 type CookieToSet = {
   name: string;
@@ -10,11 +11,14 @@ type CookieToSet = {
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return response;
+  let env: ReturnType<typeof getSupabaseEnv> | null = null;
+  try {
+    env = getSupabaseEnv();
+  } catch {
+    return response;
+  }
 
-  const supabase = createServerClient(url, anonKey, {
+  const supabase = createServerClient(env.url, env.publicKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();

@@ -10,7 +10,7 @@ export function AzureSignInButton() {
     try {
       setIsLoading(true);
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=/dashboard`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
 
       await supabase.auth.signInWithOAuth({
         provider: "azure",

@@ -44,6 +44,54 @@ type CampusRow = {
   code: string;
 };
 
+type PlayerDetailRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  status: string;
+  gender: string | null;
+  medical_notes: string | null;
+};
+
+type PlayerGuardianDetailRow = {
+  is_primary: boolean;
+  guardians: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone_primary: string;
+    phone_secondary: string | null;
+    email: string | null;
+    relationship_label: string | null;
+  } | null;
+};
+
+type PlayerEnrollmentDetailRow = {
+  id: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  inscription_date: string;
+  campuses: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  pricing_plans: {
+    id: string;
+    name: string;
+    currency: string;
+  } | null;
+};
+
+type EnrollmentBalanceRow = {
+  enrollment_id: string;
+  total_charges: number;
+  total_payments: number;
+  balance: number;
+};
+
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
@@ -179,4 +227,84 @@ export async function listCampuses() {
     .returns<CampusRow[]>();
 
   return data ?? [];
+}
+
+export async function getPlayerDetail(playerId: string) {
+  const supabase = await createClient();
+
+  const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
+    supabase
+      .from("players")
+      .select("id, first_name, last_name, birth_date, status, gender, medical_notes")
+      .eq("id", playerId)
+      .maybeSingle()
+      .returns<PlayerDetailRow | null>(),
+    supabase
+      .from("player_guardians")
+      .select(
+        "is_primary, guardians(id, first_name, last_name, phone_primary, phone_secondary, email, relationship_label)"
+      )
+      .eq("player_id", playerId)
+      .returns<PlayerGuardianDetailRow[]>(),
+    supabase
+      .from("enrollments")
+      .select(
+        "id, status, start_date, end_date, inscription_date, campuses(id, name, code), pricing_plans(id, name, currency)"
+      )
+      .eq("player_id", playerId)
+      .order("start_date", { ascending: false })
+      .returns<PlayerEnrollmentDetailRow[]>()
+  ]);
+
+  if (!player) return null;
+
+  const enrollmentIds = (enrollmentRows ?? []).map((row) => row.id);
+  let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
+
+  if (enrollmentIds.length > 0) {
+    const { data: balanceRows } = await supabase
+      .from("v_enrollment_balances")
+      .select("enrollment_id, total_charges, total_payments, balance")
+      .in("enrollment_id", enrollmentIds)
+      .returns<EnrollmentBalanceRow[]>();
+
+    balancesByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row]));
+  }
+
+  const guardians = (guardianRows ?? [])
+    .filter((row) => !!row.guardians)
+    .map((row) => ({
+      ...row.guardians!,
+      isPrimary: row.is_primary
+    }))
+    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+
+  const enrollments = (enrollmentRows ?? []).map((row) => {
+    const balance = balancesByEnrollment.get(row.id);
+    return {
+      id: row.id,
+      status: row.status,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      inscriptionDate: row.inscription_date,
+      campusName: row.campuses?.name ?? "-",
+      campusCode: row.campuses?.code ?? "-",
+      pricingPlanName: row.pricing_plans?.name ?? "-",
+      currency: row.pricing_plans?.currency ?? "MXN",
+      totalCharges: balance?.total_charges ?? 0,
+      totalPayments: balance?.total_payments ?? 0,
+      balance: balance?.balance ?? 0
+    };
+  });
+
+  return {
+    id: player.id,
+    fullName: `${player.first_name} ${player.last_name}`,
+    birthDate: player.birth_date,
+    status: player.status,
+    gender: player.gender,
+    medicalNotes: player.medical_notes,
+    guardians,
+    enrollments
+  };
 }

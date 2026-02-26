@@ -4,10 +4,16 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 export async function proxy(request: NextRequest) {
   const maintenanceMode = process.env.MAINTENANCE_MODE === "true";
+  const isVercelPreview = process.env.VERCEL_ENV === "preview";
   const { pathname } = request.nextUrl;
 
   const bypassMaintenance =
-    pathname === "/maintenance" || pathname.startsWith("/api") || pathname.startsWith("/_next");
+    isVercelPreview ||
+    pathname === "/maintenance" ||
+    pathname === "/login" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next");
 
   if (maintenanceMode && !bypassMaintenance) {
     const url = request.nextUrl.clone();

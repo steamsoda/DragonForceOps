@@ -17,25 +17,52 @@ type RoleRow = {
   } | null;
 };
 
+function isBootstrapAdminEmail(email: string | null | undefined) {
+  if (!email) return false;
+
+  const configured = process.env.BOOTSTRAP_ADMIN_EMAILS;
+  if (!configured) return false;
+
+  const allowedEmails = configured
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return allowedEmails.includes(email.toLowerCase());
+}
+
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    supabase = await createClient();
+  } catch {
+    redirect("/login?error=supabase_config");
+  }
+
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (userError || !user) {
     redirect("/login");
   }
 
-  const { data: roleRows } = await supabase
+  const { data: roleRows, error: rolesError } = await supabase
     .from("user_roles")
     .select("app_roles(code)")
     .eq("user_id", user.id)
     .returns<RoleRow[]>();
 
+  if (rolesError) {
+    redirect("/unauthorized");
+  }
+
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
-  const canAccess =
+  const hasAppRoleAccess =
     roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN) || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
+  const hasBootstrapAccess = isBootstrapAdminEmail(user.email);
+  const canAccess = hasAppRoleAccess || hasBootstrapAccess;
 
   if (!canAccess) {
     redirect("/unauthorized");
