@@ -52,3 +52,13 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
 ## Workflow
 - Branching and preview DB workflow:
   - `docs/branching-workflow.md`
+
+## Roadmap
+- High-level product/design:
+  - `docs/phase-1-sdd.md`
+- Execution roadmap and next feature priorities:
+  - `docs/roadmap-execution.md`
+
+## Devlog
+- Development history and decisions:
+  - `docs/devlog.md`
