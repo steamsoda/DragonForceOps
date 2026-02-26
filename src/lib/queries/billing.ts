@@ -58,6 +58,13 @@ type AllocationRow = {
   amount: number;
 };
 
+type ChargeTypeRow = {
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+};
+
 export type EnrollmentLedger = {
   enrollment: {
     id: string;
@@ -208,6 +215,52 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       notes: row.notes,
       createdAt: row.created_at,
       allocatedAmount: allocatedByPayment.get(row.id) ?? 0
+    }))
+  };
+}
+
+export async function getEnrollmentChargeFormContext(enrollmentId: string) {
+  const supabase = await createClient();
+
+  const [{ data: enrollment }, { data: chargeTypes }] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id, status, campuses(name, code), players(first_name, last_name), pricing_plans(currency)")
+      .eq("id", enrollmentId)
+      .maybeSingle()
+      .returns<
+        | {
+            id: string;
+            status: string;
+            campuses: { name: string | null; code: string | null } | null;
+            players: { first_name: string | null; last_name: string | null } | null;
+            pricing_plans: { currency: string | null } | null;
+          }
+        | null
+      >(),
+    supabase
+      .from("charge_types")
+      .select("id, code, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+      .returns<ChargeTypeRow[]>()
+  ]);
+
+  if (!enrollment) return null;
+
+  return {
+    enrollment: {
+      id: enrollment.id,
+      status: enrollment.status,
+      campusName: enrollment.campuses?.name ?? "-",
+      campusCode: enrollment.campuses?.code ?? "-",
+      playerName: `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim(),
+      currency: enrollment.pricing_plans?.currency ?? "MXN"
+    },
+    chargeTypes: (chargeTypes ?? []).map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name
     }))
   };
 }

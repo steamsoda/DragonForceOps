@@ -38,7 +38,12 @@ export default async function ChargesPage({
 
   const postPayment = postEnrollmentPaymentAction.bind(null, enrollmentId);
   const pendingCharges = ledger.charges.filter((charge) => charge.pendingAmount > 0 && charge.status !== "void");
-  const successMessage = query.ok === "payment_posted" ? "Pago registrado correctamente." : null;
+  const successMessage =
+    query.ok === "payment_posted"
+      ? "Pago registrado correctamente."
+      : query.ok === "charge_created"
+        ? "Cargo creado correctamente."
+        : null;
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error al registrar el pago." : null;
 
   return (
