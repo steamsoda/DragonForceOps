@@ -35,3 +35,7 @@
 - Added month-over-month trend cards:
   - payments (selected month vs previous month)
   - charges (selected month vs previous month)
+
+### Security and Performance Guardrails
+- Added `docs/security-performance-baseline.md` with mandatory PR gates.
+- Hardened bootstrap admin fallback to never grant access in production runtime.

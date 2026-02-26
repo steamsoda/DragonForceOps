@@ -19,6 +19,7 @@ type RoleRow = {
 
 function isBootstrapAdminEmail(email: string | null | undefined) {
   if (!email) return false;
+  if (process.env.VERCEL_ENV === "production") return false;
 
   const configured = process.env.BOOTSTRAP_ADMIN_EMAILS;
   if (!configured) return false;

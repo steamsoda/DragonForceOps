@@ -62,3 +62,7 @@ Internal operations MVP for FC Porto Dragon Force Monterrey.
 ## Devlog
 - Development history and decisions:
   - `docs/devlog.md`
+
+## Security and Performance
+- Mandatory baseline checklist:
+  - `docs/security-performance-baseline.md`
