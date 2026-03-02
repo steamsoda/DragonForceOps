@@ -80,7 +80,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <p className="font-semibold text-portoDark">Dragon Force Ops</p>
+          <div className="flex items-baseline gap-2">
+            <p className="font-semibold text-portoDark">Dragon Force Ops</p>
+            <span className="text-xs text-slate-400">v0.1</span>
+          </div>
           <div className="flex items-center gap-6">
             <nav className="flex gap-4 text-sm text-slate-700">
               {navItems.map((item) => (
