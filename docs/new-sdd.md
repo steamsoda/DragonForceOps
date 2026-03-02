@@ -94,11 +94,11 @@ Enrollment represents the time-bounded relationship:
 - `paused` enrollment status is reserved in the schema but **not used operationally in Phase 1**. Players are either active or ended/cancelled.
 
 ### 5.1.1 Enrollment Lifecycle
-- **New enrollment** always generates three initial charges at creation time:
-  1. Inscription fee (`inscription`)
-  2. Training uniform (`uniform_training`)
-  3. Current month's tuition (`monthly_tuition`)
-- Game uniform (`uniform_game`) is charged separately, ad-hoc, when the player receives it. Not part of enrollment creation.
+- **New enrollment** generates two initial charges at creation time:
+  1. Inscription fee (`inscription`) — default **$1,800 MXN** (includes 2 training kits). Staff-editable at enrollment for edge cases (e.g. player already has kits).
+  2. First month's tuition (`monthly_tuition`) — default **$600 MXN** flat (same as early bird rate). Staff-editable for late-month sign-ups (day 20+: staff ballparks a pro-rated amount; no system rule).
+- There is **no separate training uniform charge at enrollment** — kits are bundled in the inscription fee. A `uniform_training` charge ($600) is created ad-hoc only if a player needs an extra kit later.
+- Game uniform (`uniform_game`) is charged ad-hoc when the player receives it. Not part of enrollment creation.
 - **Subsequent months**: only a monthly tuition charge is generated (automated job, day 1).
 - **Non-attendance does not stop charges**. A player is charged every month regardless of whether they train. The obligation ends only when the enrollment is officially ended.
 - **Baja (unenrollment) triggers** — any of the following:
@@ -109,27 +109,27 @@ Enrollment represents the time-bounded relationship:
 - **1 month non-payment rule**: in principle, a player with an unpaid month should not be allowed to continue training. In practice this rule is applied leniently. The system surfaces it via the collections list but does not automatically block training (no enforcement gate in Phase 1).
 
 ### 5.2 Tuition tiers (pricing rules)
-Monthly tuition tier based on the day of the month when payment is posted:
-- Days 1–10: early bird (discount applied)
-- Days 11–20: regular (base rate, no adjustment)
-- Day 21+: penalty (surcharge applied)
+Monthly tuition — **2 tiers only**, based on the day of the month when payment is posted:
+- Days 1–10: early bird — **$600 MXN**
+- Days 11+: regular — **$750 MXN**
+
+There is no penalty tier for late payment.
 
 Implementation (confirmed):
-- Monthly charge is **created at the regular rate** on day 1 of each month.
+- Monthly charge is **created at the regular rate ($750)** on day 1 of each month.
 - Do not hardcode tier amounts in the UI; read from `pricing_plan_tuition_rules`.
 - At payment posting time, the server checks the current day of month:
-  - Days 1–10: create a **discount credit line** (negative `charges` entry linked to the enrollment) to bring the effective amount to the early bird rate.
-  - Days 11–20: no adjustment. Charge stands as-is.
-  - Day 21+: create a **penalty surcharge line** (additional positive `charges` entry) for the difference between the regular and penalty rates.
+  - Days 1–10: create a **discount credit line** (negative `charges` entry, amount = -$150) to bring the effective amount to the early bird rate ($600).
+  - Days 11+: no adjustment. Charge stands at $750.
 - Adjustment lines reference the original charge and pricing rule for traceability.
 
-### 5.3 Charge types (catalog)
-- Monthly tuition (recurring, auto-generated day 1)
-- Inscripción (one-time, at enrollment)
-- Training uniform — `uniform_training` (one-time, created at enrollment)
-- Game uniform — `uniform_game` (ad-hoc, created manually when needed — not at enrollment)
-- Tournament/Cup registration (Phase 1: ad-hoc charge with free-text description; Phase 2: linked to tournament entity)
-- Trips / events / posadas / parties (ad-hoc)
+### 5.3 Charge types (catalog) and confirmed prices
+- **Monthly tuition** (`monthly_tuition`) — recurring, auto-generated day 1. $750 regular / $600 early bird (days 1–10).
+- **Inscripción** (`inscription`) — **$1,800 MXN**, one-time at enrollment. All-inclusive: covers the sign-up fee + 2 training kits. Staff may adjust the amount at enrollment if a player already has kits.
+- **Extra training kit** (`uniform_training`) — **$600 MXN**, ad-hoc only. Created manually when a player needs an additional kit. Not generated at enrollment (kits are bundled in the inscription fee).
+- **Game uniform** (`uniform_game`) — **$600 MXN**, ad-hoc, created manually when player receives it.
+- **Tournament/Copa** (`tournament`, `cup`) — **$300–350 MXN** typical range, ad-hoc. Charged at start of each season (~4 times/year). Phase 1: free-text description. Phase 2: linked to tournament entity.
+- **Trips / events / posadas** (`trip`, `event`) — ad-hoc, variable amounts.
 
 ### 5.5 Tournament Rules (Phase 1 → Phase 2)
 **Phase 1:** Tournament charges are created manually as ad-hoc `charges` with type `tournament` or `cup` and a free-text description (e.g. "Copa Navidad 2026"). No tournament entity or team-level tracking.
@@ -391,11 +391,11 @@ Current operational note:
 2. Create player if missing.
 3. Link/create guardians.
 4. Create enrollment with campus + pricing plan + start date.
-5. Create three charges atomically with enrollment:
-   - Inscription charge (`inscription`)
-   - Training uniform charge (`uniform_training`)
-   - Current month's tuition charge at regular rate (`monthly_tuition`)
-   - Game uniform (`uniform_game`) is added separately later, not at enrollment.
+5. Create two charges atomically with enrollment:
+   - Inscription charge (`inscription`) — default $1,800, staff-editable
+   - First month tuition (`monthly_tuition`) — default $600, staff-editable for late-month
+   - No training uniform charge at enrollment (bundled in inscription)
+   - Game uniform (`uniform_game`) added separately later, ad-hoc
 6. Audit log emitted for each mutation.
 
 ### 9.2 Team Assignment
