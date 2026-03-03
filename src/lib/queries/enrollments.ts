@@ -235,6 +235,69 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
   return { rows: paged, total, page, pageSize: PAGE_SIZE };
 }
 
+// ── Enrollment edit context ───────────────────────────────────────────────────
+
+type EnrollmentEditRow = {
+  id: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  campus_id: string;
+  campuses: { id: string; name: string; code: string } | null;
+  players: { first_name: string; last_name: string } | null;
+};
+
+export type EnrollmentEditContext = {
+  enrollment: {
+    id: string;
+    status: string;
+    startDate: string;
+    endDate: string | null;
+    notes: string | null;
+    campusId: string;
+    campusName: string;
+    playerName: string;
+  };
+  campuses: Array<{ id: string; code: string; name: string }>;
+};
+
+export async function getEnrollmentEditContext(enrollmentId: string): Promise<EnrollmentEditContext | null> {
+  const supabase = await createClient();
+
+  const [enrollmentResult, campusResult] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id, status, start_date, end_date, notes, campus_id, campuses(id, name, code), players(first_name, last_name)")
+      .eq("id", enrollmentId)
+      .maybeSingle()
+      .returns<EnrollmentEditRow | null>(),
+    supabase
+      .from("campuses")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .order("name")
+      .returns<CampusRow[]>()
+  ]);
+
+  if (!enrollmentResult.data) return null;
+
+  const e = enrollmentResult.data;
+  return {
+    enrollment: {
+      id: e.id,
+      status: e.status,
+      startDate: e.start_date,
+      endDate: e.end_date,
+      notes: e.notes,
+      campusId: e.campus_id,
+      campusName: e.campuses?.name ?? "-",
+      playerName: `${e.players?.first_name ?? ""} ${e.players?.last_name ?? ""}`.trim()
+    },
+    campuses: campusResult.data ?? []
+  };
+}
+
 // ── Enrollment creation form context ─────────────────────────────────────────
 
 type PlayerRow = { id: string; first_name: string; last_name: string };

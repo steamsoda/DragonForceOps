@@ -22,6 +22,28 @@ function parseDate(value: string | null): string | null {
   return trimmed;
 }
 
+export type ParsedEnrollmentEditInput = {
+  status: "active" | "ended" | "cancelled";
+  endDate: string | null;
+  campusId: string;
+  notes: string | null;
+};
+
+export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEditInput | null {
+  const status = String(formData.get("status") ?? "").trim();
+  if (!["active", "ended", "cancelled"].includes(status)) return null;
+
+  const endDateRaw = String(formData.get("endDate") ?? "").trim();
+  const endDate = endDateRaw ? parseDate(endDateRaw) : null;
+
+  const campusId = String(formData.get("campusId") ?? "").trim();
+  if (!campusId) return null;
+
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  return { status: status as "active" | "ended" | "cancelled", endDate, campusId, notes };
+}
+
 export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInput | null {
   const campusId = String(formData.get("campusId") ?? "").trim();
   const pricingPlanId = String(formData.get("pricingPlanId") ?? "").trim();

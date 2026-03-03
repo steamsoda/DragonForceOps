@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
+import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -99,4 +99,62 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
 
   revalidatePath(`/players/${playerId}`);
   redirect(`/enrollments/${enrollmentId}/charges`);
+}
+
+// ── Update enrollment (edit + baja) ──────────────────────────────────────────
+
+function redirectWithEditError(enrollmentId: string, playerId: string, code: string): never {
+  redirect(`/players/${playerId}/enrollments/${enrollmentId}/edit?err=${code}`);
+}
+
+export async function updateEnrollmentAction(
+  enrollmentId: string,
+  playerId: string,
+  formData: FormData
+) {
+  const parsed = parseEnrollmentEditData(formData);
+  if (!parsed) return redirectWithEditError(enrollmentId, playerId, "invalid_form");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) return redirectWithEditError(enrollmentId, playerId, "unauthenticated");
+
+  // Verify enrollment exists and belongs to this player
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id")
+    .eq("id", enrollmentId)
+    .eq("player_id", playerId)
+    .maybeSingle();
+
+  if (!enrollment) return redirectWithEditError(enrollmentId, playerId, "not_found");
+
+  // Auto-set end_date when ending/cancelling without an explicit date
+  let endDate: string | null = parsed.endDate;
+  if ((parsed.status === "ended" || parsed.status === "cancelled") && !endDate) {
+    endDate = new Date().toISOString().split("T")[0];
+  }
+  // Reactivating clears end_date
+  if (parsed.status === "active") {
+    endDate = null;
+  }
+
+  const { error } = await supabase
+    .from("enrollments")
+    .update({
+      status: parsed.status,
+      end_date: endDate,
+      campus_id: parsed.campusId,
+      notes: parsed.notes,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", enrollmentId);
+
+  if (error) return redirectWithEditError(enrollmentId, playerId, "update_failed");
+
+  revalidatePath(`/players/${playerId}`);
+  redirect(`/players/${playerId}`);
 }
