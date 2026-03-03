@@ -234,3 +234,85 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
 
   return { rows: paged, total, page, pageSize: PAGE_SIZE };
 }
+
+// ── Enrollment creation form context ─────────────────────────────────────────
+
+type PlayerRow = { id: string; first_name: string; last_name: string };
+type CampusRow = { id: string; code: string; name: string };
+type PlanRow = { id: string; name: string; currency: string };
+type ActiveEnrollmentRow = { id: string };
+type PlanItemRow = { amount: number; charge_types: { code: string } | null };
+
+const DEFAULT_INSCRIPTION_AMOUNT = 1800;
+const DEFAULT_FIRST_MONTH_AMOUNT = 600;
+
+export type EnrollmentCreateFormContext = {
+  player: { id: string; fullName: string };
+  hasActiveEnrollment: boolean;
+  campuses: Array<{ id: string; code: string; name: string }>;
+  plan: { id: string; name: string; currency: string } | null;
+  defaultInscriptionAmount: number;
+  defaultFirstMonthAmount: number;
+};
+
+export async function getEnrollmentCreateFormContext(
+  playerId: string
+): Promise<EnrollmentCreateFormContext | null> {
+  const supabase = await createClient();
+
+  const [playerResult, campusResult, planResult, activeEnrollmentResult] = await Promise.all([
+    supabase
+      .from("players")
+      .select("id, first_name, last_name")
+      .eq("id", playerId)
+      .maybeSingle()
+      .returns<PlayerRow | null>(),
+    supabase
+      .from("campuses")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .order("name")
+      .returns<CampusRow[]>(),
+    supabase
+      .from("pricing_plans")
+      .select("id, name, currency")
+      .eq("is_active", true)
+      .order("name")
+      .limit(1)
+      .maybeSingle()
+      .returns<PlanRow | null>(),
+    supabase
+      .from("enrollments")
+      .select("id")
+      .eq("player_id", playerId)
+      .eq("status", "active")
+      .maybeSingle()
+      .returns<ActiveEnrollmentRow | null>()
+  ]);
+
+  if (!playerResult.data) return null;
+
+  // Read default inscription amount from DB; fall back to the constant if not found
+  let defaultInscriptionAmount = DEFAULT_INSCRIPTION_AMOUNT;
+  if (planResult.data) {
+    const { data: planItems } = await supabase
+      .from("pricing_plan_items")
+      .select("amount, charge_types(code)")
+      .eq("pricing_plan_id", planResult.data.id)
+      .eq("is_active", true)
+      .returns<PlanItemRow[]>();
+
+    const inscriptionItem = (planItems ?? []).find((item) => item.charge_types?.code === "inscription");
+    if (inscriptionItem) defaultInscriptionAmount = inscriptionItem.amount;
+  }
+
+  const p = playerResult.data;
+  return {
+    player: { id: p.id, fullName: `${p.first_name} ${p.last_name}`.trim() },
+    hasActiveEnrollment: !!activeEnrollmentResult.data,
+    campuses: campusResult.data ?? [],
+    plan: planResult.data,
+    defaultInscriptionAmount,
+    defaultFirstMonthAmount: DEFAULT_FIRST_MONTH_AMOUNT
+  };
+}
