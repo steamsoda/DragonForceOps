@@ -32,6 +32,11 @@ export default async function EnrollmentEditPage({
     <PageShell
       title="Editar inscripcion"
       subtitle={`${context.enrollment.playerName} · ${context.enrollment.campusName}`}
+      breadcrumbs={[
+        { label: "Jugadores", href: "/players" },
+        { label: context.enrollment.playerName, href: `/players/${playerId}` },
+        { label: "Editar inscripcion" }
+      ]}
     >
       <div className="space-y-4">
         {errorMessage && (

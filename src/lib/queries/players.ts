@@ -5,7 +5,6 @@ const PAGE_SIZE = 20;
 export type PlayerListFilters = {
   q?: string;
   phone?: string;
-  status?: "active" | "inactive" | "archived" | "all";
   campusId?: string;
   page?: number;
 };
@@ -98,18 +97,15 @@ export async function listPlayers(filters: PlayerListFilters) {
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  let constrainedPlayerIds: string[] | null = null;
+  // Always constrain to players with active enrollments
+  let enrollmentQuery = supabase.from("enrollments").select("player_id").eq("status", "active");
   if (filters.campusId) {
-    const { data: enrollmentsInCampus } = await supabase
-      .from("enrollments")
-      .select("player_id")
-      .eq("status", "active")
-      .eq("campus_id", filters.campusId);
-
-    constrainedPlayerIds = [...new Set((enrollmentsInCampus ?? []).map((row) => row.player_id as string))];
-    if (constrainedPlayerIds.length === 0) {
-      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-    }
+    enrollmentQuery = enrollmentQuery.eq("campus_id", filters.campusId);
+  }
+  const { data: activeEnrollmentRows } = await enrollmentQuery;
+  let constrainedPlayerIds = [...new Set((activeEnrollmentRows ?? []).map((row) => row.player_id as string))];
+  if (constrainedPlayerIds.length === 0) {
+    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
   }
 
   if (filters.phone) {
@@ -125,13 +121,8 @@ export async function listPlayers(filters: PlayerListFilters) {
         return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
       }
 
-      if (constrainedPlayerIds) {
-        const allowed = new Set(constrainedPlayerIds);
-        constrainedPlayerIds = phonePlayerIds.filter((id) => allowed.has(id));
-      } else {
-        constrainedPlayerIds = phonePlayerIds;
-      }
-
+      const allowed = new Set(constrainedPlayerIds);
+      constrainedPlayerIds = phonePlayerIds.filter((id) => allowed.has(id));
       if (constrainedPlayerIds.length === 0) {
         return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
       }
@@ -143,21 +134,14 @@ export async function listPlayers(filters: PlayerListFilters) {
     .select("id, first_name, last_name, birth_date, status", { count: "exact" })
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
-    .range(from, to);
+    .range(from, to)
+    .in("id", constrainedPlayerIds);
 
   if (filters.q) {
     const q = filters.q.trim();
     if (q.length > 0) {
       playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
     }
-  }
-
-  if (filters.status && filters.status !== "all") {
-    playerQuery = playerQuery.eq("status", filters.status);
-  }
-
-  if (constrainedPlayerIds) {
-    playerQuery = playerQuery.in("id", constrainedPlayerIds);
   }
 
   const { data: players, count } = await playerQuery.returns<PlayerRow[]>();

@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-03-03 (session 2)
+
+### Player List UX Overhaul
+- Players list now shows **only actively enrolled players** — `listPlayers` always starts by fetching player IDs with `enrollments.status = active`, using them as the base constraint. Removed `status` player filter from UI (redundant now).
+- Removed campus + status columns from player table; kept name, campus, phone, actions.
+- Added **"+ Nuevo jugador"** button to players list → `/players/new`.
+
+### New Player Creation Flow
+- `src/lib/validations/player.ts` — `parsePlayerFormData`: validates player fields (firstName, lastName, birthDate, gender) + guardian fields (firstName, lastName, phone required).
+- `src/server/actions/players.ts` — `createPlayerAction`: creates guardian first, then player, then `player_guardians` link (is_primary = true). Redirects to player detail page.
+- `src/components/players/player-form.tsx` — `PlayerCreateForm`: two sections (jugador + tutor principal), pure server component.
+- `src/app/(protected)/players/new/page.tsx` — new player creation page with error handling.
+
+### Player Detail Page Simplified
+- Removed full enrollment history table.
+- Now shows: player info card, guardians table, and a **single enrollment card** for the active enrollment.
+- Enrollment card: campus, plan, start date, **days since enrollment**, total charges/payments, balance (colored), links to "Ver cuenta" and "Editar inscripcion".
+- If no active enrollment: amber notice + "Nueva inscripcion" button.
+- Balance shown in rose (positive = owes) or emerald (zero/credit).
+
+### Breadcrumbs
+- `PageShell` updated to accept `breadcrumbs?: { label: string; href?: string }[]` prop.
+- Breadcrumbs added to: players list, player detail, new player, new enrollment, edit enrollment pages.
+
+### Version Bump
+- `v0.1 → v0.2` in layout header.
+
 ## 2026-03-02 / 2026-03-03
 
 ### Business Rules Confirmed
