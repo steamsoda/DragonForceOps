@@ -58,7 +58,7 @@ export async function generateMonthlyChargesCore(
     .select("id, pricing_plan_id, pricing_plans(currency)")
     .eq("status", "active");
 
-  const activeEnrollments = (enrollments ?? []) as ActiveEnrollmentRow[];
+  const activeEnrollments = (enrollments ?? []) as unknown as ActiveEnrollmentRow[];
   if (activeEnrollments.length === 0) return { created: 0, skipped: 0 };
 
   const enrollmentIds = activeEnrollments.map((e) => e.id);
