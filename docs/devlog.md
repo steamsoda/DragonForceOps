@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-03-04 (session 3)
+
+### Bajas List
+- `listBajas` query: fetches all ended/cancelled enrollments, deduplicates to most recent per player, excludes players with an active enrollment. Supports campus + name filters. In-memory pagination (total dataset is small).
+- Players list now has **Activos / Bajas tabs** (`?view=bajas`). Bajas table: name (link), fecha inscripcion, fecha baja, dias inscrito, motivo.
+- Active view unchanged; "Nuevo jugador" button hidden in bajas view.
+
+### Inactive Player Profile
+- `getPlayerDetail` now fetches `dropout_reason` and `dropout_notes` on all enrollment rows.
+- Player detail page: inactive players (no active enrollment) now show a "Ultima inscripcion (baja)" card with campus, start date, dropout date, days enrolled, dropout reason + notes.
+- Generic amber notice now only shows for players who have never been enrolled.
+
+### Clickable Names in Pendientes
+- `listPendingEnrollments` now includes `playerId` in each returned row.
+- `PendingTable` `PendingRow` type updated; player name is now a `Link` to `/players/${playerId}`.
+
+### Post-Signup Redirect
+- `createPlayerAction` now redirects to `/players/${player.id}/enrollments/new` instead of the player detail page, enforcing the rule that all new players are immediately enrolled.
+
+### Version Bump
+- `v0.2 → v0.3`
+
 ## 2026-03-03 (session 2)
 
 ### Player List UX Overhaul
