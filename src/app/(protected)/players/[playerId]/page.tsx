@@ -7,18 +7,15 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
-function getEnrollmentStatusLabel(status: string) {
-  switch (status) {
-    case "active":
-      return "Activo";
-    case "ended":
-      return "Finalizado";
-    case "cancelled":
-      return "Cancelado";
-    default:
-      return status;
-  }
-}
+const DROPOUT_LABELS: Record<string, string> = {
+  cost: "Costo",
+  distance: "Distancia",
+  injury: "Lesion",
+  attitude: "Actitud",
+  time: "Tiempo",
+  level_change: "Cambio de nivel",
+  other: "Otro"
+};
 
 export default async function PlayerDetailPage({
   params
@@ -33,9 +30,17 @@ export default async function PlayerDetailPage({
   }
 
   const activeEnrollment = player.enrollments.find((e) => e.status === "active") ?? null;
+  const lastEnrollment = !activeEnrollment && player.enrollments.length > 0 ? player.enrollments[0] : null;
   const daysSinceEnrollment = activeEnrollment
     ? Math.floor((Date.now() - new Date(activeEnrollment.startDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
+  const daysEnrolledLast =
+    lastEnrollment?.startDate && lastEnrollment?.endDate
+      ? Math.floor(
+          (new Date(lastEnrollment.endDate).getTime() - new Date(lastEnrollment.startDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : null;
 
   return (
     <PageShell
@@ -195,6 +200,39 @@ export default async function PlayerDetailPage({
                   Editar inscripcion
                 </Link>
               </div>
+            </div>
+          ) : lastEnrollment ? (
+            <div className="rounded-md border border-slate-200 p-4 space-y-3">
+              <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Ultima inscripcion (baja)</p>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Campus</p>
+                  <p className="font-medium">{lastEnrollment.campusName}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Fecha de inicio</p>
+                  <p className="font-medium">{lastEnrollment.startDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Fecha de baja</p>
+                  <p className="font-medium">{lastEnrollment.endDate ?? "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Dias inscrito</p>
+                  <p className="font-medium">{daysEnrolledLast != null ? `${daysEnrolledLast} dias` : "-"}</p>
+                </div>
+              </div>
+              {lastEnrollment.dropoutReason && (
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Motivo de baja</p>
+                  <p className="font-medium">
+                    {DROPOUT_LABELS[lastEnrollment.dropoutReason] ?? lastEnrollment.dropoutReason}
+                  </p>
+                  {lastEnrollment.dropoutNotes && (
+                    <p className="text-sm text-slate-600 mt-1">{lastEnrollment.dropoutNotes}</p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
