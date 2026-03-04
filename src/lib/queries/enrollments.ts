@@ -204,6 +204,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
 
       return {
         enrollmentId: enrollment.id,
+        playerId: enrollment.player_id,
         playerName,
         campusName: enrollment.campuses?.name ?? "-",
         campusCode: enrollment.campuses?.code ?? "-",

@@ -72,6 +72,8 @@ type PlayerEnrollmentDetailRow = {
   start_date: string;
   end_date: string | null;
   inscription_date: string;
+  dropout_reason: string | null;
+  dropout_notes: string | null;
   campuses: {
     id: string;
     name: string;
@@ -82,6 +84,15 @@ type PlayerEnrollmentDetailRow = {
     name: string;
     currency: string;
   } | null;
+};
+
+type BajaEnrollmentRow = {
+  player_id: string;
+  start_date: string;
+  end_date: string | null;
+  campus_id: string;
+  dropout_reason: string | null;
+  players: { first_name: string | null; last_name: string | null } | null;
 };
 
 type EnrollmentBalanceRow = {
@@ -215,6 +226,68 @@ export async function listPlayers(filters: PlayerListFilters) {
   return { rows, total: count ?? 0, page, pageSize: PAGE_SIZE };
 }
 
+export type BajaListFilters = {
+  q?: string;
+  campusId?: string;
+  page?: number;
+};
+
+export async function listBajas(filters: BajaListFilters) {
+  const supabase = await createClient();
+  const page = Math.max(1, filters.page ?? 1);
+
+  // Exclude players that have an active enrollment
+  const { data: activeRows } = await supabase.from("enrollments").select("player_id").eq("status", "active");
+  const activePlayerIds = new Set((activeRows ?? []).map((row) => row.player_id as string));
+
+  let query = supabase
+    .from("enrollments")
+    .select("player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name)")
+    .in("status", ["ended", "cancelled"])
+    .order("end_date", { ascending: false });
+
+  if (filters.campusId) {
+    query = query.eq("campus_id", filters.campusId);
+  }
+
+  const { data: rows } = await query.returns<BajaEnrollmentRow[]>();
+
+  // Deduplicate: keep only most recent ended enrollment per player; exclude active players
+  const seen = new Set<string>();
+  const textQuery = (filters.q ?? "").trim().toLowerCase();
+
+  const deduped = (rows ?? []).filter((row) => {
+    if (activePlayerIds.has(row.player_id)) return false;
+    if (seen.has(row.player_id)) return false;
+    seen.add(row.player_id);
+    if (textQuery) {
+      const name = `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.toLowerCase();
+      if (!name.includes(textQuery)) return false;
+    }
+    return true;
+  });
+
+  const total = deduped.length;
+  const from = (page - 1) * PAGE_SIZE;
+  const paged = deduped.slice(from, from + PAGE_SIZE);
+
+  const bajaRows = paged.map((row) => {
+    const startDate = new Date(row.start_date);
+    const endDate = row.end_date ? new Date(row.end_date) : null;
+    const daysEnrolled = endDate ? Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    return {
+      playerId: row.player_id,
+      fullName: `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.trim(),
+      startDate: row.start_date,
+      endDate: row.end_date,
+      daysEnrolled,
+      dropoutReason: row.dropout_reason
+    };
+  });
+
+  return { rows: bajaRows, total, page, pageSize: PAGE_SIZE };
+}
+
 export async function listCampuses() {
   const supabase = await createClient();
   const { data } = await supabase
@@ -247,7 +320,7 @@ export async function getPlayerDetail(playerId: string) {
     supabase
       .from("enrollments")
       .select(
-        "id, status, start_date, end_date, inscription_date, campuses(id, name, code), pricing_plans(id, name, currency)"
+        "id, status, start_date, end_date, inscription_date, dropout_reason, dropout_notes, campuses(id, name, code), pricing_plans(id, name, currency)"
       )
       .eq("player_id", playerId)
       .order("start_date", { ascending: false })
@@ -304,6 +377,8 @@ export async function getPlayerDetail(playerId: string) {
       startDate: row.start_date,
       endDate: row.end_date,
       inscriptionDate: row.inscription_date,
+      dropoutReason: row.dropout_reason,
+      dropoutNotes: row.dropout_notes,
       campusName: row.campuses?.name ?? "-",
       campusCode: row.campuses?.code ?? "-",
       pricingPlanName: row.pricing_plans?.name ?? "-",

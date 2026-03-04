@@ -2,6 +2,7 @@ import Link from "next/link";
 
 type PendingRow = {
   enrollmentId: string;
+  playerId: string;
   playerName: string;
   campusName: string;
   campusCode: string;
@@ -51,7 +52,11 @@ export function PendingTable({ rows }: PendingTableProps) {
           ) : (
             rows.map((row) => (
               <tr key={row.enrollmentId}>
-                <td className="px-3 py-2">{row.playerName}</td>
+                <td className="px-3 py-2">
+                  <Link href={`/players/${row.playerId}`} className="text-portoBlue hover:underline">
+                    {row.playerName}
+                  </Link>
+                </td>
                 <td className="px-3 py-2">
                   {row.campusName} ({row.campusCode})
                 </td>

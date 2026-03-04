@@ -62,5 +62,5 @@ export async function createPlayerAction(formData: FormData) {
 
   if (linkError) return redirectWithError("link_failed");
 
-  redirect(`/players/${player.id}`);
+  redirect(`/players/${player.id}/enrollments/new`);
 }
