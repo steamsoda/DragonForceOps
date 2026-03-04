@@ -6,7 +6,6 @@ export type ParsedPaymentInput = {
   amount: number;
   method: PaymentMethod;
   notes: string | null;
-  allocations: Array<{ chargeId: string; amount: number }>;
 };
 
 function parsePositiveMoney(value: string | null): number | null {
@@ -26,21 +25,9 @@ export function parsePaymentFormData(formData: FormData): ParsedPaymentInput | n
   if (!amount) return null;
   if (!PAYMENT_METHODS.includes(methodRaw)) return null;
 
-  const allocations: Array<{ chargeId: string; amount: number }> = [];
-
-  for (const [key, raw] of formData.entries()) {
-    if (!key.startsWith("alloc_")) continue;
-    const chargeId = key.slice("alloc_".length);
-    if (!chargeId) continue;
-    const parsed = parsePositiveMoney(String(raw));
-    if (!parsed) continue;
-    allocations.push({ chargeId, amount: parsed });
-  }
-
   return {
     amount,
     method: methodRaw,
-    notes: notesRaw ? notesRaw : null,
-    allocations
+    notes: notesRaw ? notesRaw : null
   };
 }

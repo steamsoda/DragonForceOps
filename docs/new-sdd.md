@@ -108,6 +108,27 @@ Enrollment represents the time-bounded relationship:
 - **Re-enrollment after baja**: treated as a brand-new enrollment. Inscription fee, uniform, and first month's tuition all apply again.
 - **1 month non-payment rule**: in principle, a player with an unpaid month should not be allowed to continue training. In practice this rule is applied leniently. The system surfaces it via the collections list but does not automatically block training (no enforcement gate in Phase 1).
 
+### 5.1.2 Dropout Reason Tracking
+When ending or cancelling an enrollment, staff must record a **dropout reason** for analytics and follow-up. Data retained permanently as historical record — unenrolled players do not appear in the active player list but remain in the DB.
+
+**Predefined reasons** (stored as code values, displayed as labels):
+- `cost` — Costo / precio
+- `distance` — Distancia / logística
+- `injury` — Lesión o salud
+- `attitude` — Actitud / disciplina
+- `time` — Falta de tiempo
+- `level_change` — Cambio de nivel / campus (use only for internal transfers, not for real bajas)
+- `other` — Otro (requires a notes field explaining)
+
+**Schema**: `enrollments.dropout_reason text null` (one of the codes above) and `enrollments.dropout_notes text null` (free text, always optional, required when reason = `other`).
+
+**UI rule**: dropout reason + notes fields appear in the enrollment edit form when status is set to `ended` or `cancelled`. They are always shown (server component, no JS toggle) with a hint label. Server action validates that a reason is present when ending/cancelling.
+
+**Analytics potential** (Phase 2+ report):
+- Distribution of dropout reasons over time
+- Median days enrolled before dropout by reason
+- Campus/categoría breakdowns
+
 ### 5.2 Tuition tiers (pricing rules)
 Monthly tuition — **2 tiers only**, based on the day of the month when payment is posted:
 - Days 1–10: early bird — **$600 MXN**
@@ -131,7 +152,22 @@ Implementation (confirmed):
 - **Tournament/Copa** (`tournament`, `cup`) — **$300–350 MXN** typical range, ad-hoc. Charged at start of each season (~4 times/year). Phase 1: free-text description. Phase 2: linked to tournament entity.
 - **Trips / events / posadas** (`trip`, `event`) — ad-hoc, variable amounts.
 
-### 5.5 Tournament Rules (Phase 1 → Phase 2)
+### 5.5 Products / Items Admin Page (Phase 1)
+An admin-only page (`director_admin` role) for managing the charge catalog and bulk-assigning charges.
+
+**Catalog view**: shows all active charge types with their default amounts from `pricing_plan_items` + `charge_types`. Admins can update default amounts.
+
+**Bulk charge assignment**:
+- Admin selects a team (or individual players via checkbox)
+- Selects a charge type from the catalog
+- Enters amount (pre-filled from catalog default) + description + due date (optional)
+- Submits → server creates one `charge` record per selected active enrollment
+
+**Use cases**: tournament fees, game uniform batch, Copa charges.
+
+**Access**: `director_admin` only. Route: `/admin/products` (tentative).
+
+### 5.6 Tournament Rules (Phase 1 → Phase 2)
 **Phase 1:** Tournament charges are created manually as ad-hoc `charges` with type `tournament` or `cup` and a free-text description (e.g. "Copa Navidad 2026"). No tournament entity or team-level tracking.
 
 **Phase 2 — Tournament entity (planned):**
@@ -154,10 +190,17 @@ Implementation (confirmed):
 - No system restriction at input — staff can post any amount.
 - The enrollment remains on the pending/collections list until balance is fully cleared.
 
+**Payment auto-fill (cash register UX):**
+- When opening the payment form, the amount field is pre-populated with the current outstanding balance (total_charges − total_payments).
+- Staff can override the amount for partial payments.
+- On submit, the server auto-allocates the payment to pending charges oldest-first, no manual line-item assignment.
+- This keeps the flow fast: in most cases staff just hits submit without changing anything.
+
 **Overpayments / credit balances:**
-- If a payment exceeds the current balance, the excess becomes a credit balance on the account.
+- If a payment exceeds the current balance, the excess becomes a credit balance on the account (confirmed).
 - Credit balance is visible in the ledger and the balance view (negative balance = credit).
-- Credit applies to the next charge (staff allocates manually or system allocates automatically at next payment posting — **TBD: exact allocation UX**).
+- Staff applies credit to the next charge manually at payment posting time.
+- Auto-apply of credit to next month's charge is a Phase 2 feature.
 - Pending list must exclude enrollments with a credit balance (balance ≤ 0).
 
 **Payment voids:**
@@ -232,6 +275,17 @@ Implementation (confirmed):
   - `end_date date null`
   - `inscription_date date`
   - `notes text null`
+  - `dropout_reason text null` — one of: `cost`, `distance`, `injury`, `attitude`, `time`, `level_change`, `other`. Required when status = `ended` or `cancelled`.
+  - `dropout_notes text null` — free text, always optional (required when dropout_reason = `other`).
+  - timestamps
+- `coaches` *(new — Phase 1 structure, data TBD)*
+  - `id uuid pk`
+  - `first_name text`
+  - `last_name text`
+  - `phone text null`
+  - `email text null` (for future auth account link)
+  - `campus_id uuid null` (primary campus assignment; null = no campus restriction)
+  - `is_active boolean default true`
   - timestamps
 - `teams`
   - `id uuid pk`
@@ -241,6 +295,7 @@ Implementation (confirmed):
   - `birth_year int null` (categoría — e.g. `2013`, `2014`; renamed from `age_group` in schema migration TBD)
   - `level text null` (`B1`, `B2`, `B3`)
   - `season_label text null`
+  - `coach_id uuid null` (references `coaches(id)`) — primary assigned coach. Phase 1: one coach per team. Phase 2+: extend to `team_coaches` junction for multi-coach.
   - `is_active boolean`
 - `team_assignments`
   - `id uuid pk`
@@ -411,12 +466,15 @@ Current operational note:
 4. At payment posting time, server applies tier adjustment based on current day of month (see section 5.2).
 
 ### 9.4 Desk Payment Posting
-1. Staff opens enrollment ledger and starts payment modal.
-2. Server validates amount, method, enrollment status, open cash session (for cash).
-3. Create payment + allocations atomically in transaction.
-4. Insert cash session entry when method is cash.
-5. Return updated ledger summary for optimistic UI reconciliation.
-6. Write audit log.
+1. Staff opens player page → clicks "Registrar Pago" → navigates to enrollment ledger.
+2. Payment form pre-fills amount with current outstanding balance (cash register UX).
+3. Staff adjusts if partial payment; clicks post.
+4. Server validates amount, method, enrollment status, open cash session (for cash).
+5. Server auto-allocates payment to pending charges oldest-first.
+6. Create payment + allocations atomically in transaction.
+7. Insert cash session entry when method is cash.
+8. Return updated ledger summary for optimistic UI reconciliation.
+9. Write audit log.
 
 ### 9.5 Pending Payments List
 1. Query active enrollments with `balance > 0` from balance view.
@@ -477,6 +535,13 @@ Admin-only route:
 ## 14) Roadmap
 ### Phase 1 (Now)
 - Core master data, enrollments, teams, ledger, pending list, corte, baseline reports, RLS/admin roles, audit.
+- Player creation flow (player + guardian in one form).
+- Dropout reason tracking on enrollment end/cancel.
+- Coaches schema (structure + data; no accounts yet).
+- Team/categoría/coach display on player detail page.
+- Products/Items admin page: charge catalog management + bulk charge assignment by team.
+- Payment cash-register UX: auto-fill balance, auto-allocate oldest-first.
+- Monthly charge generation (automated or manual trigger — TBD delivery mechanism).
 
 ### Phase 2
 - Restricted admin roles and campus scoping.
@@ -507,11 +572,16 @@ Assumptions:
 - ~~Paused memberships~~ → not used operationally. Active or ended/cancelled only.
 
 TBD / questions:
-- **Credit balance allocation UX**: when a credit balance exists and a new charge is generated, does the system auto-allocate or does staff manually apply it at payment posting? (Recommendation: manual for Phase 1, auto in Phase 2.)
-- Uniform amounts: what are the actual prices for `uniform_training` and `uniform_game`? Are they fixed or vary by size/campus?
+- ~~Credit balance allocation UX~~ → confirmed manual for Phase 1 (staff applies at next payment posting). Auto-apply is Phase 2.
+- ~~Overpayment~~ → confirmed: credit stays on account (negative balance), applied manually to next charge.
+- Uniform amounts: confirmed $600 each. Fixed price, same across sizes/campuses.
 - Legal retention policy for minors' data and audit records.
 - What exact permissions should `admin_restricted` role have?
 - What are the policy windows for `admin_restricted` void authority (Phase 2)?
 - ~~Categoría~~ → confirmed as year of birth. `teams.birth_year int` replaces `age_group text`. No separate categories table needed.
 - Level (B1/B2/B3): are there more levels, or is this the complete set? Can a player be unclassified?
 - Field management (Phase 2): how many fields per campus, and is scheduling done weekly (recurring) or ad-hoc?
+- Coach full roster: TBD — Javi to provide list of coach names per campus to seed `coaches` table.
+- Teams full roster: TBD — to be seeded once coach data is available.
+- Monthly charge generation delivery: automated Supabase Edge Function cron vs manual "Generar mensualidades" button. **Recommendation: manual button for Phase 1** so director retains control and can review before committing.
+- Products admin page route: `/admin/products` or integrated into existing navigation?

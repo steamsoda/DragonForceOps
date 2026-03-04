@@ -31,35 +31,24 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
     return redirectWithError(enrollmentId, "enrollment_not_found");
   }
 
-  const pendingByCharge = new Map(
-    ledger.charges
-      .filter((charge) => charge.pendingAmount > 0 && charge.status !== "void")
-      .map((charge) => [charge.id, charge.pendingAmount] as const)
-  );
+  // Pending charges sorted oldest-first for auto-allocation
+  const pendingCharges = ledger.charges
+    .filter((c) => c.pendingAmount > 0 && c.status !== "void")
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  if (pendingByCharge.size === 0) {
+  if (pendingCharges.length === 0) {
     return redirectWithError(enrollmentId, "no_pending_charges");
   }
 
-  const validAllocations = parsed.allocations.filter((entry) => pendingByCharge.has(entry.chargeId));
-  if (validAllocations.length === 0) {
-    return redirectWithError(enrollmentId, "no_allocations");
-  }
+  // Auto-allocate oldest-first. Any excess over total pending = credit balance.
+  const allocations: Array<{ chargeId: string; amount: number }> = [];
+  let remaining = parsed.amount;
 
-  const allocationTotal = Math.round(validAllocations.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
-  if (allocationTotal > parsed.amount + 0.0001) {
-    return redirectWithError(enrollmentId, "allocation_exceeds_payment");
-  }
-
-  if (Math.abs(allocationTotal - parsed.amount) > 0.0001) {
-    return redirectWithError(enrollmentId, "allocation_must_match_payment");
-  }
-
-  for (const allocation of validAllocations) {
-    const pending = pendingByCharge.get(allocation.chargeId) ?? 0;
-    if (allocation.amount > pending + 0.0001) {
-      return redirectWithError(enrollmentId, "allocation_exceeds_pending");
-    }
+  for (const charge of pendingCharges) {
+    if (remaining <= 0) break;
+    const allocated = Math.min(remaining, charge.pendingAmount);
+    allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
+    remaining = Math.round((remaining - allocated) * 100) / 100;
   }
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -84,17 +73,19 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
     return redirectWithError(enrollmentId, "payment_insert_failed");
   }
 
-  const { error: allocationError } = await supabase.from("payment_allocations").insert(
-    validAllocations.map((allocation) => ({
-      payment_id: paymentRow.id,
-      charge_id: allocation.chargeId,
-      amount: allocation.amount
-    }))
-  );
+  if (allocations.length > 0) {
+    const { error: allocationError } = await supabase.from("payment_allocations").insert(
+      allocations.map((a) => ({
+        payment_id: paymentRow.id,
+        charge_id: a.chargeId,
+        amount: a.amount
+      }))
+    );
 
-  if (allocationError) {
-    await supabase.from("payments").delete().eq("id", paymentRow.id);
-    return redirectWithError(enrollmentId, "allocation_insert_failed");
+    if (allocationError) {
+      await supabase.from("payments").delete().eq("id", paymentRow.id);
+      return redirectWithError(enrollmentId, "allocation_insert_failed");
+    }
   }
 
   revalidatePath(`/enrollments/${enrollmentId}/charges`);

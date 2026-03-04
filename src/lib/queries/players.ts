@@ -91,6 +91,20 @@ type EnrollmentBalanceRow = {
   balance: number;
 };
 
+type TeamAssignmentDetailRow = {
+  teams: {
+    id: string;
+    name: string;
+    birth_year: number | null;
+    gender: string | null;
+    level: string | null;
+    coaches: {
+      first_name: string;
+      last_name: string;
+    } | null;
+  } | null;
+};
+
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
@@ -243,17 +257,36 @@ export async function getPlayerDetail(playerId: string) {
   if (!player) return null;
 
   const enrollmentIds = (enrollmentRows ?? []).map((row) => row.id);
+  const activeEnrollmentRow = (enrollmentRows ?? []).find((row) => row.status === "active");
+
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
+  let teamAssignment: TeamAssignmentDetailRow | null = null;
 
-  if (enrollmentIds.length > 0) {
-    const { data: balanceRows } = await supabase
-      .from("v_enrollment_balances")
-      .select("enrollment_id, total_charges, total_payments, balance")
-      .in("enrollment_id", enrollmentIds)
-      .returns<EnrollmentBalanceRow[]>();
-
-    balancesByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row]));
-  }
+  await Promise.all([
+    enrollmentIds.length > 0
+      ? supabase
+          .from("v_enrollment_balances")
+          .select("enrollment_id, total_charges, total_payments, balance")
+          .in("enrollment_id", enrollmentIds)
+          .returns<EnrollmentBalanceRow[]>()
+          .then(({ data }) => {
+            balancesByEnrollment = new Map((data ?? []).map((row) => [row.enrollment_id, row]));
+          })
+      : Promise.resolve(),
+    activeEnrollmentRow
+      ? supabase
+          .from("team_assignments")
+          .select("teams(id, name, birth_year, gender, level, coaches(first_name, last_name))")
+          .eq("enrollment_id", activeEnrollmentRow.id)
+          .is("end_date", null)
+          .eq("is_primary", true)
+          .maybeSingle()
+          .returns<TeamAssignmentDetailRow | null>()
+          .then(({ data }) => {
+            teamAssignment = data;
+          })
+      : Promise.resolve()
+  ]);
 
   const guardians = (guardianRows ?? [])
     .filter((row) => !!row.guardians)
@@ -281,6 +314,8 @@ export async function getPlayerDetail(playerId: string) {
     };
   });
 
+  const team = (teamAssignment as TeamAssignmentDetailRow | null)?.teams ?? null;
+
   return {
     id: player.id,
     fullName: `${player.first_name} ${player.last_name}`,
@@ -289,6 +324,18 @@ export async function getPlayerDetail(playerId: string) {
     gender: player.gender,
     medicalNotes: player.medical_notes,
     guardians,
-    enrollments
+    enrollments,
+    activeTeam: team
+      ? {
+          id: team.id,
+          name: team.name,
+          birthYear: team.birth_year,
+          gender: team.gender,
+          level: team.level,
+          coachName: team.coaches
+            ? `${team.coaches.first_name} ${team.coaches.last_name}`.trim()
+            : null
+        }
+      : null
   };
 }

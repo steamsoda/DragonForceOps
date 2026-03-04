@@ -103,6 +103,28 @@ export default async function PlayerDetailPage({
           </div>
         </section>
 
+        {/* Team / Categoría / Coach */}
+        {player.activeTeam && (
+          <section className="grid gap-4 rounded-md border border-slate-200 p-4 md:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase text-slate-500">Equipo</p>
+              <p className="font-medium">{player.activeTeam.name}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">Categoría</p>
+              <p className="font-medium">{player.activeTeam.birthYear ?? "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">Nivel</p>
+              <p className="font-medium">{player.activeTeam.level ?? "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500">Coach</p>
+              <p className="font-medium">{player.activeTeam.coachName ?? "Sin asignar"}</p>
+            </div>
+          </section>
+        )}
+
         {/* Current enrollment */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
@@ -153,16 +175,22 @@ export default async function PlayerDetailPage({
                   </p>
                 </div>
               </div>
-              <div className="mt-4 flex gap-4 text-sm">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Link
                   href={`/enrollments/${activeEnrollment.id}/charges`}
-                  className="text-portoBlue hover:underline"
+                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
-                  Ver cuenta
+                  Registrar pago
+                </Link>
+                <Link
+                  href={`/enrollments/${activeEnrollment.id}/charges`}
+                  className="text-sm text-portoBlue hover:underline"
+                >
+                  Ver cuenta completa
                 </Link>
                 <Link
                   href={`/players/${player.id}/enrollments/${activeEnrollment.id}/edit`}
-                  className="text-portoBlue hover:underline"
+                  className="text-sm text-portoBlue hover:underline"
                 >
                   Editar inscripcion
                 </Link>

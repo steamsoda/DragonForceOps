@@ -1,13 +1,6 @@
-type PendingCharge = {
-  id: string;
-  description: string;
-  typeName: string;
-  pendingAmount: number;
-  currency: string;
-};
-
 type PaymentPostFormProps = {
-  charges: PendingCharge[];
+  currentBalance: number;
+  currency: string;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -15,20 +8,33 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
-export function PaymentPostForm({ charges, action }: PaymentPostFormProps) {
-  const defaultCurrency = charges[0]?.currency ?? "MXN";
+export function PaymentPostForm({ currentBalance, currency, action }: PaymentPostFormProps) {
+  const defaultAmount = currentBalance > 0 ? currentBalance.toFixed(2) : "";
 
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <form action={action} className="space-y-3 rounded-md border border-slate-200 bg-white p-4">
+      <p className="text-sm font-medium text-slate-800">Registrar pago</p>
+      {currentBalance > 0 ? (
+        <p className="text-xs text-slate-500">
+          Saldo pendiente:{" "}
+          <span className="font-semibold text-rose-600">{formatMoney(currentBalance, currency)}</span>. El monto
+          esta pre-llenado; ajusta si es un pago parcial.
+        </p>
+      ) : (
+        <p className="text-xs text-slate-500">
+          No hay saldo pendiente. Un pago aqui generara un credito en la cuenta.
+        </p>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Monto total del pago</span>
+          <span className="font-medium text-slate-700">Monto del pago</span>
           <input
             type="number"
             name="amount"
             step="0.01"
             min="0.01"
             required
+            defaultValue={defaultAmount}
             className="w-full rounded-md border border-slate-300 px-3 py-2"
           />
         </label>
@@ -42,55 +48,18 @@ export function PaymentPostForm({ charges, action }: PaymentPostFormProps) {
             <option value="other">Otro</option>
           </select>
         </label>
-        <label className="space-y-1 text-sm md:col-span-1">
-          <span className="font-medium text-slate-700">Notas</span>
-          <input type="text" name="notes" className="w-full rounded-md border border-slate-300 px-3 py-2" />
+        <label className="space-y-1 text-sm">
+          <span className="font-medium text-slate-700">Notas (opcional)</span>
+          <input
+            type="text"
+            name="notes"
+            placeholder="Referencia, folio, etc."
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+          />
         </label>
       </div>
-
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-slate-800">Asignaciones a cargos pendientes</p>
-        {charges.length === 0 ? (
-          <p className="text-sm text-slate-600">No hay cargos pendientes para asignar.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
-                <tr>
-                  <th className="px-3 py-2">Cargo</th>
-                  <th className="px-3 py-2">Pendiente</th>
-                  <th className="px-3 py-2">Asignar</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {charges.map((charge) => (
-                  <tr key={charge.id}>
-                    <td className="px-3 py-2">
-                      <p className="font-medium">{charge.typeName}</p>
-                      <p className="text-xs text-slate-500">{charge.description}</p>
-                    </td>
-                    <td className="px-3 py-2">{formatMoney(charge.pendingAmount, charge.currency)}</td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        name={`alloc_${charge.id}`}
-                        step="0.01"
-                        min="0"
-                        max={charge.pendingAmount}
-                        placeholder="0.00"
-                        className="w-36 rounded-md border border-slate-300 px-3 py-1.5"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       <p className="text-xs text-slate-500">
-        El total asignado debe ser igual al monto del pago. Moneda base: {defaultCurrency}.
+        Los cargos pendientes se cubren automaticamente del mas antiguo al mas reciente.
       </p>
       <button
         type="submit"
@@ -101,4 +70,3 @@ export function PaymentPostForm({ charges, action }: PaymentPostFormProps) {
     </form>
   );
 }
-

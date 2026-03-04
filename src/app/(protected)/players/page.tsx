@@ -90,13 +90,12 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <th className="px-3 py-2">Jugador</th>
                 <th className="px-3 py-2">Campus</th>
                 <th className="px-3 py-2">Telefono principal</th>
-                <th className="px-3 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {result.rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-slate-600" colSpan={4}>
+                  <td className="px-3 py-4 text-slate-600" colSpan={3}>
                     No se encontraron jugadores con esos filtros.
                   </td>
                 </tr>
@@ -104,16 +103,13 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 result.rows.map((row) => (
                   <tr key={row.id}>
                     <td className="px-3 py-2">
-                      <p className="font-medium text-slate-900">{row.fullName}</p>
+                      <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline">
+                        {row.fullName}
+                      </Link>
                       <p className="text-xs text-slate-500">F. nac.: {row.birthDate}</p>
                     </td>
                     <td className="px-3 py-2">{row.campusName}</td>
                     <td className="px-3 py-2">{row.primaryPhone ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      <Link href={`/players/${row.id}`} className="text-portoBlue hover:underline">
-                        Abrir
-                      </Link>
-                    </td>
                   </tr>
                 ))
               )}

@@ -22,11 +22,16 @@ function parseDate(value: string | null): string | null {
   return trimmed;
 }
 
+const DROPOUT_REASONS = ["cost", "distance", "injury", "attitude", "time", "level_change", "other"] as const;
+export type DropoutReason = (typeof DROPOUT_REASONS)[number];
+
 export type ParsedEnrollmentEditInput = {
   status: "active" | "ended" | "cancelled";
   endDate: string | null;
   campusId: string;
   notes: string | null;
+  dropoutReason: DropoutReason | null;
+  dropoutNotes: string | null;
 };
 
 export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEditInput | null {
@@ -41,7 +46,24 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
 
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  return { status: status as "active" | "ended" | "cancelled", endDate, campusId, notes };
+  const dropoutReasonRaw = String(formData.get("dropoutReason") ?? "").trim();
+  const dropoutReason = (DROPOUT_REASONS as readonly string[]).includes(dropoutReasonRaw)
+    ? (dropoutReasonRaw as DropoutReason)
+    : null;
+  const dropoutNotes = String(formData.get("dropoutNotes") ?? "").trim() || null;
+
+  // Dropout reason required when ending/cancelling
+  const isEnding = status === "ended" || status === "cancelled";
+  if (isEnding && !dropoutReason) return null;
+
+  return {
+    status: status as "active" | "ended" | "cancelled",
+    endDate,
+    campusId,
+    notes,
+    dropoutReason,
+    dropoutNotes
+  };
 }
 
 export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInput | null {

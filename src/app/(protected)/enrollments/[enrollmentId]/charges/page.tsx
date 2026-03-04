@@ -9,14 +9,10 @@ import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
 
 const errorMessages: Record<string, string> = {
-  invalid_form: "Los datos del pago son invalidos. Revisa monto, metodo y asignaciones.",
+  invalid_form: "Los datos del pago son invalidos. Revisa monto y metodo.",
   unauthenticated: "Tu sesion no es valida. Vuelve a iniciar sesion.",
   enrollment_not_found: "No se encontro la inscripcion.",
-  no_pending_charges: "No hay cargos pendientes para asignar.",
-  no_allocations: "Debes asignar al menos un monto a un cargo pendiente.",
-  allocation_exceeds_payment: "La suma asignada no puede superar el monto total del pago.",
-  allocation_must_match_payment: "La suma asignada debe ser igual al monto total del pago.",
-  allocation_exceeds_pending: "Una asignacion supera el saldo pendiente de un cargo.",
+  no_pending_charges: "No hay cargos pendientes en esta cuenta.",
   payment_insert_failed: "No se pudo registrar el pago. Intenta de nuevo.",
   allocation_insert_failed: "No se pudieron guardar las asignaciones del pago. Intenta de nuevo."
 };
@@ -37,7 +33,6 @@ export default async function ChargesPage({
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
   const postPayment = postEnrollmentPaymentAction.bind(null, enrollmentId);
-  const pendingCharges = ledger.charges.filter((charge) => charge.pendingAmount > 0 && charge.status !== "void");
   const successMessage =
     query.ok === "payment_posted"
       ? "Pago registrado correctamente."
@@ -86,7 +81,11 @@ export default async function ChargesPage({
 
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-slate-900">Pagos</h2>
-          <PaymentPostForm charges={pendingCharges} action={postPayment} />
+          <PaymentPostForm
+            currentBalance={ledger.totals.balance}
+            currency={ledger.enrollment.currency}
+            action={postPayment}
+          />
           <PaymentsTable rows={ledger.payments} />
         </section>
       </div>

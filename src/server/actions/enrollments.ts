@@ -149,6 +149,8 @@ export async function updateEnrollmentAction(
       end_date: endDate,
       campus_id: parsed.campusId,
       notes: parsed.notes,
+      dropout_reason: parsed.dropoutReason,
+      dropout_notes: parsed.dropoutNotes,
       updated_at: new Date().toISOString()
     })
     .eq("id", enrollmentId);
