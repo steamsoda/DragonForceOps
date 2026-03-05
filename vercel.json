@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/generate-monthly-charges",
-      "schedule": "0 6 1 * *"
-    }
-  ]
-}

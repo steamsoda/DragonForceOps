@@ -87,6 +87,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
             <li>El cargo se crea a la tarifa regular ($750). El descuento por pago anticipado se aplica al momento del pago (dias 1–10).</li>
             <li>La operacion es segura de repetir — no crea duplicados.</li>
             <li>Solo afecta inscripciones con estatus <strong>activo</strong>.</li>
+            <li>Este boton es para uso manual (meses atrasados, pruebas). El dia 1 de cada mes los cargos se generan <strong>automaticamente</strong> a las 06:00 UTC via pg_cron en Supabase.</li>
           </ul>
         </div>
       </div>
