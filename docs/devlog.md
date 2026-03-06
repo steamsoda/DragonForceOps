@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-03-05 (session 4)
+
+### Reports — Corte Diario + Resumen Mensual
+- `src/lib/queries/reports.ts` — two query functions replacing the empty placeholder file:
+  - `getCorteDiarioData({ date, campusId })`: payments posted on a given day grouped by method; returns summary tiles + detail rows (player name linked to ledger, time, method, amount, notes). Defaults to today UTC.
+  - `getResumenMensualData({ month, campusId })`: charges by type + payments by method for a month; also returns active enrollment count and pending balance across active enrollments.
+- `PAYMENT_METHOD_LABELS` map: Efectivo / Transferencia / Tarjeta / 360Player/Stripe / Otro.
+- Corte Diario page: date + campus filter form, summary tiles (total + one tile per method), payments table with footer total row. Note in footer: times shown in UTC.
+- Resumen Mensual page: month + campus filter, 4 KPI tiles, net balance line (cobrado − cargos), side-by-side tables (Cargos por tipo | Cobros por método) each with count + total + footer.
+
+### Cargo por Equipo (Bulk Charge Admin)
+- `src/lib/queries/teams.ts` — two query functions:
+  - `listTeamsWithCampus()`: active teams with campus name, birth_year, gender, level for the grouped selector.
+  - `listBulkChargeTypes()`: active charge types excluding auto-managed codes (`monthly_tuition`, `inscription`, `early_bird_discount`).
+- `bulkChargeTeamAction` server action: validates inputs → gets active enrollments via `team_assignments` (end_date IS NULL + enrollment.status = active) → inserts one charge per enrollment. Not idempotent by design (multiple tournament charges are valid).
+- `/admin/cargos-equipo` page: team selector grouped by campus (with birth year / gender / level in label), charge type selector, amount (accepts negative for credits/discounts), description. Success shows count of charges created. Warning note: not idempotent.
+- Nav link added: "Cargo Equipo". Version bumped `v0.3 → v0.4`.
+
+### Audit Log Wiring
+- `src/lib/audit.ts` — `writeAuditLog(supabase, entry)` helper: inserts to `audit_logs` table, wraps in try/catch and swallows errors so audit failures never block operations.
+- Wired into 5 action points (all with `after_data`, no `before_data` for Phase 1):
+  - `enrollment.created` — after enrollment + initial charges inserted
+  - `enrollment.ended` / `enrollment.reactivated` / `enrollment.updated` — after status change, with `dropout_reason`
+  - `payment.posted` — after payment + allocations inserted, with amount + method
+  - `charge.created` — after ad-hoc charge inserted
+  - `charges.bulk_created` — after team bulk charge, with team_id + count
+
 ## 2026-03-04 (session 3)
 
 ### Bajas List
