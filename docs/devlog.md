@@ -19,6 +19,26 @@
 ### Post-Signup Redirect
 - `createPlayerAction` now redirects to `/players/${player.id}/enrollments/new` instead of the player detail page, enforcing the rule that all new players are immediately enrolled.
 
+### Monthly Charge Generation (Manual + Automated)
+- `src/lib/billing/generate-monthly-charges.ts` — shared core logic extracted: fetches active enrollments, looks up tuition rates (prefers open-ended `day_to IS NULL` rule, falls back to highest-amount rule), skips already-charged enrollments (idempotent), inserts charges with `NULL` created_by for system jobs.
+- `src/server/actions/billing.ts` — thin server action wrapper; takes month form input, calls core, redirects with result.
+- `src/app/(protected)/admin/mensualidades/page.tsx` — manual generation UI: month picker + submit button; shows `creados`/`omitidos` result or error in Spanish. Notes that pg_cron runs automatically on day 1 at 06:00 UTC.
+- Migrations: `20260304000000` seeds correct tuition rules (idempotent, handles both old/new plan name); `20260304010000` adds `early_bird_discount` charge type.
+- Root cause of earlier "no_rate_found" error: the original pricing migration searched for `Plan Mensual Basico` (which may not exist in some environments), silently skipping rule inserts. Fixed by the idempotent reseed migration.
+
+### Early Bird Discount Automation
+- When a payment is posted on days 1–10 of the month and it touches a `monthly_tuition` charge for the current period, `applyEarlyBirdDiscountIfEligible()` automatically inserts a **negative credit line** (`early_bird_discount` charge, `status = 'posted'`, amount = -(regular − early_bird), e.g. -$150).
+- Uses a separate charge type so it doesn't conflict with the unique partial index on `(enrollment_id, charge_type_id, period_month)`.
+- Idempotent: checks for existing discount before inserting. Silently no-ops on any error — discount is a bonus, never fails the whole payment.
+- Ledger math: `v_enrollment_balances` sums all non-void charges including negatives, so a $750 tuition + -$150 discount + $600 payment = $0 balance correctly.
+
+### pg_cron Automation
+- Migration `20260304020000`: enables `pg_cron`, creates `public.generate_monthly_charges(p_period_month date)` as a `SECURITY DEFINER` function (bypasses RLS, runs as the defining role), schedules it at `0 6 1 * *` (day 1 of each month, 06:00 UTC).
+- `charges.created_by` made nullable — pg_cron has no auth user; system-generated charges have `NULL` created_by.
+- Unschedule-then-reschedule pattern with exception handling makes the migration safe to re-run.
+- Replaced Vercel Cron approach (which required a cron secret env var + service role key on both Vercel and Supabase). pg_cron runs entirely inside Supabase — no HTTP, no secrets.
+- Confirmed active in Supabase dashboard (`cron.job` table: `generate-monthly-charges | 0 6 1 * * | select public.generate_monthly_charges() | active: true`).
+
 ### Version Bump
 - `v0.2 → v0.3`
 
