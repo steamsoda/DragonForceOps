@@ -9,7 +9,8 @@ const navItems = [
   { href: "/pending", label: "Pendientes" },
   { href: "/reports/corte-diario", label: "Corte Diario" },
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
-  { href: "/admin/mensualidades", label: "Mensualidades" }
+  { href: "/admin/mensualidades", label: "Mensualidades" },
+  { href: "/admin/cargos-equipo", label: "Cargo Equipo" }
 ];
 
 type RoleRow = {
@@ -66,7 +67,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-baseline gap-2">
             <p className="font-semibold text-portoDark">Dragon Force Ops</p>
-            <span className="text-xs text-slate-400">v0.3</span>
+            <span className="text-xs text-slate-400">v0.4</span>
           </div>
           <div className="flex items-center gap-6">
             <nav className="flex gap-4 text-sm text-slate-700">
