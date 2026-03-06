@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { MONTH_NAMES_ES } from "@/lib/billing/generate-monthly-charges";
+import { writeAuditLog } from "@/lib/audit";
 
 type TuitionRuleRow = { amount: number; day_to: number | null };
 type DiscountCheckRow = { id: string };
@@ -96,6 +97,14 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
   // If payment is on days 1–10 of the month and touches a monthly_tuition charge
   // for the current period, automatically create a discount credit line.
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allocations, ledger, user.id);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    action: "payment.posted",
+    tableName: "payments",
+    recordId: paymentRow.id,
+    afterData: { enrollment_id: enrollmentId, amount: parsed.amount, method: parsed.method }
+  });
 
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
   redirect(`/enrollments/${enrollmentId}/charges?ok=payment_posted`);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
+import { writeAuditLog } from "@/lib/audit";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -97,6 +98,14 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
 
   if (chargesError) return redirectWithError(playerId, "charges_failed");
 
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    action: "enrollment.created",
+    tableName: "enrollments",
+    recordId: enrollmentId,
+    afterData: { player_id: playerId, campus_id: parsed.campusId, start_date: parsed.startDate }
+  });
+
   revalidatePath(`/players/${playerId}`);
   redirect(`/enrollments/${enrollmentId}/charges`);
 }
@@ -156,6 +165,21 @@ export async function updateEnrollmentAction(
     .eq("id", enrollmentId);
 
   if (error) return redirectWithEditError(enrollmentId, playerId, "update_failed");
+
+  const action =
+    parsed.status === "ended" || parsed.status === "cancelled"
+      ? "enrollment.ended"
+      : parsed.status === "active"
+        ? "enrollment.reactivated"
+        : "enrollment.updated";
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    action,
+    tableName: "enrollments",
+    recordId: enrollmentId,
+    afterData: { status: parsed.status, end_date: endDate, dropout_reason: parsed.dropoutReason }
+  });
 
   revalidatePath(`/players/${playerId}`);
   redirect(`/players/${playerId}`);

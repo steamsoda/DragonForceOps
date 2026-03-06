@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { generateMonthlyChargesCore } from "@/lib/billing/generate-monthly-charges";
+import { writeAuditLog } from "@/lib/audit";
 
 type TeamAssignmentRow = {
   enrollment_id: string;
@@ -78,6 +79,13 @@ export async function bulkChargeTeamAction(formData: FormData) {
 
   const { error: insertError } = await supabase.from("charges").insert(charges);
   if (insertError) redirect(`${BASE}?err=insert_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user!.id,
+    action: "charges.bulk_created",
+    tableName: "charges",
+    afterData: { team_id: teamId, charge_type_id: chargeTypeId, amount, description, count: charges.length }
+  });
 
   redirect(`${BASE}?ok=1&created=${charges.length}`);
 }

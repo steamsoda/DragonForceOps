@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentChargeFormContext } from "@/lib/queries/billing";
 import { parseChargeFormData } from "@/lib/validations/charge";
+import { writeAuditLog } from "@/lib/audit";
 
 function redirectWithError(enrollmentId: string, code: string): never {
   redirect(`/enrollments/${enrollmentId}/charges/new?err=${code}`);
@@ -40,6 +41,18 @@ export async function createChargeAction(enrollmentId: string, formData: FormDat
   });
 
   if (error) return redirectWithError(enrollmentId, "insert_failed");
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    action: "charge.created",
+    tableName: "charges",
+    afterData: {
+      enrollment_id: enrollmentId,
+      charge_type_id: parsed.chargeTypeId,
+      amount: parsed.amount,
+      description: parsed.description
+    }
+  });
 
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
   redirect(`/enrollments/${enrollmentId}/charges?ok=charge_created`);
