@@ -6,6 +6,8 @@ export type PlayerListFilters = {
   q?: string;
   phone?: string;
   campusId?: string;
+  birthYear?: string;
+  gender?: string;
   page?: number;
 };
 
@@ -162,6 +164,15 @@ export async function listPlayers(filters: PlayerListFilters) {
     const q = filters.q.trim();
     playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
   }
+  if (filters.birthYear?.trim()) {
+    const y = filters.birthYear.trim();
+    playerQuery = playerQuery
+      .gte("birth_date", `${y}-01-01`)
+      .lte("birth_date", `${y}-12-31`);
+  }
+  if (filters.gender?.trim()) {
+    playerQuery = playerQuery.eq("gender", filters.gender.trim());
+  }
   if (phonePlayerIds) {
     playerQuery = playerQuery.in("id", phonePlayerIds);
   }
@@ -278,6 +289,22 @@ export async function listCampuses() {
     .returns<CampusRow[]>();
 
   return data ?? [];
+}
+
+export async function listBirthYears(): Promise<number[]> {
+  const supabase = await createClient();
+  // Get distinct birth years from active players only
+  const { data } = await supabase
+    .from("players")
+    .select("birth_date, enrollments!inner(status)")
+    .eq("enrollments.status", "active")
+    .eq("status", "active");
+
+  const years = [...new Set(
+    (data ?? []).map((row) => new Date(row.birth_date).getFullYear())
+  )].sort((a, b) => b - a); // newest year first (youngest players)
+
+  return years;
 }
 
 export async function getPlayerDetail(playerId: string) {

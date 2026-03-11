@@ -1,6 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
 import Link from "next/link";
-import { listCampuses, listPlayers, listBajas } from "@/lib/queries/players";
+import { listCampuses, listBirthYears, listPlayers, listBajas } from "@/lib/queries/players";
 
 const DROPOUT_LABELS: Record<string, string> = {
   cost: "Costo",
@@ -16,6 +16,8 @@ type SearchParams = Promise<{
   q?: string;
   phone?: string;
   campus?: string;
+  year?: string;
+  gender?: string;
   page?: string;
   view?: string;
 }>;
@@ -25,10 +27,12 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const q = params.q ?? "";
   const phone = params.phone ?? "";
   const campusId = params.campus ?? "";
+  const birthYear = params.year ?? "";
+  const gender = params.gender ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const view = params.view === "bajas" ? "bajas" : "active";
 
-  const campuses = await listCampuses();
+  const [campuses, birthYears] = await Promise.all([listCampuses(), listBirthYears()]);
 
   let result: { rows: unknown[]; total: number; page: number; pageSize: number };
   let activeRows: Awaited<ReturnType<typeof listPlayers>>["rows"] = [];
@@ -39,7 +43,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     result = bajaResult;
     bajaRows = bajaResult.rows;
   } else {
-    const activeResult = await listPlayers({ q, phone, campusId: campusId || undefined, page });
+    const activeResult = await listPlayers({ q, phone, campusId: campusId || undefined, birthYear: birthYear || undefined, gender: gender || undefined, page });
     result = activeResult;
     activeRows = activeResult.rows;
   }
@@ -47,7 +51,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const prevPage = page > 1 ? page - 1 : null;
   const nextPage = page < totalPages ? page + 1 : null;
-  const qsBase = `view=${view}&q=${encodeURIComponent(q)}&phone=${encodeURIComponent(phone)}&campus=${encodeURIComponent(campusId)}`;
+  const qsBase = `view=${view}&q=${encodeURIComponent(q)}&phone=${encodeURIComponent(phone)}&campus=${encodeURIComponent(campusId)}&year=${encodeURIComponent(birthYear)}&gender=${encodeURIComponent(gender)}`;
 
   return (
     <PageShell
@@ -83,22 +87,18 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         <div className="flex items-center justify-between">
           <form className="flex flex-wrap gap-3">
             <input type="hidden" name="view" value={view} />
-            <input
-              type="text"
-              name="q"
-              defaultValue={q}
-              placeholder="Buscar por nombre o apellido"
+            <select
+              name="year"
+              defaultValue={birthYear}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            {view === "active" && (
-              <input
-                type="text"
-                name="phone"
-                defaultValue={phone}
-                placeholder="Telefono de tutor"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-              />
-            )}
+            >
+              <option value="">Todas las categorías</option>
+              {birthYears.map((y) => (
+                <option key={y} value={String(y)}>
+                  {y}
+                </option>
+              ))}
+            </select>
             <select
               name="campus"
               defaultValue={campusId}
@@ -111,11 +111,36 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 </option>
               ))}
             </select>
+            <select
+              name="gender"
+              defaultValue={gender}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              <option value="M">Varonil</option>
+              <option value="F">Femenil</option>
+            </select>
+            <input
+              type="text"
+              name="q"
+              defaultValue={q}
+              placeholder="Nombre o apellido"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            {view === "active" && (
+              <input
+                type="text"
+                name="phone"
+                defaultValue={phone}
+                placeholder="Telefono de tutor"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            )}
             <button
               type="submit"
               className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
             >
-              Aplicar filtros
+              Filtrar
             </button>
           </form>
           {view === "active" && (
@@ -136,6 +161,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
                 <tr>
                   <th className="px-3 py-2">Jugador</th>
+                  <th className="px-3 py-2">Categoría</th>
                   <th className="px-3 py-2">Campus</th>
                   <th className="px-3 py-2">Telefono principal</th>
                 </tr>
@@ -143,7 +169,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               <tbody className="divide-y divide-slate-100">
                 {activeRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600" colSpan={3}>
+                    <td className="px-3 py-4 text-slate-600" colSpan={4}>
                       No se encontraron jugadores con esos filtros.
                     </td>
                   </tr>
@@ -154,8 +180,8 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                         <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline">
                           {row.fullName}
                         </Link>
-                        <p className="text-xs text-slate-500">F. nac.: {row.birthDate}</p>
                       </td>
+                      <td className="px-3 py-2 text-slate-600">{new Date(row.birthDate).getFullYear()}</td>
                       <td className="px-3 py-2">{row.campusName}</td>
                       <td className="px-3 py-2">{row.primaryPhone ?? "-"}</td>
                     </tr>
