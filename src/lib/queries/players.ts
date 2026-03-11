@@ -293,18 +293,9 @@ export async function listCampuses() {
 
 export async function listBirthYears(): Promise<number[]> {
   const supabase = await createClient();
-  // Get distinct birth years from active players only
-  const { data } = await supabase
-    .from("players")
-    .select("birth_date, enrollments!inner(status)")
-    .eq("enrollments.status", "active")
-    .eq("status", "active");
-
-  const years = [...new Set(
-    (data ?? []).map((row) => new Date(row.birth_date).getFullYear())
-  )].sort((a, b) => b - a); // newest year first (youngest players)
-
-  return years;
+  // Use DB-level distinct via rpc to avoid fetching all rows
+  const { data } = await supabase.rpc("list_active_birth_years");
+  return (data ?? []).map((row: { birth_year: number }) => row.birth_year);
 }
 
 export async function getPlayerDetail(playerId: string) {
