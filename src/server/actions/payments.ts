@@ -110,7 +110,7 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
   redirect(`/enrollments/${enrollmentId}/charges?ok=payment_posted`);
 }
 
-async function applyEarlyBirdDiscountIfEligible(
+export async function applyEarlyBirdDiscountIfEligible(
   supabase: Awaited<ReturnType<typeof createClient>>,
   enrollmentId: string,
   allocations: Array<{ chargeId: string; amount: number }>,

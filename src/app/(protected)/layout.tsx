@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { APP_ROLES } from "@/lib/auth/roles";
+import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
 
-const navItems = [
+const DIRECTOR_NAV = [
   { href: "/dashboard", label: "Panel" },
-  { href: "/players", label: "Jugadores" },
   { href: "/pending", label: "Pendientes" },
   { href: "/reports/corte-diario", label: "Corte Diario" },
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
   { href: "/admin/mensualidades", label: "Mensualidades" },
   { href: "/admin/cargos-equipo", label: "Cargo Equipo" }
+];
+
+const ALL_STAFF_NAV = [
+  { href: "/caja", label: "Caja" },
+  { href: "/players", label: "Jugadores" }
 ];
 
 type RoleRow = {
@@ -47,12 +51,18 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
-  const canAccess =
-    roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN) || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
+  const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
+  const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const canAccess = isDirectorOrAbove || isFrontDesk || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
 
   if (!canAccess) {
     redirect("/unauthorized");
   }
+
+  const navItems = [
+    ...ALL_STAFF_NAV,
+    ...(isDirectorOrAbove ? DIRECTOR_NAV : [])
+  ];
 
   async function signOut() {
     "use server";
