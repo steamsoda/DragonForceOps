@@ -116,79 +116,66 @@ type TeamAssignmentDetailRow = {
   } | null;
 };
 
+type PlayerWithEnrollmentRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  status: string;
+  enrollments: Array<{
+    campus_id: string;
+    status: string;
+    campuses: { name: string | null; code: string | null } | null;
+  }>;
+};
+
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  // Always constrain to players with active enrollments
-  let enrollmentQuery = supabase.from("enrollments").select("player_id").eq("status", "active");
-  if (filters.campusId) {
-    enrollmentQuery = enrollmentQuery.eq("campus_id", filters.campusId);
-  }
-  const { data: activeEnrollmentRows } = await enrollmentQuery;
-  let constrainedPlayerIds = [...new Set((activeEnrollmentRows ?? []).map((row) => row.player_id as string))];
-  if (constrainedPlayerIds.length === 0) {
-    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-  }
-
-  if (filters.phone) {
-    const phone = filters.phone.trim();
-    if (phone.length > 0) {
-      const { data: linksByPhone } = await supabase
-        .from("player_guardians")
-        .select("player_id, guardians!inner(phone_primary)")
-        .ilike("guardians.phone_primary", `%${phone}%`);
-
-      const phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
-      if (phonePlayerIds.length === 0) {
-        return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-      }
-
-      const allowed = new Set(constrainedPlayerIds);
-      constrainedPlayerIds = phonePlayerIds.filter((id) => allowed.has(id));
-      if (constrainedPlayerIds.length === 0) {
-        return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-      }
-    }
+  // Phone filter: resolve matching player IDs first (small result set, safe to use .in())
+  let phonePlayerIds: string[] | null = null;
+  if (filters.phone?.trim()) {
+    const { data: linksByPhone } = await supabase
+      .from("player_guardians")
+      .select("player_id, guardians!inner(phone_primary)")
+      .ilike("guardians.phone_primary", `%${filters.phone.trim()}%`);
+    phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
+    if (phonePlayerIds.length === 0) return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
   }
 
+  // Use !inner on enrollments so PostgREST generates a JOIN — no large .in() needed
   let playerQuery = supabase
     .from("players")
-    .select("id, first_name, last_name, birth_date, status", { count: "exact" })
+    .select("id, first_name, last_name, birth_date, status, enrollments!inner(campus_id, status, campuses(name, code))", { count: "exact" })
+    .eq("enrollments.status", "active")
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
-    .range(from, to)
-    .in("id", constrainedPlayerIds);
+    .range(from, to);
 
-  if (filters.q) {
+  if (filters.campusId) {
+    playerQuery = playerQuery.eq("enrollments.campus_id", filters.campusId);
+  }
+  if (filters.q?.trim()) {
     const q = filters.q.trim();
-    if (q.length > 0) {
-      playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
-    }
+    playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
+  }
+  if (phonePlayerIds) {
+    playerQuery = playerQuery.in("id", phonePlayerIds);
   }
 
-  const { data: players, count } = await playerQuery.returns<PlayerRow[]>();
+  const { data: players, count } = await playerQuery.returns<PlayerWithEnrollmentRow[]>();
+
   const playerIds = (players ?? []).map((p) => p.id);
+  if (playerIds.length === 0) return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
 
-  if (playerIds.length === 0) {
-    return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
-  }
-
-  const [{ data: guardianLinks }, { data: activeEnrollments }] = await Promise.all([
-    supabase
-      .from("player_guardians")
-      .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
-      .in("player_id", playerIds)
-      .returns<GuardianLinkRow[]>(),
-    supabase
-      .from("enrollments")
-      .select("player_id, campus_id, status, campuses(name, code)")
-      .eq("status", "active")
-      .in("player_id", playerIds)
-      .returns<EnrollmentRow[]>()
-  ]);
+  const { data: guardianLinks } = await supabase
+    .from("player_guardians")
+    .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
+    .in("player_id", playerIds)
+    .returns<GuardianLinkRow[]>();
 
   const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
   (guardianLinks ?? []).forEach((row) => {
@@ -197,28 +184,21 @@ export async function listPlayers(filters: PlayerListFilters) {
     guardiansByPlayer.set(row.player_id, arr);
   });
 
-  const enrollmentByPlayer = new Map<string, EnrollmentRow>();
-  (activeEnrollments ?? []).forEach((row) => {
-    if (!enrollmentByPlayer.has(row.player_id)) {
-      enrollmentByPlayer.set(row.player_id, row);
-    }
-  });
-
   const rows = (players ?? []).map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
     const primary =
       guardians.find((g) => g.is_primary)?.guardians?.phone_primary ??
       guardians.find((g) => !!g.guardians?.phone_primary)?.guardians?.phone_primary ??
       null;
-    const activeEnrollment = enrollmentByPlayer.get(player.id);
+    const enrollment = player.enrollments[0];
 
     return {
       id: player.id,
       fullName: `${player.first_name} ${player.last_name}`,
       birthDate: player.birth_date,
       status: player.status,
-      campusName: activeEnrollment?.campuses?.name ?? "-",
-      campusCode: activeEnrollment?.campuses?.code ?? null,
+      campusName: enrollment?.campuses?.name ?? "-",
+      campusCode: enrollment?.campuses?.code ?? null,
       primaryPhone: primary
     };
   });

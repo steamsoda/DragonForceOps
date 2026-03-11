@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-03-11 (session 5)
+
+### Real Data Seed — Schema Fixes + Load
+- Moved `seed_real_data.sql` out of migrations into `scripts/` to avoid Supabase CI timeout on large seed files (session 4 partial).
+- Hit three NOT NULL constraint violations when running seed against preview DB:
+  - `guardians.first_name` / `last_name` / `phone_primary` — real data has contacts identified by phone-only or email-only, name unknown.
+  - `payments.created_by` / `charges.created_by` — historical records predate the app, no auth user attached.
+- Created two migrations to relax constraints:
+  - `20260311120000_guardians_nullable_name.sql`: drops NOT NULL on `first_name`, `last_name`, `phone_primary`.
+  - `20260311130000_nullable_created_by.sql`: drops NOT NULL on `charges.created_by` and `payments.created_by`.
+- Seed landed clean: 672 players, 694 guardians, 672 enrollments, 2678 charges, 1298 payments.
+
+### Players List — Fix Empty List with Real Data
+- Root cause: `listPlayers` was fetching all 672 active-enrollment player IDs then passing them as `.in("id", [...672 ids])`. PostgREST encodes this as a URL query parameter — with 672 UUIDs (~25KB) it exceeds URL length limits and the query silently returned empty.
+- Fix: restructured query to use `enrollments!inner` in the select string, letting PostgREST generate a SQL JOIN instead of a URL-parameter filter. No large `.in()` needed for the main query.
+- Phone filter still pre-resolves player IDs but the result set is always small (few guardians match a phone search).
+- `EnrollmentRow` type removed from `listPlayers` path; replaced with `PlayerWithEnrollmentRow` that embeds the enrollment data.
+
 ## 2026-03-05 (session 4)
 
 ### Reports — Corte Diario + Resumen Mensual
