@@ -66,7 +66,7 @@ export function CajaClient() {
         const results = await searchPlayersForCajaAction(q);
         setView({ tag: "results", query: q, results });
       });
-    }, 300);
+    }, 200);
     return () => clearTimeout(timer);
   }, [query]);
 

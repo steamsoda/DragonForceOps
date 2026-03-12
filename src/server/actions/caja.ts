@@ -39,7 +39,16 @@ export type CajaPaymentResult =
   | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string }
   | { ok: false; error: string };
 
-// ── Player search ──────────────────────────────────────────────────────────────
+// ── Player search — single RPC call ───────────────────────────────────────────
+
+type CajaSearchRow = {
+  player_id: string;
+  player_name: string;
+  birth_year: number | null;
+  enrollment_id: string;
+  campus_name: string;
+  balance: number;
+};
 
 export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerResult[]> {
   if (!q || q.trim().length < 2) return [];
@@ -50,55 +59,20 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const search = q.trim();
+  const { data, error } = await supabase
+    .rpc("search_players_for_caja", { search_query: q.trim() })
+    .returns<CajaSearchRow[]>();
 
-  // Find active players matching the name query
-  const { data: players } = await supabase
-    .from("players")
-    .select("id, first_name, last_name, birth_date")
-    .eq("status", "active")
-    .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
-    .limit(20)
-    .returns<{ id: string; first_name: string | null; last_name: string | null; birth_date: string | null }[]>();
+  if (error || !data) return [];
 
-  if (!players || players.length === 0) return [];
-
-  // Find active enrollments for those players
-  const playerIds = players.map((p) => p.id);
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("id, player_id, campuses(name)")
-    .eq("status", "active")
-    .in("player_id", playerIds)
-    .returns<{ id: string; player_id: string; campuses: { name: string | null } | null }[]>();
-
-  if (!enrollments || enrollments.length === 0) return [];
-
-  // Get balances
-  const enrollmentIds = enrollments.map((e) => e.id);
-  const { data: balances } = await supabase
-    .from("v_enrollment_balances")
-    .select("enrollment_id, balance")
-    .in("enrollment_id", enrollmentIds)
-    .returns<{ enrollment_id: string; balance: number }[]>();
-
-  const balanceMap = new Map((balances ?? []).map((b) => [b.enrollment_id, b.balance]));
-  const enrollmentByPlayer = new Map(enrollments.map((e) => [e.player_id, e]));
-
-  return players
-    .filter((p) => enrollmentByPlayer.has(p.id))
-    .slice(0, 8)
-    .map((p) => {
-      const enrollment = enrollmentByPlayer.get(p.id)!;
-      return {
-        playerId: p.id,
-        playerName: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-        birthYear: p.birth_date ? new Date(p.birth_date).getFullYear() : null,
-        enrollmentId: enrollment.id,
-        campusName: enrollment.campuses?.name ?? "-",
-        balance: balanceMap.get(enrollment.id) ?? 0
-      };
-    });
+  return data.map((row) => ({
+    playerId: row.player_id,
+    playerName: row.player_name,
+    birthYear: row.birth_year,
+    enrollmentId: row.enrollment_id,
+    campusName: row.campus_name,
+    balance: row.balance
+  }));
 }
 
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
