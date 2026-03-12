@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPortoDatosGenerales } from "@/lib/queries/porto-report";
+import { listEventsForMonthAction } from "@/server/actions/events";
+import { listCampuses } from "@/lib/queries/players";
+import { EventsPanel } from "@/components/reports/events-panel";
 import { MONTH_NAMES_ES } from "@/lib/billing/generate-monthly-charges";
 
 export const metadata = { title: "Reporte Porto — Dragon Force Ops" };
@@ -92,7 +95,11 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
   const selectedMonth = params.month ?? prevMonthParam();
   const exchangeRate = parseFloat(params.rate ?? "18") || 18;
 
-  const data = await getPortoDatosGenerales(selectedMonth);
+  const [data, events, campuses] = await Promise.all([
+    getPortoDatosGenerales(selectedMonth),
+    listEventsForMonthAction(selectedMonth),
+    listCampuses()
+  ]);
 
   const pendienteUsd = data ? data.deudores.pendienteMxn / exchangeRate : 0;
 
@@ -243,28 +250,17 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
             <section className="space-y-3">
               <SectionTitle>Eventos del Mes</SectionTitle>
               <p className="text-xs text-slate-400">
-                Completar manualmente antes de enviar el reporte a Porto.
+                Registra eventos conforme ocurren durante el mes. Al final del mes el reporte ya tiene la lista completa.
               </p>
-              <textarea
-                rows={5}
-                placeholder="Descripción de eventos, fechas, participantes…"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300"
-                readOnly
-              />
+              <EventsPanel events={events} month={selectedMonth} campuses={campuses} />
             </section>
 
             {/* ── 8. Mapa de Área ── */}
             <section className="space-y-3">
               <SectionTitle>Mapa de Área</SectionTitle>
-              <p className="text-xs text-slate-400">
-                Información de área, contactos regionales y alcance geográfico. Completar manualmente.
-              </p>
-              <textarea
-                rows={4}
-                placeholder="Contactos, cobertura de área, notas regionales…"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300"
-                readOnly
-              />
+              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                Próximamente — registro continuo de incidencias, sugerencias y auditorías.
+              </div>
             </section>
           </>
         )}
