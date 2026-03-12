@@ -8,6 +8,7 @@ const DIRECTOR_NAV = [
   { href: "/pending", label: "Pendientes" },
   { href: "/reports/corte-diario", label: "Corte Diario" },
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
+  { href: "/reports/porto-mensual", label: "Reporte Porto" },
   { href: "/admin/mensualidades", label: "Mensualidades" },
   { href: "/admin/cargos-equipo", label: "Cargo Equipo" }
 ];
