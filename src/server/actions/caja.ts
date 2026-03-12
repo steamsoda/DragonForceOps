@@ -60,12 +60,11 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
   if (!user) return [];
 
   const { data, error } = await supabase
-    .rpc("search_players_for_caja", { search_query: q.trim() })
-    .returns<CajaSearchRow[]>();
+    .rpc("search_players_for_caja", { search_query: q.trim() });
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
+  return (data as CajaSearchRow[]).map((row) => ({
     playerId: row.player_id,
     playerName: row.player_name,
     birthYear: row.birth_year,
