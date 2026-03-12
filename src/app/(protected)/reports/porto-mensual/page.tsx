@@ -2,8 +2,10 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPortoDatosGenerales } from "@/lib/queries/porto-report";
 import { listEventsForMonthAction } from "@/server/actions/events";
+import { listAreaMapEntriesAction } from "@/server/actions/area-map";
 import { listCampuses } from "@/lib/queries/players";
 import { EventsPanel } from "@/components/reports/events-panel";
+import { AreaMapPanel } from "@/components/reports/area-map-panel";
 import { MONTH_NAMES_ES } from "@/lib/billing/generate-monthly-charges";
 
 export const metadata = { title: "Reporte Porto — Dragon Force Ops" };
@@ -95,9 +97,10 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
   const selectedMonth = params.month ?? prevMonthParam();
   const exchangeRate = parseFloat(params.rate ?? "18") || 18;
 
-  const [data, events, campuses] = await Promise.all([
+  const [data, events, areaMap, campuses] = await Promise.all([
     getPortoDatosGenerales(selectedMonth),
     listEventsForMonthAction(selectedMonth),
+    listAreaMapEntriesAction(selectedMonth),
     listCampuses()
   ]);
 
@@ -258,9 +261,15 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
             {/* ── 8. Mapa de Área ── */}
             <section className="space-y-3">
               <SectionTitle>Mapa de Área</SectionTitle>
-              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-400">
-                Próximamente — registro continuo de incidencias, sugerencias y auditorías.
-              </div>
+              <p className="text-xs text-slate-400">
+                Registra incidencias, sugerencias y auditorías conforme ocurren. Haz clic en una fila para ver el detalle completo.
+              </p>
+              <AreaMapPanel
+                monthEntries={areaMap.monthEntries}
+                openPrior={areaMap.openPrior}
+                month={selectedMonth}
+                campuses={campuses}
+              />
             </section>
           </>
         )}
