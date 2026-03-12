@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-03-12 (session 6)
+
+### Caja — POS Quick Action Panel (v0.5)
+- New `/caja` route: dedicated payment collection tab for front desk staff.
+- Real-time debounced player search (200ms, `ilike` on name) backed by a single `search_players_for_caja()` RPC — replaces 3 sequential Supabase queries with 1 roundtrip.
+- Shows all pending charges oldest-first with auto-filled balance amount.
+- Fast cashier mode: panel resets to search after each payment posted.
+- Phase 1 receipt: `window.print()` styled for 80mm thermal paper (`@media print`).
+- `postCajaPaymentAction`: same allocation + early-bird logic as enrollment ledger, returns result instead of redirecting.
+
+### Role System — superadmin + front_desk
+- Added `superadmin` and `front_desk` to `app_roles` (migration `20260311150000`).
+- Updated `is_director_admin()` to include `superadmin` — all existing policies apply automatically.
+- New `is_front_desk()` and `has_operational_access()` helper functions.
+- `front_desk` RLS: SELECT on all operational tables, INSERT on payments/payment_allocations/cash_session_entries. No access to audit_logs or financial aggregates.
+- Role-aware nav: `front_desk` sees Caja + Jugadores only; directors see full nav.
+- `layout.tsx`: canAccess now includes `superadmin` and `front_desk`.
+- `roles.ts`: added `SUPERADMIN`, `FRONT_DESK`, `DIRECTOR_OR_ABOVE` constants.
+- Version bumped `v0.4 → v0.5`.
+
+### Performance
+- `search_players_for_caja` RPC (migration `20260311160000`): joins players → enrollments → campuses → v_enrollment_balances in one query. Eliminates 2 extra Supabase roundtrips per keystroke.
+
 ## 2026-03-11 (session 5)
 
 ### Real Data Seed — Schema Fixes + Load
