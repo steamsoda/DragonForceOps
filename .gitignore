@@ -13,5 +13,8 @@ pnpm-debug.log*
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
+# Claude Code local settings
+.claude/
+
 # Reference docs — local only, not for version control
 docs/Reference Docs/
