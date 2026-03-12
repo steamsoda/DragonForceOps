@@ -48,37 +48,63 @@ Exit criteria:
 - Pending collections view operational with filters and call shortcuts.
 - Security/performance baseline documented and adopted.
 
-## Phase 1B: Operational MVP Completion (next 1 to 2 weeks)
-Goal: complete the minimum operational feature set for steady use.
+## Phase 1B: Operational MVP Completion
+Goal: complete the minimum operational feature set for steady daily use.
 
-1. Dashboard KPIs
+1. **Caja — POS Quick Action Panel** (`/caja` route)
+- Dedicated tab for front desk staff: player search + payment collection.
+- Debounced real-time player search (Client Component, `ilike`).
+- Shows all pending charges oldest-first; auto-fills outstanding balance.
+- Fast cashier mode: panel resets after each payment.
+- Phase 1 receipt: browser print styled for 80mm thermal paper.
+- Phase 2 receipt: ESC/POS via QZ Tray + Star/Epson thermal printer.
+
+2. **Role System — `front_desk` role**
+- Add `front_desk` to `app_roles` table (migration).
+- RLS policies: `front_desk` can read all player/enrollment data, post payments, access `/caja`. Cannot access dashboard financial stats or void payments.
+- Remove bootstrap env var (`BOOTSTRAP_ADMIN_EMAILS`) after seeding `user_roles` for all active staff.
+- Seed roles for Javi (`superadmin`), Scarlett + directors (`director_admin`), front desk staff (`front_desk`).
+
+3. **Dashboard KPIs**
 - Wire real metrics for active enrollments, pending balance, payments today, and monthly totals.
 
-2. Pending Workflow Improvements
+4. **Pending Workflow Improvements**
 - Add better filtering and sorting for collections/follow-up.
 - Add quick actions for calling guardians and opening enrollment ledger.
 
-3. Cash Session UX
+5. **Cash Session UX**
 - Improve open/close session workflow and variance explanation notes.
 - Add guardrails when posting cash payments without an open session.
 
 Exit criteria:
-- Staff can run a full day operation without manual SQL/database intervention.
+- Front desk staff can run a full payment shift from `/caja` without touching any other page.
+- Director can see financial summary from dashboard.
+- No manual SQL needed for any daily operation.
 
-## Phase 2: Roles and Integrations
+## Phase 2: Roles, Integrations, and Ops Expansion
 Goal: broader operational support and integrations.
 
-1. Role Expansion
-- Implement `admin_restricted` permissions matrix.
-- Add campus-scoped access rules where applicable.
+1. **Role Expansion**
+- Implement `coach` role: read-only access to own team rosters. No financials.
+- Campus-scoped access rules (front desk sees only their campus).
 
-2. External Payments
+2. **Caja Phase 2 — Thermal Printer**
+- ESC/POS integration via QZ Tray (local bridge on front desk PC).
+- Compatible printers: Star TSP100 or Epson TM-T20 (~$2,500 MXN).
+- One-click receipt printing, no browser dialog.
+
+3. **External Payments**
 - Define ingestion path for 360Player/Stripe events.
 - Add reconciliation queue for unmatched events.
 
-3. Export and Ops Tooling
+4. **Export and Ops Tooling**
 - CSV/PDF exports for daily and monthly reports.
 - Basic admin diagnostics page for auth/env/role checks.
+
+5. **Coach Module**
+- Coaches log into app to take attendance per training session.
+- Attendance records link to team/session/date.
+- Attendance-based baja detection (3 consecutive missed months).
 
 ## Prioritized Backlog (Top 10)
 1. Replace report placeholders (`corte diario`, `resumen mensual`) with real queries and totals.

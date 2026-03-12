@@ -120,6 +120,8 @@ When ending or cancelling an enrollment, staff must record a **dropout reason** 
 - `level_change` — Cambio de nivel / campus (use only for internal transfers, not for real bajas)
 - `other` — Otro (requires a notes field explaining)
 
+**Note**: Porto HQ uses ~30 dropout reason categories. The 7 codes above are the initial set. Expansion to Porto's full taxonomy is tracked as Phase 1.5 (see Section 16.3b). Since this field is `text` (not a PG enum), expansion requires only a server action + UI update — no schema migration.
+
 **Schema**: `enrollments.dropout_reason text null` (one of the codes above) and `enrollments.dropout_notes text null` (free text, always optional, required when reason = `other`).
 
 **UI rule**: dropout reason + notes fields appear in the enrollment edit form when status is set to `ended` or `cancelled`. They are always shown (server component, no JS toggle) with a hint label. Server action validates that a reason is present when ending/cancelling.
@@ -421,24 +423,27 @@ An admin-only page (`director_admin` role) for managing the charge catalog and b
 - Create helper SQL function: `is_director_admin()` backed by `user_roles`.
 - Keep policies restrictive by default (`deny all`) and explicit per table.
 
-### 8.2 Role/Permission Matrix (Current + Future-Ready)
-- `director_admin` (Phase 1 active):
-  - Full CRUD on all Phase 1 tables.
-  - Can post/void payments and close cash sessions.
-  - Can view audit logs.
-- `admin_restricted` (Phase 2 planned):
-  - Read/write players/enrollments/charges/payments.
-  - Cannot void historical payments older than policy window. **TBD**
-  - Limited report scope (possibly campus-scoped). **TBD**
-- `coach` (Phase 2 planned):
-  - Read-only roster/team data, no financial data.
+### 8.2 Role/Permission Matrix (Confirmed + Future-Ready)
 
-Additional near-term target (roles direction from earlier notes):
-- `finance` (optional): edit payments + reports
+| Role | Financial Reports / Dashboard Stats | Player Data | Post Payments | Void Payments | Caja | Enrollments | Phase |
+|---|---|---|---|---|---|---|---|
+| `superadmin` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 1 |
+| `director_admin` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 1 |
+| `front_desk` | ❌ | ✅ | ✅ | ❌ | ✅ | Read-only | 1B |
+| `coach` | ❌ | Own teams only | ❌ | ❌ | ❌ | ❌ | 2 |
+
+**Role definitions:**
+- `superadmin` — Javi only. Full access to everything including bootstrap config, audit logs, and any future admin tooling.
+- `director_admin` — Directors and high-level admins Full operational access including monthly income, financial totals, reports, and voids. Cannot change system configuration.
+- `front_desk` — Daily operations staff. Can search players, view all player/enrollment data, post payments, and use the Caja (POS). **Cannot** see dashboard financial stats (monthly income, revenue totals), cannot void payments, cannot delete or end enrollments.
+- `coach` — Phase 2. Read-only access to their own assigned teams' rosters. No financial data visible.
+
+**Payment void authority:** `director_admin` and `superadmin` only. Always requires a reason note logged in `audit_logs`.
 
 Current operational note:
-- Only one active user (Javi) with admin access (temporary bootstrap via env var).
-- Earlier notes referenced “profiles table” for roles; the Phase 1 SDD model (`app_roles` + `user_roles`) is the intended source of truth.
+- `superadmin` and `director_admin` are the active roles in Phase 1.
+- `front_desk` role to be implemented in Phase 1B alongside the Caja feature.
+- Bootstrap env var (`BOOTSTRAP_ADMIN_EMAILS`) to be removed once `user_roles` records are seeded for all active staff.
 
 ## 9) Core Workflows
 ### 9.1 Registration + Enrollment
@@ -475,6 +480,51 @@ Current operational note:
 7. Insert cash session entry when method is cash.
 8. Return updated ledger summary for optimistic UI reconciliation.
 9. Write audit log.
+
+### 9.4.1 Caja — Point of Sale Quick Action Panel
+A dedicated `/caja` route designed for front desk staff. Always-open tab for daily payment collection.
+
+**Who uses it:** `front_desk`, `director_admin`, `superadmin`.
+
+**Design philosophy:** Fast cashier mode. After each payment, the panel resets to the search box — staff can process the next player immediately.
+
+**Flow:**
+1. Staff types player name → debounced real-time search (300ms, `ilike` on `first_name || last_name`) → top 8 results appear as dropdown suggestions.
+2. Staff selects player → panel shows all **pending charges, oldest first** (all charge types, not just tuition).
+3. If player has a credit balance, this is shown prominently and the credit is applied first.
+4. Payment amount auto-fills with the total outstanding balance. Staff can override for partial payments.
+5. Staff selects payment method (cash / card / transfer) → clicks **Cobrar**.
+6. Server posts payment, auto-allocates oldest-first, applies early-bird discount credit if applicable (days 1–10).
+7. Receipt is generated → panel resets to search (fast cashier mode).
+
+**Pending charge ordering rules:**
+- Tuition months shown oldest-first — server enforces oldest-first allocation regardless of UI selection.
+- Players with 2+ unpaid months: all months shown. Current month cannot be paid before older months are cleared.
+- Credit balance enrollments: shown in Caja with balance displayed as credit; next payment reduces credit first.
+
+**Architecture:**
+- `/caja` is a Server Component wrapper.
+- Search box is a **Client Component** (required for real-time debounced typing).
+- Payment posting reuses the existing Server Action from the billing module.
+- No new server logic needed — same allocation rules apply.
+
+**Receipt printing:**
+- **Phase 1:** Browser `window.print()` with `@media print` CSS styled for 80mm thermal paper. Works with any printer. Staff sets the receipt printer as the browser's default printer.
+- **Phase 2:** ESC/POS integration via QZ Tray (local bridge app on front desk PC) → true one-click thermal printing. Compatible printers: Star TSP100, Epson TM-T20 (~$2,500 MXN). No print dialog, direct to printer.
+
+**Receipt content (Phase 1):**
+- Academy name + logo
+- Date and time
+- Player name + enrollment campus
+- List of charges being paid (description, amount, period)
+- Payment method
+- Total paid
+- Remaining balance (if partial)
+- Receipt number (payment ID short code)
+
+**Access control:**
+- `front_desk` can access `/caja` but NOT `/reportes`, `/panel` (dashboard stats).
+- Payment voids are NOT available from Caja — only from the enrollment ledger by `director_admin`+.
 
 ### 9.5 Pending Payments List
 1. Query active enrollments with `balance > 0` from balance view.
@@ -584,4 +634,100 @@ TBD / questions:
 - Coach full roster: TBD — Javi to provide list of coach names per campus to seed `coaches` table.
 - Teams full roster: TBD — to be seeded once coach data is available.
 - Monthly charge generation delivery: automated Supabase Edge Function cron vs manual "Generar mensualidades" button. **Recommendation: manual button for Phase 1** so director retains control and can review before committing.
+
+## 16) Porto Monthly Report — Reporte de Acompañamiento
+
+### 16.1 Background
+Porto HQ requires a monthly report delivered in a fixed Excel format ("Reporte de Acompañamiento mensual"). This section specs out the app's `/reports/porto-mensual` page that generates all auto-computable fields and clearly marks the fields that require manual input.
+
+### 16.2 Report Tabs and Computation Strategy
+
+#### Tab 1: Datos Generales
+Fully auto-generatable from DB:
+- **Nuevas inscripciones** — COUNT enrollments where `created_at` falls in the report month
+- **Retiros** — COUNT enrollments where `ended_at` falls in the report month (status = ended or cancelled)
+- **Jugadores activos** — COUNT enrollments with status = `active` on last day of report month
+- **Varonil / Femenil breakdown** — JOIN `players.gender` on active enrollments
+- **Retrasos (deudores)** — COUNT active enrollments with `balance > 0` (pending charges > 0)
+- **Facturación pendiente (USD)** — SUM of pending balances across all active enrollments, converted at ~18 MXN/USD
+- **Motivos de retiro** — COUNT retiros grouped by `dropout_reason` for the report month
+
+Requires manual fill in the report UI:
+- **Eventos** — Event log (dates, description, attendance). No DB infrastructure in Phase 1.
+- **Mapa de Área** — Operational contacts and area info. Static/manual.
+
+#### Tab 2: Equipos de Competición
+Auto-generatable (once teams are seeded):
+- Team name (birth_year + gender + level + campus)
+- Head coach name (`coaches.name` via `teams.coach_id`)
+- Player count (active players on team)
+- Competition name (Phase 1: free text on team; Phase 3: `tournaments` entity)
+- **Standings** — Cannot be auto-generated. Manual input in Phase 1. Phase 3 candidate.
+
+#### Tab 3: Clases (Class Groups)
+Auto-generatable (once teams seeded with `type = 'class'` flag):
+- Group name
+- Coach name
+- Enrolled count
+
+#### Tab 4: Eventos
+Manual. Free-text log of academy events during the month (tournaments, clinics, tryouts, special training). No DB model in Phase 1. Staff fills directly in the report form.
+
+#### Tab 5: Mapa de Área
+Manual. Area-level contacts, partner clubs, geographic reach info. No DB model. Staff fills directly.
+
+### 16.3 Schema Changes Required
+
+#### a) `enrollments.has_scholarship boolean not null default false`
+- Scholarship players (`beca`) are enrolled but should NOT receive a `monthly_tuition` charge
+- They still count as active players in all enrollment counts
+- When generating monthly charges, skip enrollments where `has_scholarship = true`
+- Monthly charge generation must filter: `WHERE has_scholarship = false`
+- Staff can toggle this flag via enrollment edit form (director_admin only)
+
+#### b) Expand `dropout_reason` enum (or keep as text with validation)
+Porto's taxonomy has ~30 dropout categories vs. our current 7. Current schema uses `text` (not a PG enum), so expansion requires no migration — only:
+- Update the allowed-values list in the server action validation
+- Update the UI dropdown with Porto's full category list
+- Porto reasons include: economic, distance, schedule conflict, injury, attitude, level mismatch, family relocation, school conflict, returned to home country, aging out, etc.
+Full list to be provided by Porto. For now, keep the 7 existing codes and add a Phase 1.5 task to expand.
+
+#### c) `teams.type text not null default 'competition'`
+- Values: `'competition'` | `'class'`
+- Competition teams appear in the Equipos de Competición tab
+- Class groups appear in the Clases tab
+- Migration: add column with default, backfill if needed
+
+#### d) Currency handling
+- All internal amounts in MXN
+- Porto report outputs USD totals using a configurable exchange rate
+- Phase 1: rate stored as a constant (~18.0) in the report page, editable by staff at report generation time (input field)
+- Phase 2+: exchange rate table with date-stamped rates
+
+### 16.4 Route and UX
+- Route: `/reports/porto-mensual`
+- Access: director_admin and above only
+- Month selector at top (defaults to previous month)
+- Shows auto-computed fields as read-only with edit button for manual sections
+- "Exportar Excel" button (Phase 1: not implemented — show data on screen for manual copy or future CSV export)
+- Manual sections (Eventos, standings, Mapa de Área) displayed as text areas
+
+### 16.5 Coach Seeding
+Coach names are visible in Clases.csv from Porto template. These can be used to seed the `coaches` table:
+- Adrián Cárdenas, Carlos Tinajero, and others per campus
+- Seed migration TBD once full list is confirmed with Javi
+- Each coach linked to their team(s) via `teams.coach_id`
+
+### 16.6 Fidelización (Tryout Conversion)
+Porto template includes a fidelización (tryout → enrollment conversion) metric. **Do not track in this app.** Porto tracks this at the regional level from separate tryout records. Our app only sees enrolled players.
+
+### 16.7 Implementation Order
+1. Migration: `has_scholarship` flag on enrollments
+2. Migration: `teams.type` column
+3. Update monthly charge generation to skip scholarship enrollments
+4. Seed coaches from Clases.csv list (once list confirmed)
+5. Build `/reports/porto-mensual` page with Datos Generales tab (fully auto)
+6. Add Equipos/Clases tabs (team data display, manual standings)
+7. Add Eventos + Mapa de Área as free-text manual sections
+8. Add "Exportar" (CSV/Excel) — Phase 1.5
 - Products admin page route: `/admin/products` or integrated into existing navigation?
