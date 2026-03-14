@@ -18,13 +18,41 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const DROPOUT_REASON_LABELS: Record<string, string> = {
-  cost: "Costo / precio",
-  distance: "Distancia / logística",
-  injury: "Lesión o salud",
-  attitude: "Actitud / disciplina",
-  time: "Falta de tiempo",
-  level_change: "Cambio de nivel o campus",
-  other: "Otro"
+  coach_capability: "Falta de capacidad del entrenador",
+  exercise_difficulty: "Dificultad para realizar los ejercicios propuestos",
+  financial: "Financiero",
+  training_quality: "Falta de calidad en el entrenamiento",
+  school_disorganization: "Desorganización de la escuela",
+  facility_safety: "Falta de seguridad en el acceso a las instalaciones",
+  transport: "Incompatibilidad de transportes",
+  family_health: "Motivos de salud de familiares",
+  player_health: "Motivos de salud del alumno",
+  schedule_conflict: "Incompatibilidad de horarios",
+  coach_communication: "Fallos en la comunicación — comunicación del entrenador",
+  wants_competition: "Quiere pasar a un contexto de competición",
+  lack_of_information: "Falta de información",
+  pedagogy: "Falta de pedagogía",
+  moved_to_competition_club: "Cambio (club) a equipo de competición",
+  player_coach_relationship: "Relación entre el alumno y el entrenador",
+  unattractive_exercises: "Ejercicios poco atractivos",
+  moved_residence: "Cambio de residencia",
+  school_performance_punishment: "Castigo por mal rendimiento en el colegio",
+  home_behavior_punishment: "Castigo por mal comportamiento en casa",
+  personal: "Motivos personales",
+  distance: "Motivos de distancia",
+  parent_work: "Motivos de trabajo del padre o madre",
+  injury: "Baja por lesión",
+  dislikes_football: "No le gusta el fútbol",
+  lost_contact: "Se perdió contacto con los padres / no contestan y no asisten",
+  low_peer_attendance: "Por poca asistencia de compañeros",
+  changed_sport: "Cambio de deporte",
+  did_not_return: "Ya no regresó",
+  temporary_leave: "Baja por algún tiempo — piensa regresar",
+  moved_to_another_academy: "Cambio a otra academia de fútbol",
+  school_schedule_conflict: "Complicaciones con horarios de la escuela",
+  coach_change: "Por cambio de profes",
+  cold_weather: "Por el clima frío",
+  other: "Otros"
 };
 
 const inputClass = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm";
