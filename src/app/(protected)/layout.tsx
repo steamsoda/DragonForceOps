@@ -7,6 +7,7 @@ const DIRECTOR_NAV = [
   { href: "/dashboard", label: "Panel" },
   { href: "/pending", label: "Pendientes" },
   { href: "/reports/corte-diario", label: "Corte Diario" },
+  { href: "/reports/corte-semanal", label: "Corte Semanal" },
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
   { href: "/reports/porto-mensual", label: "Reporte Porto" },
   { href: "/admin/mensualidades", label: "Mensualidades" },

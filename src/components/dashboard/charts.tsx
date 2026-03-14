@@ -79,6 +79,60 @@ export function PaymentStatusPie({ upToDate, withBalance }: PaymentStatusPieProp
   );
 }
 
+// ── Weekly Payments Bar ────────────────────────────────────────────────────────
+
+type WeekBarEntry = {
+  label: string;
+  totalCobrado: number;
+};
+
+type WeeklyBarProps = {
+  data: WeekBarEntry[];
+};
+
+export function WeeklyBar({ data }: WeeklyBarProps) {
+  if (data.length === 0) {
+    return (
+      <article className="rounded-md border border-slate-200 bg-white p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cobros por semana</p>
+        <p className="mt-6 text-center text-sm text-slate-400">Sin cobros este mes.</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="rounded-md border border-slate-200 bg-white p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Cobros por semana</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: "#64748b" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: "#64748b" }}
+            tickFormatter={fmtK}
+            axisLine={false}
+            tickLine={false}
+            width={40}
+          />
+          <Tooltip
+            formatter={(v) =>
+              new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(v))
+            }
+            contentStyle={{ fontSize: 12 }}
+            cursor={{ fill: "#f1f5f9" }}
+          />
+          <Bar dataKey="totalCobrado" name="Total cobrado" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={72} />
+        </BarChart>
+      </ResponsiveContainer>
+    </article>
+  );
+}
+
 // ── Payments by Method Bar ─────────────────────────────────────────────────────
 
 type PaymentsByMethodBarProps = {

@@ -289,3 +289,113 @@ export async function getResumenMensualData(filters: {
       .sort((a, b) => b.total - a.total)
   };
 }
+
+// ── Corte Semanal ─────────────────────────────────────────────────────────────
+
+type WeekPaymentRow = {
+  amount: number;
+  method: string;
+  paid_at: string;
+};
+
+export type WeekByMethod = {
+  method: string;
+  methodLabel: string;
+  total: number;
+};
+
+export type WeekSummary = {
+  weekNum: number;
+  label: string; // e.g. "1–7 Mar"
+  startDay: number;
+  endDay: number;
+  totalCobrado: number;
+  paymentCount: number;
+  byMethod: WeekByMethod[];
+};
+
+export type CorteSemanalData = {
+  month: string;
+  monthLabel: string;
+  totalCobrado: number;
+  weeks: WeekSummary[];
+};
+
+const MONTH_NAMES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+function daysInMonth(year: number, monthIndex: number) {
+  return new Date(year, monthIndex + 1, 0).getUTCDate();
+}
+
+export async function getCorteSemanallData(filters: {
+  month?: string; // YYYY-MM
+  campusId?: string;
+}): Promise<CorteSemanalData> {
+  const supabase = await createClient();
+
+  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : currentMonthString();
+  const [yearRaw, monthRaw] = month.split("-");
+  const year = Number(yearRaw);
+  const monthIndex = Number(monthRaw) - 1;
+  const monthStart = new Date(Date.UTC(year, monthIndex, 1)).toISOString();
+  const nextMonthStart = new Date(Date.UTC(year, monthIndex + 1, 1)).toISOString();
+
+  let query = supabase
+    .from("payments")
+    .select("amount, method, paid_at, enrollments!inner(campus_id)")
+    .eq("status", "posted")
+    .gte("paid_at", monthStart)
+    .lt("paid_at", nextMonthStart);
+
+  if (filters.campusId) {
+    query = query.eq("enrollments.campus_id", filters.campusId);
+  }
+
+  const { data } = await query.returns<WeekPaymentRow[]>();
+  const payments = data ?? [];
+
+  const totalDays = daysInMonth(year, monthIndex);
+  const numWeeks = Math.ceil(totalDays / 7);
+  const monthShort = MONTH_NAMES_SHORT[monthIndex];
+
+  // Build week buckets
+  const weekBuckets: Map<number, WeekPaymentRow[]> = new Map();
+  for (let w = 1; w <= numWeeks; w++) weekBuckets.set(w, []);
+
+  payments.forEach((p) => {
+    const day = new Date(p.paid_at).getUTCDate();
+    const weekNum = Math.ceil(day / 7);
+    weekBuckets.get(weekNum)?.push(p);
+  });
+
+  const weeks: WeekSummary[] = Array.from(weekBuckets.entries()).map(([weekNum, rows]) => {
+    const startDay = (weekNum - 1) * 7 + 1;
+    const endDay = Math.min(weekNum * 7, totalDays);
+
+    const methodMap = new Map<string, number>();
+    rows.forEach((r) => {
+      methodMap.set(r.method, (methodMap.get(r.method) ?? 0) + r.amount);
+    });
+
+    const byMethod: WeekByMethod[] = Array.from(methodMap.entries())
+      .map(([method, total]) => ({ method, methodLabel: PAYMENT_METHOD_LABELS[method] ?? method, total }))
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      weekNum,
+      label: `${startDay}–${endDay} ${monthShort}`,
+      startDay,
+      endDay,
+      totalCobrado: rows.reduce((sum, r) => sum + r.amount, 0),
+      paymentCount: rows.length,
+      byMethod
+    };
+  });
+
+  return {
+    month,
+    monthLabel: `${monthShort} ${year}`,
+    totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
+    weeks
+  };
+}
