@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type AuditLogRow = {
   id: string;
-  created_at: string;
+  event_at: string;
   actor_email: string | null;
   action: string;
   table_name: string | null;
@@ -66,8 +66,8 @@ export default async function ActivityPage() {
 
   const { data: logs } = await supabase
     .from("audit_logs")
-    .select("id, created_at, actor_email, action, table_name, record_id, after_data")
-    .order("created_at", { ascending: false })
+    .select("id, event_at, actor_email, action, table_name, record_id, after_data")
+    .order("event_at", { ascending: false })
     .limit(200)
     .returns<AuditLogRow[]>();
 
@@ -95,7 +95,7 @@ export default async function ActivityPage() {
                 <div className="flex-1 min-w-0">
                   {detail && <p className="text-slate-700 truncate">{detail}</p>}
                   <p className="text-xs text-slate-400">
-                    {log.actor_email ?? "sistema"} · {fmtDateTime(log.created_at)}
+                    {log.actor_email ?? "sistema"} · {fmtDateTime(log.event_at)}
                   </p>
                 </div>
               </div>
