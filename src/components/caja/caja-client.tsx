@@ -5,9 +5,12 @@ import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
   postCajaPaymentAction,
+  getAdHocChargeTypesAction,
+  postCajaChargeAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
-  type CajaPaymentResult
+  type CajaPaymentResult,
+  type CajaChargeTypeOption
 } from "@/server/actions/caja";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -42,6 +45,8 @@ type View =
   | { tag: "loading-enrollment"; player: CajaPlayerResult }
   | { tag: "enrollment"; player: CajaPlayerResult; data: CajaEnrollmentData }
   | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData }
+  | { tag: "loading-charge-types"; player: CajaPlayerResult; data: CajaEnrollmentData }
+  | { tag: "adding-charge"; player: CajaPlayerResult; data: CajaEnrollmentData; chargeTypes: CajaChargeTypeOption[] }
   | { tag: "success"; receipt: Extract<CajaPaymentResult, { ok: true }> };
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -108,6 +113,27 @@ export function CajaClient() {
     });
   }
 
+  function goToAddCharge(player: CajaPlayerResult, data: CajaEnrollmentData) {
+    setError(null);
+    setView({ tag: "loading-charge-types", player, data });
+    startTransition(async () => {
+      const chargeTypes = await getAdHocChargeTypesAction();
+      setView({ tag: "adding-charge", player, data, chargeTypes });
+    });
+  }
+
+  function handleChargeSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
+    setError(null);
+    startTransition(async () => {
+      const result = await postCajaChargeAction(enrollmentId, formData);
+      if (!result.ok) {
+        setError(chargeErrorMessage(result.error));
+        return;
+      }
+      setView({ tag: "enrollment", player, data: result.updatedData });
+    });
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       {/* Search box — always visible unless in a later state */}
@@ -129,6 +155,13 @@ export function CajaClient() {
         </div>
       )}
 
+      {/* Loading charge types */}
+      {view.tag === "loading-charge-types" && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+          Cargando tipos de cargo…
+        </div>
+      )}
+
       {/* Enrollment panel */}
       {(view.tag === "enrollment" || view.tag === "paying") && (
         <EnrollmentPanel
@@ -136,8 +169,22 @@ export function CajaClient() {
           data={view.data}
           paying={view.tag === "paying"}
           onPay={goToPayment}
+          onAddCharge={goToAddCharge}
           onCancel={reset}
           onSubmit={handlePaymentSubmit}
+          isPending={isPending}
+          error={error}
+        />
+      )}
+
+      {/* Add charge panel */}
+      {view.tag === "adding-charge" && (
+        <AddChargePanel
+          player={view.player}
+          data={view.data}
+          chargeTypes={view.chargeTypes}
+          onCancel={() => setView({ tag: "enrollment", player: view.player, data: view.data })}
+          onSubmit={handleChargeSubmit}
           isPending={isPending}
           error={error}
         />
@@ -223,6 +270,7 @@ function EnrollmentPanel({
   data,
   paying,
   onPay,
+  onAddCharge,
   onCancel,
   onSubmit,
   isPending,
@@ -232,6 +280,7 @@ function EnrollmentPanel({
   data: CajaEnrollmentData;
   paying: boolean;
   onPay: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
+  onAddCharge: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
   onCancel: () => void;
   onSubmit: (enrollmentId: string, formData: FormData) => Promise<void>;
   isPending: boolean;
@@ -351,7 +400,14 @@ function EnrollmentPanel({
             onClick={() => onPay(player, data)}
             className="flex-1 rounded-xl bg-portoBlue py-3 text-sm font-semibold text-white hover:bg-portoDark"
           >
-            Cobrar mensualidad
+            Cobrar
+          </button>
+          <button
+            onClick={() => onAddCharge(player, data)}
+            disabled={isPending}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            + Cargo
           </button>
           <button
             onClick={onCancel}
@@ -454,6 +510,121 @@ function ReceiptPanel({
   );
 }
 
+// ── Add charge panel ──────────────────────────────────────────────────────────
+
+function AddChargePanel({
+  player,
+  data,
+  chargeTypes,
+  onCancel,
+  onSubmit,
+  isPending,
+  error
+}: {
+  player: CajaPlayerResult;
+  data: CajaEnrollmentData;
+  chargeTypes: CajaChargeTypeOption[];
+  onCancel: () => void;
+  onSubmit: (player: CajaPlayerResult, enrollmentId: string, formData: FormData) => void;
+  isPending: boolean;
+  error: string | null;
+}) {
+  const [selectedType, setSelectedType] = useState<CajaChargeTypeOption | null>(
+    chargeTypes[0] ?? null
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Player header */}
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
+        <div>
+          <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
+          <p className="text-sm text-slate-500">{data.campusName}</p>
+        </div>
+        <p className="text-xs text-slate-400">Nuevo cargo</p>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(player, data.enrollmentId, new FormData(e.currentTarget));
+        }}
+        className="space-y-4 rounded-xl border border-amber-300 bg-white p-5"
+      >
+        <p className="font-medium text-slate-800">Agregar cargo adicional</p>
+
+        {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+
+        {chargeTypes.length === 0 ? (
+          <p className="text-sm text-slate-500">No hay tipos de cargo disponibles.</p>
+        ) : (
+          <>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700">Tipo de cargo</span>
+              <select
+                name="chargeTypeId"
+                required
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                onChange={(e) => {
+                  const found = chargeTypes.find((ct) => ct.id === e.target.value) ?? null;
+                  setSelectedType(found);
+                }}
+              >
+                {chargeTypes.map((ct) => (
+                  <option key={ct.id} value={ct.id}>
+                    {ct.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700">Descripción</span>
+              <input
+                key={selectedType?.id}
+                type="text"
+                name="description"
+                required
+                defaultValue={selectedType?.name ?? ""}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+              />
+            </label>
+
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700">Monto</span>
+              <input
+                type="number"
+                name="amount"
+                step="0.01"
+                min="0.01"
+                required
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+              />
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {isPending ? "Guardando…" : "Crear cargo"}
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
 // ── Error messages ────────────────────────────────────────────────────────────
 
 function errorMessage(code: string): string {
@@ -464,6 +635,18 @@ function errorMessage(code: string): string {
     enrollment_inactive: "Esta inscripción está inactiva.",
     payment_insert_failed: "Error al registrar el pago. Intenta de nuevo.",
     allocation_insert_failed: "Error al aplicar el pago. Verifica con el administrador."
+  };
+  return messages[code] ?? "Error desconocido. Intenta de nuevo.";
+}
+
+function chargeErrorMessage(code: string): string {
+  const messages: Record<string, string> = {
+    invalid_form: "Verifica el tipo, descripción y monto del cargo.",
+    unauthenticated: "Sesión expirada. Por favor inicia sesión de nuevo.",
+    enrollment_not_found: "No se encontró la inscripción.",
+    enrollment_inactive: "Esta inscripción está inactiva.",
+    charge_insert_failed: "Error al crear el cargo. Intenta de nuevo.",
+    reload_failed: "Cargo creado pero no se pudo recargar. Busca al alumno de nuevo."
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
 }

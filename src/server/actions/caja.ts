@@ -39,6 +39,98 @@ export type CajaPaymentResult =
   | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string }
   | { ok: false; error: string };
 
+// ── Ad-hoc charge types ───────────────────────────────────────────────────────
+
+const AD_HOC_CHARGE_TYPE_CODES = ["uniform_training", "uniform_game", "tournament", "cup", "trip", "event"];
+
+export type CajaChargeTypeOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type CajaChargeResult =
+  | { ok: true; updatedData: CajaEnrollmentData }
+  | { ok: false; error: string };
+
+export async function getAdHocChargeTypesAction(): Promise<CajaChargeTypeOption[]> {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("charge_types")
+    .select("id, code, name")
+    .in("code", AD_HOC_CHARGE_TYPE_CODES)
+    .eq("is_active", true)
+    .order("name")
+    .returns<CajaChargeTypeOption[]>();
+
+  return data ?? [];
+}
+
+export async function postCajaChargeAction(
+  enrollmentId: string,
+  formData: FormData
+): Promise<CajaChargeResult> {
+  const chargeTypeId = formData.get("chargeTypeId")?.toString().trim() ?? "";
+  const description = formData.get("description")?.toString().trim() ?? "";
+  const amountRaw = formData.get("amount")?.toString() ?? "";
+  const amount = parseFloat(amountRaw);
+
+  if (!chargeTypeId || !description || isNaN(amount) || amount <= 0) {
+    return { ok: false, error: "invalid_form" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, status, pricing_plans(currency)")
+    .eq("id", enrollmentId)
+    .maybeSingle()
+    .returns<{ id: string; status: string; pricing_plans: { currency: string } | null } | null>();
+
+  if (!enrollment) return { ok: false, error: "enrollment_not_found" };
+  if (enrollment.status === "ended" || enrollment.status === "cancelled") {
+    return { ok: false, error: "enrollment_inactive" };
+  }
+
+  const currency = enrollment.pricing_plans?.currency ?? "MXN";
+
+  const { error: chargeError } = await supabase.from("charges").insert({
+    enrollment_id: enrollmentId,
+    charge_type_id: chargeTypeId,
+    description,
+    amount,
+    currency,
+    status: "pending",
+    created_by: user.id
+  });
+
+  if (chargeError) return { ok: false, error: "charge_insert_failed" };
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "charge.created",
+    tableName: "charges",
+    afterData: { enrollment_id: enrollmentId, description, amount, source: "caja" }
+  });
+
+  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+  if (!updatedData) return { ok: false, error: "reload_failed" };
+
+  return { ok: true, updatedData };
+}
+
 // ── Player search — single RPC call ───────────────────────────────────────────
 
 type CajaSearchRow = {
