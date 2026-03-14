@@ -4,6 +4,7 @@ import { getDashboardData } from "@/lib/queries/dashboard";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendCard } from "@/components/dashboard/trend-card";
+import { PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -12,29 +13,6 @@ function formatCurrency(value: number) {
     maximumFractionDigits: 2
   }).format(value);
 }
-
-const kpiCardMeta = [
-  {
-    key: "activeEnrollments",
-    label: "Inscripciones activas",
-    description: "Registros de membresia activos actualmente"
-  },
-  {
-    key: "pendingBalance",
-    label: "Saldo pendiente",
-    description: "Saldo positivo total en las inscripciones"
-  },
-  {
-    key: "paymentsToday",
-    label: "Pagos de hoy",
-    description: "Pagos registrados desde las 00:00 del servidor"
-  },
-  {
-    key: "paymentsThisMonth",
-    label: "Pagos del mes",
-    description: "Pagos registrados en el mes seleccionado"
-  }
-] as const;
 
 type SearchParams = Promise<{
   campus?: string;
@@ -54,6 +32,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     })
   ]);
 
+  const upToDate = dashboard.activeEnrollments - dashboard.enrollmentsWithBalance;
+
   return (
     <PageShell title="Panel" subtitle="Resumen operativo de Fase 1">
       <div className="space-y-4">
@@ -62,18 +42,57 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           selectedCampusId={selectedCampusId}
           selectedMonth={dashboard.selectedMonth}
         />
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {kpiCardMeta.map((card) => {
-            const value =
-              card.key === "activeEnrollments"
-                ? dashboard.activeEnrollments.toLocaleString("es-MX")
-                : formatCurrency(dashboard[card.key]);
 
-            return (
-              <KpiCard key={card.key} label={card.label} value={value} description={card.description} />
-            );
-          })}
+        {/* Row 1: Core KPIs */}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            label="Inscripciones activas"
+            value={dashboard.activeEnrollments.toLocaleString("es-MX")}
+            description="Membresías activas actualmente"
+          />
+          <KpiCard
+            label="Saldo pendiente"
+            value={formatCurrency(dashboard.pendingBalance)}
+            description="Adeudo total en inscripciones activas"
+          />
+          <KpiCard
+            label="Pagos de hoy"
+            value={formatCurrency(dashboard.paymentsToday)}
+            description="Cobros registrados desde las 00:00 UTC"
+          />
+          <KpiCard
+            label="Pagos del mes"
+            value={formatCurrency(dashboard.paymentsThisMonth)}
+            description="Total cobrado en el mes seleccionado"
+          />
         </div>
+
+        {/* Row 2: Movement KPIs */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <KpiCard
+            label="Alumnos con saldo"
+            value={dashboard.enrollmentsWithBalance.toLocaleString("es-MX")}
+            description="Inscripciones activas con adeudo pendiente"
+          />
+          <KpiCard
+            label="Nuevas inscripciones"
+            value={dashboard.newEnrollmentsThisMonth.toLocaleString("es-MX")}
+            description="Inscripciones creadas en el mes seleccionado"
+          />
+          <KpiCard
+            label="Bajas del mes"
+            value={dashboard.bajasThisMonth.toLocaleString("es-MX")}
+            description="Inscripciones dadas de baja en el mes seleccionado"
+          />
+        </div>
+
+        {/* Row 3: Charts */}
+        <div className="grid gap-3 md:grid-cols-2">
+          <PaymentStatusPie upToDate={upToDate} withBalance={dashboard.enrollmentsWithBalance} />
+          <PaymentsByMethodBar data={dashboard.paymentsByMethod} />
+        </div>
+
+        {/* Row 4: Trend cards */}
         <div className="grid gap-3 md:grid-cols-2">
           <TrendCard
             label="Tendencia de pagos"
@@ -92,6 +111,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             description="Cargos no anulados creados en el mes seleccionado contra el mes anterior."
           />
         </div>
+
         <p className="text-sm text-slate-700">
           Los indicadores se calculan con datos reales y filtros por campus/mes.
         </p>

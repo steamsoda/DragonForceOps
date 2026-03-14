@@ -4,19 +4,42 @@ type SumRow = {
   amount: number | string | null;
 };
 
+type PaymentWithMethodRow = {
+  amount: number | string | null;
+  method: string;
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: "Efectivo",
+  transfer: "Transferencia",
+  card: "Tarjeta",
+  stripe_360player: "360Player/Stripe",
+  other: "Otro"
+};
+
 export type DashboardFilters = {
   campusId?: string;
   month?: string;
 };
 
+export type PaymentByMethod = {
+  method: string;
+  methodLabel: string;
+  total: number;
+};
+
 export type DashboardData = {
   activeEnrollments: number;
+  enrollmentsWithBalance: number;
   pendingBalance: number;
   paymentsToday: number;
   paymentsThisMonth: number;
   monthlyPaymentsPrevious: number;
   monthlyChargesThisMonth: number;
   monthlyChargesPrevious: number;
+  newEnrollmentsThisMonth: number;
+  bajasThisMonth: number;
+  paymentsByMethod: PaymentByMethod[];
   selectedMonth: string;
 };
 
@@ -27,6 +50,8 @@ type MonthRange = {
   previousMonthStartIso: string;
   todayStartIso: string;
   tomorrowStartIso: string;
+  monthStartDateStr: string;
+  nextMonthStartDateStr: string;
 };
 
 function toNumber(value: number | string | null | undefined) {
@@ -53,13 +78,18 @@ function resolveMonthRange(monthInput?: string): MonthRange {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
+  const nextYear = nextMonthStart.getFullYear();
+  const nextMonth = String(nextMonthStart.getMonth() + 1).padStart(2, "0");
+
   return {
     selectedMonth,
     monthStartIso: monthStart.toISOString(),
     nextMonthStartIso: nextMonthStart.toISOString(),
     previousMonthStartIso: previousMonthStart.toISOString(),
     todayStartIso: todayStart.toISOString(),
-    tomorrowStartIso: tomorrowStart.toISOString()
+    tomorrowStartIso: tomorrowStart.toISOString(),
+    monthStartDateStr: `${yearRaw}-${monthRaw}-01`,
+    nextMonthStartDateStr: `${nextYear}-${nextMonth}-01`
   };
 }
 
@@ -86,7 +116,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
 
   let paymentsCurrentMonthQuery = supabase
     .from("payments")
-    .select("amount, enrollments!inner(campus_id)")
+    .select("amount, method, enrollments!inner(campus_id)")
     .eq("status", "posted")
     .gte("paid_at", monthRange.monthStartIso)
     .lt("paid_at", monthRange.nextMonthStartIso);
@@ -112,12 +142,27 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     .gte("created_at", monthRange.previousMonthStartIso)
     .lt("created_at", monthRange.monthStartIso);
 
+  let newEnrollmentsQuery = supabase
+    .from("enrollments")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", monthRange.monthStartIso)
+    .lt("created_at", monthRange.nextMonthStartIso);
+
+  let bajasQuery = supabase
+    .from("enrollments")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["ended", "cancelled"])
+    .gte("end_date", monthRange.monthStartDateStr)
+    .lt("end_date", monthRange.nextMonthStartDateStr);
+
   if (filters.campusId) {
     paymentsTodayQuery = paymentsTodayQuery.eq("enrollments.campus_id", filters.campusId);
     paymentsCurrentMonthQuery = paymentsCurrentMonthQuery.eq("enrollments.campus_id", filters.campusId);
     paymentsPreviousMonthQuery = paymentsPreviousMonthQuery.eq("enrollments.campus_id", filters.campusId);
     chargesCurrentMonthQuery = chargesCurrentMonthQuery.eq("enrollments.campus_id", filters.campusId);
     chargesPreviousMonthQuery = chargesPreviousMonthQuery.eq("enrollments.campus_id", filters.campusId);
+    newEnrollmentsQuery = newEnrollmentsQuery.eq("campus_id", filters.campusId);
+    bajasQuery = bajasQuery.eq("campus_id", filters.campusId);
   }
 
   const [
@@ -127,20 +172,25 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     paymentsCurrentMonthResult,
     paymentsPreviousMonthResult,
     chargesCurrentMonthResult,
-    chargesPreviousMonthResult
+    chargesPreviousMonthResult,
+    newEnrollmentsResult,
+    bajasResult
   ] = await Promise.all([
     activeEnrollmentCountQuery,
     activeEnrollmentIdsQuery.returns<{ id: string }[]>(),
     paymentsTodayQuery.returns<SumRow[]>(),
-    paymentsCurrentMonthQuery.returns<SumRow[]>(),
+    paymentsCurrentMonthQuery.returns<PaymentWithMethodRow[]>(),
     paymentsPreviousMonthQuery.returns<SumRow[]>(),
     chargesCurrentMonthQuery.returns<SumRow[]>(),
-    chargesPreviousMonthQuery.returns<SumRow[]>()
+    chargesPreviousMonthQuery.returns<SumRow[]>(),
+    newEnrollmentsQuery,
+    bajasQuery
   ]);
 
   const activeEnrollmentIds = (activeEnrollmentIdsResult.data ?? []).map((row) => row.id);
 
   let pendingBalance = 0;
+  let enrollmentsWithBalance = 0;
   if (activeEnrollmentIds.length > 0) {
     const { data: balances } = await supabase
       .from("v_enrollment_balances")
@@ -149,17 +199,33 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
       .in("enrollment_id", activeEnrollmentIds)
       .returns<{ balance: number | string | null }[]>();
 
-    pendingBalance = (balances ?? []).reduce((sum, row) => sum + toNumber(row.balance), 0);
+    const balanceRows = balances ?? [];
+    pendingBalance = balanceRows.reduce((sum, row) => sum + toNumber(row.balance), 0);
+    enrollmentsWithBalance = balanceRows.length;
   }
+
+  const currentMonthPayments = paymentsCurrentMonthResult.data ?? [];
+  const methodMap = new Map<string, { methodLabel: string; total: number }>();
+  currentMonthPayments.forEach((p) => {
+    const prev = methodMap.get(p.method) ?? { methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method, total: 0 };
+    methodMap.set(p.method, { methodLabel: prev.methodLabel, total: prev.total + toNumber(p.amount) });
+  });
+  const paymentsByMethod: PaymentByMethod[] = Array.from(methodMap.entries())
+    .map(([method, { methodLabel, total }]) => ({ method, methodLabel, total }))
+    .sort((a, b) => b.total - a.total);
 
   return {
     activeEnrollments: activeEnrollmentCountResult.count ?? 0,
+    enrollmentsWithBalance,
     pendingBalance,
     paymentsToday: (paymentsTodayResult.data ?? []).reduce((sum, row) => sum + toNumber(row.amount), 0),
-    paymentsThisMonth: (paymentsCurrentMonthResult.data ?? []).reduce((sum, row) => sum + toNumber(row.amount), 0),
+    paymentsThisMonth: currentMonthPayments.reduce((sum, row) => sum + toNumber(row.amount), 0),
     monthlyPaymentsPrevious: (paymentsPreviousMonthResult.data ?? []).reduce((sum, row) => sum + toNumber(row.amount), 0),
     monthlyChargesThisMonth: (chargesCurrentMonthResult.data ?? []).reduce((sum, row) => sum + toNumber(row.amount), 0),
     monthlyChargesPrevious: (chargesPreviousMonthResult.data ?? []).reduce((sum, row) => sum + toNumber(row.amount), 0),
+    newEnrollmentsThisMonth: newEnrollmentsResult.count ?? 0,
+    bajasThisMonth: bajasResult.count ?? 0,
+    paymentsByMethod,
     selectedMonth: monthRange.selectedMonth
   };
 }
