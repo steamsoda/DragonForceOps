@@ -84,6 +84,21 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           ))}
         </div>
 
+        {/* Charge-type breakdown */}
+        {data.byChargeType.length > 0 && (
+          <div className="rounded-md border border-slate-200 p-4">
+            <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Por tipo de cargo</h2>
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+              {data.byChargeType.map((ct) => (
+                <div key={ct.typeCode} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                  <span className="text-slate-600">{ct.typeName}</span>
+                  <span className="font-medium text-slate-900">{fmt(ct.total)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Payments table */}
         {data.payments.length === 0 ? (
           <p className="text-sm text-slate-500 text-center py-6">Sin cobros registrados para esta fecha.</p>

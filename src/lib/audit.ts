@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type AuditEntry = {
   actorUserId: string;
+  actorEmail?: string | null;
   action: string;
   tableName: string;
   recordId?: string | null;
@@ -16,6 +17,7 @@ export async function writeAuditLog(supabase: SupabaseClient, entry: AuditEntry)
   try {
     await supabase.from("audit_logs").insert({
       actor_user_id: entry.actorUserId,
+      actor_email: entry.actorEmail ?? null,
       action: entry.action,
       table_name: entry.tableName,
       record_id: entry.recordId ?? null,

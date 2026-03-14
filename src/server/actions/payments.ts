@@ -100,6 +100,7 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     action: "payment.posted",
     tableName: "payments",
     recordId: paymentRow.id,

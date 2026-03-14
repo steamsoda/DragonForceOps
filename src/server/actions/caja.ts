@@ -177,6 +177,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     action: "payment.posted",
     tableName: "payments",
     recordId: paymentRow.id,

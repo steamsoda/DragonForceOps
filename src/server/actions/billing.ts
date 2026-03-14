@@ -82,6 +82,7 @@ export async function bulkChargeTeamAction(formData: FormData) {
 
   await writeAuditLog(supabase, {
     actorUserId: user!.id,
+    actorEmail: user?.email ?? null,
     action: "charges.bulk_created",
     tableName: "charges",
     afterData: { team_id: teamId, charge_type_id: chargeTypeId, amount, description, count: charges.length }

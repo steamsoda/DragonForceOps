@@ -100,6 +100,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     action: "enrollment.created",
     tableName: "enrollments",
     recordId: enrollmentId,
@@ -175,6 +176,7 @@ export async function updateEnrollmentAction(
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     action,
     tableName: "enrollments",
     recordId: enrollmentId,

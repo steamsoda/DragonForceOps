@@ -74,10 +74,17 @@ export type CorteByMethod = {
   total: number;
 };
 
+export type CorteByChargeType = {
+  typeCode: string;
+  typeName: string;
+  total: number;
+};
+
 export type CorteDiarioData = {
   date: string;
   totalCobrado: number;
   byMethod: CorteByMethod[];
+  byChargeType: CorteByChargeType[];
   payments: CortePaymentRow[];
 };
 
@@ -122,10 +129,34 @@ export async function getCorteDiarioData(filters: {
     }))
     .sort((a, b) => b.total - a.total);
 
+  // Charge-type breakdown via payment_allocations
+  const paymentIds = payments.map((p) => p.id);
+  let byChargeType: CorteByChargeType[] = [];
+  if (paymentIds.length > 0) {
+    const { data: allocData } = await supabase
+      .from("payment_allocations")
+      .select("amount, charges(charge_types(code, name))")
+      .in("payment_id", paymentIds)
+      .returns<{ amount: number; charges: { charge_types: { code: string | null; name: string | null } | null } | null }[]>();
+
+    const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
+    (allocData ?? []).forEach((alloc) => {
+      const code = alloc.charges?.charge_types?.code ?? "other";
+      const name = alloc.charges?.charge_types?.name ?? "Otro";
+      const prev = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
+      byChargeTypeMap.set(code, { typeName: name, total: prev.total + alloc.amount });
+    });
+
+    byChargeType = Array.from(byChargeTypeMap.entries())
+      .map(([typeCode, { typeName, total }]) => ({ typeCode, typeName, total }))
+      .sort((a, b) => b.total - a.total);
+  }
+
   return {
     date: dateStr,
     totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
     byMethod,
+    byChargeType,
     payments: payments.map((p) => ({
       id: p.id,
       enrollmentId: p.enrollment_id,

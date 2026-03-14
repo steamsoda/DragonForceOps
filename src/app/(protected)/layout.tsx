@@ -10,7 +10,8 @@ const DIRECTOR_NAV = [
   { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
   { href: "/reports/porto-mensual", label: "Reporte Porto" },
   { href: "/admin/mensualidades", label: "Mensualidades" },
-  { href: "/admin/cargos-equipo", label: "Cargo Equipo" }
+  { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
+  { href: "/activity", label: "Actividad" }
 ];
 
 const ALL_STAFF_NAV = [

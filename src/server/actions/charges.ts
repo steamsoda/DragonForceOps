@@ -44,6 +44,7 @@ export async function createChargeAction(enrollmentId: string, formData: FormDat
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
+    actorEmail: user.email ?? null,
     action: "charge.created",
     tableName: "charges",
     afterData: {
