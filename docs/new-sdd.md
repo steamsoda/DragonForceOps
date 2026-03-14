@@ -390,6 +390,38 @@ An admin-only page (`director_admin` role) for managing the charge catalog and b
   - `balance`
 - Optional future optimization: cached `enrollment_balances` table maintained by triggers/jobs. **TBD**.
 
+### 6.7 Porto Report — Continuous Log Tables
+- `academy_events`
+  - `id uuid pk`
+  - `title text not null`
+  - `description text null`
+  - `event_date date not null`
+  - `actual_date date null`
+  - `campus_id uuid null` references `campuses(id)`
+  - `is_done boolean not null default false`
+  - `participant_count int null`
+  - `cost numeric(12,2) null`
+  - `evaluation smallint null` (1–5)
+  - `created_by uuid` references `auth.users(id)`
+  - `created_at timestamptz default now()`
+
+- `area_map_entries`
+  - `id uuid pk`
+  - `entry_date date not null`
+  - `type_code text not null` — R, SM, C, NC, PNC, AS, OM, M
+  - `topic text not null` — from Porto's predefined topic list
+  - `description text not null`
+  - `root_cause text null`
+  - `corrective_action text null` — acción correctiva (immediate fix)
+  - `correction_action text null` — acción de corrección (systemic fix)
+  - `assigned_to text null` — free text (Phase 2: link to staff table)
+  - `deadline_days int null`
+  - `closure_date date null`
+  - `effectiveness text null` — `E`, `NE`, or `SP`
+  - `campus_id uuid null` references `campuses(id)`
+  - `created_by uuid` references `auth.users(id)`
+  - `created_at timestamptz default now()`
+
 ## 7) Indexing Plan
 - Players:
   - `players(last_name, first_name)` for staff search.
@@ -671,10 +703,37 @@ Auto-generatable (once teams seeded with `type = 'class'` flag):
 - Enrolled count
 
 #### Tab 4: Eventos
-Manual. Free-text log of academy events during the month (tournaments, clinics, tryouts, special training). No DB model in Phase 1. Staff fills directly in the report form.
+**Continuous event log** — staff log events throughout the month as they happen. Porto report reads all events where `event_date` falls in the selected month. No more end-of-month scramble.
+
+Each event entry captures:
+- Title, description, proposed date, actual date, campus (optional), whether it occurred (`is_done`), participant count, optional charge amount, satisfaction evaluation (1–5)
+
+DB table: `academy_events` (see Section 6.7)
 
 #### Tab 5: Mapa de Área
-Manual. Area-level contacts, partner clubs, geographic reach info. No DB model. Staff fills directly.
+**Continuous quality/incident log** — staff log incidents, improvements, and observations throughout the month using Porto's structured format. Porto report shows all entries for the selected month.
+
+This is a quality management log (similar to an internal ticketing system), not a free-text field. Each entry captures the full lifecycle: logged → actioned → closed → marked effective/not.
+
+Entry fields:
+- `entry_date`, `type_code` (R/SM/C/NC/PNC/AS/OM/M), `topic` (from Porto's predefined list), `description`, `root_cause`, `corrective_action`, `correction_action`, `assigned_to` (free text), `deadline_days`, `closure_date`, `effectiveness` (E/NE/SP)
+
+**Type codes (Porto Directrices):**
+- `R` — Reclamación (complaint from parent/player)
+- `SM` — Sugerencia de Mejoría (improvement suggestion)
+- `C` — Constatación (verified defect/issue)
+- `NC` — No Conforme (non-conformance, operational risk)
+- `PNC` — Posible No Conforme (potential non-conformance)
+- `AS` — Auditoría (audit finding, internal or external)
+- `OM` — Orden de Mejora
+- `M` — Mantenimiento (maintenance)
+
+**Topics (predefined, from Porto Directrices):**
+Material Deportivo, Decoración y Publicidad, Kit Alumnos, Kit Entrenadores, Nutrición, Psicología, Fisioterapia, Secretaria, Entrenadores, Padres de Familia y Alumnos, Torneos y Equipos de Competencia, Instalaciones, Auditoría Externa, Auditoría Interna, Organización de la Escuela, Hardware, Software
+
+**Effectiveness values:** `E` (Eficaz), `NE` (No Eficaz), `SP` (Sin efecto)
+
+DB table: `area_map_entries` (see Section 6.7)
 
 ### 16.3 Schema Changes Required
 
@@ -712,6 +771,9 @@ Full list to be provided by Porto. For now, keep the 7 existing codes and add a 
 - "Exportar Excel" button (Phase 1: not implemented — show data on screen for manual copy or future CSV export)
 - Manual sections (Eventos, standings, Mapa de Área) displayed as text areas
 
+### 16.4.1 Route Update
+The porto-mensual page renders Eventos and Mapa de Área as inline CRUD panels (not text areas). Staff can add, view, and close entries directly from the report page for the selected month. No separate route needed.
+
 ### 16.5 Coach Seeding
 Coach names are visible in Clases.csv from Porto template. These can be used to seed the `coaches` table:
 - Adrián Cárdenas, Carlos Tinajero, and others per campus
@@ -731,3 +793,67 @@ Porto template includes a fidelización (tryout → enrollment conversion) metri
 7. Add Eventos + Mapa de Área as free-text manual sections
 8. Add "Exportar" (CSV/Excel) — Phase 1.5
 - Products admin page route: `/admin/products` or integrated into existing navigation?
+
+## 17) Admin Feedback — Feature Backlog (2026-03-13 Demo)
+
+Features requested by operations staff after demo session. Organized by phase.
+
+### 17.1 Phase 1B Enhancements
+
+#### Activity Log UI (`/activity`)
+- Director/superadmin-only route that surfaces `audit_logs` as a human-readable feed.
+- Format: "User X posted a payment of $600 for [Player Name] · Linda Vista · 2 min ago"
+- Filterable by date, actor, action type, campus.
+- No new DB table needed — `audit_logs` already exists.
+
+#### Corte Diario — Summary by Charge Type
+- Current corte lists individual payments. Admins want a summary row: "Mensualidades: $15,000 · Inscripciones: $5,400 · Uniformes: $1,200"
+- Aggregate totals grouped by `charge_types.code` for the session/day.
+- UI change only, no schema change.
+
+#### Weekly Corte
+- Aggregate version of Corte Diario spanning a full week (Mon–Sun).
+- Same data model, different date filter.
+- Route TBD (extend `/reports/corte` with a toggle, or separate `/reports/corte-semanal`).
+
+#### Caja Enhancements
+- **More player/enrollment context visible in Caja** — details TBD (Javi to specify).
+- **Ad-hoc item charges from Caja** — staff can charge a player for a specific item (uniform, league fee, etc.) directly from the Caja panel, without navigating to the enrollment ledger. New charge flow alongside the existing payment flow.
+
+### 17.2 Phase 2 Features
+
+#### Product Catalog + Uniform Delivery Tracking
+- Expand charge types into a richer product catalog with delivery tracking.
+- New table `player_uniform_deliveries`:
+  - `player_id`, `product_type` (`training`, `game`, `goalkeeper`), `ordered_at date null`, `received_at date null`, `size text null`, `notes text null`, `created_by`, `created_at`
+- Enables: quickly see which players have/have not received their uniforms per type.
+- UI: player card shows uniform status badges (training kit ✓, game kit ✗, etc.)
+- Goalkeeper uniform flagged as a distinct product type.
+
+#### Uniform Stock Control (Light Inventory Module)
+- Track stock levels of uniforms by type and size.
+- `uniform_stock` table: `product_type`, `size`, `quantity_on_hand`, `quantity_on_order`, updated manually by staff.
+- Dashboard widget: "Training kits on hand: 12 · Game kits needed this week: 8"
+- No barcode/SKU complexity in Phase 2 — purely count-based.
+- Pending orders view: "Order X more training kits in size S by [date]"
+
+#### Player Documents / File Uploads
+- Upload and store player documents (photo ID, passport, birth certificate, medical forms).
+- Supabase Storage bucket: `player-documents`, path: `/{player_id}/{document_type}/{filename}`
+- New table `player_documents`: `player_id`, `document_type text`, `storage_path text`, `uploaded_by`, `uploaded_at`
+- Access: `director_admin` and `superadmin` only (RLS on both the table and Storage bucket policy).
+- UI: document section on player detail page with upload + list + delete.
+
+#### Jersey Number Assignment
+- Business rule: players born in even years get even numbers; odd years get odd numbers. Full ruleset TBD.
+- **Do not design schema until full rules are confirmed.** Javi to clarify with coaching staff.
+- Likely model: `team_jersey_numbers` (team_id, enrollment_id, number int) with uniqueness enforced per team.
+- Phase 2 task: define rules → design schema → build auto-suggest on enrollment.
+
+### 17.3 Phase 3
+
+#### Stripe Integration
+- Accept card payments via Stripe directly in the app.
+- Payment method `stripe` added to `payments.method`.
+- Stripe webhook ingestion, reconciliation queue, refund handling.
+- See Section 12 for broader integration design notes.
