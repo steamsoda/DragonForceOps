@@ -5,11 +5,13 @@ import {
   createAreaMapEntryAction,
   closeAreaMapEntryAction,
   deleteAreaMapEntryAction,
-  AREA_MAP_TYPE_CODES,
-  AREA_MAP_TOPICS,
-  EFFECTIVENESS_LABELS,
   type AreaMapEntry
 } from "@/server/actions/area-map";
+import {
+  AREA_MAP_TYPE_CODES,
+  AREA_MAP_TOPICS,
+  EFFECTIVENESS_LABELS
+} from "@/lib/area-map-constants";
 
 type Campus = { id: string; name: string };
 
