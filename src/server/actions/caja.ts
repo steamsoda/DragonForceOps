@@ -39,48 +39,89 @@ export type CajaPaymentResult =
   | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string }
   | { ok: false; error: string };
 
-// ── Ad-hoc charge types ───────────────────────────────────────────────────────
+// ── Products for Caja POS grid ────────────────────────────────────────────────
 
-const AD_HOC_CHARGE_TYPE_CODES = ["uniform_training", "uniform_game", "tournament", "cup", "trip", "event"];
-
-export type CajaChargeTypeOption = {
+export type CajaProduct = {
   id: string;
-  code: string;
   name: string;
+  categorySlug: string;
+  categoryName: string;
+  chargeTypeId: string;
+  defaultAmount: number | null;
+  hasSizes: boolean;
+  sortOrder: number;
+};
+
+export type CajaProductCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  products: CajaProduct[];
 };
 
 export type CajaChargeResult =
   | { ok: true; updatedData: CajaEnrollmentData }
   | { ok: false; error: string };
 
-export async function getAdHocChargeTypesAction(): Promise<CajaChargeTypeOption[]> {
+export async function getProductsForCajaAction(): Promise<CajaProductCategory[]> {
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data } = await supabase
-    .from("charge_types")
-    .select("id, code, name")
-    .in("code", AD_HOC_CHARGE_TYPE_CODES)
-    .eq("is_active", true)
-    .order("name")
-    .returns<CajaChargeTypeOption[]>();
+  type ProductRow = {
+    id: string;
+    name: string;
+    charge_type_id: string;
+    default_amount: number | null;
+    has_sizes: boolean;
+    sort_order: number;
+    product_categories: { id: string; name: string; slug: string; sort_order: number } | null;
+  };
 
-  return data ?? [];
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, charge_type_id, default_amount, has_sizes, sort_order, product_categories(id, name, slug, sort_order)")
+    .eq("is_active", true)
+    .order("sort_order")
+    .returns<ProductRow[]>();
+
+  if (!data) return [];
+
+  const categoryMap = new Map<string, CajaProductCategory>();
+  for (const row of data) {
+    if (!row.product_categories) continue;
+    const cat = row.product_categories;
+    if (!categoryMap.has(cat.slug)) {
+      categoryMap.set(cat.slug, { id: cat.id, name: cat.name, slug: cat.slug, sortOrder: cat.sort_order, products: [] });
+    }
+    categoryMap.get(cat.slug)!.products.push({
+      id: row.id,
+      name: row.name,
+      categorySlug: cat.slug,
+      categoryName: cat.name,
+      chargeTypeId: row.charge_type_id,
+      defaultAmount: row.default_amount,
+      hasSizes: row.has_sizes,
+      sortOrder: row.sort_order
+    });
+  }
+
+  return Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function postCajaChargeAction(
   enrollmentId: string,
   formData: FormData
 ): Promise<CajaChargeResult> {
-  const chargeTypeId = formData.get("chargeTypeId")?.toString().trim() ?? "";
-  const description = formData.get("description")?.toString().trim() ?? "";
+  const productId = formData.get("productId")?.toString().trim() ?? "";
   const amountRaw = formData.get("amount")?.toString() ?? "";
   const amount = parseFloat(amountRaw);
+  const size = formData.get("size")?.toString().trim() || null;
 
-  if (!chargeTypeId || !description || isNaN(amount) || amount <= 0) {
+  if (!productId || isNaN(amount) || amount <= 0) {
     return { ok: false, error: "invalid_form" };
   }
 
@@ -90,6 +131,17 @@ export async function postCajaChargeAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  type ProductLookup = { id: string; name: string; charge_type_id: string; has_sizes: boolean };
+  const { data: product } = await supabase
+    .from("products")
+    .select("id, name, charge_type_id, has_sizes")
+    .eq("id", productId)
+    .eq("is_active", true)
+    .maybeSingle()
+    .returns<ProductLookup | null>();
+
+  if (!product) return { ok: false, error: "product_not_found" };
 
   const { data: enrollment } = await supabase
     .from("enrollments")
@@ -104,10 +156,13 @@ export async function postCajaChargeAction(
   }
 
   const currency = enrollment.pricing_plans?.currency ?? "MXN";
+  const description = size ? `${product.name} — Talla ${size}` : product.name;
 
   const { error: chargeError } = await supabase.from("charges").insert({
     enrollment_id: enrollmentId,
-    charge_type_id: chargeTypeId,
+    charge_type_id: product.charge_type_id,
+    product_id: productId,
+    size,
     description,
     amount,
     currency,
@@ -122,7 +177,7 @@ export async function postCajaChargeAction(
     actorEmail: user.email ?? null,
     action: "charge.created",
     tableName: "charges",
-    afterData: { enrollment_id: enrollmentId, description, amount, source: "caja" }
+    afterData: { enrollment_id: enrollmentId, product_id: productId, description, amount, source: "caja" }
   });
 
   const updatedData = await getEnrollmentForCajaAction(enrollmentId);

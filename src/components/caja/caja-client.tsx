@@ -5,12 +5,13 @@ import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
   postCajaPaymentAction,
-  getAdHocChargeTypesAction,
+  getProductsForCajaAction,
   postCajaChargeAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
   type CajaPaymentResult,
-  type CajaChargeTypeOption
+  type CajaProduct,
+  type CajaProductCategory
 } from "@/server/actions/caja";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -45,8 +46,8 @@ type View =
   | { tag: "loading-enrollment"; player: CajaPlayerResult }
   | { tag: "enrollment"; player: CajaPlayerResult; data: CajaEnrollmentData }
   | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData }
-  | { tag: "loading-charge-types"; player: CajaPlayerResult; data: CajaEnrollmentData }
-  | { tag: "adding-charge"; player: CajaPlayerResult; data: CajaEnrollmentData; chargeTypes: CajaChargeTypeOption[] }
+  | { tag: "loading-products"; player: CajaPlayerResult; data: CajaEnrollmentData }
+  | { tag: "adding-charge"; player: CajaPlayerResult; data: CajaEnrollmentData; products: CajaProductCategory[] }
   | { tag: "success"; receipt: Extract<CajaPaymentResult, { ok: true }> };
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -115,10 +116,10 @@ export function CajaClient() {
 
   function goToAddCharge(player: CajaPlayerResult, data: CajaEnrollmentData) {
     setError(null);
-    setView({ tag: "loading-charge-types", player, data });
+    setView({ tag: "loading-products", player, data });
     startTransition(async () => {
-      const chargeTypes = await getAdHocChargeTypesAction();
-      setView({ tag: "adding-charge", player, data, chargeTypes });
+      const products = await getProductsForCajaAction();
+      setView({ tag: "adding-charge", player, data, products });
     });
   }
 
@@ -155,10 +156,10 @@ export function CajaClient() {
         </div>
       )}
 
-      {/* Loading charge types */}
-      {view.tag === "loading-charge-types" && (
+      {/* Loading products */}
+      {view.tag === "loading-products" && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-          Cargando tipos de cargo…
+          Cargando productos…
         </div>
       )}
 
@@ -177,12 +178,12 @@ export function CajaClient() {
         />
       )}
 
-      {/* Add charge panel */}
+      {/* Product grid panel */}
       {view.tag === "adding-charge" && (
-        <AddChargePanel
+        <ProductGridPanel
           player={view.player}
           data={view.data}
-          chargeTypes={view.chargeTypes}
+          products={view.products}
           onCancel={() => setView({ tag: "enrollment", player: view.player, data: view.data })}
           onSubmit={handleChargeSubmit}
           isPending={isPending}
@@ -510,12 +511,21 @@ function ReceiptPanel({
   );
 }
 
-// ── Add charge panel ──────────────────────────────────────────────────────────
+// ── Product grid panel ────────────────────────────────────────────────────────
 
-function AddChargePanel({
+const SIZES = ["4", "6", "8", "10", "12", "14", "16", "S", "M", "L", "XL", "XXL"];
+
+const CATEGORY_STYLES: Record<string, { tile: string; selected: string; header: string }> = {
+  uniforms:    { tile: "border-sky-200 bg-sky-50 hover:bg-sky-100",       selected: "border-sky-500 bg-sky-100 ring-2 ring-sky-500",       header: "text-sky-700" },
+  tournaments: { tile: "border-amber-200 bg-amber-50 hover:bg-amber-100", selected: "border-amber-500 bg-amber-100 ring-2 ring-amber-500", header: "text-amber-700" },
+  tuition:     { tile: "border-emerald-200 bg-emerald-50 hover:bg-emerald-100", selected: "border-emerald-500 bg-emerald-100 ring-2 ring-emerald-500", header: "text-emerald-700" }
+};
+const DEFAULT_STYLE = { tile: "border-slate-200 bg-slate-50 hover:bg-slate-100", selected: "border-portoBlue bg-blue-50 ring-2 ring-portoBlue", header: "text-slate-600" };
+
+function ProductGridPanel({
   player,
   data,
-  chargeTypes,
+  products,
   onCancel,
   onSubmit,
   isPending,
@@ -523,15 +533,31 @@ function AddChargePanel({
 }: {
   player: CajaPlayerResult;
   data: CajaEnrollmentData;
-  chargeTypes: CajaChargeTypeOption[];
+  products: CajaProductCategory[];
   onCancel: () => void;
   onSubmit: (player: CajaPlayerResult, enrollmentId: string, formData: FormData) => void;
   isPending: boolean;
   error: string | null;
 }) {
-  const [selectedType, setSelectedType] = useState<CajaChargeTypeOption | null>(
-    chargeTypes[0] ?? null
-  );
+  const [selected, setSelected] = useState<CajaProduct | null>(null);
+  const [amount, setAmount] = useState("");
+  const [size, setSize] = useState("");
+
+  function handleSelectProduct(product: CajaProduct) {
+    setSelected(product);
+    setAmount(product.defaultAmount != null ? product.defaultAmount.toFixed(2) : "");
+    setSize("");
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selected) return;
+    const fd = new FormData();
+    fd.set("productId", selected.id);
+    fd.set("amount", amount);
+    if (size) fd.set("size", size);
+    onSubmit(player, data.enrollmentId, fd);
+  }
 
   return (
     <div className="space-y-4">
@@ -544,60 +570,84 @@ function AddChargePanel({
         <p className="text-xs text-slate-400">Nuevo cargo</p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(player, data.enrollmentId, new FormData(e.currentTarget));
-        }}
-        className="space-y-4 rounded-xl border border-amber-300 bg-white p-5"
-      >
-        <p className="font-medium text-slate-800">Agregar cargo adicional</p>
-
+      {/* Product grid */}
+      <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-5">
         {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-        {chargeTypes.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay tipos de cargo disponibles.</p>
+        {products.length === 0 ? (
+          <p className="text-sm text-slate-500">No hay productos disponibles.</p>
         ) : (
-          <>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Tipo de cargo</span>
-              <select
-                name="chargeTypeId"
-                required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
-                onChange={(e) => {
-                  const found = chargeTypes.find((ct) => ct.id === e.target.value) ?? null;
-                  setSelectedType(found);
-                }}
-              >
-                {chargeTypes.map((ct) => (
-                  <option key={ct.id} value={ct.id}>
-                    {ct.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          products.map((category) => {
+            const style = CATEGORY_STYLES[category.slug] ?? DEFAULT_STYLE;
+            return (
+              <div key={category.slug}>
+                <p className={`mb-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
+                  {category.name}
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {category.products.map((product) => {
+                    const isSelected = selected?.id === product.id;
+                    return (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(product)}
+                        className={`rounded-xl border p-4 text-left transition-all ${isSelected ? style.selected : style.tile}`}
+                      >
+                        <p className="text-sm font-semibold text-slate-800">{product.name}</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {product.defaultAmount != null
+                            ? formatMoney(product.defaultAmount, data.currency)
+                            : "Precio libre"}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
 
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Descripción</span>
-              <input
-                key={selectedType?.id}
-                type="text"
-                name="description"
-                required
-                defaultValue={selectedType?.name ?? ""}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
-              />
-            </label>
+        {/* Confirmation form — shown when a product is selected */}
+        {selected && (
+          <form
+            onSubmit={handleSubmit}
+            className="mt-2 space-y-3 rounded-xl border border-portoBlue bg-blue-50 p-4"
+          >
+            <p className="font-semibold text-slate-800">{selected.name}</p>
+
+            {selected.hasSizes && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-600">Talla</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSize(size === s ? "" : s)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        size === s
+                          ? "border-portoBlue bg-portoBlue text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <label className="block space-y-1 text-sm">
               <span className="font-medium text-slate-700">Monto</span>
               <input
                 type="number"
-                name="amount"
                 step="0.01"
                 min="0.01"
                 required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
               />
             </label>
@@ -606,21 +656,28 @@ function AddChargePanel({
               <button
                 type="submit"
                 disabled={isPending}
-                className="flex-1 rounded-lg bg-amber-500 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isPending ? "Guardando…" : "Crear cargo"}
               </button>
               <button
                 type="button"
-                onClick={onCancel}
+                onClick={() => setSelected(null)}
                 className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Cancelar
               </button>
             </div>
-          </>
+          </form>
         )}
-      </form>
+      </div>
+
+      <button
+        onClick={onCancel}
+        className="w-full rounded-xl border border-slate-300 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+      >
+        Volver
+      </button>
     </div>
   );
 }
@@ -641,8 +698,9 @@ function errorMessage(code: string): string {
 
 function chargeErrorMessage(code: string): string {
   const messages: Record<string, string> = {
-    invalid_form: "Verifica el tipo, descripción y monto del cargo.",
+    invalid_form: "Verifica el producto y el monto del cargo.",
     unauthenticated: "Sesión expirada. Por favor inicia sesión de nuevo.",
+    product_not_found: "Producto no encontrado o inactivo.",
     enrollment_not_found: "No se encontró la inscripción.",
     enrollment_inactive: "Esta inscripción está inactiva.",
     charge_insert_failed: "Error al crear el cargo. Intenta de nuevo.",
