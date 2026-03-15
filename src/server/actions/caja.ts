@@ -120,6 +120,7 @@ export async function postCajaChargeAction(
   const amountRaw = formData.get("amount")?.toString() ?? "";
   const amount = parseFloat(amountRaw);
   const size = formData.get("size")?.toString().trim() || null;
+  const goalkeeper = formData.get("goalkeeper") === "1";
 
   if (!productId || isNaN(amount) || amount <= 0) {
     return { ok: false, error: "invalid_form" };
@@ -156,7 +157,9 @@ export async function postCajaChargeAction(
   }
 
   const currency = enrollment.pricing_plans?.currency ?? "MXN";
-  const description = size ? `${product.name} — Talla ${size}` : product.name;
+  const sizePart = size ? ` — Talla ${size}` : "";
+  const goalkeeperPart = goalkeeper ? " (Portero)" : "";
+  const description = `${product.name}${sizePart}${goalkeeperPart}`;
 
   const { error: chargeError } = await supabase.from("charges").insert({
     enrollment_id: enrollmentId,

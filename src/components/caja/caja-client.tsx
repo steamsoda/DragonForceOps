@@ -513,7 +513,7 @@ function ReceiptPanel({
 
 // ── Product grid panel ────────────────────────────────────────────────────────
 
-const SIZES = ["4", "6", "8", "10", "12", "14", "16", "S", "M", "L", "XL", "XXL"];
+const SIZES = ["XCH JR", "CH JR", "M JR", "G JR", "XL JR", "CH", "M", "G", "XL"];
 
 const CATEGORY_STYLES: Record<string, { tile: string; selected: string; header: string }> = {
   uniforms:    { tile: "border-sky-200 bg-sky-50 hover:bg-sky-100",       selected: "border-sky-500 bg-sky-100 ring-2 ring-sky-500",       header: "text-sky-700" },
@@ -542,11 +542,13 @@ function ProductGridPanel({
   const [selected, setSelected] = useState<CajaProduct | null>(null);
   const [amount, setAmount] = useState("");
   const [size, setSize] = useState("");
+  const [goalkeeper, setGoalkeeper] = useState(false);
 
   function handleSelectProduct(product: CajaProduct) {
     setSelected(product);
     setAmount(product.defaultAmount != null ? product.defaultAmount.toFixed(2) : "");
     setSize("");
+    setGoalkeeper(false);
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -556,6 +558,7 @@ function ProductGridPanel({
     fd.set("productId", selected.id);
     fd.set("amount", amount);
     if (size) fd.set("size", size);
+    if (goalkeeper) fd.set("goalkeeper", "1");
     onSubmit(player, data.enrollmentId, fd);
   }
 
@@ -618,24 +621,37 @@ function ProductGridPanel({
             <p className="font-semibold text-slate-800">{selected.name}</p>
 
             {selected.hasSizes && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-slate-600">Talla</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {SIZES.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(size === s ? "" : s)}
-                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        size === s
-                          ? "border-portoBlue bg-portoBlue text-white"
-                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+              <div className="space-y-3">
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-slate-600">Talla</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SIZES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSize(size === s ? "" : s)}
+                        className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          size === s
+                            ? "border-portoBlue bg-portoBlue text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setGoalkeeper((g) => !g)}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    goalkeeper
+                      ? "border-violet-500 bg-violet-500 text-white"
+                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Portero {goalkeeper ? "✓" : ""}
+                </button>
               </div>
             )}
 
