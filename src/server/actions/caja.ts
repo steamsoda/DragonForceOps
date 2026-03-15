@@ -166,6 +166,7 @@ export async function postCajaChargeAction(
     charge_type_id: product.charge_type_id,
     product_id: productId,
     size,
+    is_goalkeeper: product.has_sizes ? goalkeeper : null,
     description,
     amount,
     currency,
