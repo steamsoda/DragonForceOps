@@ -6,7 +6,7 @@ export type ParsedPaymentInput = {
   amount: number;
   method: PaymentMethod;
   notes: string | null;
-  targetChargeId: string | null;
+  targetChargeIds: string[];
 };
 
 function parsePositiveMoney(value: string | null): number | null {
@@ -22,7 +22,8 @@ export function parsePaymentFormData(formData: FormData): ParsedPaymentInput | n
   const amount = parsePositiveMoney(String(formData.get("amount") ?? ""));
   const methodRaw = String(formData.get("method") ?? "").trim() as PaymentMethod;
   const notesRaw = String(formData.get("notes") ?? "").trim();
-  const targetChargeIdRaw = String(formData.get("targetChargeId") ?? "").trim();
+  const targetChargeIdsRaw = String(formData.get("targetChargeIds") ?? "").trim();
+  const targetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
 
   if (!amount) return null;
   if (!PAYMENT_METHODS.includes(methodRaw)) return null;
@@ -31,6 +32,6 @@ export function parsePaymentFormData(formData: FormData): ParsedPaymentInput | n
     amount,
     method: methodRaw,
     notes: notesRaw ? notesRaw : null,
-    targetChargeId: targetChargeIdRaw || null
+    targetChargeIds
   };
 }

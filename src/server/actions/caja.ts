@@ -280,20 +280,21 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     return { ok: false, error: "enrollment_inactive" };
   }
 
-  const targetChargeId = parsed.targetChargeId ?? null;
+  const targetChargeIds = parsed.targetChargeIds;
+  const targetSet = new Set(targetChargeIds);
 
   const allocations: Array<{ chargeId: string; amount: number }> = [];
   let remaining = parsed.amount;
 
-  if (targetChargeId) {
-    // Targeted payment: allocate to the specific charge first, then FIFO for any remainder
-    const targetCharge = pendingCharges.find((c) => c.id === targetChargeId);
-    if (targetCharge) {
-      const allocated = Math.min(remaining, targetCharge.pendingAmount);
-      allocations.push({ chargeId: targetCharge.id, amount: Math.round(allocated * 100) / 100 });
+  if (targetChargeIds.length > 0) {
+    // Targeted payment: allocate to selected charges first (in their pending order), then FIFO for remainder
+    for (const charge of pendingCharges.filter((c) => targetSet.has(c.id))) {
+      if (remaining <= 0) break;
+      const allocated = Math.min(remaining, charge.pendingAmount);
+      allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
       remaining = Math.round((remaining - allocated) * 100) / 100;
     }
-    for (const charge of pendingCharges.filter((c) => c.id !== targetChargeId)) {
+    for (const charge of pendingCharges.filter((c) => !targetSet.has(c.id))) {
       if (remaining <= 0) break;
       const allocated = Math.min(remaining, charge.pendingAmount);
       allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });

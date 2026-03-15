@@ -45,7 +45,7 @@ type View =
   | { tag: "results"; query: string; results: CajaPlayerResult[] }
   | { tag: "loading-enrollment"; player: CajaPlayerResult }
   | { tag: "enrollment"; player: CajaPlayerResult; data: CajaEnrollmentData }
-  | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData; targetChargeId: string | null }
+  | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData; targetChargeIds: string[] }
   | { tag: "loading-products"; player: CajaPlayerResult; data: CajaEnrollmentData }
   | { tag: "adding-charge"; player: CajaPlayerResult; data: CajaEnrollmentData; products: CajaProductCategory[] }
   | { tag: "success"; receipt: Extract<CajaPaymentResult, { ok: true }>; player: CajaPlayerResult };
@@ -91,8 +91,8 @@ export function CajaClient() {
     });
   }
 
-  function goToPayment(player: CajaPlayerResult, data: CajaEnrollmentData, targetChargeId: string | null = null) {
-    setView({ tag: "paying", player, data, targetChargeId });
+  function goToPayment(player: CajaPlayerResult, data: CajaEnrollmentData, targetChargeIds: string[] = []) {
+    setView({ tag: "paying", player, data, targetChargeIds });
   }
 
   function goBackToPlayer(player: CajaPlayerResult) {
@@ -183,7 +183,7 @@ export function CajaClient() {
           player={view.player}
           data={view.data}
           paying={view.tag === "paying"}
-          targetChargeId={view.tag === "paying" ? view.targetChargeId : null}
+          targetChargeIds={view.tag === "paying" ? view.targetChargeIds : []}
           onPay={goToPayment}
           onAddCharge={goToAddCharge}
           onCancel={reset}
@@ -291,7 +291,7 @@ function EnrollmentPanel({
   player,
   data,
   paying,
-  targetChargeId,
+  targetChargeIds,
   onPay,
   onAddCharge,
   onCancel,
@@ -302,23 +302,40 @@ function EnrollmentPanel({
   player: CajaPlayerResult;
   data: CajaEnrollmentData;
   paying: boolean;
-  targetChargeId: string | null;
-  onPay: (p: CajaPlayerResult, d: CajaEnrollmentData, targetChargeId?: string) => void;
+  targetChargeIds: string[];
+  onPay: (p: CajaPlayerResult, d: CajaEnrollmentData, targetChargeIds: string[]) => void;
   onAddCharge: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
   onCancel: () => void;
   onSubmit: (player: CajaPlayerResult, enrollmentId: string, formData: FormData) => void;
   isPending: boolean;
   error: string | null;
 }) {
-  const targetCharge = targetChargeId
-    ? data.pendingCharges.find((c) => c.id === targetChargeId) ?? null
-    : null;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const defaultAmount = targetCharge
-    ? targetCharge.pendingAmount.toFixed(2)
+  const targetSet = new Set(targetChargeIds);
+  const targetCharges = data.pendingCharges.filter((c) => targetSet.has(c.id));
+
+  const selectedCharges = data.pendingCharges.filter((c) => selectedIds.has(c.id));
+  const selectedTotal = selectedCharges.reduce((sum, c) => sum + c.pendingAmount, 0);
+
+  const defaultAmount = targetChargeIds.length > 0
+    ? targetCharges.reduce((sum, c) => sum + c.pendingAmount, 0).toFixed(2)
     : data.balance > 0
     ? data.balance.toFixed(2)
     : "";
+
+  function toggleCharge(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   return (
     <div className="space-y-4">
@@ -339,10 +356,23 @@ function EnrollmentPanel({
       {/* Pending charges */}
       {data.pendingCharges.length > 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white">
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-medium text-slate-700">Cargos pendientes</p>
+          <p className="border-b border-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+            Cargos pendientes
+            {!paying && data.pendingCharges.length > 1 && (
+              <span className="ml-2 text-xs font-normal text-slate-400">Selecciona los que deseas pagar</span>
+            )}
+          </p>
           <ul className="divide-y divide-slate-100">
             {data.pendingCharges.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <li key={c.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                {!paying && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(c.id)}
+                    onChange={() => toggleCharge(c.id)}
+                    className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-portoBlue"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-800">{c.description}</p>
                   {c.periodMonth && (
@@ -352,15 +382,6 @@ function EnrollmentPanel({
                 <span className="shrink-0 font-semibold text-rose-600">
                   {formatMoney(c.pendingAmount, data.currency)}
                 </span>
-                {!paying && (
-                  <button
-                    type="button"
-                    onClick={() => onPay(player, data, c.id)}
-                    className="shrink-0 rounded-lg border border-portoBlue px-3 py-1 text-xs font-semibold text-portoBlue hover:bg-portoBlue hover:text-white transition-colors"
-                  >
-                    Pagar
-                  </button>
-                )}
               </li>
             ))}
           </ul>
@@ -382,17 +403,26 @@ function EnrollmentPanel({
         >
           <p className="font-medium text-slate-800">Registrar pago</p>
 
-          {/* Targeted charge banner */}
-          {targetCharge && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-              <span className="font-semibold text-amber-800">Pagando cargo específico: </span>
-              <span className="text-amber-700">{targetCharge.description}</span>
+          {/* Targeted charges banner */}
+          {targetCharges.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm space-y-1">
+              <p className="font-semibold text-amber-800">
+                {targetCharges.length === 1 ? "Pagando cargo específico:" : `Pagando ${targetCharges.length} cargos específicos:`}
+              </p>
+              {targetCharges.map((c) => (
+                <div key={c.id} className="flex justify-between text-amber-700">
+                  <span>{c.description}</span>
+                  <span className="font-medium">{formatMoney(c.pendingAmount, data.currency)}</span>
+                </div>
+              ))}
             </div>
           )}
 
           {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
-          {targetChargeId && <input type="hidden" name="targetChargeId" value={targetChargeId} />}
+          {targetChargeIds.length > 0 && (
+            <input type="hidden" name="targetChargeIds" value={targetChargeIds.join(",")} />
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
@@ -429,9 +459,9 @@ function EnrollmentPanel({
           </label>
 
           <p className="text-xs text-slate-400">
-            {targetCharge
-              ? "El excedente se aplicará a los cargos restantes más antiguos. Si pagas días 1–10, se aplica descuento de pago anticipado."
-              : "Los cargos se cubren del más antiguo al más reciente. Si pagas días 1–10, se aplica descuento de pago anticipado."}
+            {targetCharges.length > 0
+              ? "Los cargos seleccionados se pagan primero. El excedente se aplica a los demás por antigüedad. Días 1–10 aplica descuento anticipado."
+              : "Los cargos se cubren del más antiguo al más reciente. Días 1–10 aplica descuento de pago anticipado."}
           </p>
 
           <div className="flex gap-3">
@@ -451,13 +481,35 @@ function EnrollmentPanel({
             </button>
           </div>
         </form>
+      ) : selectedIds.size > 0 ? (
+        /* Selection action bar */
+        <div className="flex items-center gap-3 rounded-xl border border-portoBlue bg-blue-50 px-4 py-3">
+          <div className="flex-1 text-sm">
+            <span className="font-semibold text-portoBlue">
+              {selectedIds.size} {selectedIds.size === 1 ? "cargo" : "cargos"} seleccionado{selectedIds.size !== 1 ? "s" : ""}
+            </span>
+            <span className="ml-2 font-bold text-slate-800">{formatMoney(selectedTotal, data.currency)}</span>
+          </div>
+          <button
+            onClick={() => onPay(player, data, Array.from(selectedIds))}
+            className="rounded-lg bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark"
+          >
+            Cobrar selección
+          </button>
+          <button
+            onClick={clearSelection}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-white"
+          >
+            Limpiar
+          </button>
+        </div>
       ) : (
         <div className="flex gap-3">
           <button
-            onClick={() => onPay(player, data)}
+            onClick={() => onPay(player, data, [])}
             className="flex-1 rounded-xl bg-portoBlue py-3 text-sm font-semibold text-white hover:bg-portoDark"
           >
-            Cobrar total
+            Cobrar todo
           </button>
           <button
             onClick={() => onAddCharge(player, data)}
