@@ -363,27 +363,40 @@ function EnrollmentPanel({
             )}
           </p>
           <ul className="divide-y divide-slate-100">
-            {data.pendingCharges.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                {!paying && (
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(c.id)}
-                    onChange={() => toggleCharge(c.id)}
-                    className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-portoBlue"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-slate-800">{c.description}</p>
-                  {c.periodMonth && (
-                    <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>
+            {data.pendingCharges.map((c) => {
+              const isSelected = selectedIds.has(c.id);
+              return (
+                <li
+                  key={c.id}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                    !paying && isSelected ? "bg-blue-50" : ""
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-800">{c.description}</p>
+                    {c.periodMonth && (
+                      <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>
+                    )}
+                  </div>
+                  <span className={`shrink-0 font-semibold ${isSelected && !paying ? "text-portoBlue" : "text-rose-600"}`}>
+                    {formatMoney(c.pendingAmount, data.currency)}
+                  </span>
+                  {!paying && (
+                    <button
+                      type="button"
+                      onClick={() => toggleCharge(c.id)}
+                      className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                        isSelected
+                          ? "bg-portoBlue text-white hover:bg-portoDark"
+                          : "border border-slate-300 text-slate-600 hover:border-portoBlue hover:text-portoBlue"
+                      }`}
+                    >
+                      {isSelected ? "✓ Agregado" : "Agregar"}
+                    </button>
                   )}
-                </div>
-                <span className="shrink-0 font-semibold text-rose-600">
-                  {formatMoney(c.pendingAmount, data.currency)}
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : (
