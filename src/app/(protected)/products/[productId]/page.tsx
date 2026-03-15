@@ -51,7 +51,7 @@ export default async function ProductDetailPage({
   return (
     <PageShell
       title={product.name}
-      subtitle={`${product.categoryName} · ${product.chargeTypeName}`}
+      subtitle={product.chargeTypeName}
       breadcrumbs={[
         { label: "Productos", href: "/products" },
         { label: product.name }

@@ -6,6 +6,7 @@ import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { writeAuditLog } from "@/lib/audit";
 import { applyEarlyBirdDiscountIfEligible } from "@/server/actions/payments";
+import { PRODUCT_GROUPS } from "@/lib/product-groups";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -78,38 +79,39 @@ export async function getProductsForCajaAction(): Promise<CajaProductCategory[]>
     default_amount: number | null;
     has_sizes: boolean;
     sort_order: number;
-    product_categories: { id: string; name: string; slug: string; sort_order: number } | null;
+    charge_types: { code: string } | null;
   };
 
   const { data } = await supabase
     .from("products")
-    .select("id, name, charge_type_id, default_amount, has_sizes, sort_order, product_categories(id, name, slug, sort_order)")
+    .select("id, name, charge_type_id, default_amount, has_sizes, sort_order, charge_types(code)")
     .eq("is_active", true)
     .order("sort_order")
     .returns<ProductRow[]>();
 
   if (!data) return [];
 
-  const categoryMap = new Map<string, CajaProductCategory>();
-  for (const row of data) {
-    if (!row.product_categories) continue;
-    const cat = row.product_categories;
-    if (!categoryMap.has(cat.slug)) {
-      categoryMap.set(cat.slug, { id: cat.id, name: cat.name, slug: cat.slug, sortOrder: cat.sort_order, products: [] });
+  const result: CajaProductCategory[] = [];
+  for (const [i, group] of PRODUCT_GROUPS.entries()) {
+    const products = data
+      .filter((row) => row.charge_types && (group.codes as readonly string[]).includes(row.charge_types.code))
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        categorySlug: group.key,
+        categoryName: group.label,
+        chargeTypeId: row.charge_type_id,
+        defaultAmount: row.default_amount,
+        hasSizes: row.has_sizes,
+        sortOrder: row.sort_order,
+      }));
+
+    if (products.length > 0) {
+      result.push({ id: group.key, name: group.label, slug: group.key, sortOrder: i, products });
     }
-    categoryMap.get(cat.slug)!.products.push({
-      id: row.id,
-      name: row.name,
-      categorySlug: cat.slug,
-      categoryName: cat.name,
-      chargeTypeId: row.charge_type_id,
-      defaultAmount: row.default_amount,
-      hasSizes: row.has_sizes,
-      sortOrder: row.sort_order
-    });
   }
 
-  return Array.from(categoryMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+  return result;
 }
 
 export async function postCajaChargeAction(
@@ -274,7 +276,6 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  // Allow overpayment (creates credit balance) — only block if enrollment is ended/cancelled
   if (ledger.enrollment.status === "ended" || ledger.enrollment.status === "cancelled") {
     return { ok: false, error: "enrollment_inactive" };
   }

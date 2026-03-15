@@ -8,18 +8,7 @@ import { writeAuditLog } from "@/lib/audit";
 // Ad-hoc charge type codes that can be assigned to products
 const AD_HOC_CODES = ["uniform_training", "uniform_game", "tournament", "cup", "trip", "event"];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // strip accents
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .trim();
-}
+// ── Auth guard ─────────────────────────────────────────────────────────────────
 
 async function assertDirectorAdmin() {
   const supabase = await createClient();
@@ -30,38 +19,6 @@ async function assertDirectorAdmin() {
   return { supabase, user };
 }
 
-// ── Create category ───────────────────────────────────────────────────────────
-
-export async function createCategoryAction(formData: FormData): Promise<void> {
-  const auth = await assertDirectorAdmin();
-  if (!auth) redirect("/products?err=unauthenticated");
-
-  const name = formData.get("name")?.toString().trim() ?? "";
-  if (!name) redirect("/products?err=invalid_form");
-
-  const slug = slugify(name);
-  if (!slug) redirect("/products?err=invalid_form");
-
-  const { supabase, user } = auth;
-
-  const { error } = await supabase
-    .from("product_categories")
-    .insert({ name, slug });
-
-  if (error) redirect("/products?err=category_create_failed");
-
-  await writeAuditLog(supabase, {
-    actorUserId: user.id,
-    actorEmail: user.email ?? null,
-    action: "product_category.created",
-    tableName: "product_categories",
-    afterData: { name, slug }
-  });
-
-  revalidatePath("/products");
-  redirect("/products");
-}
-
 // ── Create product ────────────────────────────────────────────────────────────
 
 export async function createProductAction(formData: FormData): Promise<void> {
@@ -69,13 +26,12 @@ export async function createProductAction(formData: FormData): Promise<void> {
   if (!auth) redirect("/products?err=unauthenticated");
 
   const name = formData.get("name")?.toString().trim() ?? "";
-  const categoryId = formData.get("categoryId")?.toString().trim() ?? "";
   const chargeTypeId = formData.get("chargeTypeId")?.toString().trim() ?? "";
   const defaultAmountRaw = formData.get("defaultAmount")?.toString().trim() ?? "";
   const defaultAmount = defaultAmountRaw ? parseFloat(defaultAmountRaw) : null;
   const hasSizes = formData.get("hasSizes") === "1";
 
-  if (!name || !categoryId || !chargeTypeId) redirect("/products?err=invalid_form");
+  if (!name || !chargeTypeId) redirect("/products?err=invalid_form");
   if (defaultAmount !== null && (isNaN(defaultAmount) || defaultAmount <= 0)) {
     redirect("/products?err=invalid_amount");
   }
@@ -95,7 +51,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
   const { data: product, error } = await supabase
     .from("products")
-    .insert({ name, category_id: categoryId, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes })
+    .insert({ name, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes })
     .select("id")
     .single<{ id: string }>();
 
@@ -107,7 +63,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     action: "product.created",
     tableName: "products",
     recordId: product.id,
-    afterData: { name, category_id: categoryId, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes }
+    afterData: { name, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes }
   });
 
   revalidatePath("/products");
