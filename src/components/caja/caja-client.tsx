@@ -45,10 +45,10 @@ type View =
   | { tag: "results"; query: string; results: CajaPlayerResult[] }
   | { tag: "loading-enrollment"; player: CajaPlayerResult }
   | { tag: "enrollment"; player: CajaPlayerResult; data: CajaEnrollmentData }
-  | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData }
+  | { tag: "paying"; player: CajaPlayerResult; data: CajaEnrollmentData; targetChargeId: string | null }
   | { tag: "loading-products"; player: CajaPlayerResult; data: CajaEnrollmentData }
   | { tag: "adding-charge"; player: CajaPlayerResult; data: CajaEnrollmentData; products: CajaProductCategory[] }
-  | { tag: "success"; receipt: Extract<CajaPaymentResult, { ok: true }> };
+  | { tag: "success"; receipt: Extract<CajaPaymentResult, { ok: true }>; player: CajaPlayerResult };
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
@@ -91,8 +91,22 @@ export function CajaClient() {
     });
   }
 
-  function goToPayment(player: CajaPlayerResult, data: CajaEnrollmentData) {
-    setView({ tag: "paying", player, data });
+  function goToPayment(player: CajaPlayerResult, data: CajaEnrollmentData, targetChargeId: string | null = null) {
+    setView({ tag: "paying", player, data, targetChargeId });
+  }
+
+  function goBackToPlayer(player: CajaPlayerResult) {
+    setError(null);
+    setView({ tag: "loading-enrollment", player });
+    startTransition(async () => {
+      const data = await getEnrollmentForCajaAction(player.enrollmentId);
+      if (!data) {
+        setError("No se pudo recargar la información del alumno.");
+        setView({ tag: "idle" });
+        return;
+      }
+      setView({ tag: "enrollment", player, data });
+    });
   }
 
   function reset() {
@@ -102,7 +116,7 @@ export function CajaClient() {
     setTimeout(() => searchRef.current?.focus(), 50);
   }
 
-  async function handlePaymentSubmit(enrollmentId: string, formData: FormData) {
+  function handlePaymentSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
     setError(null);
     startTransition(async () => {
       const result = await postCajaPaymentAction(enrollmentId, formData);
@@ -110,7 +124,7 @@ export function CajaClient() {
         setError(errorMessage(result.error));
         return;
       }
-      setView({ tag: "success", receipt: result });
+      setView({ tag: "success", receipt: result, player });
     });
   }
 
@@ -169,6 +183,7 @@ export function CajaClient() {
           player={view.player}
           data={view.data}
           paying={view.tag === "paying"}
+          targetChargeId={view.tag === "paying" ? view.targetChargeId : null}
           onPay={goToPayment}
           onAddCharge={goToAddCharge}
           onCancel={reset}
@@ -192,7 +207,13 @@ export function CajaClient() {
       )}
 
       {/* Success / receipt */}
-      {view.tag === "success" && <ReceiptPanel receipt={view.receipt} onDone={reset} />}
+      {view.tag === "success" && (
+        <ReceiptPanel
+          receipt={view.receipt}
+          onDone={reset}
+          onBack={() => goBackToPlayer(view.player)}
+        />
+      )}
 
       {/* Generic error */}
       {error && view.tag === "idle" && (
@@ -270,6 +291,7 @@ function EnrollmentPanel({
   player,
   data,
   paying,
+  targetChargeId,
   onPay,
   onAddCharge,
   onCancel,
@@ -280,14 +302,23 @@ function EnrollmentPanel({
   player: CajaPlayerResult;
   data: CajaEnrollmentData;
   paying: boolean;
-  onPay: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
+  targetChargeId: string | null;
+  onPay: (p: CajaPlayerResult, d: CajaEnrollmentData, targetChargeId?: string) => void;
   onAddCharge: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
   onCancel: () => void;
-  onSubmit: (enrollmentId: string, formData: FormData) => Promise<void>;
+  onSubmit: (player: CajaPlayerResult, enrollmentId: string, formData: FormData) => void;
   isPending: boolean;
   error: string | null;
 }) {
-  const defaultAmount = data.balance > 0 ? data.balance.toFixed(2) : "";
+  const targetCharge = targetChargeId
+    ? data.pendingCharges.find((c) => c.id === targetChargeId) ?? null
+    : null;
+
+  const defaultAmount = targetCharge
+    ? targetCharge.pendingAmount.toFixed(2)
+    : data.balance > 0
+    ? data.balance.toFixed(2)
+    : "";
 
   return (
     <div className="space-y-4">
@@ -311,12 +342,25 @@ function EnrollmentPanel({
           <p className="border-b border-slate-100 px-4 py-3 text-sm font-medium text-slate-700">Cargos pendientes</p>
           <ul className="divide-y divide-slate-100">
             {data.pendingCharges.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <div>
+              <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-800">{c.description}</p>
-                  {c.periodMonth && <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>}
+                  {c.periodMonth && (
+                    <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>
+                  )}
                 </div>
-                <span className="font-semibold text-rose-600">{formatMoney(c.pendingAmount, data.currency)}</span>
+                <span className="shrink-0 font-semibold text-rose-600">
+                  {formatMoney(c.pendingAmount, data.currency)}
+                </span>
+                {!paying && (
+                  <button
+                    type="button"
+                    onClick={() => onPay(player, data, c.id)}
+                    className="shrink-0 rounded-lg border border-portoBlue px-3 py-1 text-xs font-semibold text-portoBlue hover:bg-portoBlue hover:text-white transition-colors"
+                  >
+                    Pagar
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -332,13 +376,23 @@ function EnrollmentPanel({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit(data.enrollmentId, new FormData(e.currentTarget));
+            onSubmit(player, data.enrollmentId, new FormData(e.currentTarget));
           }}
           className="space-y-4 rounded-xl border border-portoBlue bg-white p-5"
         >
           <p className="font-medium text-slate-800">Registrar pago</p>
 
+          {/* Targeted charge banner */}
+          {targetCharge && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+              <span className="font-semibold text-amber-800">Pagando cargo específico: </span>
+              <span className="text-amber-700">{targetCharge.description}</span>
+            </div>
+          )}
+
           {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+
+          {targetChargeId && <input type="hidden" name="targetChargeId" value={targetChargeId} />}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
@@ -375,7 +429,9 @@ function EnrollmentPanel({
           </label>
 
           <p className="text-xs text-slate-400">
-            Los cargos se cubren del más antiguo al más reciente. Si pagas días 1–10 del mes, se aplica descuento pago anticipado automáticamente.
+            {targetCharge
+              ? "El excedente se aplicará a los cargos restantes más antiguos. Si pagas días 1–10, se aplica descuento de pago anticipado."
+              : "Los cargos se cubren del más antiguo al más reciente. Si pagas días 1–10, se aplica descuento de pago anticipado."}
           </p>
 
           <div className="flex gap-3">
@@ -401,7 +457,7 @@ function EnrollmentPanel({
             onClick={() => onPay(player, data)}
             className="flex-1 rounded-xl bg-portoBlue py-3 text-sm font-semibold text-white hover:bg-portoDark"
           >
-            Cobrar
+            Cobrar total
           </button>
           <button
             onClick={() => onAddCharge(player, data)}
@@ -426,10 +482,12 @@ function EnrollmentPanel({
 
 function ReceiptPanel({
   receipt,
-  onDone
+  onDone,
+  onBack
 }: {
   receipt: Extract<CajaPaymentResult, { ok: true }>;
   onDone: () => void;
+  onBack: () => void;
 }) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
@@ -455,9 +513,15 @@ function ReceiptPanel({
         <div className="flex gap-3">
           <button
             onClick={() => window.print()}
-            className="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Imprimir recibo
+          </button>
+          <button
+            onClick={onBack}
+            className="flex-1 rounded-xl border border-portoBlue py-2.5 text-sm font-semibold text-portoBlue hover:bg-blue-50"
+          >
+            Regresar a alumno
           </button>
           <button
             onClick={onDone}
@@ -471,7 +535,7 @@ function ReceiptPanel({
       {/* Print-only receipt — styled for 80mm thermal paper */}
       <div className="hidden print:block w-[72mm] font-mono text-[11px] leading-snug">
         <div className="text-center mb-3">
-          <p className="font-bold text-[13px]">Dragon Force Porto</p>
+          <p className="font-bold text-[13px]">INVICTA · Dragon Force Porto</p>
           <p className="text-[10px]">FC Porto Dragon Force · Monterrey</p>
           <p className="text-[10px]">{receipt.campusName}</p>
         </div>
