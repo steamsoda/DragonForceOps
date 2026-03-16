@@ -15,6 +15,8 @@ export type CajaPlayerResult = {
   enrollmentId: string;
   campusName: string;
   balance: number;
+  teamName: string | null;
+  coachName: string | null;
 };
 
 export type CajaPendingCharge = {
@@ -201,6 +203,8 @@ type CajaSearchRow = {
   enrollment_id: string;
   campus_name: string;
   balance: number;
+  team_name: string | null;
+  coach_name: string | null;
 };
 
 export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerResult[]> {
@@ -223,7 +227,9 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
     birthYear: row.birth_year,
     enrollmentId: row.enrollment_id,
     campusName: row.campus_name,
-    balance: row.balance
+    balance: row.balance,
+    teamName: row.team_name ?? null,
+    coachName: row.coach_name ?? null
   }));
 }
 

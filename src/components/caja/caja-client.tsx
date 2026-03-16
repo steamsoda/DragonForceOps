@@ -270,6 +270,9 @@ function SearchPanel({
                     <div>
                       <span className="font-medium text-slate-800">{p.playerName}</span>
                       <span className="ml-2 text-slate-400 text-xs">{p.campusName}{p.birthYear ? ` · ${p.birthYear}` : ""}</span>
+                      {p.teamName && (
+                        <p className="text-xs text-slate-400">{p.teamName}{p.coachName ? ` · ${p.coachName}` : ""}</p>
+                      )}
                     </div>
                     <span className={`text-xs font-semibold ${p.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                       {p.balance > 0
@@ -347,7 +350,12 @@ function EnrollmentPanel({
       <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
         <div>
           <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
-          <p className="text-sm text-slate-500">{data.campusName}</p>
+          <p className="text-sm text-slate-500">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
+          {player.teamName && (
+            <p className="text-xs text-slate-400 mt-0.5">
+              {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className={`text-xl font-bold ${data.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
@@ -712,7 +720,12 @@ function ProductGridPanel({
       <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
         <div>
           <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
-          <p className="text-sm text-slate-500">{data.campusName}</p>
+          <p className="text-sm text-slate-500">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
+          {player.teamName && (
+            <p className="text-xs text-slate-400 mt-0.5">
+              {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
+            </p>
+          )}
         </div>
         <p className="text-xs text-slate-400">Nuevo cargo</p>
       </div>
