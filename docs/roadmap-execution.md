@@ -2,22 +2,23 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-15)
-- Preview auth flow works end-to-end.
-- Protected app routes are reachable after login.
-- Core billing loop working in preview: create charge → post payment → ledger → pending list.
-- Real data seeded: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
-- Caja (POS) panel live: debounced search, pending charges, payment posting, thermal receipt.
-- Role system live: `superadmin`, `director_admin`, `front_desk`. Role-aware nav.
-- Coaches seeded from Porto Clases CSV; `has_scholarship` and `teams.type` columns added.
-- Porto monthly report planning complete. Eventos and Mapa de Área confirmed as continuous log tables.
-- Admin demo held 2026-03-13; feature backlog captured in SDD Section 17.
-- Left sidebar navigation replaces cluttered top bar.
-- Credit (overpayment) correctly displayed and swept on next charge.
-- Caja: birth-year search + fuzzy name search via pg_trgm. Team/coach shown on player card.
-- Products: delete with charge-count guard (blocks if any non-void charges reference it).
-- Dark mode toggle (moon/sun) with localStorage persistence + anti-flash, v0.7.
-- App version: v0.7
+## Current State (as of 2026-03-16)
+- App version: v0.7. Phase 1B operational MVP is complete and in daily use.
+- Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
+- Real data: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
+- Caja POS: player search (name + birth year, pg_trgm), pending charges, payment posting, thermal receipt.
+- Cash session management: open/close per campus, linked cash payments, variance notes, Corte Diario integration.
+- No-session warning in Caja: prominent amber banner with direct open-session link.
+- Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.
+- Reports live: Corte Diario (daily, with charge-type breakdown + session panel), Corte Semanal (weekly), Resumen Mensual, Porto Mensual.
+- Porto Mensual: Datos Generales auto-compute (enrollments, dropouts, activos, gender, scholarship), Eventos log, Mapa de Área log. Equipos/Clases sections show empty state (data exists, not yet wired).
+- Activity log: human-readable audit feed, last 200 entries, no filters yet.
+- Products catalog: categories + sizes + charge type linking, POS grid in Caja. Delete guard.
+- Role system: `superadmin`, `director_admin`, `front_desk`. RLS enforced. Role-aware nav.
+- Void charges: director-only, any pending charge, with required reason. Audit logged.
+- Scholarship skip: both DB cron and TypeScript manual trigger filter `has_scholarship = true`.
+- Dropout reason: 7 codes in current implementation (full Porto taxonomy ~30 not yet expanded).
+- Dark mode: localStorage + anti-flash + global CSS for native form controls. v0.7.
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -25,27 +26,12 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Merge to `main` only after preview smoke tests pass.
 - Keep production maintenance mode enabled only during controlled release windows.
 
-## Phase 1A: Stabilization (Now - next 3 to 5 days)
+## Phase 1A: Stabilization ✅ COMPLETE
 Goal: make current features reliable for daily internal usage.
 
-1. Auth + Access Hardening
-- Confirm strict role-based access via `public.user_roles`.
-- Remove temporary bootstrap access env (`BOOTSTRAP_ADMIN_EMAILS`) once roles are seeded.
-- Improve login/callback error UX with short actionable messages.
-
-2. Data Integrity Pass
-- Validate enrollment invariants (one active enrollment per player).
-- Validate payment/charge allocation edge cases.
-- Add missing server-side validation where silent failures are possible.
-
-3. Report Reliability
-- Verify `corte diario` and `resumen mensual` totals against sample manual calculations.
-- Add empty-state handling and error boundaries for report endpoints.
-
-Exit criteria:
-- No blocking auth errors in preview for admin users.
-- End-to-end flow works: player -> enrollment -> charge -> payment -> pending follow-up -> reports.
-- Smoke test checklist is consistently green.
+1. ✅ Auth + Access Hardening — roles seeded, RLS enforced, bootstrap env removed.
+2. ✅ Data Integrity Pass — allocation edge cases handled, server-side validation in place.
+3. ✅ Report Reliability — corte diario and resumen mensual verified against real data.
 
 ## Milestone Snapshot (completed)
 - Preview deployment/auth baseline stabilized.
@@ -55,61 +41,26 @@ Exit criteria:
 - Pending collections view operational with filters and call shortcuts.
 - Security/performance baseline documented and adopted.
 
-## Phase 1B: Operational MVP Completion
+## Phase 1B: Operational MVP Completion ✅ LARGELY COMPLETE
 Goal: complete the minimum operational feature set for steady daily use.
 
-1. **Caja — POS Quick Action Panel** (`/caja` route)
-- Dedicated tab for front desk staff: player search + payment collection.
-- Debounced real-time player search (Client Component, `ilike`).
-- Shows all pending charges oldest-first; auto-fills outstanding balance.
-- Fast cashier mode: panel resets after each payment.
-- Phase 1 receipt: browser print styled for 80mm thermal paper.
-- Phase 2 receipt: ESC/POS via QZ Tray + Star/Epson thermal printer.
+1. ✅ **Caja — POS Panel** — player search, pending charges, payment posting, receipt, session guardrail.
+2. ✅ **Role System** — `front_desk`, `director_admin`, `superadmin`. RLS enforced. Role-aware nav.
+3. ✅ **Dashboard KPIs** — 8 KPIs wired to real data, MoM trends, payment/charge charts.
+4. ✅ **Pending Workflow** — campus/balance/overdue filters, pagination. Enrollment ledger links present.
+5. ✅ **Cash Session UX** — open/close per campus, linked payments, variance notes, Corte Diario integration, prominent Caja banner.
+6. ✅ **Porto Monthly Report** — Datos Generales auto-compute, Eventos log, Mapa de Área log. ⚠ Equipos/Clases not yet wired.
+7. ✅ **Activity Log UI** — human-readable audit feed, last 200 entries. ⚠ No filters yet.
+8. ✅ **Corte Diario charge-type summary** — charge-type breakdown grid live.
+9. ✅ **Weekly Corte** — week-by-week view with bar chart and drill-down links.
+10. ⚠ **Caja ad-hoc charges** — NOT YET BUILT. Caja currently posts payments only; charging a uniform or tournament fee requires going to the enrollment ledger.
 
-2. **Role System — `front_desk` role** ✅ Done
-- `front_desk` and `superadmin` added to `app_roles`.
-- RLS policies enforced: front_desk can search players, post payments, use Caja. No financial stats, no voids.
-- Role-aware nav: front_desk sees Caja + Jugadores only. Director+ sees full nav.
-
-3. **Dashboard KPIs**
-- Wire real metrics for active enrollments, pending balance, payments today, and monthly totals.
-
-4. **Pending Workflow Improvements**
-- Add better filtering and sorting for collections/follow-up.
-- Add quick actions for calling guardians and opening enrollment ledger.
-
-5. **Cash Session UX**
-- Improve open/close session workflow and variance explanation notes.
-- Add guardrails when posting cash payments without an open session.
-
-6. **Porto Monthly Report** (`/reports/porto-mensual`)
-- Datos Generales: auto-compute inscripciones, retiros, activos, varonil/femenil, retrasos, facturación USD.
-- Eventos section: continuous `academy_events` log (add/view inline, filtered by month).
-- Mapa de Área section: continuous `area_map_entries` quality log (add/view/close inline, filtered by month).
-- Equipos and Clases tabs: auto-populate from teams + coaches once teams seeded.
-- Month selector (URL param), defaults to previous month.
-
-7. **Activity Log UI** (`/activity`)
-- Human-readable feed from `audit_logs`. Director/superadmin only.
-- Format: "User X posted payment of $600 for [Player] · 2 min ago"
-- Filter by date, actor, action type, campus.
-
-8. **Corte Diario — Summary by Charge Type**
-- Add aggregate summary row to corte: Mensualidades: $X · Inscripciones: $X · Uniformes: $X
-- UI-only change, no schema needed.
-
-9. **Weekly Corte**
-- Aggregate version of Corte Diario spanning Mon–Sun.
-
-10. **Caja Enhancements**
-- Ad-hoc item charges from Caja (staff charges a uniform, league fee, etc. without leaving the panel).
-- More player/enrollment context visible (details TBD — Javi to specify).
-
-Exit criteria:
-- Front desk staff can run a full payment shift from `/caja` without touching any other page.
-- Director can see financial summary from dashboard.
-- Porto monthly report generates Datos Generales automatically; Eventos and Mapa de Área log continuously.
-- No manual SQL needed for any daily operation.
+### Remaining Phase 1B work
+- Porto Mensual: wire Equipos and Clases sections from teams + coaches data.
+- Activity log: add date / actor / action-type / campus filters.
+- Caja: ad-hoc charge creation inline (uniform, tournament, trip, etc.).
+- Batch baja write-off: bulk void pending charges for a list of dropped-out players.
+- Dropout reason expansion: grow from 7 codes to Porto's full ~30-reason taxonomy.
 
 ## Phase 2: Roles, Integrations, and Ops Expansion
 Goal: broader operational support and integrations.
@@ -157,17 +108,29 @@ Goal: broader operational support and integrations.
 10. **Tournament Entity**
 - `tournaments` table, team entries, mandatory vs optional, auto charge generation.
 
-## Prioritized Backlog (Top 10)
-1. Build `/reports/porto-mensual` — Datos Generales auto-compute + Eventos + Mapa de Área inline CRUD.
-2. Wire real dashboard KPIs (active enrollments, pending balance, payments today, monthly totals).
-3. Activity log UI (`/activity`) — read from existing `audit_logs`, director/superadmin only.
-4. Corte Diario summary by charge type (aggregate row, UI-only change).
-5. Weekly Corte view.
-6. Caja: ad-hoc item charges from the panel.
-7. Write-off / baja processing — batch void pending charges for dropped-out players (see SDD 17.1).
-8. Cash session open/close guardrails.
-9. Skip scholarship enrollments in monthly charge cron.
-10. Dropout reason expansion to Porto's full taxonomy.
+## Prioritized Backlog (as of 2026-03-16)
+
+### Phase 1B completion (short-term)
+1. **Porto Mensual — Equipos + Clases sections**: wire team rosters and coach/class data from existing DB into the report. Data is seeded; only query + UI needed.
+2. **Caja: ad-hoc charges inline**: allow front desk to charge a uniform, tournament fee, or other product directly from the Caja panel without navigating to enrollment ledger.
+3. **Activity log filters**: add date range, actor, action type, and campus filters to `/activity`.
+4. **Dropout reason expansion**: grow dropout codes from 7 to Porto's full ~30-reason taxonomy. Text field (not PG enum), server-side validation only.
+5. **Batch baja write-off UI**: select multiple dropped-out enrollments → void all pending charges in one action. Director only.
+
+### Phase 2 (medium-term)
+6. **Campus-scoped access**: `user_campus_assignments` table — front desk sees only their campus's data in Caja, sessions, and reports.
+7. **Thermal printer (ESC/POS)**: QZ Tray integration for Star TSP100 / Epson TM-T20. One-click receipt, no browser dialog.
+8. **CSV/PDF exports**: export daily and monthly reports. No schema change needed.
+9. **Uniform delivery tracking**: `player_uniform_deliveries` — who has/hasn't received training kit, game kit, goalkeeper kit. Status badges on player cards.
+10. **External payment reconciliation**: ingestion path for 360Player/Stripe events, reconciliation queue.
+
+### Phase 3+ (deferred)
+- Coach role + attendance module
+- Uniform stock control (inventory)
+- Player documents / file uploads (Supabase Storage)
+- Jersey number assignment (business rules TBD)
+- Tournament entity (auto charge generation for team entries)
+- WhatsApp/SMS automated reminders
 
 ## Working Rhythm (Recommended)
 - Plan: 1 short planning session per week (30-45 min).

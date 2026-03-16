@@ -5,16 +5,31 @@ This is the consolidated, living SDD. It merges and preserves the content from:
 - `docs/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
 
 ## 0) Status
-- Current stage: Foundation + dashboards
-- Auth: Supabase Auth with Azure provider enabled
+- Current stage: Phase 1B operational MVP — complete for daily use
+- App version: v0.7
+- Auth: Supabase Auth with Azure provider, fully wired (preview + prod)
 - Environments:
   - Production DB: Supabase main project
   - Preview DB: Supabase preview branch (Pro plan)
   - Hosting: Vercel (prod + preview deployments)
-- Known pain:
-  - Environment brittleness
-  - Unclear business rules
-  - Roles not fully designed / enforced yet
+- Live and working as of 2026-03-16:
+  - Core billing loop: enrollment → charges → payments → ledger → pending list
+  - Caja POS: player search, pending charges, payment posting, thermal receipt
+  - Cash session management: open/close per campus, linked payments, variance notes
+  - Dashboard: 8 KPIs + trends + charts, campus/month filters, real data
+  - Reports: Corte Diario, Corte Semanal, Resumen Mensual, Porto Mensual
+  - Porto Mensual: Datos Generales auto-compute, Eventos log, Mapa de Área log
+  - Activity log: human-readable audit feed
+  - Products catalog with POS grid in Caja
+  - Role system: director_admin, front_desk, superadmin with RLS
+  - Dark mode with localStorage persistence
+  - Void charges (director only), scholarship skip in monthly cron
+- Known remaining gaps (Phase 1 completion):
+  - Porto Mensual: Equipos and Clases sections not yet wired (teams/coaches data exists)
+  - Ad-hoc charges from Caja panel (currently payments only)
+  - Activity log: no filters yet (date, actor, action type, campus)
+  - Batch baja write-off UI (individual void exists; bulk does not)
+  - Dropout reason taxonomy expansion (~30 reasons vs current 7)
 
 ## 1) Overview and Goals (Phase 1 MVP)
 - Build a secure internal operations app (30–50 staff users) for two campuses in Monterrey: Linda Vista and Contry.
