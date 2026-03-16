@@ -1,7 +1,10 @@
 -- Extend search_players_for_caja to include current team name and coach name.
 -- Uses a lateral subquery to get the most recent active team assignment per enrollment.
+-- DROP required because CREATE OR REPLACE cannot change a function's return type.
 
-create or replace function public.search_players_for_caja(search_query text)
+drop function if exists public.search_players_for_caja(text);
+
+create function public.search_players_for_caja(search_query text)
 returns table (
   player_id    uuid,
   player_name  text,
