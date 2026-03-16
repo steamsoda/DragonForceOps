@@ -49,14 +49,14 @@ Goal: complete the minimum operational feature set for steady daily use.
 3. ✅ **Dashboard KPIs** — 8 KPIs wired to real data, MoM trends, payment/charge charts.
 4. ✅ **Pending Workflow** — campus/balance/overdue filters, pagination. Enrollment ledger links present.
 5. ✅ **Cash Session UX** — open/close per campus, linked payments, variance notes, Corte Diario integration, prominent Caja banner.
-6. ✅ **Porto Monthly Report** — Datos Generales auto-compute, Eventos log, Mapa de Área log. ⚠ Equipos/Clases not yet wired.
+6. ✅ **Porto Monthly Report** — Datos Generales auto-compute, Eventos log, Mapa de Área log, Equipos/Clases wired.
 7. ✅ **Activity Log UI** — human-readable audit feed, last 200 entries. ⚠ No filters yet.
 8. ✅ **Corte Diario charge-type summary** — charge-type breakdown grid live.
 9. ✅ **Weekly Corte** — week-by-week view with bar chart and drill-down links.
 10. ✅ **Caja ad-hoc charges** — fully built. "+ Cargo" button → product grid (uniforms, tournaments, etc.) with size + goalkeeper options, amount input, creates charge and returns to enrollment panel.
 
 ### Remaining Phase 1B work
-- Porto Mensual: wire Equipos and Clases sections from teams + coaches data.
+- ✅ Porto Mensual: Equipos and Clases sections wired from teams + coaches data.
 - Activity log: add date / actor / action-type / campus filters.
 - Batch baja write-off: bulk void pending charges for a list of dropped-out players.
 - Dropout reason expansion: grow from 7 codes to Porto's full ~30-reason taxonomy.
@@ -110,7 +110,7 @@ Goal: broader operational support and integrations.
 ## Prioritized Backlog (as of 2026-03-16)
 
 ### Phase 1B completion (short-term)
-1. **Porto Mensual — Equipos + Clases sections**: wire team rosters and coach/class data from existing DB into the report. Data is seeded; only query + UI needed.
+1. ✅ **Porto Mensual — Equipos + Clases sections**: wired. Team/class tables with campus, birth year, gender, level, coach, player count.
 2. **Activity log filters**: add date range, actor, action type, and campus filters to `/activity`.
 3. **Dropout reason expansion**: grow dropout codes from 7 to Porto's full ~30-reason taxonomy. Text field (not PG enum), server-side validation only.
 4. **Batch baja write-off UI**: select multiple dropped-out enrollments → void all pending charges in one action. Director only.

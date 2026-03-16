@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { getPortoDatosGenerales } from "@/lib/queries/porto-report";
+import { getPortoDatosGenerales, getPortoTeamsData } from "@/lib/queries/porto-report";
+import type { PortoTeamRow } from "@/lib/queries/porto-report";
 import { listEventsForMonthAction } from "@/server/actions/events";
 import { listAreaMapEntriesAction } from "@/server/actions/area-map";
 import { listCampuses } from "@/lib/queries/players";
@@ -88,6 +89,41 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function TeamsTable({ rows, showCoach }: { rows: PortoTeamRow[]; showCoach?: boolean }) {
+  return (
+    <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
+          <tr>
+            <th className="px-4 py-2 text-left">Equipo</th>
+            <th className="px-4 py-2 text-left">Campus</th>
+            <th className="px-4 py-2 text-left">Categoría</th>
+            <th className="px-4 py-2 text-left">Género</th>
+            <th className="px-4 py-2 text-left">Nivel</th>
+            {showCoach && <th className="px-4 py-2 text-left">Entrenador</th>}
+            <th className="px-4 py-2 text-right">Jugadores</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          {rows.map((t) => (
+            <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+              <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{t.name}</td>
+              <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{t.campusName}</td>
+              <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{t.birthYear ?? "—"}</td>
+              <td className="px-4 py-2 text-slate-600 dark:text-slate-400 capitalize">{t.gender ?? "—"}</td>
+              <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{t.level ?? "—"}</td>
+              {showCoach && (
+                <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{t.coachName ?? "—"}</td>
+              )}
+              <td className="px-4 py-2 text-right font-medium text-slate-800 dark:text-slate-200">{t.playerCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type SearchParams = Promise<{ month?: string; rate?: string }>;
@@ -97,11 +133,12 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
   const selectedMonth = params.month ?? prevMonthParam();
   const exchangeRate = parseFloat(params.rate ?? "18") || 18;
 
-  const [data, events, areaMap, campuses] = await Promise.all([
+  const [data, events, areaMap, campuses, teamsData] = await Promise.all([
     getPortoDatosGenerales(selectedMonth),
     listEventsForMonthAction(selectedMonth),
     listAreaMapEntriesAction(selectedMonth),
-    listCampuses()
+    listCampuses(),
+    getPortoTeamsData()
   ]);
 
   const pendienteUsd = data ? data.deudores.pendienteMxn / exchangeRate : 0;
@@ -235,18 +272,32 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
 
             {/* ── 5. Equipos de Competición ── */}
             <section className="space-y-3">
-              <SectionTitle>Equipos de Competición</SectionTitle>
-              <div className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 text-center text-sm text-slate-400">
-                Disponible cuando los equipos estén registrados en el sistema.
-              </div>
+              <SectionTitle>
+                Equipos de Competición{" "}
+                <span className="ml-1 text-slate-400 normal-case font-normal">
+                  ({teamsData.competicion.length} equipos · {teamsData.competicion.reduce((s, t) => s + t.playerCount, 0)} jugadores)
+                </span>
+              </SectionTitle>
+              {teamsData.competicion.length === 0 ? (
+                <p className="text-sm text-slate-400">Sin equipos de competición registrados.</p>
+              ) : (
+                <TeamsTable rows={teamsData.competicion} showCoach />
+              )}
             </section>
 
             {/* ── 6. Clases ── */}
             <section className="space-y-3">
-              <SectionTitle>Clases</SectionTitle>
-              <div className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 text-center text-sm text-slate-400">
-                Disponible cuando los grupos estén registrados en el sistema.
-              </div>
+              <SectionTitle>
+                Clases{" "}
+                <span className="ml-1 text-slate-400 normal-case font-normal">
+                  ({teamsData.clases.length} grupos · {teamsData.clases.reduce((s, t) => s + t.playerCount, 0)} alumnos)
+                </span>
+              </SectionTitle>
+              {teamsData.clases.length === 0 ? (
+                <p className="text-sm text-slate-400">Sin grupos de clase registrados.</p>
+              ) : (
+                <TeamsTable rows={teamsData.clases} showCoach />
+              )}
             </section>
 
             {/* ── 7. Eventos ── */}

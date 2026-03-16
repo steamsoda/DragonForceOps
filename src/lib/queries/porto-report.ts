@@ -1,5 +1,91 @@
 import { createClient } from "@/lib/supabase/server";
 
+// ── Equipos + Clases ───────────────────────────────────────────────────────────
+
+export type PortoTeamRow = {
+  id: string;
+  name: string;
+  campusName: string;
+  birthYear: number | null;
+  gender: string | null;
+  level: string | null;
+  coachName: string | null;
+  playerCount: number;
+};
+
+export type PortoTeamsData = {
+  competicion: PortoTeamRow[];
+  clases: PortoTeamRow[];
+};
+
+type TeamWithRelations = {
+  id: string;
+  name: string;
+  birth_year: number | null;
+  gender: string | null;
+  level: string | null;
+  type: string;
+  campuses: { name: string } | null;
+  coaches: { first_name: string; last_name: string | null } | null;
+};
+
+type AssignmentRow = {
+  team_id: string;
+  enrollments: { status: string } | null;
+};
+
+export async function getPortoTeamsData(): Promise<PortoTeamsData> {
+  const supabase = await createClient();
+
+  const [teamsResult, assignmentsResult] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, birth_year, gender, level, type, campuses(name), coaches(first_name, last_name)")
+      .eq("is_active", true)
+      .order("birth_year", { ascending: true })
+      .order("name", { ascending: true })
+      .returns<TeamWithRelations[]>(),
+    supabase
+      .from("team_assignments")
+      .select("team_id, enrollments!inner(status)")
+      .is("end_date", null)
+      .eq("enrollments.status", "active")
+      .returns<AssignmentRow[]>()
+  ]);
+
+  const teams = teamsResult.data ?? [];
+  const assignments = assignmentsResult.data ?? [];
+
+  // Count active players per team
+  const countByTeam = new Map<string, number>();
+  for (const a of assignments) {
+    countByTeam.set(a.team_id, (countByTeam.get(a.team_id) ?? 0) + 1);
+  }
+
+  function toRow(t: TeamWithRelations): PortoTeamRow {
+    const coachFirst = t.coaches?.first_name ?? null;
+    const coachLast = t.coaches?.last_name ?? null;
+    const coachName = coachFirst
+      ? coachLast ? `${coachFirst} ${coachLast}` : coachFirst
+      : null;
+    return {
+      id: t.id,
+      name: t.name,
+      campusName: t.campuses?.name ?? "-",
+      birthYear: t.birth_year,
+      gender: t.gender,
+      level: t.level,
+      coachName,
+      playerCount: countByTeam.get(t.id) ?? 0
+    };
+  }
+
+  return {
+    competicion: teams.filter((t) => t.type === "competition").map(toRow),
+    clases: teams.filter((t) => t.type === "class").map(toRow)
+  };
+}
+
 export type PortoDatosGenerales = {
   periodFirstDay: string;
   periodLastDay: string;
