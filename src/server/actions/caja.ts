@@ -283,25 +283,50 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   const targetChargeIds = parsed.targetChargeIds;
   const targetSet = new Set(targetChargeIds);
 
+  // ── Sweep unallocated credit from prior payments (FIFO) ───────────────────
+  // Any prior payment that was not fully allocated (e.g. from an overpayment)
+  // gets applied to pending charges before the new payment, so that a charge
+  // already covered by a credit does not re-surface as outstanding.
+  const effectivePending = new Map<string, number>(
+    pendingCharges.map((c) => [c.id, c.pendingAmount])
+  );
+  const priorAllocations: Array<{ paymentId: string; chargeId: string; amount: number }> = [];
+  for (const prior of ledger.payments.filter((p) => p.status === "posted" && p.allocatedAmount < p.amount)) {
+    let available = Math.round((prior.amount - prior.allocatedAmount) * 100) / 100;
+    for (const charge of pendingCharges) {
+      if (available <= 0) break;
+      const ep = effectivePending.get(charge.id) ?? 0;
+      if (ep <= 0) continue;
+      const alloc = Math.round(Math.min(available, ep) * 100) / 100;
+      priorAllocations.push({ paymentId: prior.id, chargeId: charge.id, amount: alloc });
+      effectivePending.set(charge.id, Math.round((ep - alloc) * 100) / 100);
+      available = Math.round((available - alloc) * 100) / 100;
+    }
+  }
+  const effectiveCharges = pendingCharges
+    .map((c) => ({ ...c, pendingAmount: effectivePending.get(c.id) ?? 0 }))
+    .filter((c) => c.pendingAmount > 0);
+
+  // ── Allocate new payment ──────────────────────────────────────────────────
   const allocations: Array<{ chargeId: string; amount: number }> = [];
   let remaining = parsed.amount;
 
   if (targetChargeIds.length > 0) {
     // Targeted payment: allocate to selected charges first (in their pending order), then FIFO for remainder
-    for (const charge of pendingCharges.filter((c) => targetSet.has(c.id))) {
+    for (const charge of effectiveCharges.filter((c) => targetSet.has(c.id))) {
       if (remaining <= 0) break;
       const allocated = Math.min(remaining, charge.pendingAmount);
       allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
       remaining = Math.round((remaining - allocated) * 100) / 100;
     }
-    for (const charge of pendingCharges.filter((c) => !targetSet.has(c.id))) {
+    for (const charge of effectiveCharges.filter((c) => !targetSet.has(c.id))) {
       if (remaining <= 0) break;
       const allocated = Math.min(remaining, charge.pendingAmount);
       allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
       remaining = Math.round((remaining - allocated) * 100) / 100;
     }
   } else {
-    for (const charge of pendingCharges) {
+    for (const charge of effectiveCharges) {
       if (remaining <= 0) break;
       const allocated = Math.min(remaining, charge.pendingAmount);
       allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
@@ -329,6 +354,21 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
+  // Insert allocations for prior unallocated credit first
+  if (priorAllocations.length > 0) {
+    const { error: priorAllocError } = await supabase.from("payment_allocations").insert(
+      priorAllocations.map((a) => ({
+        payment_id: a.paymentId,
+        charge_id: a.chargeId,
+        amount: a.amount
+      }))
+    );
+    if (priorAllocError) {
+      await supabase.from("payments").delete().eq("id", paymentRow.id);
+      return { ok: false, error: "allocation_insert_failed" };
+    }
+  }
+
   if (allocations.length > 0) {
     const { error: allocationError } = await supabase.from("payment_allocations").insert(
       allocations.map((a) => ({
@@ -344,7 +384,11 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     }
   }
 
-  await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allocations, ledger, user.id);
+  const allAllocatedCharges = [
+    ...priorAllocations.map((a) => ({ chargeId: a.chargeId, amount: a.amount })),
+    ...allocations
+  ];
+  await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
