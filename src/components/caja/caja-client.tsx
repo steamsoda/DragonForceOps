@@ -597,6 +597,12 @@ function ReceiptPanel({
             <p className="mt-2 text-sm text-emerald-600">Crédito en cuenta: {formatMoney(Math.abs(receipt.remainingBalance), receipt.currency)} ✓</p>
           )}
         </div>
+        {receipt.sessionWarning && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            ⚠ Sin sesión de caja abierta. El pago se registró correctamente pero no está vinculado a ninguna sesión.{" "}
+            <a href="/caja/sesion" className="font-medium underline hover:no-underline">Abrir sesión</a>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button

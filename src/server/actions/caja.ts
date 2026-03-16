@@ -7,6 +7,7 @@ import { parsePaymentFormData } from "@/lib/validations/payment";
 import { writeAuditLog } from "@/lib/audit";
 import { applyEarlyBirdDiscountIfEligible } from "@/server/actions/payments";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
+import { getOpenSessionForCampus } from "@/lib/queries/cash-sessions";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -39,7 +40,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string }
+  | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string; sessionWarning: boolean }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -396,6 +397,32 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   ];
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
 
+  // ── Link cash payment to open session ─────────────────────────────────────
+  let sessionWarning = false;
+  if (parsed.method === "cash") {
+    const { data: campusRow } = await supabase
+      .from("enrollments")
+      .select("campus_id")
+      .eq("id", enrollmentId)
+      .maybeSingle<{ campus_id: string }>();
+
+    const campusId = campusRow?.campus_id ?? null;
+    if (campusId) {
+      const openSession = await getOpenSessionForCampus(campusId);
+      if (openSession) {
+        await supabase.from("cash_session_entries").insert({
+          cash_session_id: openSession.id,
+          payment_id: paymentRow.id,
+          entry_type: "payment_in",
+          amount: parsed.amount,
+          created_by: user.id
+        });
+      } else {
+        sessionWarning = true; // cash payment with no open session
+      }
+    }
+  }
+
   await writeAuditLog(supabase, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
@@ -417,6 +444,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     campusName: ledger.enrollment.campusName,
     method: parsed.method,
     remainingBalance: newBalance,
-    currency: ledger.enrollment.currency
+    currency: ledger.enrollment.currency,
+    sessionWarning
   };
 }
