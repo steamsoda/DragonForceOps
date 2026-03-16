@@ -69,15 +69,16 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
   const sessionId = formData.get("session_id")?.toString().trim() ?? "";
   const closingCashRaw = formData.get("closing_cash")?.toString().trim() ?? "";
   const notes = formData.get("notes")?.toString().trim() || null;
+  const redirectTo = formData.get("redirect_to")?.toString().trim() || BASE;
 
-  if (!sessionId) redirect(`${BASE}?err=invalid_form`);
+  if (!sessionId) redirect(`${redirectTo}?err=invalid_form`);
   const closingCash = closingCashRaw ? parseFloat(closingCashRaw) : null;
   if (closingCash !== null && (isNaN(closingCash) || closingCash < 0)) {
-    redirect(`${BASE}?err=invalid_amount`);
+    redirect(`${redirectTo}?err=invalid_amount`);
   }
 
   const auth = await assertDirectorAdmin();
-  if (!auth) redirect(`${BASE}?err=unauthorized`);
+  if (!auth) redirect(`${redirectTo}?err=unauthorized`);
   const { supabase, user } = auth;
 
   const { data: session } = await supabase
@@ -87,7 +88,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
     .eq("status", "open")
     .maybeSingle<{ id: string; campus_id: string; status: string }>();
 
-  if (!session) redirect(`${BASE}?err=session_not_found`);
+  if (!session) redirect(`${redirectTo}?err=session_not_found`);
 
   const { error } = await supabase
     .from("cash_sessions")
@@ -100,7 +101,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
     })
     .eq("id", sessionId);
 
-  if (error) redirect(`${BASE}?err=close_failed`);
+  if (error) redirect(`${redirectTo}?err=close_failed`);
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
@@ -113,5 +114,6 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
 
   revalidatePath(BASE);
   revalidatePath("/caja");
-  redirect(`${BASE}?ok=closed`);
+  revalidatePath(redirectTo);
+  redirect(`${redirectTo}?ok=closed`);
 }

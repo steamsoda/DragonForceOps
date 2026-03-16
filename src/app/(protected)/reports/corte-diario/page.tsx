@@ -2,6 +2,9 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { listCampuses } from "@/lib/queries/players";
 import { getCorteDiarioData } from "@/lib/queries/reports";
+import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
+import { closeCashSessionAction } from "@/server/actions/cash-sessions";
+import { createClient } from "@/lib/supabase/server";
 
 function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -19,17 +22,50 @@ function fmtTime(iso: string) {
   });
 }
 
-type SearchParams = Promise<{ date?: string; campus?: string }>;
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString("es-MX", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC"
+  });
+}
+
+const CLOSE_ERROR_LABELS: Record<string, string> = {
+  invalid_form: "Formulario inválido.",
+  invalid_amount: "El monto debe ser 0 o mayor.",
+  unauthorized: "Solo el director puede gestionar sesiones.",
+  session_not_found: "Sesión no encontrada.",
+  close_failed: "Error al cerrar la sesión."
+};
+
+type SearchParams = Promise<{ date?: string; campus?: string; ok?: string; err?: string }>;
 
 export default async function CorteDiarioPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const selectedDate = params.date ?? "";
   const selectedCampusId = params.campus ?? "";
 
-  const [campuses, data] = await Promise.all([
+  const supabase = await createClient();
+  const [campuses, data, sessionStatuses, isDirectorResult] = await Promise.all([
     listCampuses(),
-    getCorteDiarioData({ date: selectedDate || undefined, campusId: selectedCampusId || undefined })
+    getCorteDiarioData({ date: selectedDate || undefined, campusId: selectedCampusId || undefined }),
+    getCampusSessionStatuses(),
+    supabase.rpc("is_director_admin")
   ]);
+  const isDirector = isDirectorResult.data ?? false;
+
+  // Filter sessions to selected campus (or all if none selected)
+  const relevantStatuses = selectedCampusId
+    ? sessionStatuses.filter((s) => s.campusId === selectedCampusId)
+    : sessionStatuses;
+
+  const redirectTo = selectedCampusId
+    ? `/reports/corte-diario?campus=${selectedCampusId}&date=${data.date}`
+    : `/reports/corte-diario?date=${data.date}`;
+
+  const banner = params.ok === "closed"
+    ? { type: "success", msg: "Sesión cerrada correctamente." }
+    : params.err
+    ? { type: "error", msg: CLOSE_ERROR_LABELS[params.err] ?? `Error: ${params.err}` }
+    : null;
 
   return (
     <PageShell title="Corte Diario" subtitle="Cobros registrados por fecha y campus">
@@ -67,6 +103,112 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             Hoy
           </Link>
         </form>
+
+        {/* Session status banner (feedback from close action) */}
+        {banner && (
+          <div className={`rounded-md border px-4 py-3 text-sm ${
+            banner.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300"
+              : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300"
+          }`}>
+            {banner.msg}
+          </div>
+        )}
+
+        {/* Cash session panel */}
+        <div className="rounded-md border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Sesión de Caja</h2>
+            <Link
+              href="/caja/sesion"
+              className="text-xs text-portoBlue hover:underline"
+            >
+              Abrir sesión →
+            </Link>
+          </div>
+          {relevantStatuses.length === 0 ? (
+            <p className="text-sm text-slate-400">Sin campus seleccionado.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {relevantStatuses.map(({ campusId, campusName, session }) => (
+                <div
+                  key={campusId}
+                  className={`rounded-lg border-2 p-4 ${
+                    session
+                      ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20"
+                      : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
+                  }`}
+                >
+                  <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{campusName}</p>
+                  {session ? (
+                    <>
+                      <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                        Sesión abierta
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                        Apertura: {fmtDateTime(session.openedAt)}
+                      </p>
+                      <div className="mt-2 flex gap-4 text-xs">
+                        <div>
+                          <p className="text-slate-400">Efectivo inicial</p>
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{fmt(session.openingCash)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400">Cobrado</p>
+                          <p className="font-semibold text-emerald-700 dark:text-emerald-400">{fmt(session.cashIn)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400">Esperado</p>
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{fmt(session.openingCash + session.cashIn)}</p>
+                        </div>
+                      </div>
+                      {isDirector && (
+                        <details className="mt-3 group">
+                          <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
+                            Cerrar sesión
+                          </summary>
+                          <form action={closeCashSessionAction} className="mt-2 space-y-2">
+                            <input type="hidden" name="session_id" value={session.id} />
+                            <input type="hidden" name="redirect_to" value={redirectTo} />
+                            <label className="block space-y-1 text-xs">
+                              <span className="font-medium text-slate-700 dark:text-slate-300">Efectivo contado al cierre (opcional)</span>
+                              <input
+                                type="number"
+                                name="closing_cash"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1.5 text-sm"
+                              />
+                              <p className="text-slate-400">Esperado: {fmt(session.openingCash + session.cashIn)}</p>
+                            </label>
+                            <label className="block space-y-1 text-xs">
+                              <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
+                              <input
+                                type="text"
+                                name="notes"
+                                placeholder="Ej: variación de $50 por cambio"
+                                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1.5 text-sm"
+                              />
+                            </label>
+                            <button
+                              type="submit"
+                              className="w-full rounded-md bg-rose-600 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                            >
+                              Confirmar cierre
+                            </button>
+                          </form>
+                        </details>
+                      )}
+                    </>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-400">Sin sesión activa</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Summary tiles */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
