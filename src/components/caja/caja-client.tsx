@@ -165,14 +165,14 @@ export function CajaClient() {
 
       {/* Loading enrollment */}
       {view.tag === "loading-enrollment" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
           Cargando información de {view.player.playerName}…
         </div>
       )}
 
       {/* Loading products */}
       {view.tag === "loading-products" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
           Cargando productos…
         </div>
       )}
@@ -242,7 +242,7 @@ function SearchPanel({
 }) {
   return (
     <div className="relative">
-      <label className="mb-2 block text-sm font-medium text-slate-700">Buscar alumno</label>
+      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Buscar alumno</label>
       <input
         ref={inputRef}
         autoFocus
@@ -250,25 +250,25 @@ function SearchPanel({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Nombre o año de nacimiento (ej. 2013)…"
-        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base shadow-sm focus:border-portoBlue focus:outline-none focus:ring-1 focus:ring-portoBlue"
+        className="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-base shadow-sm focus:border-portoBlue focus:outline-none focus:ring-1 focus:ring-portoBlue"
       />
       {isPending && view.tag === "searching" && (
         <p className="mt-1 text-xs text-slate-400">Buscando…</p>
       )}
       {view.tag === "results" && (
-        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
           {view.results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-slate-500">Sin resultados para &ldquo;{view.query}&rdquo;</p>
+            <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">Sin resultados para &ldquo;{view.query}&rdquo;</p>
           ) : (
             <ul>
               {view.results.map((p) => (
                 <li key={p.playerId}>
                   <button
                     onClick={() => onSelect(p)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-slate-50"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <div>
-                      <span className="font-medium text-slate-800">{p.playerName}</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{p.playerName}</span>
                       <span className="ml-2 text-slate-400 text-xs">{p.campusName}{p.birthYear ? ` · ${p.birthYear}` : ""}</span>
                       {p.teamName && (
                         <p className="text-xs text-slate-400">{p.teamName}{p.coachName ? ` · ${p.coachName}` : ""}</p>
@@ -347,10 +347,10 @@ function EnrollmentPanel({
   return (
     <div className="space-y-4">
       {/* Player header */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
           <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
-          <p className="text-sm text-slate-500">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">
               {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
@@ -373,8 +373,8 @@ function EnrollmentPanel({
 
       {/* Pending charges */}
       {data.pendingCharges.length > 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white">
-          <p className="border-b border-slate-100 px-4 py-3 text-sm font-medium text-slate-700">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <p className="border-b border-slate-100 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             Cargos pendientes
             {!paying && data.pendingCharges.length > 1 && (
               <span className="ml-2 text-xs font-normal text-slate-400">Selecciona los que deseas pagar</span>
@@ -391,7 +391,7 @@ function EnrollmentPanel({
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-800">{c.description}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{c.description}</p>
                     {c.periodMonth && (
                       <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>
                     )}
@@ -406,7 +406,7 @@ function EnrollmentPanel({
                       className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
                         isSelected
                           ? "bg-portoBlue text-white hover:bg-portoDark"
-                          : "border border-slate-300 text-slate-600 hover:border-portoBlue hover:text-portoBlue"
+                          : "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
                       }`}
                     >
                       {isSelected ? "✓ Agregado" : "Agregar"}
@@ -432,9 +432,9 @@ function EnrollmentPanel({
             e.preventDefault();
             onSubmit(player, data.enrollmentId, new FormData(e.currentTarget));
           }}
-          className="space-y-4 rounded-xl border border-portoBlue bg-white p-5"
+          className="space-y-4 rounded-xl border border-portoBlue bg-white dark:bg-slate-900 p-5"
         >
-          <p className="font-medium text-slate-800">Registrar pago</p>
+          <p className="font-medium text-slate-800 dark:text-slate-200">Registrar pago</p>
 
           {/* Targeted charges banner */}
           {targetCharges.length > 0 && (
@@ -459,7 +459,7 @@ function EnrollmentPanel({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Monto</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
               <input
                 type="number"
                 name="amount"
@@ -467,12 +467,12 @@ function EnrollmentPanel({
                 min="0.01"
                 required
                 defaultValue={defaultAmount}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Método</span>
-              <select name="method" required className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
+              <select name="method" required className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none">
                 <option value="cash">Efectivo</option>
                 <option value="transfer">Transferencia</option>
                 <option value="card">Tarjeta</option>
@@ -482,12 +482,12 @@ function EnrollmentPanel({
           </div>
 
           <label className="block space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Notas (opcional)</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
             <input
               type="text"
               name="notes"
               placeholder="Referencia, folio, etc."
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
             />
           </label>
 
@@ -508,7 +508,7 @@ function EnrollmentPanel({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
@@ -521,7 +521,7 @@ function EnrollmentPanel({
             <span className="font-semibold text-portoBlue">
               {selectedIds.size} {selectedIds.size === 1 ? "cargo" : "cargos"} seleccionado{selectedIds.size !== 1 ? "s" : ""}
             </span>
-            <span className="ml-2 font-bold text-slate-800">{formatMoney(selectedTotal, data.currency)}</span>
+            <span className="ml-2 font-bold text-slate-800 dark:text-slate-200">{formatMoney(selectedTotal, data.currency)}</span>
           </div>
           <button
             onClick={() => onPay(player, data, Array.from(selectedIds))}
@@ -531,7 +531,7 @@ function EnrollmentPanel({
           </button>
           <button
             onClick={clearSelection}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-white"
+            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-white"
           >
             Limpiar
           </button>
@@ -547,13 +547,13 @@ function EnrollmentPanel({
           <button
             onClick={() => onAddCharge(player, data)}
             disabled={isPending}
-            className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
           >
             + Cargo
           </button>
           <button
             onClick={onCancel}
-            className="rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             Cancelar
           </button>
@@ -601,7 +601,7 @@ function ReceiptPanel({
         <div className="flex gap-3">
           <button
             onClick={() => window.print()}
-            className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             Imprimir recibo
           </button>
@@ -672,7 +672,7 @@ const CATEGORY_STYLES: Record<string, { tile: string; selected: string; header: 
   tournaments: { tile: "border-amber-200 bg-amber-50 hover:bg-amber-100", selected: "border-amber-500 bg-amber-100 ring-2 ring-amber-500", header: "text-amber-700" },
   tuition:     { tile: "border-emerald-200 bg-emerald-50 hover:bg-emerald-100", selected: "border-emerald-500 bg-emerald-100 ring-2 ring-emerald-500", header: "text-emerald-700" }
 };
-const DEFAULT_STYLE = { tile: "border-slate-200 bg-slate-50 hover:bg-slate-100", selected: "border-portoBlue bg-blue-50 ring-2 ring-portoBlue", header: "text-slate-600" };
+const DEFAULT_STYLE = { tile: "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700", selected: "border-portoBlue bg-blue-50 ring-2 ring-portoBlue", header: "text-slate-600 dark:text-slate-400" };
 
 function ProductGridPanel({
   player,
@@ -717,10 +717,10 @@ function ProductGridPanel({
   return (
     <div className="space-y-4">
       {/* Player header */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-5 py-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
           <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
-          <p className="text-sm text-slate-500">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">
               {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
@@ -731,11 +731,11 @@ function ProductGridPanel({
       </div>
 
       {/* Product grid */}
-      <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-5">
+      <div className="space-y-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
         {error && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
         {products.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay productos disponibles.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No hay productos disponibles.</p>
         ) : (
           products.map((category) => {
             const style = CATEGORY_STYLES[category.slug] ?? DEFAULT_STYLE;
@@ -754,8 +754,8 @@ function ProductGridPanel({
                         onClick={() => handleSelectProduct(product)}
                         className={`rounded-xl border p-4 text-left transition-all ${isSelected ? style.selected : style.tile}`}
                       >
-                        <p className="text-sm font-semibold text-slate-800">{product.name}</p>
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{product.name}</p>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                           {product.defaultAmount != null
                             ? formatMoney(product.defaultAmount, data.currency)
                             : "Precio libre"}
@@ -775,12 +775,12 @@ function ProductGridPanel({
             onSubmit={handleSubmit}
             className="mt-2 space-y-3 rounded-xl border border-portoBlue bg-blue-50 p-4"
           >
-            <p className="font-semibold text-slate-800">{selected.name}</p>
+            <p className="font-semibold text-slate-800 dark:text-slate-200">{selected.name}</p>
 
             {selected.hasSizes && (
               <div className="space-y-3">
                 <div>
-                  <p className="mb-1.5 text-xs font-medium text-slate-600">Talla</p>
+                  <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
                   <div className="flex flex-wrap gap-1.5">
                     {SIZES.map((s) => (
                       <button
@@ -790,7 +790,7 @@ function ProductGridPanel({
                         className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                           size === s
                             ? "border-portoBlue bg-portoBlue text-white"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                         }`}
                       >
                         {s}
@@ -804,7 +804,7 @@ function ProductGridPanel({
                   className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     goalkeeper
                       ? "border-violet-500 bg-violet-500 text-white"
-                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
                   Portero {goalkeeper ? "✓" : ""}
@@ -813,7 +813,7 @@ function ProductGridPanel({
             )}
 
             <label className="block space-y-1 text-sm">
-              <span className="font-medium text-slate-700">Monto</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
               <input
                 type="number"
                 step="0.01"
@@ -821,7 +821,7 @@ function ProductGridPanel({
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
               />
             </label>
 
@@ -836,7 +836,7 @@ function ProductGridPanel({
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 Cancelar
               </button>
@@ -847,7 +847,7 @@ function ProductGridPanel({
 
       <button
         onClick={onCancel}
-        className="w-full rounded-xl border border-slate-300 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+        className="w-full rounded-xl border border-slate-300 dark:border-slate-600 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
       >
         Volver
       </button>

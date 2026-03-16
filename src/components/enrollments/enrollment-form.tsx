@@ -16,17 +16,17 @@ export function EnrollmentCreateForm({
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <form action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       {plan && <input type="hidden" name="pricingPlanId" value={plan.id} />}
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Campus</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Campus</span>
           <select
             name="campusId"
             required
             defaultValue=""
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           >
             <option value="" disabled>
               Selecciona un campus
@@ -40,21 +40,21 @@ export function EnrollmentCreateForm({
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Fecha de inicio</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Fecha de inicio</span>
           <input
             type="date"
             name="startDate"
             required
             defaultValue={today}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Inscripción</span>
-          <span className="block text-xs text-slate-500">Incluye cuota + 2 kits de entrenamiento</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Inscripción</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">Incluye cuota + 2 kits de entrenamiento</span>
           <input
             type="number"
             name="inscriptionAmount"
@@ -62,13 +62,13 @@ export function EnrollmentCreateForm({
             min="0.01"
             step="0.01"
             defaultValue={defaultInscriptionAmount}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Primera mensualidad</span>
-          <span className="block text-xs text-slate-500">Ajustar si el alumno se inscribe tarde en el mes</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Primera mensualidad</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">Ajustar si el alumno se inscribe tarde en el mes</span>
           <input
             type="number"
             name="firstMonthAmount"
@@ -76,17 +76,17 @@ export function EnrollmentCreateForm({
             min="0.01"
             step="0.01"
             defaultValue={defaultFirstMonthAmount}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
       </div>
 
       <label className="space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Notas (opcional)</span>
+        <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
         <textarea
           name="notes"
           rows={2}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           placeholder="Descuentos, acuerdos especiales, etc."
         />
       </label>

@@ -41,9 +41,9 @@ function getChargeStatusLabel(status: string) {
 
 export function ChargesLedgerTable({ rows }: ChargesLedgerTableProps) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+    <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+        <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Fecha</th>
             <th className="px-3 py-2">Tipo</th>
@@ -58,7 +58,7 @@ export function ChargesLedgerTable({ rows }: ChargesLedgerTableProps) {
         <tbody className="divide-y divide-slate-100">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600" colSpan={8}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={8}>
                 No hay cargos registrados.
               </td>
             </tr>
@@ -68,7 +68,7 @@ export function ChargesLedgerTable({ rows }: ChargesLedgerTableProps) {
                 <td className="px-3 py-2">{formatDate(row.createdAt)}</td>
                 <td className="px-3 py-2">
                   <p className="font-medium">{row.typeName}</p>
-                  <p className="text-xs text-slate-500">{row.typeCode}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{row.typeCode}</p>
                 </td>
                 <td className="px-3 py-2">{row.description}</td>
                 <td className="px-3 py-2">{getChargeStatusLabel(row.status)}</td>

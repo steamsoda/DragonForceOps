@@ -13,11 +13,11 @@ type DashboardFiltersProps = {
 
 export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: DashboardFiltersProps) {
   return (
-    <form className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
+    <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
       <select
         name="campus"
         defaultValue={selectedCampusId}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+        className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
       >
         <option value="">Todos los campus</option>
         {campuses.map((campus) => (
@@ -30,7 +30,7 @@ export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: 
         type="month"
         name="month"
         defaultValue={selectedMonth}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+        className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
       />
       <button
         type="submit"
@@ -38,7 +38,7 @@ export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: 
       >
         Aplicar
       </button>
-      <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+      <Link href="/dashboard" className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
         Limpiar
       </Link>
     </form>

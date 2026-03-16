@@ -4,7 +4,7 @@ import { getProductCatalog } from "@/lib/queries/products";
 import { getAdHocChargeTypesAction } from "@/server/actions/products";
 import { createProductAction } from "@/server/actions/products";
 
-const inputClass = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none";
+const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none";
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
@@ -70,7 +70,7 @@ export default async function ProductsPage({
           return (
             <div key={group.key}>
               <div className="mb-3 flex items-center gap-3">
-                <h2 className="text-base font-semibold text-slate-800">{group.label}</h2>
+                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">{group.label}</h2>
                 <span className="text-xs text-slate-400">{group.products.length} productos</span>
               </div>
 
@@ -79,21 +79,21 @@ export default async function ProductsPage({
                   <Link
                     key={product.id}
                     href={`/products/${product.id}`}
-                    className={`group flex flex-col justify-between rounded-xl border border-slate-200 border-l-4 ${accent} bg-white p-4 shadow-sm transition-shadow hover:shadow-md`}
+                    className={`group flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 ${accent} bg-white dark:bg-slate-900 p-4 shadow-sm transition-shadow hover:shadow-md`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-slate-800 group-hover:text-portoBlue">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-portoBlue">
                         {product.name}
                       </p>
                       {!product.isActive && (
-                        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        <span className="shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">
                           Inactivo
                         </span>
                       )}
                     </div>
                     <div className="mt-3 flex items-end justify-between">
                       <div className="flex flex-wrap gap-1.5">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                        <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-600 dark:text-slate-400">
                           {product.chargeTypeName}
                         </span>
                         {product.hasSizes && (
@@ -102,7 +102,7 @@ export default async function ProductsPage({
                           </span>
                         )}
                       </div>
-                      <p className="text-sm font-semibold text-slate-700">
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         {product.defaultAmount != null
                           ? formatMoney(product.defaultAmount, product.currency)
                           : <span className="text-slate-400 font-normal text-xs">Precio libre</span>
@@ -114,14 +114,14 @@ export default async function ProductsPage({
 
                 {/* ── Inline new product form ── */}
                 {groupChargeTypes.length > 0 && (
-                  <details className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-slate-600 hover:text-portoBlue list-none">
+                  <details className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-portoBlue list-none">
                       + Nuevo producto en {group.label}
                     </summary>
                     <form action={createProductAction} className="mt-4 space-y-3">
 
                       <label className="block space-y-1 text-sm">
-                        <span className="font-medium text-slate-700">Nombre</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Nombre</span>
                         <input
                           type="text"
                           name="name"
@@ -134,13 +134,13 @@ export default async function ProductsPage({
                       {groupChargeTypes.length === 1 ? (
                         <>
                           <input type="hidden" name="chargeTypeId" value={groupChargeTypes[0].id} />
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             Tipo de cargo: <span className="font-medium">{groupChargeTypes[0].name}</span>
                           </p>
                         </>
                       ) : (
                         <label className="block space-y-1 text-sm">
-                          <span className="font-medium text-slate-700">Tipo de cargo</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">Tipo de cargo</span>
                           <select name="chargeTypeId" required className={inputClass}>
                             <option value="">Seleccionar…</option>
                             {groupChargeTypes.map((ct) => (
@@ -151,7 +151,7 @@ export default async function ProductsPage({
                       )}
 
                       <label className="block space-y-1 text-sm">
-                        <span className="font-medium text-slate-700">Precio base (opcional)</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Precio base (opcional)</span>
                         <input
                           type="number"
                           name="defaultAmount"
@@ -163,8 +163,8 @@ export default async function ProductsPage({
                       </label>
 
                       <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="hasSizes" value="1" className="h-4 w-4 rounded border-slate-300" />
-                        <span className="text-slate-700">Requiere talla (uniformes)</span>
+                        <input type="checkbox" name="hasSizes" value="1" className="h-4 w-4 rounded border-slate-300 dark:border-slate-600" />
+                        <span className="text-slate-700 dark:text-slate-300">Requiere talla (uniformes)</span>
                       </label>
 
                       <button

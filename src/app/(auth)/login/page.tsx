@@ -16,7 +16,7 @@ export default async function LoginPage() {
   } catch {
     return (
       <PageShell title="Error de configuracion de acceso" subtitle="La conexion con Supabase fallo en este entorno">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           Verifica las variables de entorno de Preview para URL y llave de Supabase, y vuelve a desplegar.
         </p>
       </PageShell>
@@ -26,7 +26,7 @@ export default async function LoginPage() {
   return (
     <PageShell title="Iniciar sesion" subtitle="Aplicacion interna de FC Porto Dragon Force Monterrey">
       <div className="space-y-3">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           El acceso esta restringido a personal autorizado. Usa tu cuenta de Microsoft 365 para continuar.
         </p>
         <AzureSignInButton />

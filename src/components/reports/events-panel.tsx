@@ -58,9 +58,9 @@ export function EventsPanel({ events, month, campuses }: Props) {
       )}
 
       {events.length > 0 && (
-        <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
+        <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="px-3 py-2 text-left">Evento</th>
                 <th className="px-3 py-2 text-left">Fecha propuesta</th>
@@ -76,7 +76,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
               {events.map((ev) => (
                 <tr key={ev.id} className={ev.isDone ? "bg-emerald-50/40" : ""}>
                   <td className="px-3 py-2">
-                    <p className="font-medium text-slate-800">{ev.title}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{ev.title}</p>
                     {ev.description && (
                       <p className="text-xs text-slate-400 mt-0.5">{ev.description}</p>
                     )}
@@ -84,14 +84,14 @@ export function EventsPanel({ events, month, campuses }: Props) {
                       <p className="text-xs text-slate-400 italic mt-0.5">{ev.notes}</p>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{fmtDate(ev.proposedDate)}</td>
-                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-400 whitespace-nowrap">{fmtDate(ev.proposedDate)}</td>
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {ev.actualDate ? fmtDate(ev.actualDate) : <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-700">
+                  <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">
                     {ev.participantCount ?? <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-700">
+                  <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">
                     {ev.cost != null ? fmtCost(ev.cost) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2 text-center">
@@ -107,7 +107,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
                       {ev.isDone ? "Realizado" : "Pendiente"}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-center text-slate-600">
+                  <td className="px-3 py-2 text-center text-slate-600 dark:text-slate-400">
                     {ev.evaluation != null ? `${ev.evaluation}/5` : <span className="text-slate-300">—</span>}
                     {ev.satisfactionAvg != null && (
                       <span className="block text-xs text-slate-400">enc: {ev.satisfactionAvg}</span>
@@ -133,61 +133,61 @@ export function EventsPanel({ events, month, campuses }: Props) {
       {showForm ? (
         <form
           action={handleCreate}
-          className="rounded-md border border-slate-200 bg-white p-4 space-y-3"
+          className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
         >
-          <p className="text-sm font-medium text-slate-700">Nuevo evento</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Nuevo evento</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Nombre del evento *</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Nombre del evento *</label>
               <input
                 name="title"
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Ej. Open Day, Road Show…"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Descripción</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Descripción</label>
               <input
                 name="description"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Descripción breve del evento"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Fecha propuesta *</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Fecha propuesta *</label>
               <input
                 type="date"
                 name="proposed_date"
                 required
                 defaultValue={`${month}-01`}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Fecha de realización</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Fecha de realización</label>
               <input
                 type="date"
                 name="actual_date"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Estado</label>
-              <select name="is_done" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Estado</label>
+              <select name="is_done" className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="false">Pendiente</option>
                 <option value="true">Realizado</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Campus</label>
-              <select name="campus_id" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Campus</label>
+              <select name="campus_id" className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="">Ambos campus</option>
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -196,31 +196,31 @@ export function EventsPanel({ events, month, campuses }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Importe a cobrar (MXN)</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Importe a cobrar (MXN)</label>
               <input
                 type="number"
                 name="cost"
                 min="0"
                 step="0.01"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Opcional"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Nº de participantes</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Nº de participantes</label>
               <input
                 type="number"
                 name="participant_count"
                 min="0"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Opcional"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Evaluación (1–5)</label>
-              <select name="evaluation" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Evaluación (1–5)</label>
+              <select name="evaluation" className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="">—</option>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>{n}</option>
@@ -229,23 +229,23 @@ export function EventsPanel({ events, month, campuses }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Media encuesta satisfacción</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Media encuesta satisfacción</label>
               <input
                 type="number"
                 name="satisfaction_avg"
                 min="1"
                 max="5"
                 step="0.1"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Ej. 4.2"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Notas adicionales</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Notas adicionales</label>
               <input
                 name="notes"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Opcional"
               />
             </div>
@@ -262,7 +262,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
@@ -271,7 +271,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
       ) : (
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-500 hover:border-portoBlue hover:text-portoBlue"
+          className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-500 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
         >
           + Agregar evento
         </button>

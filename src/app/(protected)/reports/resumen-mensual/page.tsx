@@ -36,11 +36,11 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
     <PageShell title="Resumen Mensual" subtitle="Resumen financiero operativo por mes">
       <div className="space-y-6">
         {/* Filters */}
-        <form className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
+        <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
           >
             <option value="">Todos los campus</option>
             {campuses.map((c) => (
@@ -53,7 +53,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
             type="month"
             name="month"
             defaultValue={data.month}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
           />
           <button
             type="submit"
@@ -63,7 +63,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
           </button>
           <Link
             href="/reports/resumen-mensual"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 text-center"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-center"
           >
             Este mes
           </Link>
@@ -71,33 +71,33 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
 
         {/* KPI tiles */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Inscripciones activas</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{data.activeEnrollments.toLocaleString("es-MX")}</p>
-            <p className="text-xs text-slate-500 mt-1">Al momento de la consulta</p>
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Inscripciones activas</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{data.activeEnrollments.toLocaleString("es-MX")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Al momento de la consulta</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Cargos emitidos</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{fmt(data.totalCargosEmitidos)}</p>
-            <p className="text-xs text-slate-500 mt-1">No anulados, creados en el mes</p>
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cargos emitidos</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCargosEmitidos)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">No anulados, creados en el mes</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Total cobrado</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{fmt(data.totalCobrado)}</p>
-            <p className="text-xs text-slate-500 mt-1">Pagos registrados en el mes</p>
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total cobrado</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Pagos registrados en el mes</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Saldo pendiente</p>
+          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Saldo pendiente</p>
             <p className={`mt-1 text-2xl font-semibold ${data.pendingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
               {fmt(data.pendingBalance)}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Inscripciones activas con saldo positivo</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Inscripciones activas con saldo positivo</p>
           </div>
         </div>
 
         {/* Net balance note */}
-        <div className="rounded-md border border-slate-200 p-3 flex items-center gap-3">
-          <span className="text-sm text-slate-600">
+        <div className="rounded-md border border-slate-200 dark:border-slate-700 p-3 flex items-center gap-3">
+          <span className="text-sm text-slate-600 dark:text-slate-400">
             Diferencia cobrado – cargos ({monthLabel(data.month)}):
           </span>
           <span className={`text-sm font-semibold ${balanceNet >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
@@ -114,13 +114,13 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
         <div className="grid gap-6 md:grid-cols-2">
           {/* Charges by type */}
           <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-2">Cargos por tipo</h3>
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cargos por tipo</h3>
             {data.chargesByType.length === 0 ? (
-              <p className="text-xs text-slate-500">Sin cargos en el periodo.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Sin cargos en el periodo.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500 uppercase tracking-wide">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                     <th className="px-3 py-2">Tipo</th>
                     <th className="px-3 py-2 text-right">Cant.</th>
                     <th className="px-3 py-2 text-right">Total</th>
@@ -128,15 +128,15 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.chargesByType.map((row) => (
-                    <tr key={row.typeCode} className="hover:bg-slate-50">
+                    <tr key={row.typeCode} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-3 py-2">{row.typeName}</td>
-                      <td className="px-3 py-2 text-right text-slate-500">{row.count}</td>
+                      <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400">{row.count}</td>
                       <td className="px-3 py-2 text-right font-medium">{fmt(row.total)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-slate-300 font-semibold">
+                  <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
                     <td className="px-3 py-2">Total</td>
                     <td className="px-3 py-2 text-right">
                       {data.chargesByType.reduce((s, r) => s + r.count, 0)}
@@ -150,13 +150,13 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
 
           {/* Payments by method */}
           <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-2">Cobros por método</h3>
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cobros por método</h3>
             {data.paymentsByMethod.length === 0 ? (
-              <p className="text-xs text-slate-500">Sin cobros en el periodo.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Sin cobros en el periodo.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500 uppercase tracking-wide">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                     <th className="px-3 py-2">Método</th>
                     <th className="px-3 py-2 text-right">Cant.</th>
                     <th className="px-3 py-2 text-right">Total</th>
@@ -164,15 +164,15 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {data.paymentsByMethod.map((row) => (
-                    <tr key={row.method} className="hover:bg-slate-50">
+                    <tr key={row.method} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                       <td className="px-3 py-2">{row.methodLabel}</td>
-                      <td className="px-3 py-2 text-right text-slate-500">{row.count}</td>
+                      <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400">{row.count}</td>
                       <td className="px-3 py-2 text-right font-medium">{fmt(row.total)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-slate-300 font-semibold">
+                  <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
                     <td className="px-3 py-2">Total</td>
                     <td className="px-3 py-2 text-right">
                       {data.paymentsByMethod.reduce((s, r) => s + r.count, 0)}

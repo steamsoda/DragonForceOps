@@ -61,13 +61,13 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     >
       <div className="space-y-4">
         {/* View toggle */}
-        <div className="flex gap-2 border-b border-slate-200">
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
           <Link
             href="/players?view=active"
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
               view === "active"
                 ? "border-portoBlue text-portoBlue"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             }`}
           >
             Activos
@@ -77,7 +77,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
               view === "bajas"
                 ? "border-portoBlue text-portoBlue"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             }`}
           >
             Bajas
@@ -90,7 +90,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             <select
               name="year"
               defaultValue={birthYear}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             >
               <option value="">Todas las categorías</option>
               {birthYears.map((y) => (
@@ -102,7 +102,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             <select
               name="campus"
               defaultValue={campusId}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             >
               <option value="">Todos los campus</option>
               {campuses.map((campus) => (
@@ -114,7 +114,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             <select
               name="gender"
               defaultValue={gender}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             >
               <option value="">Todos</option>
               <option value="male">Varonil</option>
@@ -125,7 +125,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               name="q"
               defaultValue={q}
               placeholder="Nombre o apellido"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
             {view === "active" && (
               <input
@@ -133,12 +133,12 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 name="phone"
                 defaultValue={phone}
                 placeholder="Telefono de tutor"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
             )}
             <button
               type="submit"
-              className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+              className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200"
             >
               Filtrar
             </button>
@@ -153,12 +153,12 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           )}
         </div>
 
-        <p className="text-sm text-slate-600">Total de resultados: {result.total}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
 
         {view === "active" ? (
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+          <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 <tr>
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Categoría</th>
@@ -169,7 +169,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               <tbody className="divide-y divide-slate-100">
                 {activeRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600" colSpan={4}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={4}>
                       No se encontraron jugadores con esos filtros.
                     </td>
                   </tr>
@@ -177,11 +177,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   activeRows.map((row) => (
                     <tr key={row.id}>
                       <td className="px-3 py-2">
-                        <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline">
+                        <Link href={`/players/${row.id}`} className="font-medium text-slate-900 dark:text-slate-100 hover:text-portoBlue hover:underline">
                           {row.fullName}
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{new Date(row.birthDate).getFullYear()}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
                       <td className="px-3 py-2">{row.campusName}</td>
                       <td className="px-3 py-2">{row.primaryPhone ?? "-"}</td>
                     </tr>
@@ -191,9 +191,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             </table>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+          <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 <tr>
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Fecha inscripcion</th>
@@ -205,7 +205,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               <tbody className="divide-y divide-slate-100">
                 {bajaRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
                       No se encontraron jugadores dados de baja con esos filtros.
                     </td>
                   </tr>
@@ -213,7 +213,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   bajaRows.map((row) => (
                     <tr key={row.playerId}>
                       <td className="px-3 py-2">
-                        <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline">
+                        <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 dark:text-slate-100 hover:text-portoBlue hover:underline">
                           {row.fullName}
                         </Link>
                       </td>
@@ -235,14 +235,14 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </p>
           <div className="flex gap-3">
             {prevPage ? (
-              <Link href={`/players?${qsBase}&page=${prevPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50">
+              <Link href={`/players?${qsBase}&page=${prevPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Anterior
               </Link>
             ) : (
               <span className="rounded border px-3 py-1.5 text-slate-400">Anterior</span>
             )}
             {nextPage ? (
-              <Link href={`/players?${qsBase}&page=${nextPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50">
+              <Link href={`/players?${qsBase}&page=${nextPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Siguiente
               </Link>
             ) : (

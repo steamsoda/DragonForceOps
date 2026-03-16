@@ -11,14 +11,14 @@ type ChargeCreateFormProps = {
 
 export function ChargeCreateForm({ chargeTypes, action }: ChargeCreateFormProps) {
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <form action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Tipo de cargo</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Tipo de cargo</span>
           <select
             name="chargeTypeId"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
             defaultValue=""
           >
             <option value="" disabled>
@@ -33,26 +33,26 @@ export function ChargeCreateForm({ chargeTypes, action }: ChargeCreateFormProps)
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Monto</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
           <input
             type="number"
             name="amount"
             min="0.01"
             step="0.01"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
       </div>
 
       <label className="space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Descripcion</span>
-        <input type="text" name="description" required className="w-full rounded-md border border-slate-300 px-3 py-2" />
+        <span className="font-medium text-slate-700 dark:text-slate-300">Descripcion</span>
+        <input type="text" name="description" required className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2" />
       </label>
 
       <label className="space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Fecha de vencimiento (opcional)</span>
-        <input type="date" name="dueDate" className="w-full rounded-md border border-slate-300 px-3 py-2" />
+        <span className="font-medium text-slate-700 dark:text-slate-300">Fecha de vencimiento (opcional)</span>
+        <input type="date" name="dueDate" className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2" />
       </label>
 
       <button

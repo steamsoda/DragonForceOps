@@ -9,7 +9,7 @@ export default async function TeamAssignmentPage({
 
   return (
     <PageShell title="Asignacion de equipo" subtitle={`Inscripcion: ${enrollmentId}`}>
-      <p className="text-sm text-slate-700">Pendiente: asignar la inscripcion a un equipo activo del mismo campus.</p>
+      <p className="text-sm text-slate-700 dark:text-slate-300">Pendiente: asignar la inscripcion a un equipo activo del mismo campus.</p>
     </PageShell>
   );
 }

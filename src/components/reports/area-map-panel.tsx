@@ -36,10 +36,10 @@ function TypeBadge({ code }: { code: string }) {
     PNC: "bg-orange-100 text-orange-700",
     AS:  "bg-yellow-100 text-yellow-700",
     OM:  "bg-teal-100 text-teal-700",
-    M:   "bg-slate-100 text-slate-600"
+    M:   "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
   };
   return (
-    <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${colors[code] ?? "bg-slate-100 text-slate-600"}`}>
+    <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${colors[code] ?? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
       {code}
     </span>
   );
@@ -53,10 +53,10 @@ function StatusBadge({ entry }: { entry: AreaMapEntry }) {
   const colors: Record<string, string> = {
     E:  "bg-emerald-100 text-emerald-700",
     NE: "bg-red-100 text-red-700",
-    SP: "bg-slate-100 text-slate-500"
+    SP: "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
   };
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[eff] ?? "bg-slate-100 text-slate-500"}`}>
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[eff] ?? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
       {EFFECTIVENESS_LABELS[eff] ?? eff}
     </span>
   );
@@ -78,17 +78,17 @@ function EntryRow({
   return (
     <>
       <tr
-        className={`cursor-pointer hover:bg-slate-50 ${entry.closureDate ? "opacity-60" : ""}`}
+        className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 ${entry.closureDate ? "opacity-60" : ""}`}
         onClick={() => setExpanded(!expanded)}
       >
-        <td className="px-3 py-2 whitespace-nowrap text-slate-600 text-xs">{fmtDate(entry.entryDate)}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-slate-600 dark:text-slate-400 text-xs">{fmtDate(entry.entryDate)}</td>
         <td className="px-3 py-2"><TypeBadge code={entry.typeCode} /></td>
-        <td className="px-3 py-2 text-xs text-slate-500">{entry.topic}</td>
-        <td className="px-3 py-2 text-sm text-slate-800 max-w-xs">
+        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{entry.topic}</td>
+        <td className="px-3 py-2 text-sm text-slate-800 dark:text-slate-200 max-w-xs">
           <p className="truncate">{entry.description}</p>
         </td>
-        <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{entry.assignedTo ?? "—"}</td>
-        <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">
+        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{entry.assignedTo ?? "—"}</td>
+        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {entry.deadlineDays != null ? `${entry.deadlineDays}d` : "—"}
         </td>
         <td className="px-3 py-2"><StatusBadge entry={entry} /></td>
@@ -112,31 +112,31 @@ function EntryRow({
         </td>
       </tr>
       {expanded && (
-        <tr className="bg-slate-50 border-t border-slate-100">
+        <tr className="bg-slate-50 dark:bg-slate-800 border-t border-slate-100">
           <td colSpan={8} className="px-4 py-3">
             <div className="grid gap-2 text-xs sm:grid-cols-2">
               {entry.rootCause && (
                 <div>
-                  <span className="font-medium text-slate-500 uppercase tracking-wide">Análisis de causas</span>
-                  <p className="mt-0.5 text-slate-700">{entry.rootCause}</p>
+                  <span className="font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Análisis de causas</span>
+                  <p className="mt-0.5 text-slate-700 dark:text-slate-300">{entry.rootCause}</p>
                 </div>
               )}
               {entry.correctiveAction && (
                 <div>
-                  <span className="font-medium text-slate-500 uppercase tracking-wide">Acción correctiva</span>
-                  <p className="mt-0.5 text-slate-700">{entry.correctiveAction}</p>
+                  <span className="font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Acción correctiva</span>
+                  <p className="mt-0.5 text-slate-700 dark:text-slate-300">{entry.correctiveAction}</p>
                 </div>
               )}
               {entry.correctionAction && (
                 <div className="sm:col-span-2">
-                  <span className="font-medium text-slate-500 uppercase tracking-wide">Acción de corrección</span>
-                  <p className="mt-0.5 text-slate-700">{entry.correctionAction}</p>
+                  <span className="font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Acción de corrección</span>
+                  <p className="mt-0.5 text-slate-700 dark:text-slate-300">{entry.correctionAction}</p>
                 </div>
               )}
               {entry.closureDate && (
                 <div>
-                  <span className="font-medium text-slate-500 uppercase tracking-wide">Cierre</span>
-                  <p className="mt-0.5 text-slate-700">{fmtDate(entry.closureDate)}</p>
+                  <span className="font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cierre</span>
+                  <p className="mt-0.5 text-slate-700 dark:text-slate-300">{fmtDate(entry.closureDate)}</p>
                 </div>
               )}
             </div>
@@ -164,20 +164,20 @@ function CloseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl space-y-4">
-        <p className="font-medium text-slate-800">Cerrar incidencia</p>
+      <div className="w-full max-w-sm rounded-lg bg-white dark:bg-slate-900 p-5 shadow-xl space-y-4">
+        <p className="font-medium text-slate-800 dark:text-slate-200">Cerrar incidencia</p>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Fecha de cierre</label>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Fecha de cierre</label>
             <input
               type="date"
               value={closureDate}
               onChange={(e) => setClosureDate(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Resultado</label>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Resultado</label>
             <div className="flex gap-2">
               {(["E", "NE", "SP"] as const).map((v) => (
                 <button
@@ -189,7 +189,7 @@ function CloseModal({
                       ? v === "E" ? "bg-emerald-600 text-white border-emerald-600"
                         : v === "NE" ? "bg-red-600 text-white border-red-600"
                         : "bg-slate-600 text-white border-slate-600"
-                      : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                      : "border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
                   {v} — {EFFECTIVENESS_LABELS[v]}
@@ -208,7 +208,7 @@ function CloseModal({
           </button>
           <button
             onClick={onCancel}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             Cancelar
           </button>
@@ -291,25 +291,25 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
       {showForm ? (
         <form
           action={handleCreate}
-          className="rounded-md border border-slate-200 bg-white p-4 space-y-3"
+          className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
         >
-          <p className="text-sm font-medium text-slate-700">Nueva entrada</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Nueva entrada</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Fecha *</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Fecha *</label>
               <input
                 type="date"
                 name="entry_date"
                 required
                 defaultValue={`${month}-01`}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Tipo *</label>
-              <select name="type_code" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Tipo *</label>
+              <select name="type_code" required className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="">Seleccionar…</option>
                 {AREA_MAP_TYPE_CODES.map((t) => (
                   <option key={t.code} value={t.code}>{t.label}</option>
@@ -318,8 +318,8 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Tema *</label>
-              <select name="topic" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Tema *</label>
+              <select name="topic" required className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="">Seleccionar…</option>
                 {AREA_MAP_TOPICS.map((t) => (
                   <option key={t} value={t}>{t}</option>
@@ -328,8 +328,8 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Campus</label>
-              <select name="campus_id" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Campus</label>
+              <select name="campus_id" className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
                 <option value="">Ambos campus</option>
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -338,62 +338,62 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Descripción *</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Descripción *</label>
               <textarea
                 name="description"
                 required
                 rows={2}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Descripción del tema o incidencia"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Análisis de las causas</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Análisis de las causas</label>
               <textarea
                 name="root_cause"
                 rows={2}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="¿Por qué ocurrió?"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Acción correctiva <span className="text-slate-400">(inmediata)</span></label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Acción correctiva <span className="text-slate-400">(inmediata)</span></label>
               <textarea
                 name="corrective_action"
                 rows={2}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Acción inmediata para eliminar la no conformidad"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs text-slate-500 mb-1">Acción de corrección <span className="text-slate-400">(sistémica)</span></label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Acción de corrección <span className="text-slate-400">(sistémica)</span></label>
               <textarea
                 name="correction_action"
                 rows={2}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Medidas para eliminar la causa raíz y evitar que se repita"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Encaminado para</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Encaminado para</label>
               <input
                 name="assigned_to"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Ej. Mireya, Sory"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Plazo (días)</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Plazo (días)</label>
               <input
                 type="number"
                 name="deadline_days"
                 min="1"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 placeholder="Ej. 7"
               />
             </div>
@@ -410,7 +410,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
@@ -419,7 +419,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
       ) : (
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-500 hover:border-portoBlue hover:text-portoBlue"
+          className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-500 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
         >
           + Agregar entrada
         </button>
@@ -440,9 +440,9 @@ function EntriesTable({
   isPending: boolean;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white overflow-x-auto">
+    <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-x-auto">
       <table className="w-full text-sm min-w-[700px]">
-        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+        <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2 text-left">Fecha</th>
             <th className="px-3 py-2 text-left">Tipo</th>

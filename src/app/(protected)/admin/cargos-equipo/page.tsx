@@ -55,16 +55,16 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
         )}
 
         {teams.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay equipos activos registrados en el sistema.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No hay equipos activos registrados en el sistema.</p>
         ) : (
-          <form action={bulkChargeTeamAction} className="space-y-4 rounded-md border border-slate-200 bg-white p-6">
+          <form action={bulkChargeTeamAction} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
             {/* Team */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Equipo</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Equipo</label>
               <select
                 name="team_id"
                 required
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               >
                 <option value="">Selecciona un equipo…</option>
                 {Object.values(teamsByCampus).map(({ campusName, teams: campusTeams }) => (
@@ -81,11 +81,11 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
 
             {/* Charge type */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Tipo de cargo</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tipo de cargo</label>
               <select
                 name="charge_type_id"
                 required
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               >
                 <option value="">Selecciona un tipo…</option>
                 {chargeTypes.map((ct) => (
@@ -98,30 +98,30 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
 
             {/* Amount */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Monto (MXN)</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Monto (MXN)</label>
               <input
                 type="number"
                 name="amount"
                 step="0.01"
                 required
                 placeholder="350.00"
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
-              <p className="text-xs text-slate-500">Usa valor negativo para descuentos o abonos.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Usa valor negativo para descuentos o abonos.</p>
             </div>
 
             {/* Description */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Descripcion</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Descripcion</label>
               <input
                 type="text"
                 name="description"
                 required
                 maxLength={200}
                 placeholder="Superliga Regia — Marzo 2026"
-                className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
-              <p className="text-xs text-slate-500">Aparece en el estado de cuenta de cada jugador.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Aparece en el estado de cuenta de cada jugador.</p>
             </div>
 
             <button
@@ -133,8 +133,8 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
           </form>
         )}
 
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-1">
-          <p className="font-medium text-slate-700">Notas</p>
+        <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+          <p className="font-medium text-slate-700 dark:text-slate-300">Notas</p>
           <ul className="list-disc list-inside space-y-0.5">
             <li>Solo se cargan inscripciones <strong>activas</strong> con asignacion de equipo abierta (sin fecha de fin).</li>
             <li>Esta operacion <strong>no es idempotente</strong> — verifica antes de repetir para evitar duplicados.</li>

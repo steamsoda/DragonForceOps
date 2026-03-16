@@ -72,9 +72,9 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+    <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
       {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
     </div>
   );
@@ -82,7 +82,7 @@ function StatCard({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200 pb-1">
+    <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 pb-1">
       {children}
     </h2>
   );
@@ -114,25 +114,25 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
       <div className="space-y-8">
 
         {/* ── Filters ── */}
-        <form className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4">
+        <form className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">Mes</label>
+            <label className="text-xs text-slate-500 dark:text-slate-400">Mes</label>
             <input
               type="month"
               name="month"
               defaultValue={selectedMonth}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">Tipo de cambio (MXN → USD)</label>
+            <label className="text-xs text-slate-500 dark:text-slate-400">Tipo de cambio (MXN → USD)</label>
             <input
               type="number"
               name="rate"
               defaultValue={exchangeRate}
               min="1"
               step="0.5"
-              className="w-28 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-28 rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
           </div>
           <button
@@ -143,14 +143,14 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
           </button>
           <Link
             href={`/reports/porto-mensual?month=${prevMonthParam()}`}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             Mes anterior
           </Link>
         </form>
 
         {!data ? (
-          <p className="text-sm text-slate-500">Sin datos para el período seleccionado.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Sin datos para el período seleccionado.</p>
         ) : (
           <>
             {/* ── 1. Nuevas inscripciones ── */}
@@ -170,9 +170,9 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
                 <StatCard label="Total retiros" value={data.retiros.total} />
               </div>
               {data.retiros.reasons.length > 0 && (
-                <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
+                <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                    <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400">
                       <tr>
                         <th className="px-4 py-2 text-left">Motivo</th>
                         <th className="px-4 py-2 text-right">Jugadores</th>
@@ -181,7 +181,7 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
                     <tbody className="divide-y divide-slate-100">
                       {data.retiros.reasons.map((r) => (
                         <tr key={r.reason}>
-                          <td className="px-4 py-2 text-slate-700">
+                          <td className="px-4 py-2 text-slate-700 dark:text-slate-300">
                             {DROPOUT_LABELS[r.reason] ?? r.reason}
                           </td>
                           <td className="px-4 py-2 text-right font-medium">{r.count}</td>
@@ -236,7 +236,7 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
             {/* ── 5. Equipos de Competición ── */}
             <section className="space-y-3">
               <SectionTitle>Equipos de Competición</SectionTitle>
-              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-400">
+              <div className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 text-center text-sm text-slate-400">
                 Disponible cuando los equipos estén registrados en el sistema.
               </div>
             </section>
@@ -244,7 +244,7 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
             {/* ── 6. Clases ── */}
             <section className="space-y-3">
               <SectionTitle>Clases</SectionTitle>
-              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-400">
+              <div className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-6 text-center text-sm text-slate-400">
                 Disponible cuando los grupos estén registrados en el sistema.
               </div>
             </section>

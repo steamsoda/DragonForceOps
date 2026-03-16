@@ -12,22 +12,22 @@ export function PaymentPostForm({ currentBalance, currency, action }: PaymentPos
   const defaultAmount = currentBalance > 0 ? currentBalance.toFixed(2) : "";
 
   return (
-    <form action={action} className="space-y-3 rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-sm font-medium text-slate-800">Registrar pago</p>
+    <form action={action} className="space-y-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Registrar pago</p>
       {currentBalance > 0 ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           Saldo pendiente:{" "}
           <span className="font-semibold text-rose-600">{formatMoney(currentBalance, currency)}</span>. El monto
           esta pre-llenado; ajusta si es un pago parcial.
         </p>
       ) : (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           No hay saldo pendiente. Un pago aqui generara un credito en la cuenta.
         </p>
       )}
       <div className="grid gap-3 md:grid-cols-3">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Monto del pago</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Monto del pago</span>
           <input
             type="number"
             name="amount"
@@ -35,12 +35,12 @@ export function PaymentPostForm({ currentBalance, currency, action }: PaymentPos
             min="0.01"
             required
             defaultValue={defaultAmount}
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Metodo de pago</span>
-          <select name="method" required className="w-full rounded-md border border-slate-300 px-3 py-2">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Metodo de pago</span>
+          <select name="method" required className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2">
             <option value="cash">Efectivo</option>
             <option value="transfer">Transferencia</option>
             <option value="card">Tarjeta</option>
@@ -49,16 +49,16 @@ export function PaymentPostForm({ currentBalance, currency, action }: PaymentPos
           </select>
         </label>
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Notas (opcional)</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
           <input
             type="text"
             name="notes"
             placeholder="Referencia, folio, etc."
-            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
           />
         </label>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
         Los cargos pendientes se cubren automaticamente del mas antiguo al mas reciente.
       </p>
       <button

@@ -53,7 +53,7 @@ export default async function ChargesPage({
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{errorMessage}</div>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 text-sm">
           <p>
             Inscripcion: <span className="font-medium">{ledger.enrollment.id}</span>
           </p>
@@ -75,12 +75,12 @@ export default async function ChargesPage({
         />
 
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold text-slate-900">Cargos</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cargos</h2>
           <ChargesLedgerTable rows={ledger.charges} />
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold text-slate-900">Pagos</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Pagos</h2>
           <PaymentPostForm
             currentBalance={ledger.totals.balance}
             currency={ledger.enrollment.currency}

@@ -55,14 +55,14 @@ const DROPOUT_REASON_LABELS: Record<string, string> = {
   other: "Otros"
 };
 
-const inputClass = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm";
+const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm";
 
 export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentEditFormProps) {
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
+    <form action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Estatus</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Estatus</span>
           <select name="status" required defaultValue={enrollment.status} className={inputClass}>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -70,22 +70,22 @@ export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentE
               </option>
             ))}
           </select>
-          <span className="block text-xs text-slate-500">
+          <span className="block text-xs text-slate-500 dark:text-slate-400">
             Cambiar a Baja o Cancelado registra la fecha de fin automaticamente.
           </span>
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Fecha de fin (opcional)</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Fecha de fin (opcional)</span>
           <input type="date" name="endDate" defaultValue={enrollment.endDate ?? ""} className={inputClass} />
-          <span className="block text-xs text-slate-500">
+          <span className="block text-xs text-slate-500 dark:text-slate-400">
             Dejar vacio para que se asigne automaticamente al dar de baja.
           </span>
         </label>
       </div>
 
       <label className="space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Campus</span>
+        <span className="font-medium text-slate-700 dark:text-slate-300">Campus</span>
         <select name="campusId" required defaultValue={enrollment.campusId} className={inputClass}>
           {campuses.map((campus) => (
             <option key={campus.id} value={campus.id}>
@@ -96,7 +96,7 @@ export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentE
       </label>
 
       <label className="space-y-1 text-sm">
-        <span className="font-medium text-slate-700">Notas (opcional)</span>
+        <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
         <textarea
           name="notes"
           rows={2}
@@ -112,7 +112,7 @@ export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentE
           Motivo de baja — requerido si el estatus es Baja o Cancelado
         </p>
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Motivo</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Motivo</span>
           <select name="dropoutReason" defaultValue={enrollment.dropoutReason ?? ""} className={inputClass}>
             <option value="">Sin motivo (solo si permanece Activo)</option>
             {Object.entries(DROPOUT_REASON_LABELS).map(([value, label]) => (
@@ -123,7 +123,7 @@ export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentE
           </select>
         </label>
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700">Notas de baja (opcional)</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Notas de baja (opcional)</span>
           <textarea
             name="dropoutNotes"
             rows={2}

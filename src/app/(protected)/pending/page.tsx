@@ -53,7 +53,7 @@ export default async function PendingPaymentsPage({ searchParams }: { searchPara
           campuses={campuses.map((campus) => ({ id: campus.id, name: campus.name }))}
           teams={teams.map((team) => ({ id: team.id, name: team.name }))}
         />
-        <p className="text-sm text-slate-600">Total de resultados: {result.total}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
         <PendingTable rows={result.rows} />
 
         <div className="flex items-center justify-between text-sm">
@@ -62,14 +62,14 @@ export default async function PendingPaymentsPage({ searchParams }: { searchPara
           </p>
           <div className="flex gap-3">
             {prevPage ? (
-              <Link href={`/pending?${qsBase}&page=${prevPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50">
+              <Link href={`/pending?${qsBase}&page=${prevPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Anterior
               </Link>
             ) : (
               <span className="rounded border px-3 py-1.5 text-slate-400">Anterior</span>
             )}
             {nextPage ? (
-              <Link href={`/pending?${qsBase}&page=${nextPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50">
+              <Link href={`/pending?${qsBase}&page=${nextPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Siguiente
               </Link>
             ) : (

@@ -37,7 +37,7 @@ function actionColor(action: string) {
   if (action.includes("enrollment.ended")) return "bg-red-100 text-red-800";
   if (action.includes("enrollment")) return "bg-blue-100 text-blue-800";
   if (action.includes("charge")) return "bg-amber-100 text-amber-800";
-  return "bg-slate-100 text-slate-700";
+  return "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300";
 }
 
 function describeAfterData(action: string, data: Record<string, unknown> | null): string | null {
@@ -76,7 +76,7 @@ export default async function ActivityPage() {
   return (
     <PageShell title="Actividad" subtitle="Últimas 200 acciones registradas en el sistema">
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500 text-center py-10">Sin actividad registrada.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-10">Sin actividad registrada.</p>
       ) : (
         <div className="space-y-1">
           {entries.map((log) => {
@@ -85,7 +85,7 @@ export default async function ActivityPage() {
             return (
               <div
                 key={log.id}
-                className="flex items-start gap-3 rounded-md border border-slate-100 bg-white px-4 py-3 text-sm"
+                className="flex items-start gap-3 rounded-md border border-slate-100 bg-white dark:bg-slate-900 px-4 py-3 text-sm"
               >
                 <span
                   className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${actionColor(log.action)}`}
@@ -93,7 +93,7 @@ export default async function ActivityPage() {
                   {label}
                 </span>
                 <div className="flex-1 min-w-0">
-                  {detail && <p className="text-slate-700 truncate">{detail}</p>}
+                  {detail && <p className="text-slate-700 dark:text-slate-300 truncate">{detail}</p>}
                   <p className="text-xs text-slate-400">
                     {log.actor_email ?? "sistema"} · {fmtDateTime(log.event_at)}
                   </p>

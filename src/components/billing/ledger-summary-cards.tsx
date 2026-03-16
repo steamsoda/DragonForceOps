@@ -28,14 +28,14 @@ export function LedgerSummaryCards({ currency, totalCharges, totalPayments, bala
     }
   ];
 
-  const balanceColor = balance > 0 ? "text-rose-600" : balance < 0 ? "text-emerald-600" : "text-slate-900";
+  const balanceColor = balance > 0 ? "text-rose-600" : balance < 0 ? "text-emerald-600" : "text-slate-900 dark:text-slate-100";
 
   return (
     <div className="grid gap-3 md:grid-cols-3">
       {cards.map((card, i) => (
-        <article key={card.label} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-          <p className={`mt-2 text-2xl font-semibold ${i === 2 ? balanceColor : "text-slate-900"}`}>{card.value}</p>
+        <article key={card.label} className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{card.label}</p>
+          <p className={`mt-2 text-2xl font-semibold ${i === 2 ? balanceColor : "text-slate-900 dark:text-slate-100"}`}>{card.value}</p>
         </article>
       ))}
     </div>

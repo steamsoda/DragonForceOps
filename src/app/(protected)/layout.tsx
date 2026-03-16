@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
 import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const STAFF_SECTION: NavSection = {
   label: "Diario",
@@ -96,17 +97,18 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5">
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-baseline gap-2">
-          <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark">INVICTA</p>
-          <span className="text-xs text-slate-400">v0.6</span>
+          <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
+          <span className="text-xs text-slate-400 dark:text-slate-500">v0.7</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="max-w-[200px] truncate text-xs text-slate-500">{user.email}</span>
+          <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
+          <ThemeToggle />
           <form action={signOut}>
             <button
               type="submit"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cerrar sesión
             </button>

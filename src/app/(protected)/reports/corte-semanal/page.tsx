@@ -31,11 +31,11 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
     >
       <div className="space-y-6">
         {/* Filters */}
-        <form className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[1fr_1fr_auto]">
+        <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
           >
             <option value="">Todos los campus</option>
             {campuses.map((c) => (
@@ -48,7 +48,7 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
             type="month"
             name="month"
             defaultValue={data.month}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
           />
           <button
             type="submit"
@@ -59,10 +59,10 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
         </form>
 
         {/* Total tile */}
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Total del mes</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{fmt(data.totalCobrado)}</p>
-          <p className="text-xs text-slate-500 mt-1">
+        <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total del mes</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {data.weeks.reduce((s, w) => s + w.paymentCount, 0)} pagos ·{" "}
             {campuses.find((c) => c.id === selectedCampusId)?.name ?? "Todos los campus"}
           </p>
@@ -75,21 +75,21 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
 
         {/* Week-by-week breakdown */}
         {data.weeks.every((w) => w.paymentCount === 0) ? (
-          <p className="text-sm text-slate-500 text-center py-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
             Sin cobros registrados para este mes.
           </p>
         ) : (
           <div className="space-y-3">
             {data.weeks.map((week) => (
-              <div key={week.weekNum} className="rounded-md border border-slate-200 bg-white p-4">
+              <div key={week.weekNum} className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="font-medium text-slate-900">Semana {week.weekNum}</p>
-                    <p className="text-xs text-slate-500">{week.label}</p>
+                    <p className="font-medium text-slate-900 dark:text-slate-100">Semana {week.weekNum}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{week.label}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-slate-900">{fmt(week.totalCobrado)}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{fmt(week.totalCobrado)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {week.paymentCount} pago{week.paymentCount !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -102,10 +102,10 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
                     {week.byMethod.map((m) => (
                       <div
                         key={m.method}
-                        className="rounded-md bg-slate-50 border border-slate-100 px-3 py-1.5 text-xs"
+                        className="rounded-md bg-slate-50 dark:bg-slate-800 border border-slate-100 px-3 py-1.5 text-xs"
                       >
-                        <span className="text-slate-500">{m.methodLabel}:</span>{" "}
-                        <span className="font-medium text-slate-900">{fmt(m.total)}</span>
+                        <span className="text-slate-500 dark:text-slate-400">{m.methodLabel}:</span>{" "}
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{fmt(m.total)}</span>
                       </div>
                     ))}
                   </div>

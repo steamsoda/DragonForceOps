@@ -28,9 +28,9 @@ function formatDate(value: string | null) {
 
 export function PendingTable({ rows }: PendingTableProps) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+    <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+        <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Jugador</th>
             <th className="px-3 py-2">Campus</th>
@@ -45,7 +45,7 @@ export function PendingTable({ rows }: PendingTableProps) {
         <tbody className="divide-y divide-slate-100">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600" colSpan={8}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={8}>
                 No hay inscripciones pendientes con los filtros actuales.
               </td>
             </tr>

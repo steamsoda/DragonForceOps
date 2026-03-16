@@ -112,7 +112,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           />
         </div>
 
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 dark:text-slate-300">
           Los indicadores se calculan con datos reales y filtros por campus/mes.
         </p>
       </div>

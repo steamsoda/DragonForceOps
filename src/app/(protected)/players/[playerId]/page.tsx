@@ -49,27 +49,27 @@ export default async function PlayerDetailPage({
     >
       <div className="space-y-6">
         {/* Player info */}
-        <section className="grid gap-4 rounded-md border border-slate-200 p-4 md:grid-cols-4">
+        <section className="grid gap-4 rounded-md border border-slate-200 dark:border-slate-700 p-4 md:grid-cols-4">
           <div>
-            <p className="text-xs uppercase text-slate-500">Fecha de nacimiento</p>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de nacimiento</p>
             <p className="font-medium">{player.birthDate}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500">Genero</p>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Genero</p>
             <p className="font-medium">{player.gender === "male" ? "Masculino" : player.gender === "female" ? "Femenino" : "-"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500">Notas medicas</p>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas medicas</p>
             <p className="font-medium">{player.medicalNotes ?? "-"}</p>
           </div>
         </section>
 
         {/* Guardians */}
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold text-slate-900">Tutores</h2>
-          <div className="overflow-x-auto rounded-md border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Tutores</h2>
+          <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
                 <tr>
                   <th className="px-3 py-2">Nombre</th>
                   <th className="px-3 py-2">Telefono principal</th>
@@ -81,7 +81,7 @@ export default async function PlayerDetailPage({
               <tbody className="divide-y divide-slate-100">
                 {player.guardians.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
                       No hay tutores vinculados.
                     </td>
                   </tr>
@@ -110,21 +110,21 @@ export default async function PlayerDetailPage({
 
         {/* Team / Categoría / Coach */}
         {player.activeTeam && (
-          <section className="grid gap-4 rounded-md border border-slate-200 p-4 md:grid-cols-4">
+          <section className="grid gap-4 rounded-md border border-slate-200 dark:border-slate-700 p-4 md:grid-cols-4">
             <div>
-              <p className="text-xs uppercase text-slate-500">Equipo</p>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo</p>
               <p className="font-medium">{player.activeTeam.name}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-slate-500">Categoría</p>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Categoría</p>
               <p className="font-medium">{player.activeTeam.birthYear ?? "-"}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-slate-500">Nivel</p>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Nivel</p>
               <p className="font-medium">{player.activeTeam.level ?? "-"}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-slate-500">Coach</p>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coach</p>
               <p className="font-medium">{player.activeTeam.coachName ?? "Sin asignar"}</p>
             </div>
           </section>
@@ -133,7 +133,7 @@ export default async function PlayerDetailPage({
         {/* Current enrollment */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Inscripcion</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Inscripcion</h2>
             {!activeEnrollment && (
               <Link
                 href={`/players/${player.id}/enrollments/new`}
@@ -145,36 +145,36 @@ export default async function PlayerDetailPage({
           </div>
 
           {activeEnrollment ? (
-            <div className="rounded-md border border-slate-200 p-4">
+            <div className="rounded-md border border-slate-200 dark:border-slate-700 p-4">
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Campus</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Campus</p>
                   <p className="font-medium">{activeEnrollment.campusName}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Plan</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan</p>
                   <p className="font-medium">{activeEnrollment.pricingPlanName}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Fecha de inicio</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
                   <p className="font-medium">{activeEnrollment.startDate}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Dias inscrito</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>
                   <p className="font-medium">{daysSinceEnrollment} dias</p>
                 </div>
               </div>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Total cargos</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total cargos</p>
                   <p className="font-medium">{formatMoney(activeEnrollment.totalCharges, activeEnrollment.currency)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Total pagos</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total pagos</p>
                   <p className="font-medium">{formatMoney(activeEnrollment.totalPayments, activeEnrollment.currency)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Saldo pendiente</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo pendiente</p>
                   <p className={`font-semibold ${activeEnrollment.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                     {formatMoney(activeEnrollment.balance, activeEnrollment.currency)}
                   </p>
@@ -202,34 +202,34 @@ export default async function PlayerDetailPage({
               </div>
             </div>
           ) : lastEnrollment ? (
-            <div className="rounded-md border border-slate-200 p-4 space-y-3">
+            <div className="rounded-md border border-slate-200 dark:border-slate-700 p-4 space-y-3">
               <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Ultima inscripcion (baja)</p>
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Campus</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Campus</p>
                   <p className="font-medium">{lastEnrollment.campusName}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Fecha de inicio</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
                   <p className="font-medium">{lastEnrollment.startDate}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Fecha de baja</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de baja</p>
                   <p className="font-medium">{lastEnrollment.endDate ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Dias inscrito</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>
                   <p className="font-medium">{daysEnrolledLast != null ? `${daysEnrolledLast} dias` : "-"}</p>
                 </div>
               </div>
               {lastEnrollment.dropoutReason && (
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Motivo de baja</p>
+                  <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Motivo de baja</p>
                   <p className="font-medium">
                     {DROPOUT_LABELS[lastEnrollment.dropoutReason] ?? lastEnrollment.dropoutReason}
                   </p>
                   {lastEnrollment.dropoutNotes && (
-                    <p className="text-sm text-slate-600 mt-1">{lastEnrollment.dropoutNotes}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{lastEnrollment.dropoutNotes}</p>
                   )}
                 </div>
               )}

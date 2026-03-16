@@ -32,8 +32,8 @@ export function PaymentStatusPie({ upToDate, withBalance }: PaymentStatusPieProp
   const total = upToDate + withBalance;
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estado de pago</p>
+    <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Estado de pago</p>
       <p className="mt-1 text-xs text-slate-400">Inscripciones activas · {total} total</p>
       <div className="mt-3 flex items-center gap-6">
         <ResponsiveContainer width={160} height={160}>
@@ -60,13 +60,13 @@ export function PaymentStatusPie({ upToDate, withBalance }: PaymentStatusPieProp
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-emerald-500" />
-            <span className="text-slate-700">Al corriente</span>
-            <span className="ml-auto font-semibold text-slate-900">{upToDate}</span>
+            <span className="text-slate-700 dark:text-slate-300">Al corriente</span>
+            <span className="ml-auto font-semibold text-slate-900 dark:text-slate-100">{upToDate}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-amber-400" />
-            <span className="text-slate-700">Con saldo</span>
-            <span className="ml-auto font-semibold text-slate-900">{withBalance}</span>
+            <span className="text-slate-700 dark:text-slate-300">Con saldo</span>
+            <span className="ml-auto font-semibold text-slate-900 dark:text-slate-100">{withBalance}</span>
           </div>
           {total > 0 && (
             <p className="text-xs text-slate-400 pt-1">
@@ -93,16 +93,16 @@ type WeeklyBarProps = {
 export function WeeklyBar({ data }: WeeklyBarProps) {
   if (data.length === 0) {
     return (
-      <article className="rounded-md border border-slate-200 bg-white p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cobros por semana</p>
+      <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Cobros por semana</p>
         <p className="mt-6 text-center text-sm text-slate-400">Sin cobros este mes.</p>
       </article>
     );
   }
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Cobros por semana</p>
+    <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">Cobros por semana</p>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -147,16 +147,16 @@ function fmtK(value: number) {
 export function PaymentsByMethodBar({ data }: PaymentsByMethodBarProps) {
   if (data.length === 0) {
     return (
-      <article className="rounded-md border border-slate-200 bg-white p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cobros por método</p>
+      <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Cobros por método</p>
         <p className="mt-6 text-center text-sm text-slate-400">Sin cobros este mes.</p>
       </article>
     );
   }
 
   return (
-    <article className="rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Cobros por método</p>
+    <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">Cobros por método</p>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
