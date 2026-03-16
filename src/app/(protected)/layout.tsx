@@ -1,24 +1,42 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
+import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
 
-const DIRECTOR_NAV = [
-  { href: "/dashboard", label: "Panel" },
-  { href: "/pending", label: "Pendientes" },
-  { href: "/reports/corte-diario", label: "Corte Diario" },
-  { href: "/reports/corte-semanal", label: "Corte Semanal" },
-  { href: "/reports/resumen-mensual", label: "Resumen Mensual" },
-  { href: "/reports/porto-mensual", label: "Reporte Porto" },
-  { href: "/admin/mensualidades", label: "Mensualidades" },
-  { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
-  { href: "/products", label: "Productos" },
-  { href: "/activity", label: "Actividad" }
-];
+const STAFF_SECTION: NavSection = {
+  label: "Diario",
+  items: [
+    { href: "/caja", label: "Caja" },
+    { href: "/players", label: "Jugadores" }
+  ]
+};
 
-const ALL_STAFF_NAV = [
-  { href: "/caja", label: "Caja" },
-  { href: "/players", label: "Jugadores" }
+const DIRECTOR_SECTIONS: NavSection[] = [
+  {
+    label: "Gestión",
+    items: [
+      { href: "/dashboard", label: "Panel" },
+      { href: "/pending", label: "Pendientes" }
+    ]
+  },
+  {
+    label: "Reportes",
+    items: [
+      { href: "/reports/corte-diario", label: "Corte Diario" },
+      { href: "/reports/corte-semanal", label: "Corte Semanal" },
+      { href: "/reports/resumen-mensual", label: "Res. Mensual" },
+      { href: "/reports/porto-mensual", label: "Reporte Porto" }
+    ]
+  },
+  {
+    label: "Admin",
+    items: [
+      { href: "/admin/mensualidades", label: "Mensualidades" },
+      { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
+      { href: "/products", label: "Productos" },
+      { href: "/activity", label: "Actividad" }
+    ]
+  }
 ];
 
 type RoleRow = {
@@ -63,9 +81,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/unauthorized");
   }
 
-  const navItems = [
-    ...ALL_STAFF_NAV,
-    ...(isDirectorOrAbove ? DIRECTOR_NAV : [])
+  const sections: NavSection[] = [
+    STAFF_SECTION,
+    ...(isDirectorOrAbove ? DIRECTOR_SECTIONS : [])
   ];
 
   async function signOut() {
@@ -77,32 +95,32 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-baseline gap-2">
-            <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark">INVICTA</p>
-            <span className="text-xs text-slate-400">v0.6</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <nav className="flex gap-4 text-sm text-slate-700">
-              {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="hover:text-portoBlue">
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Cerrar sesion
-              </button>
-            </form>
-          </div>
+      {/* Top bar */}
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5">
+        <div className="flex items-baseline gap-2">
+          <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark">INVICTA</p>
+          <span className="text-xs text-slate-400">v0.6</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="max-w-[200px] truncate text-xs text-slate-500">{user.email}</span>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cerrar sesión
+            </button>
+          </form>
         </div>
       </header>
-      {children}
+
+      {/* Sidebar */}
+      <AppSidebar sections={sections} />
+
+      {/* Main content — offset for fixed header + sidebar */}
+      <div className="ml-48 pt-14">
+        {children}
+      </div>
     </div>
   );
 }
