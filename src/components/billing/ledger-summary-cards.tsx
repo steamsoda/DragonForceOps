@@ -10,6 +10,9 @@ function formatMoney(amount: number, currency: string) {
 }
 
 export function LedgerSummaryCards({ currency, totalCharges, totalPayments, balance }: LedgerSummaryCardsProps) {
+  const balanceLabel = balance > 0 ? "Saldo pendiente" : balance < 0 ? "Crédito en cuenta" : "Al corriente";
+  const balanceValue = balance !== 0 ? formatMoney(Math.abs(balance), currency) : "—";
+
   const cards = [
     {
       label: "Total de cargos",
@@ -20,17 +23,19 @@ export function LedgerSummaryCards({ currency, totalCharges, totalPayments, bala
       value: formatMoney(totalPayments, currency)
     },
     {
-      label: "Saldo",
-      value: formatMoney(balance, currency)
+      label: balanceLabel,
+      value: balanceValue
     }
   ];
 
+  const balanceColor = balance > 0 ? "text-rose-600" : balance < 0 ? "text-emerald-600" : "text-slate-900";
+
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      {cards.map((card) => (
+      {cards.map((card, i) => (
         <article key={card.label} className="rounded-md border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+          <p className={`mt-2 text-2xl font-semibold ${i === 2 ? balanceColor : "text-slate-900"}`}>{card.value}</p>
         </article>
       ))}
     </div>

@@ -272,7 +272,11 @@ function SearchPanel({
                       <span className="ml-2 text-slate-400 text-xs">{p.campusName}{p.birthYear ? ` · ${p.birthYear}` : ""}</span>
                     </div>
                     <span className={`text-xs font-semibold ${p.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                      {p.balance > 0 ? formatMoney(p.balance, "MXN") : "Al corriente"}
+                      {p.balance > 0
+                        ? formatMoney(p.balance, "MXN")
+                        : p.balance < 0
+                        ? `Crédito ${formatMoney(Math.abs(p.balance), "MXN")}`
+                        : "Al corriente"}
                     </span>
                   </button>
                 </li>
@@ -347,9 +351,15 @@ function EnrollmentPanel({
         </div>
         <div className="text-right">
           <p className={`text-xl font-bold ${data.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-            {data.balance > 0 ? formatMoney(data.balance, data.currency) : "Al corriente"}
+            {data.balance > 0
+              ? formatMoney(data.balance, data.currency)
+              : data.balance < 0
+              ? formatMoney(Math.abs(data.balance), data.currency)
+              : "Al corriente"}
           </p>
-          <p className="text-xs text-slate-400">Saldo pendiente</p>
+          <p className="text-xs text-slate-400">
+            {data.balance > 0 ? "Saldo pendiente" : data.balance < 0 ? "Crédito en cuenta" : "Al corriente"}
+          </p>
         </div>
       </div>
 
@@ -401,7 +411,9 @@ function EnrollmentPanel({
         </div>
       ) : (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          No hay cargos pendientes. Un pago generará crédito en la cuenta.
+          {data.balance < 0
+            ? `Crédito disponible: ${formatMoney(Math.abs(data.balance), data.currency)}. Se aplicará al siguiente cargo.`
+            : "No hay cargos pendientes. ✓"}
         </div>
       )}
 
@@ -570,8 +582,11 @@ function ReceiptPanel({
           {receipt.remainingBalance > 0 && (
             <p className="mt-2 text-sm text-rose-600">Saldo restante: {formatMoney(receipt.remainingBalance, receipt.currency)}</p>
           )}
-          {receipt.remainingBalance <= 0 && (
+          {receipt.remainingBalance === 0 && (
             <p className="mt-2 text-sm text-emerald-600">Cuenta al corriente ✓</p>
+          )}
+          {receipt.remainingBalance < 0 && (
+            <p className="mt-2 text-sm text-emerald-600">Crédito en cuenta: {formatMoney(Math.abs(receipt.remainingBalance), receipt.currency)} ✓</p>
           )}
         </div>
 
