@@ -249,7 +249,7 @@ function SearchPanel({
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Escribe el nombre del alumno…"
+        placeholder="Nombre o año de nacimiento (ej. 2013)…"
         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base shadow-sm focus:border-portoBlue focus:outline-none focus:ring-1 focus:ring-portoBlue"
       />
       {isPending && view.tag === "searching" && (
