@@ -2,7 +2,7 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-13)
+## Current State (as of 2026-03-15)
 - Preview auth flow works end-to-end.
 - Protected app routes are reachable after login.
 - Core billing loop working in preview: create charge → post payment → ledger → pending list.
@@ -12,7 +12,12 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Coaches seeded from Porto Clases CSV; `has_scholarship` and `teams.type` columns added.
 - Porto monthly report planning complete. Eventos and Mapa de Área confirmed as continuous log tables.
 - Admin demo held 2026-03-13; feature backlog captured in SDD Section 17.
-- App version: v0.5
+- Left sidebar navigation replaces cluttered top bar.
+- Credit (overpayment) correctly displayed and swept on next charge.
+- Caja: birth-year search + fuzzy name search via pg_trgm. Team/coach shown on player card.
+- Products: delete with charge-count guard (blocks if any non-void charges reference it).
+- Dark mode toggle (moon/sun) with localStorage persistence + anti-flash, v0.7.
+- App version: v0.7
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -159,10 +164,10 @@ Goal: broader operational support and integrations.
 4. Corte Diario summary by charge type (aggregate row, UI-only change).
 5. Weekly Corte view.
 6. Caja: ad-hoc item charges from the panel.
-7. Cash session open/close guardrails.
-8. Skip scholarship enrollments in monthly charge cron.
-9. Dropout reason expansion to Porto's full taxonomy.
-10. Role assignment admin utility (or scripted SQL templates).
+7. Write-off / baja processing — batch void pending charges for dropped-out players (see SDD 17.1).
+8. Cash session open/close guardrails.
+9. Skip scholarship enrollments in monthly charge cron.
+10. Dropout reason expansion to Porto's full taxonomy.
 
 ## Working Rhythm (Recommended)
 - Plan: 1 short planning session per week (30-45 min).

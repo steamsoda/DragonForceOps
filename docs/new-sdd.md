@@ -817,8 +817,15 @@ Features requested by operations staff after demo session. Organized by phase.
 - Route TBD (extend `/reports/corte` with a toggle, or separate `/reports/corte-semanal`).
 
 #### Caja Enhancements
-- **More player/enrollment context visible in Caja** — details TBD (Javi to specify).
+- **Player context in Caja** ✅ Done — team name and coach name shown on player card. Birth-year search (4-digit query) and fuzzy/typo-tolerant name search via `pg_trgm` `word_similarity`.
 - **Ad-hoc item charges from Caja** — staff can charge a player for a specific item (uniform, league fee, etc.) directly from the Caja panel, without navigating to the enrollment ledger. New charge flow alongside the existing payment flow.
+
+#### Write-Off / Baja Processing for Dropped-Out Players with Pending Charges
+- Problem: players who drop out often leave with 1–3 months of unpaid charges. These charges should be written off rather than left as phantom pending balances.
+- Phase 1 approach (TBD): director_admin selects one or more pending charges on an enrollment, enters a void reason (`dropout`), system voids them and records in `audit_logs`.
+- Distinct from a regular void — this is a batch-end-of-baja action, not a per-payment fix.
+- UX: "Zona de baja" section on enrollment page, or inline action on the Pendientes list.
+- Phase 2: integrate with automatic baja detection so the write-off prompt appears automatically when a player is marked inactive.
 
 ### 17.2 Phase 2 Features
 
