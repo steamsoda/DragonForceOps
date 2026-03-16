@@ -7,6 +7,8 @@ import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
+import { voidChargeAction } from "@/server/actions/billing";
+import { createClient } from "@/lib/supabase/server";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del pago son invalidos. Revisa monto y metodo.",
@@ -14,7 +16,11 @@ const errorMessages: Record<string, string> = {
   enrollment_not_found: "No se encontro la inscripcion.",
   no_pending_charges: "No hay cargos pendientes en esta cuenta.",
   payment_insert_failed: "No se pudo registrar el pago. Intenta de nuevo.",
-  allocation_insert_failed: "No se pudieron guardar las asignaciones del pago. Intenta de nuevo."
+  allocation_insert_failed: "No se pudieron guardar las asignaciones del pago. Intenta de nuevo.",
+  charge_not_found: "Cargo no encontrado o ya fue anulado.",
+  void_reason_required: "Debes escribir el motivo de anulacion.",
+  void_failed: "No se pudo anular el cargo. Intenta de nuevo.",
+  unauthorized: "No tienes permiso para anular cargos."
 };
 
 export default async function ChargesPage({
@@ -30,16 +36,26 @@ export default async function ChargesPage({
 
   if (!ledger) notFound();
 
+  // Check if current user is director_admin to show void controls
+  const supabase = await createClient();
+  const { data: isDirector } = await supabase.rpc("is_director_admin");
+
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
   const postPayment = postEnrollmentPaymentAction.bind(null, enrollmentId);
+  const voidCharge = isDirector
+    ? voidChargeAction.bind(null, enrollmentId)
+    : undefined;
+
   const successMessage =
     query.ok === "payment_posted"
       ? "Pago registrado correctamente."
       : query.ok === "charge_created"
-        ? "Cargo creado correctamente."
-        : null;
-  const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error al registrar el pago." : null;
+      ? "Cargo creado correctamente."
+      : query.ok === "charge_voided"
+      ? "Cargo anulado correctamente."
+      : null;
+  const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
 
   return (
     <PageShell title="Cargos y cuenta" subtitle={subtitle}>
@@ -76,7 +92,7 @@ export default async function ChargesPage({
 
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cargos</h2>
-          <ChargesLedgerTable rows={ledger.charges} />
+          <ChargesLedgerTable rows={ledger.charges} voidChargeAction={voidCharge} />
         </section>
 
         <section className="space-y-2">

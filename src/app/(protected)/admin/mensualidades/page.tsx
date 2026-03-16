@@ -68,8 +68,8 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
               className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Se generaran cargos de $750 para todas las inscripciones activas que aun no tengan cargo ese mes.
-              Las que ya tengan cargo seran omitidas automaticamente.
+              Se generaran cargos de $750 para inscripciones activas sin beca que aun no tengan cargo ese mes.
+              Inscripciones con beca y las que ya tengan cargo seran omitidas automaticamente.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
           <ul className="list-disc list-inside space-y-0.5">
             <li>El cargo se crea a la tarifa regular ($750). El descuento por pago anticipado se aplica al momento del pago (dias 1–10).</li>
             <li>La operacion es segura de repetir — no crea duplicados.</li>
-            <li>Solo afecta inscripciones con estatus <strong>activo</strong>.</li>
+            <li>Solo afecta inscripciones con estatus <strong>activo</strong> y sin beca (<code>has_scholarship = false</code>).</li>
             <li>Este boton es para uso manual (meses atrasados, pruebas). El dia 1 de cada mes los cargos se generan <strong>automaticamente</strong> a las 06:00 UTC via pg_cron en Supabase.</li>
           </ul>
         </div>

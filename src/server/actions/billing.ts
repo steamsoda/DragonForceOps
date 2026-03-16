@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateMonthlyChargesCore } from "@/lib/billing/generate-monthly-charges";
 import { writeAuditLog } from "@/lib/audit";
@@ -31,6 +32,60 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
 
   if (result.error) redirect(`/admin/mensualidades?err=${result.error}`);
   redirect(`/admin/mensualidades?ok=1&created=${result.created}&skipped=${result.skipped}`);
+}
+
+// ── Void charge ───────────────────────────────────────────────────────────────
+
+export async function voidChargeAction(
+  enrollmentId: string,
+  chargeId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  if (!reason) redirect(`${BASE}?err=void_reason_required`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+
+  // Only director_admin may void charges
+  const { data: isDirector } = await supabase.rpc("is_director_admin");
+  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+
+  // Verify charge belongs to this enrollment and is pending
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, status, amount, description")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .eq("status", "pending")
+    .maybeSingle<{ id: string; status: string; amount: number; description: string }>();
+
+  if (!charge) redirect(`${BASE}?err=charge_not_found`);
+
+  const { error } = await supabase
+    .from("charges")
+    .update({ status: "void" })
+    .eq("id", chargeId);
+
+  if (error) redirect(`${BASE}?err=void_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "charge.voided",
+    tableName: "charges",
+    recordId: chargeId,
+    afterData: { enrollment_id: enrollmentId, description: charge.description, amount: charge.amount, reason }
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=charge_voided`);
 }
 
 export async function bulkChargeTeamAction(formData: FormData) {

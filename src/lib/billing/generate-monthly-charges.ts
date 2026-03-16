@@ -56,7 +56,8 @@ export async function generateMonthlyChargesCore(
   const { data: enrollments } = await supabase
     .from("enrollments")
     .select("id, pricing_plan_id, pricing_plans(currency)")
-    .eq("status", "active");
+    .eq("status", "active")
+    .eq("has_scholarship", false);
 
   const activeEnrollments = (enrollments ?? []) as unknown as ActiveEnrollmentRow[];
   if (activeEnrollments.length === 0) return { created: 0, skipped: 0 };
