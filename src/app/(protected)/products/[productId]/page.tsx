@@ -7,7 +7,7 @@ import {
   getProductSizeStats,
   getProductRecentSales
 } from "@/lib/queries/products";
-import { updateProductAction } from "@/server/actions/products";
+import { updateProductAction, deleteProductAction } from "@/server/actions/products";
 
 const inputClass = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none";
 
@@ -15,6 +15,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_form:    "El nombre no puede estar vacío.",
   invalid_amount:  "El monto debe ser mayor a cero.",
   update_failed:   "No se pudo guardar el cambio. Intenta de nuevo.",
+  delete_failed:   "No se pudo eliminar el producto. Intenta de nuevo.",
+  has_charges:     "Este producto tiene cargos registrados y no puede eliminarse. Desactívalo en su lugar.",
   unauthenticated: "Sesión expirada."
 };
 
@@ -47,6 +49,7 @@ export default async function ProductDetailPage({
   const kpis = await getProductKpis(productId, product.currency);
   const errorMessage = query.err ? (ERROR_MESSAGES[query.err] ?? "Ocurrió un error.") : null;
   const updateAction = updateProductAction.bind(null, productId);
+  const deleteAction = deleteProductAction.bind(null, productId);
 
   return (
     <PageShell
@@ -237,6 +240,36 @@ export default async function ProductDetailPage({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Danger zone ── */}
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
+          <h2 className="mb-3 text-sm font-semibold text-rose-700">Zona de riesgo</h2>
+          {kpis.unitsSold === 0 ? (
+            <details className="group">
+              <summary className="cursor-pointer list-none text-sm text-rose-700 hover:text-rose-900">
+                Eliminar producto permanentemente
+              </summary>
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-rose-700">
+                  Este producto no tiene cargos registrados. La eliminación es permanente y no se puede deshacer.
+                </p>
+                <form action={deleteAction}>
+                  <button
+                    type="submit"
+                    className="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                  >
+                    Sí, eliminar &ldquo;{product.name}&rdquo;
+                  </button>
+                </form>
+              </div>
+            </details>
+          ) : (
+            <div className="space-y-1 text-sm text-rose-700">
+              <p className="font-medium">Este producto no puede eliminarse.</p>
+              <p>Tiene <span className="font-semibold">{kpis.unitsSold}</span> cargo{kpis.unitsSold !== 1 ? "s" : ""} registrado{kpis.unitsSold !== 1 ? "s" : ""}. Para retirarlo de Caja sin perder el historial, desactívalo usando el formulario de edición de arriba.</p>
             </div>
           )}
         </div>

@@ -28,7 +28,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function ProductsPage({
   searchParams
 }: {
-  searchParams: Promise<{ err?: string }>;
+  searchParams: Promise<{ err?: string; ok?: string }>;
 }) {
   const [groups, chargeTypes, query] = await Promise.all([
     getProductCatalog(),
@@ -37,6 +37,7 @@ export default async function ProductsPage({
   ]);
 
   const errorMessage = query.err ? (ERROR_MESSAGES[query.err] ?? "Ocurrió un error.") : null;
+  const successMessage = query.ok === "product_deleted" ? "Producto eliminado correctamente." : null;
   const totalProducts = groups.reduce((n, g) => n + g.products.length, 0);
   const activeProducts = groups.reduce((n, g) => n + g.products.filter((p) => p.isActive).length, 0);
 
@@ -48,6 +49,11 @@ export default async function ProductsPage({
     >
       <div className="space-y-10">
 
+        {successMessage && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {successMessage}
+          </div>
+        )}
         {errorMessage && (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
             {errorMessage}

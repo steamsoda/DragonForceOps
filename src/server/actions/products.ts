@@ -110,6 +110,46 @@ export async function updateProductAction(productId: string, formData: FormData)
   redirect(`/products/${productId}`);
 }
 
+// ── Delete product ────────────────────────────────────────────────────────────
+
+export async function deleteProductAction(productId: string): Promise<void> {
+  const auth = await assertDirectorAdmin();
+  if (!auth) redirect(`/products/${productId}?err=unauthenticated`);
+
+  const { supabase, user } = auth;
+
+  // Block deletion if any non-void charges reference this product
+  const { count, error: countError } = await supabase
+    .from("charges")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", productId)
+    .neq("status", "void");
+
+  if (countError) redirect(`/products/${productId}?err=delete_failed`);
+  if (count && count > 0) redirect(`/products/${productId}?err=has_charges`);
+
+  const { data: product } = await supabase
+    .from("products")
+    .select("name")
+    .eq("id", productId)
+    .maybeSingle<{ name: string }>();
+
+  const { error } = await supabase.from("products").delete().eq("id", productId);
+  if (error) redirect(`/products/${productId}?err=delete_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "product.deleted",
+    tableName: "products",
+    recordId: productId,
+    afterData: { name: product?.name ?? productId }
+  });
+
+  revalidatePath("/products");
+  redirect("/products?ok=product_deleted");
+}
+
 // ── Get ad-hoc charge types (for create form) ─────────────────────────────────
 
 export type AdHocChargeType = { id: string; code: string; name: string };
