@@ -3,7 +3,7 @@
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
 ## Current State (as of 2026-03-16)
-- App version: v0.7. Phase 1B operational MVP is complete and in daily use.
+- App version: v0.8. Phase 1B fully complete. Internal testing begins 2026-03-17 (one campus, directors only).
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
 - Real data: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
 - Caja POS: player search (name + birth year, pg_trgm), pending charges, payment posting, thermal receipt.
@@ -11,14 +11,15 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - No-session warning in Caja: prominent amber banner with direct open-session link.
 - Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.
 - Reports live: Corte Diario (daily, with charge-type breakdown + session panel), Corte Semanal (weekly), Resumen Mensual, Porto Mensual.
-- Porto Mensual: Datos Generales auto-compute (enrollments, dropouts, activos, gender, scholarship), Eventos log, Mapa de Área log. Equipos/Clases sections show empty state (data exists, not yet wired).
-- Activity log: human-readable audit feed, last 200 entries, no filters yet.
+- Porto Mensual: Datos Generales, Eventos, Mapa de Área, Equipos + Clases all wired. Full 34-reason dropout taxonomy.
+- Activity log: human-readable audit feed, date range + actor + action type filters.
 - Products catalog: categories + sizes + charge type linking, POS grid in Caja. Delete guard.
 - Role system: `superadmin`, `director_admin`, `front_desk`. RLS enforced. Role-aware nav.
 - Void charges: director-only, any pending charge, with required reason. Audit logged.
+- Batch baja write-off: director bulk-voids all pending charges for ended/cancelled enrollments at `/pending/bajas`.
 - Scholarship skip: both DB cron and TypeScript manual trigger filter `has_scholarship = true`.
-- Dropout reason: 7 codes in current implementation (full Porto taxonomy ~30 not yet expanded).
-- Dark mode: localStorage + anti-flash + global CSS for native form controls. v0.7.
+- Dark mode: localStorage + anti-flash + global CSS for native form controls.
+- Printer: `window.print()` receipt at 80mm in place (Phase 1). QZ Tray one-click printing is next (Phase 2).
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -55,11 +56,11 @@ Goal: complete the minimum operational feature set for steady daily use.
 9. ✅ **Weekly Corte** — week-by-week view with bar chart and drill-down links.
 10. ✅ **Caja ad-hoc charges** — fully built. "+ Cargo" button → product grid (uniforms, tournaments, etc.) with size + goalkeeper options, amount input, creates charge and returns to enrollment panel.
 
-### Remaining Phase 1B work
-- ✅ Porto Mensual: Equipos and Clases sections wired from teams + coaches data.
-- Activity log: add date / actor / action-type / campus filters.
-- Batch baja write-off: bulk void pending charges for a list of dropped-out players.
-- Dropout reason expansion: grow from 7 codes to Porto's full ~30-reason taxonomy.
+### Phase 1B — ✅ ALL COMPLETE
+- ✅ Porto Mensual Equipos + Clases wired from teams + coaches data.
+- ✅ Activity log filters: date range, actor, action type.
+- ✅ Batch baja write-off: `/pending/bajas` — bulk void pending charges for dropped players.
+- ✅ Dropout reason expansion: 34-reason Porto taxonomy, Porto report labels synced.
 
 ## Phase 2: Roles, Integrations, and Ops Expansion
 Goal: broader operational support and integrations.
@@ -115,12 +116,14 @@ Goal: broader operational support and integrations.
 3. ✅ **Dropout reason expansion**: 34-reason Porto taxonomy already implemented. Porto report DROPOUT_LABELS synced.
 4. **Batch baja write-off UI**: select multiple dropped-out enrollments → void all pending charges in one action. Director only.
 
-### Phase 2 (medium-term)
-6. **Campus-scoped access**: `user_campus_assignments` table — front desk sees only their campus's data in Caja, sessions, and reports.
-7. **Thermal printer (ESC/POS)**: QZ Tray integration for Star TSP100 / Epson TM-T20. One-click receipt, no browser dialog.
-8. **CSV/PDF exports**: export daily and monthly reports. No schema change needed.
-9. **Uniform delivery tracking**: `player_uniform_deliveries` — who has/hasn't received training kit, game kit, goalkeeper kit. Status badges on player cards.
-10. **External payment reconciliation**: ingestion path for 360Player/Stripe events, reconciliation queue.
+### Phase 2 (medium-term) — ACTIVE
+1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV arrives 2026-03-17. Connect via Ethernet for multi-machine sharing. QZ Tray installed on each front desk machine. One-click receipt + Corte Diario printout, no browser dialog. `window.print()` receipt already in place as interim fallback.
+   - Phase 2a (tonight): polish `window.print()` receipt layout + add Corte Diario print layout. Ready for tomorrow's testing.
+   - Phase 2b (after printer setup): QZ Tray integration.
+2. **Campus-scoped access**: `user_campus_assignments` table — deferred until after initial testing stabilizes.
+3. **CSV/PDF exports**: Corte Diario export goes through thermal printer instead of PDF. Other reports TBD.
+4. **Uniform delivery tracking**: polish uniform sales first, then tracking.
+5. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
 
 ### Phase 3+ (deferred)
 - Coach role + attendance module

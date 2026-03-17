@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { PrintButton } from "./print-button";
 import { listCampuses } from "@/lib/queries/players";
 import { getCorteDiarioData } from "@/lib/queries/reports";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
@@ -67,11 +68,13 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
     ? { type: "error", msg: CLOSE_ERROR_LABELS[params.err] ?? `Error: ${params.err}` }
     : null;
 
+  const campusLabel = campuses.find((c) => c.id === selectedCampusId)?.name ?? "Todos los campus";
+
   return (
     <PageShell title="Corte Diario" subtitle="Cobros registrados por fecha y campus">
       <div className="space-y-6">
         {/* Filters */}
-        <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
+        <form className="print:hidden grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}
@@ -106,7 +109,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
 
         {/* Session status banner (feedback from close action) */}
         {banner && (
-          <div className={`rounded-md border px-4 py-3 text-sm ${
+          <div className={`print:hidden rounded-md border px-4 py-3 text-sm ${
             banner.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300"
               : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300"
@@ -115,8 +118,11 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           </div>
         )}
 
+        {/* Print button */}
+        <PrintButton />
+
         {/* Cash session panel */}
-        <div className="rounded-md border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+        <div className="print:hidden rounded-md border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Sesión de Caja</h2>
             <Link
@@ -282,7 +288,73 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           </div>
         )}
 
-        <p className="text-xs text-slate-400">Horarios en UTC. Campus: {campuses.find((c) => c.id === selectedCampusId)?.name ?? "Todos"}.</p>
+        <p className="print:hidden text-xs text-slate-400">Horarios en UTC. Campus: {campusLabel}.</p>
+
+        {/* ── Print-only Corte Diario layout (80mm thermal) ── */}
+        <div className="hidden print:block w-[72mm] font-mono text-[11px] leading-snug">
+          <div className="text-center mb-2">
+            <p className="font-bold text-[13px]">INVICTA · Dragon Force Porto</p>
+            <p className="text-[10px]">FC Porto Dragon Force · Monterrey</p>
+            <p className="text-[10px]">{campusLabel}</p>
+          </div>
+
+          <div className="border-t border-dashed border-black my-1.5" />
+
+          <p className="text-center font-bold text-[12px]">CORTE DIARIO</p>
+          <p className="text-center text-[10px]">{data.date}</p>
+
+          <div className="border-t border-dashed border-black my-1.5" />
+
+          {/* Summary by method */}
+          <div className="space-y-0.5 mb-1">
+            {data.byMethod.map((m) => (
+              <div key={m.method} className="flex justify-between">
+                <span>{m.methodLabel} ({m.count})</span>
+                <span>{fmt(m.total)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-black my-1" />
+          <div className="flex justify-between font-bold text-[12px]">
+            <span>TOTAL ({data.payments.length} pagos)</span>
+            <span>{fmt(data.totalCobrado)}</span>
+          </div>
+
+          {/* By charge type */}
+          {data.byChargeType.length > 0 && (
+            <>
+              <div className="border-t border-dashed border-black my-1.5" />
+              <p className="font-bold mb-0.5">Por tipo de cargo</p>
+              <div className="space-y-0.5">
+                {data.byChargeType.map((ct) => (
+                  <div key={ct.typeCode} className="flex justify-between">
+                    <span>{ct.typeName}</span>
+                    <span>{fmt(ct.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Payment list */}
+          {data.payments.length > 0 && (
+            <>
+              <div className="border-t border-dashed border-black my-1.5" />
+              <p className="font-bold mb-0.5">Detalle de cobros</p>
+              <div className="space-y-0.5">
+                {data.payments.map((p) => (
+                  <div key={p.id} className="flex justify-between text-[10px]">
+                    <span className="mr-1">{fmtTime(p.paidAt)} {p.playerName.split(" ")[0]}</span>
+                    <span className="shrink-0">{fmt(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="border-t border-dashed border-black my-1.5" />
+          <p className="text-center text-[10px]">Horarios en UTC</p>
+        </div>
       </div>
     </PageShell>
   );

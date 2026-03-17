@@ -1,5 +1,46 @@
 # Devlog
 
+## 2026-03-16 (session 8)
+
+### Phase 1B Completion + Phase 2 Kickoff (v0.8)
+
+**Corte Diario — inline cash session controls (Option A)**
+- Directors can close a cash session directly from Corte Diario without leaving the report.
+- `closeCashSessionAction` now accepts a `redirect_to` hidden field (defaults to `/caja/sesion`).
+- Corte Diario passes back its own URL (preserving date + campus params) so the page reloads in place after close.
+- Per-campus session cards show apertura timestamp, totals, and an inline `<details>` close form (zero JS).
+
+**Caja — prominent no-session banner**
+- Replaced subtle amber pill with a full-width bordered card when no cash session is open.
+- Includes explanation text and direct "Abrir sesión →" CTA.
+- Happy path (session open): subtle pills remain unchanged.
+
+**Porto Mensual — Equipos + Clases sections wired**
+- New `getPortoTeamsData()` query joins teams → campuses + coaches, counts active players via `team_assignments`.
+- Sections 5 (Equipos de Competición) and 6 (Clases) replaced with real tables: campus, birth year, gender, level, coach, player count.
+- Section headers show aggregate totals (N equipos · N jugadores).
+
+**Activity log filters**
+- Date range (from/to), action type dropdown, actor email partial match.
+- All filters applied server-side via search params. Limpiar button clears all. Result count shown when active.
+
+**Dropout reason expansion**
+- Full 34-reason Porto taxonomy was already in validation + enrollment-edit-form.
+- Porto Mensual `DROPOUT_LABELS` map was stale (7 codes) — synced to full taxonomy.
+
+**Batch baja write-off (`/pending/bajas`)**
+- New director-only page listing ended/cancelled enrollments with outstanding balances.
+- Checkbox-select any combination, provide a reason, void all pending charges in one action.
+- Server action validates director role, only targets ended/cancelled, writes one audit log entry per voided charge.
+- "Castigo de bajas →" link added to pending payments page.
+- New query: `listBajaEnrollmentsWithBalance()`.
+
+**Printer strategy (Phase 2)**
+- Epson TM-T20IV arriving 2026-03-17. Will connect via Ethernet for multi-machine sharing.
+- QZ Tray chosen over ePOS SDK: handles HTTPS→HTTP bridge for Vercel-hosted app, works from any machine once installed.
+- Phase 2a (tonight): polish `window.print()` receipt + build Corte Diario print layout.
+- Phase 2b: QZ Tray one-click integration. Corte Diario physical printout replaces CSV/PDF export for that report.
+
 ## 2026-03-15 (session 7)
 
 ### Products Catalog + Caja POS Grid (v0.6)

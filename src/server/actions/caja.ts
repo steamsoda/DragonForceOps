@@ -40,7 +40,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string; sessionWarning: boolean }
+  | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -436,6 +436,11 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   const newBalance = ledger.totals.balance - parsed.amount;
 
+  const chargeMap = new Map(pendingCharges.map((c) => [c.id, c.description]));
+  const chargesPaid = allocations
+    .filter((a) => a.amount > 0)
+    .map((a) => ({ description: chargeMap.get(a.chargeId) ?? "Cargo", amount: a.amount }));
+
   return {
     ok: true,
     paymentId: paymentRow.id,
@@ -445,6 +450,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     method: parsed.method,
     remainingBalance: newBalance,
     currency: ledger.enrollment.currency,
-    sessionWarning
+    sessionWarning,
+    chargesPaid
   };
 }

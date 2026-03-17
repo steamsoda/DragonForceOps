@@ -626,44 +626,69 @@ function ReceiptPanel({
         </div>
       </div>
 
-      {/* Print-only receipt — styled for 80mm thermal paper */}
+      {/* Print-only receipt — styled for 80mm thermal paper, two copies */}
       <div className="hidden print:block w-[72mm] font-mono text-[11px] leading-snug">
-        <div className="text-center mb-3">
-          <p className="font-bold text-[13px]">INVICTA · Dragon Force Porto</p>
-          <p className="text-[10px]">FC Porto Dragon Force · Monterrey</p>
-          <p className="text-[10px]">{receipt.campusName}</p>
-        </div>
+        {[{ label: "COPIA CLIENTE" }, { label: "COPIA ACADEMIA" }].map(({ label }, idx) => (
+          <div key={idx}>
+            {idx > 0 && (
+              <div className="my-3 flex items-center gap-1 text-[9px] text-black">
+                <span className="flex-1 border-t border-dashed border-black" />
+                <span>✂</span>
+                <span className="flex-1 border-t border-dashed border-black" />
+              </div>
+            )}
 
-        <div className="border-t border-dashed border-black my-2" />
+            <div className="text-center mb-2">
+              <p className="font-bold text-[13px]">INVICTA · Dragon Force Porto</p>
+              <p className="text-[10px]">FC Porto Dragon Force · Monterrey</p>
+              <p className="text-[10px]">{receipt.campusName}</p>
+            </div>
 
-        <div className="space-y-0.5">
-          <p><span className="font-bold">Alumno:</span> {receipt.playerName}</p>
-          <p><span className="font-bold">Fecha:</span> {dateStr}</p>
-          <p><span className="font-bold">Hora:</span> {timeStr}</p>
-          <p><span className="font-bold">Método:</span> {methodLabel(receipt.method)}</p>
-          <p><span className="font-bold">Folio:</span> {shortId}</p>
-        </div>
+            <div className="border-t border-dashed border-black my-1.5" />
 
-        <div className="border-t border-dashed border-black my-2" />
+            <div className="space-y-0.5">
+              <p><span className="font-bold">Alumno:</span> {receipt.playerName}</p>
+              <p><span className="font-bold">Fecha:</span> {dateStr}</p>
+              <p><span className="font-bold">Hora:</span> {timeStr}</p>
+              <p><span className="font-bold">Método:</span> {methodLabel(receipt.method)}</p>
+              <p><span className="font-bold">Folio:</span> {shortId}</p>
+            </div>
 
-        <div className="flex justify-between font-bold text-[12px]">
-          <span>TOTAL PAGADO</span>
-          <span>{formatMoney(receipt.amount, receipt.currency)}</span>
-        </div>
+            <div className="border-t border-dashed border-black my-1.5" />
 
-        {receipt.remainingBalance > 0 && (
-          <div className="flex justify-between mt-1">
-            <span>Saldo pendiente</span>
-            <span>{formatMoney(receipt.remainingBalance, receipt.currency)}</span>
+            {/* Line items */}
+            {receipt.chargesPaid.length > 0 && (
+              <div className="space-y-0.5 mb-1.5">
+                {receipt.chargesPaid.map((c, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="mr-2 truncate max-w-[44mm]">{c.description}</span>
+                    <span className="shrink-0">{formatMoney(c.amount, receipt.currency)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-black my-1" />
+            <div className="flex justify-between font-bold text-[12px]">
+              <span>TOTAL PAGADO</span>
+              <span>{formatMoney(receipt.amount, receipt.currency)}</span>
+            </div>
+
+            {receipt.remainingBalance > 0 && (
+              <div className="flex justify-between mt-0.5 text-[10px]">
+                <span>Saldo pendiente</span>
+                <span>{formatMoney(receipt.remainingBalance, receipt.currency)}</span>
+              </div>
+            )}
+            {receipt.remainingBalance <= 0 && (
+              <p className="mt-0.5 text-center text-[10px]">Cuenta al corriente ✓</p>
+            )}
+
+            <div className="border-t border-dashed border-black my-1.5" />
+            <p className="text-center text-[10px]">Gracias por su pago</p>
+            <p className="text-center text-[9px] mt-0.5 text-black/60">{label}</p>
           </div>
-        )}
-        {receipt.remainingBalance <= 0 && (
-          <p className="mt-1 text-center">Cuenta al corriente ✓</p>
-        )}
-
-        <div className="border-t border-dashed border-black my-2" />
-        <p className="text-center text-[10px]">Gracias por su pago</p>
-        <p className="text-center text-[10px]">{receipt.paymentId}</p>
+        ))}
       </div>
     </>
   );
