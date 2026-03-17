@@ -69,6 +69,12 @@ export function CajaClient() {
   const [isPending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
+  const [preloadedMeta, setPreloadedMeta] = useState<CajaDrilldownMeta | null>(null);
+
+  // Preload drill-down meta in background so "Seleccionar por categoría" is instant
+  useEffect(() => {
+    getCajaDrilldownMetaAction().then(setPreloadedMeta);
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -129,6 +135,10 @@ export function CajaClient() {
   }
 
   function openDrilldown() {
+    if (preloadedMeta) {
+      setDrilldown({ step: "campus", meta: preloadedMeta });
+      return;
+    }
     setDrilldown({ step: "loading-meta" });
     startTransition(async () => {
       const meta = await getCajaDrilldownMetaAction();
@@ -242,7 +252,11 @@ export function CajaClient() {
           targetChargeIds={view.tag === "paying" ? view.targetChargeIds : []}
           onPay={goToPayment}
           onAddCharge={goToAddCharge}
-          onCancel={() => setView({ tag: "enrollment", player: view.player, data: view.data })}
+          onCancel={
+            view.tag === "paying"
+              ? () => setView({ tag: "enrollment", player: view.player, data: view.data })
+              : reset
+          }
           onSubmit={handlePaymentSubmit}
           isPending={isPending}
           error={error}
@@ -302,17 +316,21 @@ function DrilldownPanel({
 }) {
   if (drilldown.step === "closed") {
     return (
-      <div className="flex items-center gap-3">
-        <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
-        <span className="text-xs text-slate-400 dark:text-slate-500">o</span>
-        <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
-        <button
-          type="button"
-          onClick={onOpen}
-          className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue transition-colors"
-        >
-          Seleccionar por categoría
-        </button>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
+          <span className="text-xs text-slate-400 dark:text-slate-500">o</span>
+          <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
+        </div>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="rounded-xl border border-slate-300 dark:border-slate-600 px-5 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue transition-colors"
+          >
+            Seleccionar por categoría
+          </button>
+        </div>
       </div>
     );
   }

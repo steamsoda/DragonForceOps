@@ -112,16 +112,13 @@ export type EnrollmentLedger = {
 export async function getEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
   const supabase = await createClient();
 
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("id, status, start_date, end_date, campuses(name, code), players(first_name, last_name), pricing_plans(name, currency)")
-    .eq("id", enrollmentId)
-    .maybeSingle()
-    .returns<EnrollmentRow | null>();
-
-  if (!enrollment) return null;
-
-  const [{ data: balance }, { data: charges }, { data: payments }] = await Promise.all([
+  const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id, status, start_date, end_date, campuses(name, code), players(first_name, last_name), pricing_plans(name, currency)")
+      .eq("id", enrollmentId)
+      .maybeSingle()
+      .returns<EnrollmentRow | null>(),
     supabase
       .from("v_enrollment_balances")
       .select("enrollment_id, total_charges, total_payments, balance")
@@ -141,6 +138,8 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       .order("paid_at", { ascending: false })
       .returns<PaymentRow[]>()
   ]);
+
+  if (!enrollment) return null;
 
   const chargeIds = (charges ?? []).map((row) => row.id);
   const paymentIds = (payments ?? []).map((row) => row.id);
