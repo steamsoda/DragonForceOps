@@ -108,29 +108,37 @@ Goal: broader operational support and integrations.
 10. **Tournament Entity**
 - `tournaments` table, team entries, mandatory vs optional, auto charge generation.
 
-## Prioritized Backlog (as of 2026-03-16)
+## Prioritized Backlog (as of 2026-03-17, pre-testing)
 
-### Phase 1B completion (short-term)
-1. ✅ **Porto Mensual — Equipos + Clases sections**: wired. Team/class tables with campus, birth year, gender, level, coach, player count.
-2. ✅ **Activity log filters**: date range, actor, action type filters added to `/activity`.
-3. ✅ **Dropout reason expansion**: 34-reason Porto taxonomy already implemented. Porto report DROPOUT_LABELS synced.
-4. **Batch baja write-off UI**: select multiple dropped-out enrollments → void all pending charges in one action. Director only.
+### Immediate — Testing Prep (before/during testing week)
+1. ✅ **Print: window.print() receipt + Corte Diario layout** — two-copy receipt with line items, Corte Diario thermal layout with print button.
+2. **Nav/panel audit** — several menu items overlap or show incorrect numbers. Full inspection needed: what stays, what merges, what gets cut, what needs rewiring to real data. Do after first testing session when staff feedback is collected.
+3. **Caja cancel UX** — when "Registrar Pago" panel is open and user clicks cancel, page resets to top. Should return to the enrollment panel for that player. Quick fix.
+4. **Caja drill-down detail panel** — not started. When viewing a player's pending charges in Caja, staff need to see charge detail (what period, what type) before deciding what to pay. Design TBD — possibly inline expandable rows.
 
-### Phase 2 (medium-term) — ACTIVE
-1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV arrives 2026-03-17. Connect via Ethernet for multi-machine sharing. QZ Tray installed on each front desk machine. One-click receipt + Corte Diario printout, no browser dialog. `window.print()` receipt already in place as interim fallback.
-   - Phase 2a (tonight): polish `window.print()` receipt layout + add Corte Diario print layout. Ready for tomorrow's testing.
-   - Phase 2b (after printer setup): QZ Tray integration.
-2. **Campus-scoped access**: `user_campus_assignments` table — deferred until after initial testing stabilizes.
-3. **CSV/PDF exports**: Corte Diario export goes through thermal printer instead of PDF. Other reports TBD.
-4. **Uniform delivery tracking**: polish uniform sales first, then tracking.
-5. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
+### Phase 2 (active)
+1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV on-site 2026-03-17. Ethernet connection for multi-machine sharing. QZ Tray on each front desk machine. One-click receipt + Corte Diario, no browser dialog.
+   - ✅ Phase 2a: `window.print()` receipt (two copies, line items) + Corte Diario print layout.
+   - Phase 2b: QZ Tray integration (after printer is set up and Ethernet IP confirmed).
+2. **Player profile expansion** — player page missing: uniform size, current team + coach assignment, enrollment history summary. Add as a data card alongside existing enrollment detail.
+3. **Player list tags (Jugadores)** — small inline badges per player in the list: league status (playing in competition/class), tuition paid this month, balance owed. Makes collections and ops scanning much faster.
+4. **Teams & competitions system** — current team assignment is messy. Need:
+   - Clean team assignment UX from player page (add/remove team, set primary).
+   - Team detail page: roster, coach, upcoming tournaments.
+   - Tournament registration: which teams are entered in which torneo, mandatory vs optional players.
+   - This is a significant feature; design schema before building.
+5. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
+6. **Uniform delivery tracking**: polish uniform sales UX first, then `player_uniform_deliveries` table + player card badges.
+7. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
+8. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
 
 ### Phase 3+ (deferred)
-- Coach role + attendance module
-- Uniform stock control (inventory)
+- Coach role + attendance module (coach logs in, takes attendance per session)
+- Attendance-based baja detection (3 consecutive missed months)
+- Uniform stock control (count-based inventory, dashboard widget)
 - Player documents / file uploads (Supabase Storage)
 - Jersey number assignment (business rules TBD)
-- Tournament entity (auto charge generation for team entries)
+- Tournament entity full build (auto charge generation)
 - WhatsApp/SMS automated reminders
 
 ## Working Rhythm (Recommended)

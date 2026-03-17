@@ -5,31 +5,31 @@ This is the consolidated, living SDD. It merges and preserves the content from:
 - `docs/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
 
 ## 0) Status
-- Current stage: Phase 1B operational MVP — complete for daily use
-- App version: v0.7
+- Current stage: v0.8 — Phase 1B complete. Internal testing begins 2026-03-17, one campus, directors only.
 - Auth: Supabase Auth with Azure provider, fully wired (preview + prod)
 - Environments:
   - Production DB: Supabase main project
   - Preview DB: Supabase preview branch (Pro plan)
   - Hosting: Vercel (prod + preview deployments)
-- Live and working as of 2026-03-16:
+- Live and working as of 2026-03-17:
   - Core billing loop: enrollment → charges → payments → ledger → pending list
-  - Caja POS: player search, pending charges, payment posting, thermal receipt
-  - Cash session management: open/close per campus, linked payments, variance notes
-  - Dashboard: 8 KPIs + trends + charts, campus/month filters, real data
-  - Reports: Corte Diario, Corte Semanal, Resumen Mensual, Porto Mensual
-  - Porto Mensual: Datos Generales auto-compute, Eventos log, Mapa de Área log
-  - Activity log: human-readable audit feed
-  - Products catalog with POS grid in Caja
+  - Caja POS: player search, pending charges, payment posting, thermal receipt (two copies, line items), ad-hoc charges (products grid)
+  - Cash session management: open/close per campus, Corte Diario inline close, prominent no-session banner
+  - Dashboard: 8 KPIs + trends + charts, campus/month filters
+  - Reports: Corte Diario (+ print layout), Corte Semanal, Resumen Mensual, Porto Mensual (all sections wired)
+  - Activity log: audit feed with date/actor/action-type filters
+  - Products catalog with POS grid
   - Role system: director_admin, front_desk, superadmin with RLS
+  - Void charges (director only) + batch baja write-off (`/pending/bajas`)
+  - Full 34-reason Porto dropout taxonomy
   - Dark mode with localStorage persistence
-  - Void charges (director only), scholarship skip in monthly cron
-- Known remaining gaps (Phase 1 completion):
-  - Porto Mensual: Equipos and Clases sections not yet wired (teams/coaches data exists)
-  - Ad-hoc charges from Caja panel (currently payments only)
-  - Activity log: no filters yet (date, actor, action type, campus)
-  - Batch baja write-off UI (individual void exists; bulk does not)
-  - Dropout reason taxonomy expansion (~30 reasons vs current 7)
+- Known gaps identified pre-testing (2026-03-17):
+  - Caja cancel UX: canceling "Registrar Pago" resets page to top instead of returning to enrollment panel
+  - Caja drill-down: no charge detail view inline before payment (period, type, age)
+  - Nav/panel audit needed: some menu items overlap, some reports show incorrect numbers
+  - Player profile: missing uniform size, team assignment, coach on player page
+  - Player list (Jugadores): no status tags (league, tuition paid, balance)
+  - Teams/tournaments: team assignment UX is rough, no tournament registration system yet
 
 ## 1) Overview and Goals (Phase 1 MVP)
 - Build a secure internal operations app (30–50 staff users) for two campuses in Monterrey: Linda Vista and Contry.
@@ -879,3 +879,76 @@ Features requested by operations staff after demo session. Organized by phase.
 - Payment method `stripe` added to `payments.method`.
 - Stripe webhook ingestion, reconciliation queue, refund handling.
 - See Section 12 for broader integration design notes.
+
+---
+
+## 18) Pre-Testing Feedback — Feature Gaps (2026-03-17)
+
+Notes captured before first internal testing session. These informed the Phase 2 roadmap reprioritization.
+
+### 18.1 Caja UX Issues
+
+#### Cancel Returns to Top (Quick Fix)
+- Bug: when "Registrar Pago" card is open and user clicks cancel, the Caja page resets to the top (player search) instead of returning to the enrollment panel for that player.
+- Fix: `onCancel` in the payment form should call `setView({ tag: "enrollment", ... })` instead of resetting to `idle`.
+
+#### Caja Drill-Down Charge Detail (Not Started)
+- Staff need to see more detail about a pending charge before deciding to pay it: what period it covers (e.g. "Mensualidad Feb 2026"), the charge type, the amount, and whether it's overdue.
+- Current state: charges are listed as flat rows with description + amount only.
+- Design options:
+  a. Expandable rows — click a charge to reveal period, due date, charge type code inline.
+  b. Side panel — selected charge opens a slim detail panel.
+- Recommendation: expandable rows (zero navigation, no extra UI surface).
+- Not blocking for first testing session; document for quick follow-up.
+
+### 18.2 Nav / Panel Audit
+
+- Several menu items appear to overlap in function or show placeholder/incorrect data.
+- Some reports are not correctly wired and do not reflect actual numbers.
+- Action: after first testing session, walk through every nav item with staff and:
+  1. Identify what gets used, what's redundant, what's confusing.
+  2. Cross-check each report's numbers against known real data.
+  3. Merge, remove, or rewire as needed.
+- This is an audit task, not a build task — do not prematurely refactor before user feedback.
+
+### 18.3 Player Profile Expansion
+
+Current player page shows: name, birth date, campus, enrollment status, ledger.
+Missing (requested pre-testing):
+- **Uniform size** — staff need to know the player's size when delivering kits.
+- **Current team assignment** — which team (name + birth year + level + campus) and coach.
+- **Enrollment history** — brief summary (start date, status, campus).
+
+Design notes:
+- Uniform size: add `players.uniform_size text null` column (migration needed). Staff editable from player page.
+- Team: already queryable via `team_assignments JOIN teams JOIN coaches`. Display as a card on player page.
+- No schema change needed for team/coach display — data already exists.
+
+### 18.4 Player List Tags (Jugadores)
+
+Goal: let directors and staff scan the player list and immediately see key status signals without drilling into each player.
+
+Requested tags per player row:
+- **Competición / Clase** — which type of team they're on (from `teams.type`).
+- **Tuition paid this month** — does enrollment have a payment for the current period?
+- **Balance owed** — non-zero balance flag, color-coded by size (green=0, amber=small, red=high).
+
+Implementation notes:
+- Tags should be lightweight — a few colored pills per row, not columns.
+- Data needs: `v_enrollment_balances` (already exists) + a monthly charge query to detect if current period is paid.
+- Performance: current Jugadores list fetches ~700 rows — ensure tag queries are aggregated, not N+1.
+
+### 18.5 Teams & Competitions System
+
+Current state: teams exist in DB, team assignments exist, but the UI for managing them is rough. Players and coaches are seeded but assigning a player to a team from the app is messy.
+
+Requested:
+1. **Clean team assignment UX** — from player page: show current team, allow change, set primary.
+2. **Team detail page** — roster (all active players on team), coach name, campus, birth year, level.
+3. **Tournament registration** — which teams are entered in which torneo. Mandatory vs optional participation. Phase 2.
+
+Schema design notes (to be confirmed before building):
+- `team_assignments` already exists: `enrollment_id`, `team_id`, `is_primary`, `start_date`, `end_date`.
+- Multiple teams per enrollment is supported (e.g. training team + cup team). `is_primary` marks the main team.
+- Tournament entity: `tournaments(id, name, campus_id, date, is_mandatory)` + `tournament_team_entries(tournament_id, team_id)` + optionally `tournament_player_entries(tournament_id, enrollment_id)` for optional participation.
+- **Do not build tournament entity until the team assignment UX is clean and tested.**
