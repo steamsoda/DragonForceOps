@@ -111,8 +111,8 @@ Goal: broader operational support and integrations.
 
 ### Phase 1B completion (short-term)
 1. ✅ **Porto Mensual — Equipos + Clases sections**: wired. Team/class tables with campus, birth year, gender, level, coach, player count.
-2. **Activity log filters**: add date range, actor, action type, and campus filters to `/activity`.
-3. **Dropout reason expansion**: grow dropout codes from 7 to Porto's full ~30-reason taxonomy. Text field (not PG enum), server-side validation only.
+2. ✅ **Activity log filters**: date range, actor, action type filters added to `/activity`.
+3. ✅ **Dropout reason expansion**: 34-reason Porto taxonomy already implemented. Porto report DROPOUT_LABELS synced.
 4. **Batch baja write-off UI**: select multiple dropped-out enrollments → void all pending charges in one action. Director only.
 
 ### Phase 2 (medium-term)
