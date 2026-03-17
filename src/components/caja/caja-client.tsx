@@ -229,10 +229,37 @@ export function CajaClient() {
         />
       )}
 
-      {/* Loading enrollment */}
+      {/* Loading enrollment — show header instantly from search data, skeleton for charges */}
       {view.tag === "loading-enrollment" && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          Cargando información de {view.player.playerName}…
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
+            <div>
+              <p className="text-lg font-semibold text-portoDark">{view.player.playerName}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {view.player.campusName}{view.player.birthYear ? ` · ${view.player.birthYear}` : ""}
+              </p>
+              {view.player.teamName && (
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {view.player.teamName}{view.player.coachName ? ` · ${view.player.coachName}` : ""}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className={`text-xl font-bold ${view.player.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                {view.player.balance > 0
+                  ? formatMoney(view.player.balance, "MXN")
+                  : view.player.balance < 0
+                  ? formatMoney(Math.abs(view.player.balance), "MXN")
+                  : "Al corriente"}
+              </p>
+              <p className="text-xs text-slate-400">
+                {view.player.balance > 0 ? "Saldo pendiente" : view.player.balance < 0 ? "Crédito en cuenta" : "Al corriente"}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-6 text-center text-sm text-slate-400">
+            Cargando cargos…
+          </div>
         </div>
       )}
 
