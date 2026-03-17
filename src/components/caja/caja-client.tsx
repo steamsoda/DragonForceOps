@@ -186,7 +186,7 @@ export function CajaClient() {
           targetChargeIds={view.tag === "paying" ? view.targetChargeIds : []}
           onPay={goToPayment}
           onAddCharge={goToAddCharge}
-          onCancel={reset}
+          onCancel={() => setView({ tag: "enrollment", player: view.player, data: view.data })}
           onSubmit={handlePaymentSubmit}
           isPending={isPending}
           error={error}
@@ -318,6 +318,7 @@ function EnrollmentPanel({
   error: string | null;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const targetSet = new Set(targetChargeIds);
   const targetCharges = data.pendingCharges.filter((c) => targetSet.has(c.id));
@@ -380,37 +381,59 @@ function EnrollmentPanel({
               <span className="ml-2 text-xs font-normal text-slate-400">Selecciona los que deseas pagar</span>
             )}
           </p>
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {data.pendingCharges.map((c) => {
               const isSelected = selectedIds.has(c.id);
+              const isExpanded = expandedId === c.id;
+              const isPartial = c.pendingAmount < c.amount;
+              const today = new Date();
+              const overdue = c.dueDate && new Date(c.dueDate) < today;
               return (
-                <li
-                  key={c.id}
-                  className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                    !paying && isSelected ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-800 dark:text-slate-200">{c.description}</p>
-                    {c.periodMonth && (
-                      <p className="text-xs text-slate-400 capitalize">{formatPeriodMonth(c.periodMonth)}</p>
-                    )}
-                  </div>
-                  <span className={`shrink-0 font-semibold ${isSelected && !paying ? "text-portoBlue" : "text-rose-600"}`}>
-                    {formatMoney(c.pendingAmount, data.currency)}
-                  </span>
-                  {!paying && (
+                <li key={c.id} className={`text-sm transition-colors ${!paying && isSelected ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}>
+                  {/* Main row */}
+                  <div className="flex items-center gap-3 px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => toggleCharge(c.id)}
-                      className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
-                        isSelected
-                          ? "bg-portoBlue text-white hover:bg-portoDark"
-                          : "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
-                      }`}
+                      onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                      className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      aria-label={isExpanded ? "Colapsar detalle" : "Ver detalle"}
                     >
-                      {isSelected ? "✓ Agregado" : "Agregar"}
+                      {isExpanded ? "▾" : "▸"}
                     </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{c.description}</p>
+                      <p className="text-xs text-slate-400">
+                        {c.periodMonth ? <span className="capitalize">{formatPeriodMonth(c.periodMonth)}</span> : c.typeName}
+                        {overdue && <span className="ml-2 text-rose-500">Vencido</span>}
+                        {isPartial && <span className="ml-2 text-amber-500">Pago parcial</span>}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 font-semibold ${isSelected && !paying ? "text-portoBlue" : "text-rose-600"}`}>
+                      {formatMoney(c.pendingAmount, data.currency)}
+                    </span>
+                    {!paying && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCharge(c.id)}
+                        className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                          isSelected
+                            ? "bg-portoBlue text-white hover:bg-portoDark"
+                            : "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
+                        }`}
+                      >
+                        {isSelected ? "✓ Agregado" : "Agregar"}
+                      </button>
+                    )}
+                  </div>
+                  {/* Expandable detail strip */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-10 py-2 text-xs text-slate-500 dark:text-slate-400 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      <span>Tipo</span><span className="font-medium text-slate-700 dark:text-slate-300">{c.typeName}</span>
+                      <span>Cargo total</span><span className="font-medium text-slate-700 dark:text-slate-300">{formatMoney(c.amount, data.currency)}</span>
+                      {isPartial && <><span>Ya pagado</span><span className="font-medium text-emerald-600">{formatMoney(c.amount - c.pendingAmount, data.currency)}</span></>}
+                      <span>Pendiente</span><span className="font-medium text-rose-600">{formatMoney(c.pendingAmount, data.currency)}</span>
+                      {c.dueDate && <><span>Vencimiento</span><span className={`font-medium ${overdue ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{c.dueDate}</span></>}
+                    </div>
                   )}
                 </li>
               );

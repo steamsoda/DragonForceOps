@@ -28,6 +28,7 @@ export type CajaPendingCharge = {
   amount: number;
   pendingAmount: number;
   periodMonth: string | null;
+  dueDate: string | null;
 };
 
 export type CajaEnrollmentData = {
@@ -250,7 +251,8 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
       description: c.description,
       amount: c.amount,
       pendingAmount: c.pendingAmount,
-      periodMonth: c.periodMonth
+      periodMonth: c.periodMonth,
+      dueDate: c.dueDate ?? null
     }));
 
   return {

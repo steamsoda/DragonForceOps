@@ -125,10 +125,21 @@ type PlayerWithEnrollmentRow = {
   birth_date: string;
   status: string;
   enrollments: Array<{
+    id: string;
     campus_id: string;
     status: string;
     campuses: { name: string | null; code: string | null } | null;
   }>;
+};
+
+type ListBalanceRow = {
+  enrollment_id: string;
+  balance: number;
+};
+
+type ListTeamRow = {
+  enrollment_id: string;
+  teams: { type: string } | null;
 };
 
 export async function listPlayers(filters: PlayerListFilters) {
@@ -151,7 +162,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   // Use !inner on enrollments so PostgREST generates a JOIN — no large .in() needed
   let playerQuery = supabase
     .from("players")
-    .select("id, first_name, last_name, birth_date, status, enrollments!inner(campus_id, status, campuses(name, code))", { count: "exact" })
+    .select("id, first_name, last_name, birth_date, status, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
     .eq("enrollments.status", "active")
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
@@ -195,6 +206,26 @@ export async function listPlayers(filters: PlayerListFilters) {
     guardiansByPlayer.set(row.player_id, arr);
   });
 
+  const enrollmentIds = (players ?? []).map((p) => p.enrollments[0]?.id).filter(Boolean) as string[];
+
+  const [{ data: balanceRows }, { data: teamRows }] = await Promise.all([
+    supabase
+      .from("v_enrollment_balances")
+      .select("enrollment_id, balance")
+      .in("enrollment_id", enrollmentIds)
+      .returns<ListBalanceRow[]>(),
+    supabase
+      .from("team_assignments")
+      .select("enrollment_id, teams(type)")
+      .in("enrollment_id", enrollmentIds)
+      .is("end_date", null)
+      .eq("is_primary", true)
+      .returns<ListTeamRow[]>()
+  ]);
+
+  const balanceByEnrollment = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
+  const teamTypeByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.type ?? null]));
+
   const rows = (players ?? []).map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
     const primary =
@@ -202,6 +233,9 @@ export async function listPlayers(filters: PlayerListFilters) {
       guardians.find((g) => !!g.guardians?.phone_primary)?.guardians?.phone_primary ??
       null;
     const enrollment = player.enrollments[0];
+    const enrollmentId = enrollment?.id ?? null;
+    const balance = enrollmentId ? (balanceByEnrollment.get(enrollmentId) ?? 0) : 0;
+    const teamType = enrollmentId ? (teamTypeByEnrollment.get(enrollmentId) ?? null) : null;
 
     return {
       id: player.id,
@@ -210,7 +244,9 @@ export async function listPlayers(filters: PlayerListFilters) {
       status: player.status,
       campusName: enrollment?.campuses?.name ?? "-",
       campusCode: enrollment?.campuses?.code ?? null,
-      primaryPhone: primary
+      primaryPhone: primary,
+      balance,
+      teamType
     };
   });
 

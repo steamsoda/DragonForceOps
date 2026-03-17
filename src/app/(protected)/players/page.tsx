@@ -163,27 +163,51 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Categoría</th>
                   <th className="px-3 py-2">Campus</th>
-                  <th className="px-3 py-2">Telefono principal</th>
+                  <th className="px-3 py-2">Teléfono</th>
+                  <th className="px-3 py-2">Estado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={4}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
                       No se encontraron jugadores con esos filtros.
                     </td>
                   </tr>
                 ) : (
                   activeRows.map((row) => (
-                    <tr key={row.id}>
+                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="px-3 py-2">
                         <Link href={`/players/${row.id}`} className="font-medium text-slate-900 dark:text-slate-100 hover:text-portoBlue hover:underline">
                           {row.fullName}
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
-                      <td className="px-3 py-2">{row.campusName}</td>
-                      <td className="px-3 py-2">{row.primaryPhone ?? "-"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {row.teamType === "competition" && (
+                            <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Competición</span>
+                          )}
+                          {row.teamType === "class" && (
+                            <span className="rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300">Clases</span>
+                          )}
+                          {row.balance <= 0 && (
+                            <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">Al corriente</span>
+                          )}
+                          {row.balance > 0 && row.balance <= 1500 && (
+                            <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                              ${row.balance.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
+                            </span>
+                          )}
+                          {row.balance > 1500 && (
+                            <span className="rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+                              ${row.balance.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
