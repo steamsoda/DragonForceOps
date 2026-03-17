@@ -88,6 +88,82 @@ export async function voidChargeAction(
   redirect(`${BASE}?ok=charge_voided`);
 }
 
+// ── Batch void charges for ended/cancelled enrollments ────────────────────────
+
+export async function batchVoidBajaChargesAction(formData: FormData): Promise<void> {
+  const BASE = "/pending/bajas";
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  if (!reason) redirect(`${BASE}?err=reason_required`);
+
+  const enrollmentIds = formData.getAll("enrollment_ids").map((v) => v.toString().trim()).filter(Boolean);
+  if (enrollmentIds.length === 0) redirect(`${BASE}?err=none_selected`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+
+  const { data: isDirector } = await supabase.rpc("is_director_admin");
+  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+
+  // Only target ended/cancelled enrollments — safety check
+  const { data: validEnrollments } = await supabase
+    .from("enrollments")
+    .select("id")
+    .in("id", enrollmentIds)
+    .in("status", ["ended", "cancelled"])
+    .returns<{ id: string }[]>();
+
+  const validIds = (validEnrollments ?? []).map((e) => e.id);
+  if (validIds.length === 0) redirect(`${BASE}?err=no_valid_enrollments`);
+
+  // Fetch all pending charges for these enrollments
+  const { data: charges } = await supabase
+    .from("charges")
+    .select("id, enrollment_id, amount, description")
+    .in("enrollment_id", validIds)
+    .eq("status", "pending")
+    .returns<{ id: string; enrollment_id: string; amount: number; description: string }[]>();
+
+  const pendingCharges = charges ?? [];
+  if (pendingCharges.length === 0) redirect(`${BASE}?err=no_pending_charges`);
+
+  const chargeIds = pendingCharges.map((c) => c.id);
+
+  const { error: voidError } = await supabase
+    .from("charges")
+    .update({ status: "void" })
+    .in("id", chargeIds);
+
+  if (voidError) redirect(`${BASE}?err=void_failed`);
+
+  // Audit log per charge
+  await Promise.all(
+    pendingCharges.map((charge) =>
+      writeAuditLog(supabase, {
+        actorUserId: user.id,
+        actorEmail: user.email ?? null,
+        action: "charge.voided",
+        tableName: "charges",
+        recordId: charge.id,
+        afterData: {
+          enrollment_id: charge.enrollment_id,
+          description: charge.description,
+          amount: charge.amount,
+          reason,
+          batch: true
+        }
+      })
+    )
+  );
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=voided&count=${pendingCharges.length}`);
+}
+
 export async function bulkChargeTeamAction(formData: FormData) {
   const BASE = "/admin/cargos-equipo";
 

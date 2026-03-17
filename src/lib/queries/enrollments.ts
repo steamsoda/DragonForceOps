@@ -236,6 +236,84 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
   return { rows: paged, total, page, pageSize: PAGE_SIZE };
 }
 
+// ── Baja enrollments with outstanding balance ─────────────────────────────────
+
+export type BajaEnrollmentRow = {
+  enrollmentId: string;
+  playerId: string;
+  playerName: string;
+  campusName: string;
+  enrollmentStatus: "ended" | "cancelled";
+  endDate: string | null;
+  dropoutReason: string | null;
+  pendingChargeCount: number;
+  pendingTotal: number;
+};
+
+type BajaEnrollmentDbRow = {
+  id: string;
+  player_id: string;
+  status: string;
+  end_date: string | null;
+  dropout_reason: string | null;
+  players: { first_name: string | null; last_name: string | null } | null;
+  campuses: { name: string | null } | null;
+};
+
+type PendingChargeRow = {
+  enrollment_id: string;
+  amount: number;
+};
+
+export async function listBajaEnrollmentsWithBalance(): Promise<BajaEnrollmentRow[]> {
+  const supabase = await createClient();
+
+  const [{ data: balanceRows }, { data: enrollmentRows }, { data: chargeRows }] = await Promise.all([
+    supabase
+      .from("v_enrollment_balances")
+      .select("enrollment_id, balance")
+      .gt("balance", 0)
+      .returns<EnrollmentBalanceRow[]>(),
+    supabase
+      .from("enrollments")
+      .select("id, player_id, status, end_date, dropout_reason, players(first_name, last_name), campuses(name)")
+      .in("status", ["ended", "cancelled"])
+      .order("end_date", { ascending: false })
+      .returns<BajaEnrollmentDbRow[]>(),
+    supabase
+      .from("charges")
+      .select("enrollment_id, amount")
+      .eq("status", "pending")
+      .returns<PendingChargeRow[]>()
+  ]);
+
+  const balanceMap = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
+  const chargesByEnrollment = new Map<string, PendingChargeRow[]>();
+  (chargeRows ?? []).forEach((c) => {
+    const list = chargesByEnrollment.get(c.enrollment_id) ?? [];
+    list.push(c);
+    chargesByEnrollment.set(c.enrollment_id, list);
+  });
+
+  return (enrollmentRows ?? [])
+    .filter((e) => (balanceMap.get(e.id) ?? 0) > 0)
+    .map((e) => {
+      const charges = chargesByEnrollment.get(e.id) ?? [];
+      return {
+        enrollmentId: e.id,
+        playerId: e.player_id,
+        playerName: `${e.players?.first_name ?? ""} ${e.players?.last_name ?? ""}`.trim(),
+        campusName: e.campuses?.name ?? "-",
+        enrollmentStatus: e.status as "ended" | "cancelled",
+        endDate: e.end_date,
+        dropoutReason: e.dropout_reason,
+        pendingChargeCount: charges.length,
+        pendingTotal: charges.reduce((sum, c) => sum + c.amount, 0)
+      };
+    })
+    .sort((a, b) => b.pendingTotal - a.pendingTotal);
+}
+
 // ── Enrollment edit context ───────────────────────────────────────────────────
 
 type EnrollmentEditRow = {
