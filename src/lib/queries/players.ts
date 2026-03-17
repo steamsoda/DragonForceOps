@@ -9,6 +9,12 @@ export type PlayerListFilters = {
   birthYear?: string;
   gender?: string;
   page?: number;
+  enabledTags?: {
+    payment: boolean;
+    teamType: boolean;
+    goalkeeper: boolean;
+    uniform: boolean;
+  };
 };
 
 type PlayerRow = {
@@ -54,6 +60,7 @@ type PlayerDetailRow = {
   gender: string | null;
   medical_notes: string | null;
   uniform_size: string | null;
+  is_goalkeeper: boolean;
 };
 
 type PlayerGuardianDetailRow = {
@@ -125,12 +132,18 @@ type PlayerWithEnrollmentRow = {
   last_name: string;
   birth_date: string;
   status: string;
+  is_goalkeeper: boolean;
   enrollments: Array<{
     id: string;
     campus_id: string;
     status: string;
     campuses: { name: string | null; code: string | null } | null;
   }>;
+};
+
+type UniformOrderRow = {
+  player_id: string;
+  status: string;
 };
 
 type ListBalanceRow = {
@@ -163,7 +176,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   // Use !inner on enrollments so PostgREST generates a JOIN — no large .in() needed
   let playerQuery = supabase
     .from("players")
-    .select("id, first_name, last_name, birth_date, status, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
+    .select("id, first_name, last_name, birth_date, status, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
     .eq("enrollments.status", "active")
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
@@ -196,7 +209,9 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   const enrollmentIds = (players ?? []).map((p) => p.enrollments[0]?.id).filter(Boolean) as string[];
 
-  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }] = await Promise.all([
+  const needsUniform = filters.enabledTags?.uniform === true;
+
+  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult] = await Promise.all([
     supabase
       .from("player_guardians")
       .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
@@ -213,8 +228,29 @@ export async function listPlayers(filters: PlayerListFilters) {
       .in("enrollment_id", enrollmentIds)
       .is("end_date", null)
       .eq("is_primary", true)
-      .returns<ListTeamRow[]>()
+      .returns<ListTeamRow[]>(),
+    needsUniform
+      ? supabase
+          .from("uniform_orders")
+          .select("player_id, status")
+          .in("enrollment_id", enrollmentIds)
+          .returns<UniformOrderRow[]>()
+      : Promise.resolve({ data: null })
   ]);
+
+  // Aggregate uniform status per player: 'pending' if any ordered, 'delivered' if all delivered
+  const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
+  if (needsUniform && uniformResult.data) {
+    const ordersByPlayer = new Map<string, string[]>();
+    for (const row of uniformResult.data) {
+      const arr = ordersByPlayer.get(row.player_id) ?? [];
+      arr.push(row.status);
+      ordersByPlayer.set(row.player_id, arr);
+    }
+    for (const [playerId, statuses] of ordersByPlayer) {
+      uniformStatusByPlayer.set(playerId, statuses.some((s) => s === "ordered") ? "pending" : "delivered");
+    }
+  }
 
   const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
   for (const link of guardianLinks ?? []) {
@@ -241,11 +277,13 @@ export async function listPlayers(filters: PlayerListFilters) {
       fullName: `${player.first_name} ${player.last_name}`,
       birthDate: player.birth_date,
       status: player.status,
+      isGoalkeeper: player.is_goalkeeper,
       campusName: enrollment?.campuses?.name ?? "-",
       campusCode: enrollment?.campuses?.code ?? null,
       primaryPhone: primary,
       balance,
-      teamType
+      teamType,
+      uniformStatus: uniformStatusByPlayer.get(player.id) ?? null,
     };
   });
 
@@ -339,7 +377,7 @@ export async function getPlayerDetail(playerId: string) {
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
       .from("players")
-      .select("id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size")
+      .select("id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size, is_goalkeeper")
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerDetailRow | null>(),
@@ -432,6 +470,7 @@ export async function getPlayerDetail(playerId: string) {
     gender: player.gender,
     medicalNotes: player.medical_notes,
     uniformSize: player.uniform_size,
+    isGoalkeeper: player.is_goalkeeper,
     guardians,
     enrollments,
     activeTeam: team

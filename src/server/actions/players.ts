@@ -74,6 +74,7 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const uniformSize = formData.get("uniformSize")?.toString().trim() || null;
   const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
   const gender = formData.get("gender")?.toString().trim() || null;
+  const isGoalkeeper = formData.get("isGoalkeeper") === "1";
 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -81,7 +82,7 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
 
   const { error } = await supabase
     .from("players")
-    .update({ uniform_size: uniformSize, medical_notes: medicalNotes, gender: gender || null })
+    .update({ uniform_size: uniformSize, medical_notes: medicalNotes, gender: gender || null, is_goalkeeper: isGoalkeeper })
     .eq("id", playerId);
 
   if (error) redirect(`${BASE}/edit?err=update_failed`);

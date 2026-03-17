@@ -34,6 +34,17 @@ export default async function PlayerEditPage({ params }: { params: Promise<{ pla
             </select>
           </label>
 
+          <label className="flex items-center gap-2 text-sm cursor-pointer col-span-2">
+            <input
+              type="checkbox"
+              name="isGoalkeeper"
+              value="1"
+              defaultChecked={player.isGoalkeeper ?? false}
+              className="h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-300">Portero</span>
+          </label>
+
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Talla de uniforme</span>
             <select name="uniformSize" defaultValue={player.uniformSize ?? ""} className={inputClass}>

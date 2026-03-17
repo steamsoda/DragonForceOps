@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPlayerDetail } from "@/lib/queries/players";
+import { getUniformOrdersAction } from "@/server/actions/uniforms";
+import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
@@ -60,6 +62,9 @@ export default async function PlayerDetailPage({
     notFound();
   }
 
+  const activeEnrollmentId = player.enrollments.find((e) => e.status === "active")?.id ?? null;
+  const uniformOrders = activeEnrollmentId ? await getUniformOrdersAction(activeEnrollmentId) : [];
+
   const activeEnrollment = player.enrollments.find((e) => e.status === "active") ?? null;
   const lastEnrollment = !activeEnrollment && player.enrollments.length > 0 ? player.enrollments[0] : null;
   const daysSinceEnrollment = activeEnrollment
@@ -107,6 +112,12 @@ export default async function PlayerDetailPage({
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas médicas</p>
             <p className="font-medium">{player.medicalNotes ?? "-"}</p>
           </div>
+          {player.isGoalkeeper && (
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Posición</p>
+              <span className="inline-block rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">Portero</span>
+            </div>
+          )}
         </section>
 
         {/* Guardians */}
@@ -173,6 +184,15 @@ export default async function PlayerDetailPage({
               <p className="font-medium">{player.activeTeam.coachName ?? "Sin asignar"}</p>
             </div>
           </section>
+        )}
+
+        {/* Uniform orders — only shown when player has active enrollment */}
+        {activeEnrollmentId && (
+          <UniformOrdersSection
+            playerId={player.id}
+            enrollmentId={activeEnrollmentId}
+            initialOrders={uniformOrders}
+          />
         )}
 
         {/* Current enrollment */}

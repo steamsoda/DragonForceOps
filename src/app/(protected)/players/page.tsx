@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/ui/page-shell";
 import Link from "next/link";
 import { listCampuses, listBirthYears, listPlayers, listBajas } from "@/lib/queries/players";
+import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
 
 const DROPOUT_LABELS: Record<string, string> = {
   cost: "Costo",
@@ -11,6 +12,41 @@ const DROPOUT_LABELS: Record<string, string> = {
   level_change: "Cambio de nivel",
   other: "Otro"
 };
+
+type PlayerRow = Awaited<ReturnType<typeof listPlayers>>["rows"][number];
+
+function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
+  const pills: React.ReactNode[] = [];
+
+  if (tags.teamType) {
+    if (row.teamType === "competition") {
+      pills.push(<span key="team" className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Selectivo</span>);
+    } else if (row.teamType === "class") {
+      pills.push(<span key="team" className="rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300">Clases</span>);
+    }
+  }
+
+  if (tags.payment) {
+    if (row.balance <= 0) {
+      pills.push(<span key="payment" className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">Al corriente</span>);
+    } else {
+      pills.push(<span key="payment" className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">Pendiente</span>);
+    }
+  }
+
+  if (tags.goalkeeper && row.isGoalkeeper) {
+    pills.push(<span key="gk" className="rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">Portero</span>);
+  }
+
+  if (tags.uniform && row.uniformStatus === "pending") {
+    pills.push(<span key="uni" className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">Uniforme pedido</span>);
+  }
+  if (tags.uniform && row.uniformStatus === "delivered") {
+    pills.push(<span key="uni" className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">Uniforme ✓</span>);
+  }
+
+  return <div className="flex flex-wrap gap-1">{pills}</div>;
+}
 
 type SearchParams = Promise<{
   q?: string;
@@ -32,7 +68,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const view = params.view === "bajas" ? "bajas" : "active";
 
-  const [campuses, birthYears] = await Promise.all([listCampuses(), listBirthYears()]);
+  const [campuses, birthYears, tags] = await Promise.all([listCampuses(), listBirthYears(), getTagSettings()]);
 
   let result: { rows: unknown[]; total: number; page: number; pageSize: number };
   let activeRows: Awaited<ReturnType<typeof listPlayers>>["rows"] = [];
@@ -43,7 +79,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     result = bajaResult;
     bajaRows = bajaResult.rows;
   } else {
-    const activeResult = await listPlayers({ q, phone, campusId: campusId || undefined, birthYear: birthYear || undefined, gender: gender || undefined, page });
+    const activeResult = await listPlayers({ q, phone, campusId: campusId || undefined, birthYear: birthYear || undefined, gender: gender || undefined, page, enabledTags: tags });
     result = activeResult;
     activeRows = activeResult.rows;
   }
@@ -186,27 +222,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {row.teamType === "competition" && (
-                            <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Competición</span>
-                          )}
-                          {row.teamType === "class" && (
-                            <span className="rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300">Clases</span>
-                          )}
-                          {row.balance <= 0 && (
-                            <span className="rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">Al corriente</span>
-                          )}
-                          {row.balance > 0 && row.balance <= 1500 && (
-                            <span className="rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                              ${row.balance.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
-                            </span>
-                          )}
-                          {row.balance > 1500 && (
-                            <span className="rounded-full bg-red-100 dark:bg-red-900/40 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
-                              ${row.balance.toLocaleString("es-MX", { maximumFractionDigits: 0 })}
-                            </span>
-                          )}
-                        </div>
+                        <PlayerTags row={row} tags={tags} />
                       </td>
                     </tr>
                   ))
