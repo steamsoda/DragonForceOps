@@ -7,11 +7,14 @@ import {
   postCajaPaymentAction,
   getProductsForCajaAction,
   postCajaChargeAction,
+  getCajaDrilldownMetaAction,
+  listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
   type CajaPaymentResult,
   type CajaProduct,
-  type CajaProductCategory
+  type CajaProductCategory,
+  type CajaDrilldownMeta
 } from "@/server/actions/caja";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -39,6 +42,13 @@ function methodLabel(method: string) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type DrilldownStep =
+  | { step: "closed" }
+  | { step: "loading-meta" }
+  | { step: "campus"; meta: CajaDrilldownMeta }
+  | { step: "year"; meta: CajaDrilldownMeta; campusId: string; campusName: string }
+  | { step: "players"; meta: CajaDrilldownMeta; campusId: string; campusName: string; birthYear: number; players: CajaPlayerResult[] | null };
+
 type View =
   | { tag: "idle" }
   | { tag: "searching"; query: string }
@@ -58,6 +68,7 @@ export function CajaClient() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
+  const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
 
   // Debounced search
   useEffect(() => {
@@ -113,7 +124,36 @@ export function CajaClient() {
     setView({ tag: "idle" });
     setQuery("");
     setError(null);
+    setDrilldown({ step: "closed" });
     setTimeout(() => searchRef.current?.focus(), 50);
+  }
+
+  function openDrilldown() {
+    setDrilldown({ step: "loading-meta" });
+    startTransition(async () => {
+      const meta = await getCajaDrilldownMetaAction();
+      setDrilldown({ step: "campus", meta });
+    });
+  }
+
+  function drilldownSelectCampus(campusId: string, campusName: string, meta: CajaDrilldownMeta) {
+    setDrilldown({ step: "year", meta, campusId, campusName });
+  }
+
+  function drilldownSelectYear(campusId: string, campusName: string, birthYear: number, meta: CajaDrilldownMeta) {
+    setDrilldown({ step: "players", meta, campusId, campusName, birthYear, players: null });
+    startTransition(async () => {
+      const players = await listCajaPlayersByCampusYearAction(campusId, birthYear);
+      setDrilldown({ step: "players", meta, campusId, campusName, birthYear, players });
+    });
+  }
+
+  function drilldownBack() {
+    setDrilldown((prev) => {
+      if (prev.step === "year") return { step: "campus", meta: prev.meta };
+      if (prev.step === "players") return { step: "year", meta: prev.meta, campusId: prev.campusId, campusName: prev.campusName };
+      return { step: "closed" };
+    });
   }
 
   function handlePaymentSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
@@ -149,10 +189,12 @@ export function CajaClient() {
     });
   }
 
+  const showSearchArea = view.tag === "idle" || view.tag === "searching" || view.tag === "results";
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       {/* Search box — always visible unless in a later state */}
-      {(view.tag === "idle" || view.tag === "searching" || view.tag === "results") && (
+      {showSearchArea && (
         <SearchPanel
           query={query}
           setQuery={setQuery}
@@ -160,6 +202,20 @@ export function CajaClient() {
           onSelect={selectPlayer}
           isPending={isPending}
           inputRef={searchRef}
+        />
+      )}
+
+      {/* Drill-down panel — visible alongside search */}
+      {showSearchArea && (
+        <DrilldownPanel
+          drilldown={drilldown}
+          isPending={isPending}
+          onOpen={openDrilldown}
+          onSelectCampus={drilldownSelectCampus}
+          onSelectYear={drilldownSelectYear}
+          onSelectPlayer={selectPlayer}
+          onBack={drilldownBack}
+          onClose={() => setDrilldown({ step: "closed" })}
         />
       )}
 
@@ -221,6 +277,158 @@ export function CajaClient() {
       )}
     </div>
   );
+}
+
+// ── Drill-down panel ──────────────────────────────────────────────────────────
+
+function DrilldownPanel({
+  drilldown,
+  isPending,
+  onOpen,
+  onSelectCampus,
+  onSelectYear,
+  onSelectPlayer,
+  onBack,
+  onClose
+}: {
+  drilldown: DrilldownStep;
+  isPending: boolean;
+  onOpen: () => void;
+  onSelectCampus: (campusId: string, campusName: string, meta: CajaDrilldownMeta) => void;
+  onSelectYear: (campusId: string, campusName: string, birthYear: number, meta: CajaDrilldownMeta) => void;
+  onSelectPlayer: (p: CajaPlayerResult) => void;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  if (drilldown.step === "closed") {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
+        <span className="text-xs text-slate-400 dark:text-slate-500">o</span>
+        <div className="flex-1 border-t border-slate-200 dark:border-slate-700" />
+        <button
+          type="button"
+          onClick={onOpen}
+          className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue transition-colors"
+        >
+          Seleccionar por categoría
+        </button>
+      </div>
+    );
+  }
+
+  if (drilldown.step === "loading-meta") {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-6 text-center text-sm text-slate-400">
+        Cargando campuses…
+      </div>
+    );
+  }
+
+  const headerClass = "flex items-center justify-between mb-3";
+  const backBtnClass = "text-sm text-portoBlue hover:underline";
+  const closeBtnClass = "text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300";
+
+  if (drilldown.step === "campus") {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <div className={headerClass}>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Selecciona campus</p>
+          <button type="button" onClick={onClose} className={closeBtnClass}>✕ Cerrar</button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {drilldown.meta.campuses.map((campus) => (
+            <button
+              key={campus.id}
+              type="button"
+              disabled={isPending}
+              onClick={() => onSelectCampus(campus.id, campus.name, drilldown.meta)}
+              className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-5 py-6 text-center text-lg font-semibold text-slate-800 dark:text-slate-200 hover:border-portoBlue hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors disabled:opacity-50"
+            >
+              {campus.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (drilldown.step === "year") {
+    const years = drilldown.meta.birthYearsByCampus[drilldown.campusId] ?? [];
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <div className={headerClass}>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onBack} className={backBtnClass}>← {drilldown.campusName}</button>
+            <span className="text-slate-300 dark:text-slate-600">/</span>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Categoría</p>
+          </div>
+          <button type="button" onClick={onClose} className={closeBtnClass}>✕ Cerrar</button>
+        </div>
+        {years.length === 0 ? (
+          <p className="text-sm text-slate-400">Sin alumnos activos en este campus.</p>
+        ) : (
+          <div className="grid gap-2 grid-cols-3 sm:grid-cols-4">
+            {years.map((year) => (
+              <button
+                key={year}
+                type="button"
+                disabled={isPending}
+                onClick={() => onSelectYear(drilldown.campusId, drilldown.campusName, year, drilldown.meta)}
+                className="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-5 text-center text-xl font-bold text-slate-800 dark:text-slate-200 hover:border-portoBlue hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors disabled:opacity-50"
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (drilldown.step === "players") {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <div className={headerClass}>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onBack} className={backBtnClass}>← {drilldown.birthYear}</button>
+            <span className="text-slate-300 dark:text-slate-600">/</span>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{drilldown.campusName}</p>
+          </div>
+          <button type="button" onClick={onClose} className={closeBtnClass}>✕ Cerrar</button>
+        </div>
+        {drilldown.players === null ? (
+          <p className="py-4 text-center text-sm text-slate-400">Cargando alumnos…</p>
+        ) : drilldown.players.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-400">Sin alumnos activos en esta categoría.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            {drilldown.players.map((p) => (
+              <li key={p.playerId}>
+                <button
+                  type="button"
+                  onClick={() => onSelectPlayer(p)}
+                  className="flex w-full items-center justify-between px-2 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">{p.playerName}</p>
+                    {p.teamName && (
+                      <p className="text-xs text-slate-400">{p.teamName}{p.coachName ? ` · ${p.coachName}` : ""}</p>
+                    )}
+                  </div>
+                  <span className={`shrink-0 text-sm font-semibold ml-3 ${p.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                    {p.balance > 0 ? formatMoney(p.balance, "MXN") : p.balance < 0 ? `Crédito ${formatMoney(Math.abs(p.balance), "MXN")}` : "Al corriente"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ── Search panel ──────────────────────────────────────────────────────────────

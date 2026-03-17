@@ -196,6 +196,59 @@ export async function postCajaChargeAction(
   return { ok: true, updatedData };
 }
 
+// ── Caja drill-down ───────────────────────────────────────────────────────────
+
+export type CajaDrilldownMeta = {
+  campuses: { id: string; name: string }[];
+  birthYearsByCampus: Record<string, number[]>;
+};
+
+export async function getCajaDrilldownMetaAction(): Promise<CajaDrilldownMeta> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { campuses: [], birthYearsByCampus: {} };
+
+  const [{ data: campusRows }, { data: yearRows }] = await Promise.all([
+    supabase.from("campuses").select("id, name").eq("is_active", true).order("name"),
+    supabase.rpc("list_active_birth_years_by_campus")
+  ]);
+
+  const campuses = (campusRows ?? []).map((r) => ({ id: r.id as string, name: r.name as string }));
+  const birthYearsByCampus: Record<string, number[]> = {};
+  for (const row of (yearRows ?? []) as { campus_id: string; birth_year: number }[]) {
+    if (!birthYearsByCampus[row.campus_id]) birthYearsByCampus[row.campus_id] = [];
+    birthYearsByCampus[row.campus_id].push(row.birth_year);
+  }
+  return { campuses, birthYearsByCampus };
+}
+
+export async function listCajaPlayersByCampusYearAction(
+  campusId: string,
+  birthYear: number
+): Promise<CajaPlayerResult[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase.rpc("list_caja_players_by_campus_year", {
+    p_campus_id: campusId,
+    p_birth_year: birthYear
+  });
+
+  if (error || !data) return [];
+
+  return (data as CajaSearchRow[]).map((row) => ({
+    playerId: row.player_id,
+    playerName: row.player_name,
+    birthYear: row.birth_year,
+    enrollmentId: row.enrollment_id,
+    campusName: row.campus_name,
+    balance: row.balance,
+    teamName: row.team_name ?? null,
+    coachName: row.coach_name ?? null
+  }));
+}
+
 // ── Player search — single RPC call ───────────────────────────────────────────
 
 type CajaSearchRow = {
