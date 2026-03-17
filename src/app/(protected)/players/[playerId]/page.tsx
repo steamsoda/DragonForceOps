@@ -8,21 +8,52 @@ function formatMoney(amount: number, currency: string) {
 }
 
 const DROPOUT_LABELS: Record<string, string> = {
-  cost: "Costo",
-  distance: "Distancia",
-  injury: "Lesion",
-  attitude: "Actitud",
-  time: "Tiempo",
-  level_change: "Cambio de nivel",
-  other: "Otro"
+  coach_capability: "Falta de capacidad del entrenador",
+  exercise_difficulty: "Dificultad para realizar los ejercicios",
+  financial: "Financiero",
+  training_quality: "Falta de calidad en el entrenamiento",
+  school_disorganization: "Desorganización de la escuela",
+  facility_safety: "Falta de seguridad en instalaciones",
+  transport: "Incompatibilidad de transportes",
+  family_health: "Salud de familiares",
+  player_health: "Salud del alumno",
+  schedule_conflict: "Incompatibilidad de horarios",
+  coach_communication: "Comunicación del entrenador",
+  wants_competition: "Quiere pasar a competición",
+  lack_of_information: "Falta de información",
+  pedagogy: "Falta de pedagogía",
+  moved_to_competition_club: "Cambio a club de competición",
+  player_coach_relationship: "Relación alumno–entrenador",
+  unattractive_exercises: "Ejercicios poco atractivos",
+  moved_residence: "Cambio de residencia",
+  school_performance_punishment: "Castigo por rendimiento escolar",
+  home_behavior_punishment: "Castigo por comportamiento en casa",
+  personal: "Motivos personales",
+  distance: "Distancia / logística",
+  parent_work: "Trabajo del padre o madre",
+  injury: "Lesión",
+  dislikes_football: "No le gusta el fútbol",
+  lost_contact: "Sin contacto con los padres",
+  low_peer_attendance: "Poca asistencia de compañeros",
+  changed_sport: "Cambio de deporte",
+  did_not_return: "Ya no regresó",
+  temporary_leave: "Baja temporal — piensa regresar",
+  moved_to_another_academy: "Cambio a otra academia",
+  school_schedule_conflict: "Complicaciones horario escolar",
+  coach_change: "Cambio de profe",
+  cold_weather: "Clima frío",
+  other: "Otros"
 };
 
 export default async function PlayerDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ playerId: string }>;
+  searchParams: Promise<{ ok?: string; err?: string }>;
 }) {
   const { playerId } = await params;
+  const sp = await searchParams;
   const player = await getPlayerDetail(playerId);
 
   if (!player) {
@@ -47,6 +78,16 @@ export default async function PlayerDetailPage({
       title={player.fullName}
       breadcrumbs={[{ label: "Jugadores", href: "/players" }, { label: player.fullName }]}
     >
+      <div className="flex justify-end mb-2">
+        <Link href={`/players/${player.id}/edit`} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
+          Editar jugador
+        </Link>
+      </div>
+      {sp.ok === "updated" && (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
+          ✓ Datos del jugador actualizados.
+        </div>
+      )}
       <div className="space-y-6">
         {/* Player info */}
         <section className="grid gap-4 rounded-md border border-slate-200 dark:border-slate-700 p-4 md:grid-cols-4">
@@ -55,11 +96,15 @@ export default async function PlayerDetailPage({
             <p className="font-medium">{player.birthDate}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Genero</p>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Género</p>
             <p className="font-medium">{player.gender === "male" ? "Masculino" : player.gender === "female" ? "Femenino" : "-"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas medicas</p>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Talla de uniforme</p>
+            <p className="font-medium">{player.uniformSize ?? <span className="text-slate-400">Sin registrar</span>}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas médicas</p>
             <p className="font-medium">{player.medicalNotes ?? "-"}</p>
           </div>
         </section>

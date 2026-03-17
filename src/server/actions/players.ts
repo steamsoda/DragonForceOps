@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
 
@@ -63,4 +64,28 @@ export async function createPlayerAction(formData: FormData) {
   if (linkError) return redirectWithError("link_failed");
 
   redirect(`/players/${player.id}/enrollments/new`);
+}
+
+// ── Update player profile ──────────────────────────────────────────────────────
+
+export async function updatePlayerAction(playerId: string, formData: FormData): Promise<void> {
+  const BASE = `/players/${playerId}`;
+
+  const uniformSize = formData.get("uniformSize")?.toString().trim() || null;
+  const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
+  const gender = formData.get("gender")?.toString().trim() || null;
+
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+
+  const { error } = await supabase
+    .from("players")
+    .update({ uniform_size: uniformSize, medical_notes: medicalNotes, gender: gender || null })
+    .eq("id", playerId);
+
+  if (error) redirect(`${BASE}/edit?err=update_failed`);
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=updated`);
 }

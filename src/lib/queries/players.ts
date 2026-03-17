@@ -53,6 +53,7 @@ type PlayerDetailRow = {
   status: string;
   gender: string | null;
   medical_notes: string | null;
+  uniform_size: string | null;
 };
 
 type PlayerGuardianDetailRow = {
@@ -340,7 +341,7 @@ export async function getPlayerDetail(playerId: string) {
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
       .from("players")
-      .select("id, first_name, last_name, birth_date, status, gender, medical_notes")
+      .select("id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size")
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerDetailRow | null>(),
@@ -432,6 +433,7 @@ export async function getPlayerDetail(playerId: string) {
     status: player.status,
     gender: player.gender,
     medicalNotes: player.medical_notes,
+    uniformSize: player.uniform_size,
     guardians,
     enrollments,
     activeTeam: team
