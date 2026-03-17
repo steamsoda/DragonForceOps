@@ -194,22 +194,14 @@ export async function listPlayers(filters: PlayerListFilters) {
   const playerIds = (players ?? []).map((p) => p.id);
   if (playerIds.length === 0) return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
 
-  const { data: guardianLinks } = await supabase
-    .from("player_guardians")
-    .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
-    .in("player_id", playerIds)
-    .returns<GuardianLinkRow[]>();
-
-  const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
-  (guardianLinks ?? []).forEach((row) => {
-    const arr = guardiansByPlayer.get(row.player_id) ?? [];
-    arr.push(row);
-    guardiansByPlayer.set(row.player_id, arr);
-  });
-
   const enrollmentIds = (players ?? []).map((p) => p.enrollments[0]?.id).filter(Boolean) as string[];
 
-  const [{ data: balanceRows }, { data: teamRows }] = await Promise.all([
+  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }] = await Promise.all([
+    supabase
+      .from("player_guardians")
+      .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
+      .in("player_id", playerIds)
+      .returns<GuardianLinkRow[]>(),
     supabase
       .from("v_enrollment_balances")
       .select("enrollment_id, balance")
@@ -224,6 +216,12 @@ export async function listPlayers(filters: PlayerListFilters) {
       .returns<ListTeamRow[]>()
   ]);
 
+  const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
+  for (const link of guardianLinks ?? []) {
+    const arr = guardiansByPlayer.get(link.player_id) ?? [];
+    arr.push(link);
+    guardiansByPlayer.set(link.player_id, arr);
+  }
   const balanceByEnrollment = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
   const teamTypeByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.type ?? null]));
 
