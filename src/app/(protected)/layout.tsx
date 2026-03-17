@@ -35,6 +35,7 @@ const DIRECTOR_SECTIONS: NavSection[] = [
       { href: "/admin/mensualidades", label: "Mensualidades" },
       { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
       { href: "/products", label: "Productos" },
+      { href: "/pending/bajas", label: "Castigo Bajas" },
       { href: "/activity", label: "Actividad" }
     ]
   }
@@ -100,7 +101,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-baseline gap-2">
           <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
-          <span className="text-xs text-slate-400 dark:text-slate-500">v0.7</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">v0.8</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
