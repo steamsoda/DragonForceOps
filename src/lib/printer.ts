@@ -30,7 +30,7 @@ function loadQZScript(): Promise<void> {
 
 // ── Connect to QZ Tray ────────────────────────────────────────────────────────
 
-const QZ_CERTIFICATE = process.env.NEXT_PUBLIC_QZ_CERTIFICATE ?? "";
+const QZ_CERTIFICATE = (process.env.NEXT_PUBLIC_QZ_CERTIFICATE ?? "").replace(/\\n/g, "\n").trim();
 
 export async function connectQZ(): Promise<void> {
   await loadQZScript();
@@ -56,7 +56,7 @@ export async function connectQZ(): Promise<void> {
     // Unsigned fallback — QZ Tray will prompt (set Advanced → Allow all)
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
     qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise((_toSign: string) => (resolve: (v: string) => void) => resolve(""));
+    qz.security.setSignaturePromise((_toSign: string) => Promise.resolve(""));
   }
 
   await qz.websocket.connect({ retries: 3, delay: 1 });
