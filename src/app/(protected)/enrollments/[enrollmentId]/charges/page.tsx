@@ -7,7 +7,7 @@ import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
-import { voidChargeAction } from "@/server/actions/billing";
+import { voidChargeAction, voidPaymentAction } from "@/server/actions/billing";
 import { createClient } from "@/lib/supabase/server";
 
 const errorMessages: Record<string, string> = {
@@ -18,9 +18,10 @@ const errorMessages: Record<string, string> = {
   payment_insert_failed: "No se pudo registrar el pago. Intenta de nuevo.",
   allocation_insert_failed: "No se pudieron guardar las asignaciones del pago. Intenta de nuevo.",
   charge_not_found: "Cargo no encontrado o ya fue anulado.",
+  payment_not_found: "Pago no encontrado o ya fue anulado.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
-  void_failed: "No se pudo anular el cargo. Intenta de nuevo.",
-  unauthorized: "No tienes permiso para anular cargos."
+  void_failed: "No se pudo anular. Intenta de nuevo.",
+  unauthorized: "No tienes permiso para anular."
 };
 
 export default async function ChargesPage({
@@ -46,6 +47,9 @@ export default async function ChargesPage({
   const voidCharge = isDirector
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
+  const voidPayment = isDirector
+    ? voidPaymentAction.bind(null, enrollmentId)
+    : undefined;
 
   const successMessage =
     query.ok === "payment_posted"
@@ -54,6 +58,8 @@ export default async function ChargesPage({
       ? "Cargo creado correctamente."
       : query.ok === "charge_voided"
       ? "Cargo anulado correctamente."
+      : query.ok === "payment_voided"
+      ? "Pago anulado. Los cargos asociados quedaron pendientes."
       : null;
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
 
@@ -102,7 +108,7 @@ export default async function ChargesPage({
             currency={ledger.enrollment.currency}
             action={postPayment}
           />
-          <PaymentsTable rows={ledger.payments} />
+          <PaymentsTable rows={ledger.payments} voidPaymentAction={voidPayment} />
         </section>
       </div>
     </PageShell>

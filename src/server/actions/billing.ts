@@ -34,6 +34,68 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
   redirect(`/admin/mensualidades?ok=1&created=${result.created}&skipped=${result.skipped}`);
 }
 
+// ── Void payment ─────────────────────────────────────────────────────────────
+
+export async function voidPaymentAction(
+  enrollmentId: string,
+  paymentId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  if (!reason) redirect(`${BASE}?err=void_reason_required`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+
+  const { data: isDirector } = await supabase.rpc("is_director_admin");
+  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+
+  // Verify payment belongs to this enrollment and is posted
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id, status, amount, method")
+    .eq("id", paymentId)
+    .eq("enrollment_id", enrollmentId)
+    .eq("status", "posted")
+    .maybeSingle<{ id: string; status: string; amount: number; method: string }>();
+
+  if (!payment) redirect(`${BASE}?err=payment_not_found`);
+
+  // Delete allocations first (frees the charges back to pending)
+  const { error: allocError } = await supabase
+    .from("payment_allocations")
+    .delete()
+    .eq("payment_id", paymentId);
+
+  if (allocError) redirect(`${BASE}?err=void_failed`);
+
+  // Mark payment void
+  const { error: voidError } = await supabase
+    .from("payments")
+    .update({ status: "void" })
+    .eq("id", paymentId);
+
+  if (voidError) redirect(`${BASE}?err=void_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "payment.voided",
+    tableName: "payments",
+    recordId: paymentId,
+    afterData: { enrollment_id: enrollmentId, amount: payment.amount, method: payment.method, reason }
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=payment_voided`);
+}
+
 // ── Void charge ───────────────────────────────────────────────────────────────
 
 export async function voidChargeAction(
