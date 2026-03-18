@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
+import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -25,7 +26,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
 
   // Verify player exists and has no active enrollment
   const [{ data: player }, { data: existingEnrollment }] = await Promise.all([
-    supabase.from("players").select("id").eq("id", playerId).maybeSingle(),
+    supabase.from("players").select("id, birth_date, gender").eq("id", playerId).maybeSingle(),
     supabase
       .from("enrollments")
       .select("id")
@@ -97,6 +98,24 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   ]);
 
   if (chargesError) return redirectWithError(playerId, "charges_failed");
+
+  // Auto-assign to B2 team if one exists for this campus + birth year + gender
+  const birthYear = player.birth_date ? new Date(player.birth_date).getFullYear() : null;
+  if (birthYear) {
+    const b2Team = await findB2TeamForAutoAssign(parsed.campusId, birthYear, player.gender ?? null);
+    if (b2Team) {
+      const today = new Date().toISOString().split("T")[0];
+      await supabase.from("team_assignments").insert({
+        enrollment_id: enrollmentId,
+        team_id: b2Team.id,
+        start_date: today,
+        is_primary: true,
+        role: "regular",
+        is_new_arrival: true,
+      });
+      await supabase.from("players").update({ level: "B2" }).eq("id", playerId);
+    }
+  }
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,

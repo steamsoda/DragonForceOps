@@ -8,7 +8,8 @@ const STAFF_SECTION: NavSection = {
   label: "Diario",
   items: [
     { href: "/caja", label: "Caja" },
-    { href: "/players", label: "Jugadores" }
+    { href: "/players", label: "Jugadores" },
+    { href: "/teams", label: "Equipos" }
   ]
 };
 

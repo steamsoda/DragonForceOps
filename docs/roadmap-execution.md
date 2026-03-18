@@ -2,24 +2,24 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-16)
-- App version: v0.8. Phase 1B fully complete. Internal testing begins 2026-03-17 (one campus, directors only).
+## Current State (as of 2026-03-17)
+- App version: v0.8. Internal testing in progress (one campus, directors only).
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
 - Real data: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
-- Caja POS: player search (name + birth year, pg_trgm), pending charges, payment posting, thermal receipt.
+- Caja POS: player search + category drill-down (campus → birth year → player), pending charges, payment posting, thermal receipt.
 - Cash session management: open/close per campus, linked cash payments, variance notes, Corte Diario integration.
-- No-session warning in Caja: prominent amber banner with direct open-session link.
 - Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.
-- Reports live: Corte Diario (daily, with charge-type breakdown + session panel), Corte Semanal (weekly), Resumen Mensual, Porto Mensual.
-- Porto Mensual: Datos Generales, Eventos, Mapa de Área, Equipos + Clases all wired. Full 34-reason dropout taxonomy.
+- Reports live: Corte Diario, Corte Semanal, Resumen Mensual, Porto Mensual (all sections wired).
 - Activity log: human-readable audit feed, date range + actor + action type filters.
-- Products catalog: categories + sizes + charge type linking, POS grid in Caja. Delete guard.
+- Products catalog: categories + sizes + charge type linking, POS grid in Caja.
 - Role system: `superadmin`, `director_admin`, `front_desk`. RLS enforced. Role-aware nav.
 - Void charges: director-only, any pending charge, with required reason. Audit logged.
-- Batch baja write-off: director bulk-voids all pending charges for ended/cancelled enrollments at `/pending/bajas`.
-- Scholarship skip: both DB cron and TypeScript manual trigger filter `has_scholarship = true`.
-- Dark mode: localStorage + anti-flash + global CSS for native form controls.
-- Printer: `window.print()` receipt at 80mm in place (Phase 1). QZ Tray one-click printing is next (Phase 2).
+- Batch baja write-off: `/pending/bajas` — bulk void for ended/cancelled enrollments.
+- Player tags: configurable badges (Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme) toggled from `/admin/configuracion`.
+- Goalkeeper flag: `players.is_goalkeeper`, editable, shown as badge on player detail.
+- Uniform orders: `ordered → delivered` lifecycle per player, UI on player detail page.
+- **Teams system (NEW)**: full team CRUD + roster management — list, create, edit, transfer, refuerzo pattern, new-arrival flag. Auto-assign B2 on enrollment. Team shown on player detail. "Equipos" nav link visible to all staff.
+- Printer: `window.print()` receipt at 80mm in place. QZ Tray one-click printing is next (Phase 2).
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -117,20 +117,17 @@ Goal: broader operational support and integrations.
 4. **Caja drill-down detail panel** — not started. When viewing a player's pending charges in Caja, staff need to see charge detail (what period, what type) before deciding what to pay. Design TBD — possibly inline expandable rows.
 
 ### Phase 2 (active)
-1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV on-site 2026-03-17. Ethernet connection for multi-machine sharing. QZ Tray on each front desk machine. One-click receipt + Corte Diario, no browser dialog.
+1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV on-site. Ethernet connection for multi-machine sharing. QZ Tray on each front desk machine. One-click receipt + Corte Diario, no browser dialog.
    - ✅ Phase 2a: `window.print()` receipt (two copies, line items) + Corte Diario print layout.
    - Phase 2b: QZ Tray integration (after printer is set up and Ethernet IP confirmed).
-2. **Player profile expansion** — player page missing: uniform size, current team + coach assignment, enrollment history summary. Add as a data card alongside existing enrollment detail.
-3. **Player list tags (Jugadores)** — small inline badges per player in the list: league status (playing in competition/class), tuition paid this month, balance owed. Makes collections and ops scanning much faster.
-4. **Teams & competitions system** — current team assignment is messy. Need:
-   - Clean team assignment UX from player page (add/remove team, set primary).
-   - Team detail page: roster, coach, upcoming tournaments.
-   - Tournament registration: which teams are entered in which torneo, mandatory vs optional players.
-   - This is a significant feature; design schema before building.
-5. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
-6. **Uniform delivery tracking**: polish uniform sales UX first, then `player_uniform_deliveries` table + player card badges.
-7. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
-8. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
+2. ✅ **Player profile expansion** — active team + coach shown on player detail; uniform orders section; goalkeeper badge; no-team warning for active enrollments.
+3. ✅ **Player list tags** — configurable badges: Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme. Toggle from `/admin/configuracion`.
+4. ✅ **Teams system** — full build: list, create, edit, roster, transfer, refuerzo, new-arrival flag. Auto-assign B2 on enrollment. Team linked from player detail.
+5. **Tournament UI** — `tournaments` table + team entries + player entries. Mandatory vs optional. Auto charge generation. Schema exists, no UI yet.
+6. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
+7. **Uniform delivery tracking**: `uniform_orders` table + UI live. Inventory/stock control is Phase 3.
+8. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
+9. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
 
 ### Phase 3+ (deferred)
 - Coach role + attendance module (coach logs in, takes attendance per session)

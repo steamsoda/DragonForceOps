@@ -1,5 +1,53 @@
 # Devlog
 
+## 2026-03-17 (session 9)
+
+### Team Assignment UX — Full Build (v0.8 continued)
+
+**Performance fixes (applied in this session)**
+- `v_enrollment_balances` view: replaced CTE with correlated subqueries to eliminate the PostgreSQL optimization fence — filters now push through to `enrollment_id IN (...)`.
+- `listPlayers`: parallelized guardian + balance + team queries into a single `Promise.all` (was sequential — 3 roundtrips).
+- `getEnrollmentLedger`: parallelized enrollment + balance + charges + payments into one `Promise.all`.
+- New partial indexes: `idx_team_assignments_primary_active` (`is_primary = true AND end_date IS NULL`) and `idx_team_assignments_new_arrivals` (`is_new_arrival = true AND end_date IS NULL`).
+
+**Caja drill-down by category**
+- New panel alongside the existing player search: Campus → Birth Year → Player tiles.
+- Drill-down meta (campuses + birth years) preloaded on component mount via `getCajaDrilldownMetaAction()` — click is instant.
+- `list_active_birth_years_by_campus()` + `list_caja_players_by_campus_year(p_campus_id, p_birth_year)` RPCs added.
+- Optimistic player header: selecting a player from search shows name + balance immediately while ledger loads.
+- Fixed: cancel button was a no-op in some states; "Seleccionar por categoría" button was misaligned with the divider.
+
+**Player tags + admin settings panel**
+- `app_settings` table (key/value + jsonb, director_admin write, authenticated read).
+- Default tag settings: `tag_payment`, `tag_team_type`, `tag_goalkeeper` = true; `tag_uniform` = false.
+- `/admin/configuracion`: toggle switches per tag, stored in DB, revalidates player list on save.
+- Player list badges: Al corriente/Pendiente (no amount), Selectivo/Clases, Portero, Uniforme pedido/entregado.
+- All badges conditional on their toggle; uniform badge skips its query entirely when disabled.
+
+**Goalkeeper flag**
+- `players.is_goalkeeper boolean not null default false`.
+- Editable from player edit page (checkbox).
+- Portero badge shown in player detail info grid.
+
+**Uniform orders**
+- `uniform_orders` table: `ordered → delivered` lifecycle, linked to enrollment, independent of charges.
+- `UniformOrdersSection` client component on player detail page: create order form + table + "Marcar entregado".
+- `getUniformOrdersAction`, `createUniformOrderAction`, `markUniformDeliveredAction` server actions.
+
+**Teams — full feature build**
+- Migrations: `20260317140000` — adds `is_new_arrival` + `role` ('regular'|'refuerzo') columns to `team_assignments`; `list_teams_with_counts()` RPC.
+- `src/lib/queries/teams.ts`: `listTeams`, `getTeamDetail`, `listCoaches`, `findB2TeamForAutoAssign`, `generateTeamName`.
+- Team name auto-generation: `{campusCode} {birthYear} {genderLabel} {level}` (e.g. "LV 2015 Varonil B1"). Class teams: `{campusCode} {birthYear} Clases`.
+- `/teams` — list grouped by campus → birth year with summary stats (active teams, players assigned, new arrivals pending).
+- `/teams/new` — director-only create form; auto-generates team name from attributes.
+- `/teams/[teamId]` — team detail: meta grid, roster via `TeamRosterClient`, history of ended assignments.
+- `/teams/[teamId]/edit` — director-only: edit coach, season label, active status.
+- `TeamRosterClient`: interactive roster table with inline transfer form + refuerzo form; Confirmar (clears new arrival), Transferir (moves primary), + Refuerzo (secondary non-primary assignment), Quitar (removes refuerzo).
+- Server actions: `createTeamAction`, `editTeamAction`, `assignPlayerToTeamAction`, `transferPlayerAction`, `addRefuerzoAction`, `removeRefuerzoAction`, `clearNewArrivalAction`.
+- Auto-assign B2 on new enrollment: `createEnrollmentAction` now calls `findB2TeamForAutoAssign` after charges are created; if a matching active B2 team exists for the campus + birth year + gender, creates `team_assignment` with `is_new_arrival = true` and syncs `players.level = 'B2'`.
+- Player detail page: shows active team name (linked) + coach; amber warning banner when active enrollment has no team assigned.
+- "Equipos" nav link added to Diario section (visible to all staff).
+
 ## 2026-03-16 (session 8)
 
 ### Phase 1B Completion + Phase 2 Kickoff (v0.8)
