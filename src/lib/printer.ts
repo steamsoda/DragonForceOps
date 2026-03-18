@@ -42,19 +42,16 @@ export async function connectQZ(): Promise<void> {
     // Signed mode — no dialog, permanent trust via Site Manager cert
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
     qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise((toSign: string) => async (resolve: (v: string) => void, reject: (e: unknown) => void) => {
-      try {
-        const res = await fetch("/api/sign-qz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: toSign }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        resolve(await res.text());
-      } catch (e) {
-        reject(e);
-      }
-    });
+    qz.security.setSignaturePromise((toSign: string) =>
+      fetch("/api/sign-qz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: toSign }),
+      }).then((res) => {
+        if (!res.ok) return res.text().then((t) => Promise.reject(new Error(t)));
+        return res.text();
+      })
+    );
   } else {
     // Unsigned fallback — QZ Tray will prompt (set Advanced → Allow all)
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
