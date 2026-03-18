@@ -85,10 +85,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/unauthorized");
   }
 
-  // During testing: only superadmin sees the full nav — everyone else gets Caja + Jugadores only
+  // During testing: directors+ see full nav — front desk gets Caja + Jugadores only
   const sections: NavSection[] = [
     STAFF_SECTION,
-    ...(isSuperAdmin ? DIRECTOR_SECTIONS : [])
+    ...(isDirectorOrAbove ? DIRECTOR_SECTIONS : [])
   ];
 
   async function signOut() {
