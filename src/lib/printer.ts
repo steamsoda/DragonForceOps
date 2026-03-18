@@ -29,7 +29,8 @@ function loadQZScript(): Promise<void> {
 }
 
 // ── Connect to QZ Tray ────────────────────────────────────────────────────────
-// QZ Tray must be running on the machine and set to allow unsigned requests.
+
+const QZ_CERTIFICATE = process.env.NEXT_PUBLIC_QZ_CERTIFICATE ?? "";
 
 export async function connectQZ(): Promise<void> {
   await loadQZScript();
@@ -37,10 +38,29 @@ export async function connectQZ(): Promise<void> {
 
   if (qz.websocket.isActive()) return;
 
-  // No certificate signing — set QZ Tray → Advanced → "Allow all" for internal use
-  qz.security.setCertificatePromise((_resolve: (v: string) => void) => _resolve(""));
-  qz.security.setSignatureAlgorithm("SHA512");
-  qz.security.setSignaturePromise((_toSign: string) => (_resolve: (v: string) => void) => _resolve(""));
+  if (QZ_CERTIFICATE) {
+    // Signed mode — no dialog, permanent trust via Site Manager cert
+    qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
+    qz.security.setSignatureAlgorithm("SHA512");
+    qz.security.setSignaturePromise((toSign: string) => async (resolve: (v: string) => void, reject: (e: unknown) => void) => {
+      try {
+        const res = await fetch("/api/sign-qz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: toSign }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        resolve(await res.text());
+      } catch (e) {
+        reject(e);
+      }
+    });
+  } else {
+    // Unsigned fallback — QZ Tray will prompt (set Advanced → Allow all)
+    qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
+    qz.security.setSignatureAlgorithm("SHA512");
+    qz.security.setSignaturePromise((_toSign: string) => (resolve: (v: string) => void) => resolve(""));
+  }
 
   await qz.websocket.connect({ retries: 3, delay: 1 });
 }
