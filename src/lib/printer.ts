@@ -108,39 +108,135 @@ function buildReceipt(r: ReceiptData): string[] {
     lines.push(row(c.description, fmt(c.amount)) + "\n");
   }
 
-  lines.push(
-    divider("=") + "\n",
-    `${ESC}E\x01`,       // Bold on
-    row("TOTAL PAGADO", fmt(r.amount)) + "\n",
-    `${ESC}E\x00`,       // Bold off
-  );
+  const copyFooter = (label: string): string[] => {
+    const copy: string[] = [
+      divider("=") + "\n",
+      `${ESC}E\x01`,
+      row("TOTAL PAGADO", fmt(r.amount)) + "\n",
+      `${ESC}E\x00`,
+    ];
+    if (r.remainingBalance > 0) {
+      copy.push(row("Saldo pendiente", fmt(r.remainingBalance)) + "\n");
+    } else if (r.remainingBalance === 0) {
+      copy.push(center("Cuenta al corriente  ✓") + "\n");
+    } else {
+      copy.push(center(`Credito: ${fmt(Math.abs(r.remainingBalance))}`) + "\n");
+    }
+    copy.push(divider() + "\n", center("Gracias por su pago") + "\n", center(label) + "\n", "\n\n");
+    return copy;
+  };
 
-  if (r.remainingBalance > 0) {
-    lines.push(row("Saldo pendiente", fmt(r.remainingBalance)) + "\n");
-  } else if (r.remainingBalance === 0) {
-    lines.push(center("Cuenta al corriente  ✓") + "\n");
-  } else {
-    lines.push(center(`Credito: ${fmt(Math.abs(r.remainingBalance))}`) + "\n");
+  // Copy 1 — client
+  lines.push(...copyFooter("-- COPIA CLIENTE --"));
+  lines.push(`${GS}V\x41\x03`); // Partial cut
+
+  // Copy 2 — academy (reprint full receipt)
+  lines.push(
+    `${ESC}@`,
+    `${ESC}a\x01`,
+    `${ESC}!\x10`,
+    "INVICTA\n",
+    `${ESC}!\x00`,
+    "FC Porto Dragon Force\n",
+    `${r.campusName}\n`,
+    divider() + "\n",
+    `${ESC}a\x00`,
+    `Alumno: ${r.playerName}\n`,
+    `Fecha:  ${r.date}\n`,
+    `Hora:   ${r.time}\n`,
+    `Metodo: ${r.method}\n`,
+    `Folio:  ${shortId}\n`,
+    divider() + "\n",
+  );
+  for (const c of r.chargesPaid) {
+    lines.push(row(c.description, fmt(c.amount)) + "\n");
+  }
+  lines.push(...copyFooter("-- COPIA ACADEMIA --"));
+  lines.push(`${GS}V\x00`); // Full cut
+
+  return lines;
+}
+
+// ── Corte Diario builder ──────────────────────────────────────────────────────
+
+export type CorteData = {
+  date: string;
+  campusLabel: string;
+  totalCobrado: number;
+  currency: string;
+  byMethod: { methodLabel: string; count: number; total: number }[];
+  byChargeType: { typeName: string; total: number }[];
+  payments: { playerName: string; amount: number; methodLabel: string; paidAt: string }[];
+};
+
+function buildCorte(c: CorteData): string[] {
+  const fmt = (n: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: c.currency }).format(n);
+
+  const now = new Date();
+  const printedAt = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+
+  const lines: string[] = [
+    `${ESC}@`,
+    `${ESC}a\x01`,
+    `${ESC}!\x10`,
+    "INVICTA\n",
+    `${ESC}!\x00`,
+    "FC Porto Dragon Force\n",
+    `${c.campusLabel}\n`,
+    divider() + "\n",
+    `${ESC}a\x00`,
+    `CORTE DIARIO: ${c.date}\n`,
+    `Impreso: ${printedAt}\n`,
+    divider() + "\n",
+    `${ESC}E\x01`,
+    row("TOTAL COBRADO", fmt(c.totalCobrado)) + "\n",
+    `${ESC}E\x00`,
+    divider() + "\n",
+  ];
+
+  if (c.byMethod.length > 0) {
+    lines.push("Por metodo de pago:\n");
+    for (const m of c.byMethod) {
+      lines.push(row(`${m.methodLabel} (${m.count})`, fmt(m.total)) + "\n");
+    }
+    lines.push(divider() + "\n");
   }
 
-  lines.push(
-    divider() + "\n",
-    center("Gracias por su pago") + "\n",
-    "\n\n\n\n",
-    `${GS}V\x41\x03`,   // Partial cut
-  );
+  if (c.byChargeType.length > 0) {
+    lines.push("Por tipo de cargo:\n");
+    for (const t of c.byChargeType) {
+      lines.push(row(t.typeName, fmt(t.total)) + "\n");
+    }
+    lines.push(divider() + "\n");
+  }
 
+  if (c.payments.length > 0) {
+    lines.push(`Detalle (${c.payments.length} cobros):\n`);
+    for (const p of c.payments) {
+      const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+      lines.push(`${time} ${p.methodLabel.slice(0, 4).padEnd(4)} ${fmt(p.amount).padStart(10)} ${p.playerName.slice(0, 18)}\n`);
+    }
+    lines.push(divider() + "\n");
+  }
+
+  lines.push(center("-- fin del corte --") + "\n", "\n\n\n", `${GS}V\x00`);
   return lines;
 }
 
 // ── Print receipt ─────────────────────────────────────────────────────────────
 
-export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
+async function sendToQZ(printerName: string, lines: string[]): Promise<void> {
   await connectQZ();
   const qz = window.qz;
-
   const config = qz.configs.create(printerName, { encoding: "Cp1252" });
-  const lines = buildReceipt(data);
-
   await qz.print(config, lines.map((d) => ({ type: "raw", format: "plain", data: d })));
+}
+
+export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
+  await sendToQZ(printerName, buildReceipt(data));
+}
+
+export async function printCorte(printerName: string, data: CorteData): Promise<void> {
+  await sendToQZ(printerName, buildCorte(data));
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { PrintReceiptButton } from "./print-receipt-button";
+import { printReceipt, type ReceiptData } from "@/lib/printer";
 import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
@@ -858,7 +859,7 @@ function ReceiptPanel({
   const dateStr = now.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
   const timeStr = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 
-  const receiptData = {
+  const receiptData: ReceiptData = {
     playerName: receipt.playerName,
     campusName: receipt.campusName,
     method: methodLabel(receipt.method),
@@ -870,6 +871,12 @@ function ReceiptPanel({
     date: dateStr,
     time: timeStr,
   };
+
+  // Auto-print on mount
+  useEffect(() => {
+    printReceipt(printerName, receiptData).catch(() => {/* errors surface via PrintReceiptButton if user retries */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-4">

@@ -6,6 +6,7 @@ import { getCorteDiarioData } from "@/lib/queries/reports";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
 import { closeCashSessionAction } from "@/server/actions/cash-sessions";
 import { createClient } from "@/lib/supabase/server";
+import { getPrinterName } from "@/lib/queries/settings";
 
 function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -45,11 +46,12 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
   const selectedCampusId = params.campus ?? "";
 
   const supabase = await createClient();
-  const [campuses, data, sessionStatuses, isDirectorResult] = await Promise.all([
+  const [campuses, data, sessionStatuses, isDirectorResult, printerName] = await Promise.all([
     listCampuses(),
     getCorteDiarioData({ date: selectedDate || undefined, campusId: selectedCampusId || undefined }),
     getCampusSessionStatuses(),
-    supabase.rpc("is_director_admin")
+    supabase.rpc("is_director_admin"),
+    getPrinterName(),
   ]);
   const isDirector = isDirectorResult.data ?? false;
 
@@ -119,7 +121,18 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
         )}
 
         {/* Print button */}
-        <PrintButton />
+        <PrintButton
+          printerName={printerName}
+          data={{
+            date: data.date,
+            campusLabel: campusLabel,
+            totalCobrado: data.totalCobrado,
+            currency: "MXN",
+            byMethod: data.byMethod.map((m) => ({ methodLabel: m.methodLabel, count: m.count, total: m.total })),
+            byChargeType: data.byChargeType.map((t) => ({ typeName: t.typeName, total: t.total })),
+            payments: data.payments.map((p) => ({ playerName: p.playerName, amount: p.amount, methodLabel: p.methodLabel, paidAt: p.paidAt })),
+          }}
+        />
 
         {/* Cash session panel */}
         <div className="print:hidden rounded-md border border-slate-200 dark:border-slate-700 p-4 space-y-3">
