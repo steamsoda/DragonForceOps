@@ -2,8 +2,8 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-17)
-- App version: v0.8. Internal testing in progress (one campus, directors only).
+## Current State (as of 2026-03-18)
+- App version: v0.8. Live testing begins 2026-03-19 (first full day with physical printer).
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
 - Real data: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
 - Caja POS: player search + category drill-down (campus → birth year → player), pending charges, payment posting, thermal receipt.
@@ -18,8 +18,8 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Player tags: configurable badges (Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme) toggled from `/admin/configuracion`.
 - Goalkeeper flag: `players.is_goalkeeper`, editable, shown as badge on player detail.
 - Uniform orders: `ordered → delivered` lifecycle per player, UI on player detail page.
-- **Teams system (NEW)**: full team CRUD + roster management — list, create, edit, transfer, refuerzo pattern, new-arrival flag. Auto-assign B2 on enrollment. Team shown on player detail. "Equipos" nav link visible to all staff.
-- Printer: `window.print()` receipt at 80mm in place. QZ Tray one-click printing is next (Phase 2).
+- **Teams system**: full team CRUD + roster management — list, create, edit, transfer, refuerzo pattern, new-arrival flag. Auto-assign B2 on enrollment. Team shown on player detail.
+- **Thermal printer (NEW)**: QZ Tray ESC/POS integration. Silent two-copy receipt (COPIA CLIENTE + COPIA ACADEMIA). Auto-print on payment. Manual reprint button. Corte Diario via QZ Tray. Certificate signing via `/api/sign-qz`. Printer name configurable in admin settings. Physical Ethernet setup pending.
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -69,10 +69,10 @@ Goal: broader operational support and integrations.
 - Implement `coach` role: read-only access to own team rosters. No financials.
 - Campus-scoped access rules (front desk sees only their campus).
 
-2. **Caja Phase 2 — Thermal Printer**
-- ESC/POS integration via QZ Tray (local bridge on front desk PC).
-- Compatible printers: Star TSP100 or Epson TM-T20 (~$2,500 MXN).
-- One-click receipt printing, no browser dialog.
+2. ✅ **Caja Phase 2 — Thermal Printer**
+- ESC/POS via QZ Tray. Epson TM-T20IV on-site.
+- Silent two-copy receipt, no browser dialog. Corte Diario prints via QZ Tray.
+- Ethernet IP + multi-machine sharing pending physical setup.
 
 3. **External Payments**
 - Define ingestion path for 360Player/Stripe events.
@@ -111,10 +111,12 @@ Goal: broader operational support and integrations.
 ## Prioritized Backlog (as of 2026-03-17, pre-testing)
 
 ### Immediate — Testing Prep (before/during testing week)
-1. ✅ **Print: window.print() receipt + Corte Diario layout** — two-copy receipt with line items, Corte Diario thermal layout with print button.
+1. ✅ **Print: QZ Tray ESC/POS receipt + Corte Diario** — two-copy silent receipt, Corte Diario via QZ Tray. Certificate signing working. Physical print test 2026-03-19.
 2. **Nav/panel audit** — several menu items overlap or show incorrect numbers. Full inspection needed: what stays, what merges, what gets cut, what needs rewiring to real data. Do after first testing session when staff feedback is collected.
 3. **Caja cancel UX** — when "Registrar Pago" panel is open and user clicks cancel, page resets to top. Should return to the enrollment panel for that player. Quick fix.
 4. **Caja drill-down detail panel** — not started. When viewing a player's pending charges in Caja, staff need to see charge detail (what period, what type) before deciding what to pay. Design TBD — possibly inline expandable rows.
+5. **Form accessibility** — several form inputs missing `id`/`name` attributes and labels not associated with fields. Low priority (no functional impact), fix in a cleanup pass post-testing.
+6. **Thermal receipt logo** — print INVICTA/Porto logo at top of ESC/POS receipt (requires bitmap conversion for ESC/POS). Post-testing enhancement.
 
 ### Phase 2 (active)
 1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV on-site. Ethernet connection for multi-machine sharing. QZ Tray on each front desk machine. One-click receipt + Corte Diario, no browser dialog.

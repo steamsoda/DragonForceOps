@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-03-18 (session 10)
+
+### QZ Tray Thermal Printer Integration (v0.8 continued)
+
+**ESC/POS receipt printing — silent, no browser dialog**
+- `src/lib/printer.ts`: loads `/public/qz-tray.js` dynamically via script injection, `connectQZ()` sets up signed mode or unsigned fallback, `buildReceipt()` + `buildCorte()` generate ESC/POS byte sequences.
+- Two-copy receipt: COPIA CLIENTE (partial cut `GS V 41 03`) + COPIA ACADEMIA (full cut `GS V 00`). Each copy prints header, line items, total, remaining balance (or "Cuenta al corriente ✓" / "Crédito: $X").
+- Auto-print on payment success: `ReceiptPanel` `useEffect` fires `printReceipt()` on mount, errors caught silently. Manual "Imprimir Recibo" (`PrintReceiptButton`) surfaces errors with user-friendly messages.
+- Corte Diario: `window.print()` replaced with `PrintButton` calling `printCorte()` via QZ Tray.
+- Printer name configurable in Admin → Configuración (`app_settings.printer_name`, defaults to "EPSON TM-T20IV").
+
+**Certificate signing — `/api/sign-qz` API route**
+- POST endpoint: authenticates user, normalizes `QZ_PRIVATE_KEY` (`\\n` → actual newlines, adds `-----BEGIN PRIVATE KEY-----` headers if stripped by Vercel), signs with RSA-SHA512, returns base64 signature.
+- `NEXT_PUBLIC_QZ_CERTIFICATE`: same `\\n` normalization applied client-side before passing to `setCertificatePromise`.
+- QZ Tray Site Manager: demo cert (QZ Industries LLC) added as permanently allowed.
+
+**Key bug fixed during debugging**
+- `setSignaturePromise` must return `(resolve, reject) => void`, NOT a Promise. This version of `qz-tray.js` wraps the result in `new Promise(result)`, so returning a Promise caused `TypeError: Promise resolver #<Promise> is not a function` on every print job. Connection succeeded but each print request failed.
+- Unsigned fallback fixed to use the same `(resolve) => resolve("")` pattern.
+
+**Physical printer**: Epson TM-T20IV arrives in office. Ethernet setup pending (tomorrow). QZ Tray installed and verified on front desk machine — signing flow confirmed end-to-end. Physical print test scheduled for 2026-03-19.
+
 ## 2026-03-17 (session 9)
 
 ### Team Assignment UX — Full Build (v0.8 continued)
