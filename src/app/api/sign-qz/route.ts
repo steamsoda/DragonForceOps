@@ -1,6 +1,31 @@
 import { createSign } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 
+// GET — diagnostic only, remove after debugging
+export async function GET() {
+  const rawKey = process.env.QZ_PRIVATE_KEY ?? "";
+  const normalized = rawKey.replace(/\\n/g, "\n");
+  const hasCert = !!process.env.NEXT_PUBLIC_QZ_CERTIFICATE;
+  const keyPreview = normalized.slice(0, 40) + "...";
+  const hasNewlines = normalized.includes("\n");
+
+  try {
+    const sign = createSign("SHA512");
+    sign.update("test");
+    sign.end();
+    const sig = sign.sign(normalized, "base64");
+    return new Response(
+      JSON.stringify({ ok: true, sigLength: sig.length, hasCert, hasNewlines, keyPreview }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: String(err), hasCert, hasNewlines, keyPreview }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   // Only allow authenticated users
   try {
