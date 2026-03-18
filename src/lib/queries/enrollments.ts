@@ -19,41 +19,6 @@ type EnrollmentBalanceRow = {
   balance: number;
 };
 
-type EnrollmentRow = {
-  id: string;
-  player_id: string;
-  campus_id: string;
-  players: {
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
-  campuses: {
-    name: string | null;
-    code: string | null;
-  } | null;
-};
-
-type GuardianLinkRow = {
-  player_id: string;
-  is_primary: boolean;
-  guardians: {
-    phone_primary: string | null;
-  } | null;
-};
-
-type TeamAssignmentRow = {
-  enrollment_id: string;
-  teams: {
-    id: string;
-    name: string;
-  } | null;
-};
-
-type ChargeDueRow = {
-  enrollment_id: string;
-  due_date: string | null;
-};
-
 type TeamOptionRow = {
   id: string;
   name: string;
@@ -100,6 +65,21 @@ function overdueMatches(overdueDays: number, filter: PendingOverdueFilter) {
   return true;
 }
 
+type PendingRpcRow = {
+  enrollment_id: string;
+  player_id: string;
+  campus_id: string;
+  player_first_name: string | null;
+  player_last_name: string | null;
+  campus_name: string | null;
+  campus_code: string | null;
+  phone_primary: string | null;
+  balance: number | string;
+  team_id: string | null;
+  team_name: string | null;
+  earliest_due_date: string | null;
+};
+
 export async function listPendingEnrollments(filters: PendingEnrollmentsFilters) {
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
@@ -107,112 +87,26 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
   const overdueFilter = filters.overdue ?? "all";
   const textQuery = (filters.q ?? "").trim().toLowerCase();
 
-  const { data: balanceRows } = await supabase
-    .from("v_enrollment_balances")
-    .select("enrollment_id, balance")
-    .gt("balance", 0)
-    .returns<EnrollmentBalanceRow[]>();
+  const { data: rpcData } = await supabase
+    .rpc("list_pending_enrollments_full", { p_campus_id: filters.campusId ?? null });
+  const rpcRows = (rpcData ?? []) as PendingRpcRow[];
 
-  const pendingBalanceRows = balanceRows ?? [];
-  if (pendingBalanceRows.length === 0) {
-    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-  }
-
-  const balanceByEnrollment = new Map(pendingBalanceRows.map((row) => [row.enrollment_id, row.balance]));
-  const enrollmentIds = pendingBalanceRows.map((row) => row.enrollment_id);
-
-  let enrollmentQuery = supabase
-    .from("enrollments")
-    .select("id, player_id, campus_id, players(first_name, last_name), campuses(name, code)")
-    .eq("status", "active")
-    .in("id", enrollmentIds);
-
-  if (filters.campusId) {
-    enrollmentQuery = enrollmentQuery.eq("campus_id", filters.campusId);
-  }
-
-  const { data: enrollments } = await enrollmentQuery.returns<EnrollmentRow[]>();
-  const enrollmentRows = enrollments ?? [];
-  if (enrollmentRows.length === 0) {
-    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-  }
-
-  const filteredEnrollmentIds = enrollmentRows.map((row) => row.id);
-  const playerIds = [...new Set(enrollmentRows.map((row) => row.player_id))];
-
-  const [{ data: guardians }, { data: teamAssignments }, { data: dueDates }] = await Promise.all([
-    supabase
-      .from("player_guardians")
-      .select("player_id, is_primary, guardians(phone_primary)")
-      .in("player_id", playerIds)
-      .returns<GuardianLinkRow[]>(),
-    supabase
-      .from("team_assignments")
-      .select("enrollment_id, teams(id, name)")
-      .in("enrollment_id", filteredEnrollmentIds)
-      .is("end_date", null)
-      .eq("is_primary", true)
-      .returns<TeamAssignmentRow[]>(),
-    supabase
-      .from("charges")
-      .select("enrollment_id, due_date")
-      .in("enrollment_id", filteredEnrollmentIds)
-      .neq("status", "void")
-      .not("due_date", "is", null)
-      .returns<ChargeDueRow[]>()
-  ]);
-
-  const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
-  (guardians ?? []).forEach((row) => {
-    const items = guardiansByPlayer.get(row.player_id) ?? [];
-    items.push(row);
-    guardiansByPlayer.set(row.player_id, items);
-  });
-
-  const teamByEnrollment = new Map<string, { id: string; name: string }>();
-  (teamAssignments ?? []).forEach((row) => {
-    if (!row.teams) return;
-    if (!teamByEnrollment.has(row.enrollment_id)) {
-      teamByEnrollment.set(row.enrollment_id, {
-        id: row.teams.id,
-        name: row.teams.name
-      });
-    }
-  });
-
-  const earliestDueByEnrollment = new Map<string, string>();
-  (dueDates ?? []).forEach((row) => {
-    if (!row.due_date) return;
-    const existing = earliestDueByEnrollment.get(row.enrollment_id);
-    if (!existing || new Date(row.due_date) < new Date(existing)) {
-      earliestDueByEnrollment.set(row.enrollment_id, row.due_date);
-    }
-  });
-
-  const rows = enrollmentRows
-    .map((enrollment) => {
-      const guardianRows = guardiansByPlayer.get(enrollment.player_id) ?? [];
-      const primaryPhone =
-        guardianRows.find((row) => row.is_primary)?.guardians?.phone_primary ??
-        guardianRows.find((row) => row.guardians?.phone_primary)?.guardians?.phone_primary ??
-        null;
-      const team = teamByEnrollment.get(enrollment.id) ?? null;
-      const dueDate = earliestDueByEnrollment.get(enrollment.id) ?? null;
-      const overdueDays = getOverdueDays(dueDate);
-      const balance = balanceByEnrollment.get(enrollment.id) ?? 0;
-      const playerName = `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim();
-
+  const rows = rpcRows
+    .map((r) => {
+      const balance = typeof r.balance === "string" ? Number(r.balance) : (r.balance ?? 0);
+      const overdueDays = getOverdueDays(r.earliest_due_date);
+      const playerName = `${r.player_first_name ?? ""} ${r.player_last_name ?? ""}`.trim();
       return {
-        enrollmentId: enrollment.id,
-        playerId: enrollment.player_id,
+        enrollmentId: r.enrollment_id,
+        playerId: r.player_id,
         playerName,
-        campusName: enrollment.campuses?.name ?? "-",
-        campusCode: enrollment.campuses?.code ?? "-",
-        teamId: team?.id ?? null,
-        teamName: team?.name ?? "-",
-        primaryPhone,
+        campusName: r.campus_name ?? "-",
+        campusCode: r.campus_code ?? "-",
+        teamId: r.team_id ?? null,
+        teamName: r.team_name ?? "-",
+        primaryPhone: r.phone_primary ?? null,
         balance,
-        dueDate,
+        dueDate: r.earliest_due_date ?? null,
         overdueDays
       };
     })
@@ -230,8 +124,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
 
   const total = rows.length;
   const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE;
-  const paged = rows.slice(from, to);
+  const paged = rows.slice(from, from + PAGE_SIZE);
 
   return { rows: paged, total, page, pageSize: PAGE_SIZE };
 }

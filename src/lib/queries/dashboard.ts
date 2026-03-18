@@ -172,8 +172,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     bajasResult
   ] = await Promise.all([
     activeEnrollmentCountQuery,
-    supabase.rpc("get_balance_kpis", { p_campus_id: filters.campusId ?? null })
-      .returns<{ pending_balance: number | string; enrollments_with_balance: number | string }[]>(),
+    supabase.rpc("get_balance_kpis", { p_campus_id: filters.campusId ?? null }),
     paymentsTodayQuery.returns<SumRow[]>(),
     paymentsCurrentMonthQuery.returns<PaymentWithMethodRow[]>(),
     paymentsPreviousMonthQuery.returns<SumRow[]>(),
@@ -183,7 +182,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     bajasQuery
   ]);
 
-  const kpiRow = (balanceKpiResult.data ?? [])[0];
+  type KpiRow = { pending_balance: number | string; enrollments_with_balance: number | string };
+  const kpiRow = ((balanceKpiResult.data ?? []) as KpiRow[])[0];
   const pendingBalance = toNumber(kpiRow?.pending_balance);
   const enrollmentsWithBalance = Number(kpiRow?.enrollments_with_balance ?? 0);
 
