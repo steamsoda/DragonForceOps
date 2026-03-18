@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 const BASE = "/admin/users";
 
@@ -21,19 +20,17 @@ async function assertSuperAdmin() {
   const codes = (roles ?? []).map((r) => r.app_roles?.code).filter(Boolean);
   if (!codes.includes("superadmin")) redirect("/unauthorized");
 
-  return user;
+  return { supabase, user };
 }
 
 export async function grantRoleAction(formData: FormData) {
-  await assertSuperAdmin();
+  const { supabase } = await assertSuperAdmin();
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
   if (!targetUserId || !roleCode) redirect(`${BASE}?err=invalid_form`);
 
-  const admin = createAdminClient();
-
-  const { data: role } = await admin
+  const { data: role } = await supabase
     .from("app_roles")
     .select("id")
     .eq("code", roleCode)
@@ -41,7 +38,7 @@ export async function grantRoleAction(formData: FormData) {
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
-  const { error } = await admin
+  const { error } = await supabase
     .from("user_roles")
     .insert({ user_id: targetUserId, role_id: role.id });
 
@@ -54,15 +51,13 @@ export async function grantRoleAction(formData: FormData) {
 }
 
 export async function revokeRoleAction(formData: FormData) {
-  await assertSuperAdmin();
+  const { supabase } = await assertSuperAdmin();
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
   if (!targetUserId || !roleCode) redirect(`${BASE}?err=invalid_form`);
 
-  const admin = createAdminClient();
-
-  const { data: role } = await admin
+  const { data: role } = await supabase
     .from("app_roles")
     .select("id")
     .eq("code", roleCode)
@@ -70,7 +65,7 @@ export async function revokeRoleAction(formData: FormData) {
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
-  const { error } = await admin
+  const { error } = await supabase
     .from("user_roles")
     .delete()
     .eq("user_id", targetUserId)
