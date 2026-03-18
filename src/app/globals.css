@@ -7,12 +7,46 @@
   --foreground: #0f172a;
 }
 
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+}
+
+html {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
 body {
   background: radial-gradient(circle at 10% 20%, rgba(240, 179, 35, 0.15), transparent 35%),
     radial-gradient(circle at 85% 80%, rgba(0, 86, 163, 0.2), transparent 40%), var(--background);
   color: var(--foreground);
 }
 
+.dark body {
+  background: radial-gradient(circle at 10% 20%, rgba(240, 179, 35, 0.06), transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(0, 86, 163, 0.12), transparent 40%), var(--background);
+}
+
 a {
   color: inherit;
+}
+
+/* ── Dark mode: form controls ──────────────────────────────────────────────── */
+/* color-scheme tells the browser to render native widgets (scrollbars,
+   select dropdowns, date pickers) using its dark theme. */
+.dark {
+  color-scheme: dark;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #1e293b; /* slate-800 */
+  color: #f1f5f9;            /* slate-100 */
+}
+
+/* Native <select> option list background (Chrome/Edge honour this) */
+.dark select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
 }

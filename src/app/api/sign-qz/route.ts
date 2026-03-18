@@ -1,0 +1,44 @@
+import { createSign } from "crypto";
+import { createClient } from "@/lib/supabase/server";
+
+
+export async function POST(req: Request) {
+  // Only allow authenticated users
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return new Response("Unauthorized", { status: 401 });
+  } catch {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const rawKey = process.env.QZ_PRIVATE_KEY;
+  if (!rawKey) {
+    return new Response("QZ_PRIVATE_KEY not configured", { status: 500 });
+  }
+
+  // Restore newlines and PEM headers if stripped by Vercel
+  let privateKey = rawKey.replace(/\\n/g, "\n").trim();
+  if (!privateKey.includes("-----BEGIN")) {
+    // Headers were stripped — wrap as PKCS#8 (QZ Tray demo key format)
+    privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
+  }
+
+  const { message } = await req.json();
+  if (typeof message !== "string") {
+    return new Response("Bad request", { status: 400 });
+  }
+
+  let signature: string;
+  try {
+    const sign = createSign("SHA512");
+    sign.update(message);
+    sign.end();
+    signature = sign.sign(privateKey, "base64");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(`Sign error: ${msg}`, { status: 500 });
+  }
+
+  return new Response(signature, { headers: { "Content-Type": "text/plain" } });
+}

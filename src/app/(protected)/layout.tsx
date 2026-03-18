@@ -1,14 +1,45 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { APP_ROLES } from "@/lib/auth/roles";
+import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
+import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/players", label: "Players" },
-  { href: "/pending", label: "Pending" },
-  { href: "/reports/corte-diario", label: "Corte Diario" },
-  { href: "/reports/resumen-mensual", label: "Resumen Mensual" }
+const STAFF_SECTION: NavSection = {
+  label: "Diario",
+  items: [
+    { href: "/caja", label: "Caja" },
+    { href: "/players", label: "Jugadores" },
+  ]
+};
+
+const DIRECTOR_SECTIONS: NavSection[] = [
+  {
+    label: "Gestión",
+    items: [
+      { href: "/dashboard", label: "Panel" },
+      { href: "/pending", label: "Pendientes" }
+    ]
+  },
+  {
+    label: "Reportes",
+    items: [
+      { href: "/reports/corte-diario", label: "Corte Diario" },
+      { href: "/reports/corte-semanal", label: "Corte Semanal" },
+      { href: "/reports/resumen-mensual", label: "Res. Mensual" },
+      { href: "/reports/porto-mensual", label: "Reporte Porto" }
+    ]
+  },
+  {
+    label: "Admin",
+    items: [
+      { href: "/admin/mensualidades", label: "Mensualidades" },
+      { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
+      { href: "/products", label: "Productos" },
+      { href: "/pending/bajas", label: "Bajas & Saldos Pendientes" },
+      { href: "/activity", label: "Actividad" },
+      { href: "/admin/configuracion", label: "Configuración" }
+    ]
+  }
 ];
 
 type RoleRow = {
@@ -16,20 +47,6 @@ type RoleRow = {
     code: string;
   } | null;
 };
-
-function isBootstrapAdminEmail(email: string | null | undefined) {
-  if (!email) return false;
-
-  const configured = process.env.BOOTSTRAP_ADMIN_EMAILS;
-  if (!configured) return false;
-
-  const allowedEmails = configured
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  return allowedEmails.includes(email.toLowerCase());
-}
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   let supabase: Awaited<ReturnType<typeof createClient>>;
@@ -59,14 +76,20 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
-  const hasAppRoleAccess =
-    roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN) || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
-  const hasBootstrapAccess = isBootstrapAdminEmail(user.email);
-  const canAccess = hasAppRoleAccess || hasBootstrapAccess;
+  const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
+  const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
+  const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const canAccess = isDirectorOrAbove || isFrontDesk || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
 
   if (!canAccess) {
     redirect("/unauthorized");
   }
+
+  // During testing: directors+ see full nav — front desk gets Caja + Jugadores only
+  const sections: NavSection[] = [
+    STAFF_SECTION,
+    ...(isDirectorOrAbove ? DIRECTOR_SECTIONS : [])
+  ];
 
   async function signOut() {
     "use server";
@@ -77,29 +100,33 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <p className="font-semibold text-portoDark">Dragon Force Ops</p>
-          <div className="flex items-center gap-6">
-            <nav className="flex gap-4 text-sm text-slate-700">
-              {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="hover:text-portoBlue">
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+      {/* Top bar */}
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-baseline gap-2">
+          <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
+          <span className="text-xs text-slate-400 dark:text-slate-500">v0.8</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
+          <ThemeToggle />
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cerrar sesión
+            </button>
+          </form>
         </div>
       </header>
-      {children}
+
+      {/* Sidebar */}
+      <AppSidebar sections={sections} />
+
+      {/* Main content — offset for fixed header + sidebar */}
+      <div className="ml-48 pt-14">
+        {children}
+      </div>
     </div>
   );
 }

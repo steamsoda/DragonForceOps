@@ -47,6 +47,57 @@ Use this flow to ship changes with low downtime and avoid touching `main` direct
    - `https://<preview-ref>.supabase.co/auth/v1/callback`
 4. Login once with your user, then assign role in preview DB.
 
+## Auth URL checklist (copy/paste reference)
+Use these URLs in Supabase `Authentication -> URL Configuration`.
+
+- Production app URL:
+  - `https://dragon-force-ops-steamsodas-projects.vercel.app`
+- Production callback URL:
+  - `https://dragon-force-ops-steamsodas-projects.vercel.app/auth/callback`
+- Preview branch callback URL:
+  - `https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/auth/callback`
+- Preview wildcard callback URL:
+  - `https://dragon-force-*-steamsodas-projects.vercel.app/auth/callback`
+
+Recommended setup:
+1. In production Supabase project:
+   - Keep production callback URL.
+2. In preview Supabase project:
+   - Keep preview branch callback URL.
+   - Keep preview wildcard callback URL.
+3. Avoid storing one-off deployment URLs unless actively debugging.
+
+## Permanent Manual Redirect Setup (No Supabase-Vercel Sync)
+Use this if Supabase integration is disconnected from Vercel and redirects are managed manually.
+
+1. Preview Supabase project (`Authentication -> URL Configuration`):
+   - `Site URL`:
+     - `https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app`
+   - Redirect URLs:
+     - `https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/auth/callback`
+     - `https://dragon-force-*-steamsodas-projects.vercel.app/auth/callback`
+
+2. Production Supabase project (`Authentication -> URL Configuration`):
+   - `Site URL`:
+     - `https://dragon-force-ops-steamsodas-projects.vercel.app`
+   - Redirect URLs:
+     - `https://dragon-force-ops-steamsodas-projects.vercel.app/auth/callback`
+
+3. Azure App Registration (`Authentication -> Redirect URIs (Web)`):
+   - Add one callback per Supabase project ref in use:
+     - `https://<preview-supabase-ref>.supabase.co/auth/v1/callback`
+     - `https://<production-supabase-ref>.supabase.co/auth/v1/callback`
+
+4. Keep this clean:
+   - Do not keep one-off deployment URLs (`...-<hash>...`) unless debugging an incident.
+   - Keep only stable branch URL + wildcard in preview.
+   - Keep only stable production callback in production.
+
+5. Validation after changes:
+   - Preview login starts and returns to `...git-preview.../auth/callback`.
+   - Production login starts and returns to `...dragon-force-ops-steamsodas-projects.../auth/callback`.
+   - No `Unsupported provider` or `Unable to exchange external code` errors.
+
 ## Role assignment quick SQL
 Run in preview SQL editor after first successful login:
 

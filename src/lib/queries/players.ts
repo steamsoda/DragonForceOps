@@ -5,9 +5,16 @@ const PAGE_SIZE = 20;
 export type PlayerListFilters = {
   q?: string;
   phone?: string;
-  status?: "active" | "inactive" | "archived" | "all";
   campusId?: string;
+  birthYear?: string;
+  gender?: string;
   page?: number;
+  enabledTags?: {
+    payment: boolean;
+    teamType: boolean;
+    goalkeeper: boolean;
+    uniform: boolean;
+  };
 };
 
 type PlayerRow = {
@@ -52,6 +59,8 @@ type PlayerDetailRow = {
   status: string;
   gender: string | null;
   medical_notes: string | null;
+  uniform_size: string | null;
+  is_goalkeeper: boolean;
 };
 
 type PlayerGuardianDetailRow = {
@@ -73,6 +82,8 @@ type PlayerEnrollmentDetailRow = {
   start_date: string;
   end_date: string | null;
   inscription_date: string;
+  dropout_reason: string | null;
+  dropout_notes: string | null;
   campuses: {
     id: string;
     name: string;
@@ -85,11 +96,64 @@ type PlayerEnrollmentDetailRow = {
   } | null;
 };
 
+type BajaEnrollmentRow = {
+  player_id: string;
+  start_date: string;
+  end_date: string | null;
+  campus_id: string;
+  dropout_reason: string | null;
+  players: { first_name: string | null; last_name: string | null } | null;
+};
+
 type EnrollmentBalanceRow = {
   enrollment_id: string;
   total_charges: number;
   total_payments: number;
   balance: number;
+};
+
+type TeamAssignmentDetailRow = {
+  teams: {
+    id: string;
+    name: string;
+    birth_year: number | null;
+    gender: string | null;
+    level: string | null;
+    coaches: {
+      first_name: string;
+      last_name: string;
+    } | null;
+  } | null;
+};
+
+type PlayerWithEnrollmentRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  status: string;
+  is_goalkeeper: boolean;
+  enrollments: Array<{
+    id: string;
+    campus_id: string;
+    status: string;
+    campuses: { name: string | null; code: string | null } | null;
+  }>;
+};
+
+type UniformOrderRow = {
+  player_id: string;
+  status: string;
+};
+
+type ListBalanceRow = {
+  enrollment_id: string;
+  balance: number;
+};
+
+type ListTeamRow = {
+  enrollment_id: string;
+  teams: { type: string } | null;
 };
 
 export async function listPlayers(filters: PlayerListFilters) {
@@ -98,102 +162,104 @@ export async function listPlayers(filters: PlayerListFilters) {
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  let constrainedPlayerIds: string[] | null = null;
-  if (filters.campusId) {
-    const { data: enrollmentsInCampus } = await supabase
-      .from("enrollments")
-      .select("player_id")
-      .eq("status", "active")
-      .eq("campus_id", filters.campusId);
-
-    constrainedPlayerIds = [...new Set((enrollmentsInCampus ?? []).map((row) => row.player_id as string))];
-    if (constrainedPlayerIds.length === 0) {
-      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-    }
+  // Phone filter: resolve matching player IDs first (small result set, safe to use .in())
+  let phonePlayerIds: string[] | null = null;
+  if (filters.phone?.trim()) {
+    const { data: linksByPhone } = await supabase
+      .from("player_guardians")
+      .select("player_id, guardians!inner(phone_primary)")
+      .ilike("guardians.phone_primary", `%${filters.phone.trim()}%`);
+    phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
+    if (phonePlayerIds.length === 0) return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
   }
 
-  if (filters.phone) {
-    const phone = filters.phone.trim();
-    if (phone.length > 0) {
-      const { data: linksByPhone } = await supabase
-        .from("player_guardians")
-        .select("player_id, guardians!inner(phone_primary)")
-        .ilike("guardians.phone_primary", `%${phone}%`);
-
-      const phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
-      if (phonePlayerIds.length === 0) {
-        return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-      }
-
-      if (constrainedPlayerIds) {
-        const allowed = new Set(constrainedPlayerIds);
-        constrainedPlayerIds = phonePlayerIds.filter((id) => allowed.has(id));
-      } else {
-        constrainedPlayerIds = phonePlayerIds;
-      }
-
-      if (constrainedPlayerIds.length === 0) {
-        return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-      }
-    }
-  }
-
+  // Use !inner on enrollments so PostgREST generates a JOIN — no large .in() needed
   let playerQuery = supabase
     .from("players")
-    .select("id, first_name, last_name, birth_date, status", { count: "exact" })
+    .select("id, first_name, last_name, birth_date, status, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
+    .eq("enrollments.status", "active")
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
     .range(from, to);
 
-  if (filters.q) {
+  if (filters.campusId) {
+    playerQuery = playerQuery.eq("enrollments.campus_id", filters.campusId);
+  }
+  if (filters.q?.trim()) {
     const q = filters.q.trim();
-    if (q.length > 0) {
-      playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
-    }
+    playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
+  }
+  if (filters.birthYear?.trim()) {
+    const y = filters.birthYear.trim();
+    playerQuery = playerQuery
+      .gte("birth_date", `${y}-01-01`)
+      .lte("birth_date", `${y}-12-31`);
+  }
+  if (filters.gender?.trim()) {
+    playerQuery = playerQuery.eq("gender", filters.gender.trim());
+  }
+  if (phonePlayerIds) {
+    playerQuery = playerQuery.in("id", phonePlayerIds);
   }
 
-  if (filters.status && filters.status !== "all") {
-    playerQuery = playerQuery.eq("status", filters.status);
-  }
+  const { data: players, count } = await playerQuery.returns<PlayerWithEnrollmentRow[]>();
 
-  if (constrainedPlayerIds) {
-    playerQuery = playerQuery.in("id", constrainedPlayerIds);
-  }
-
-  const { data: players, count } = await playerQuery.returns<PlayerRow[]>();
   const playerIds = (players ?? []).map((p) => p.id);
+  if (playerIds.length === 0) return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
 
-  if (playerIds.length === 0) {
-    return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
-  }
+  const enrollmentIds = (players ?? []).map((p) => p.enrollments[0]?.id).filter(Boolean) as string[];
 
-  const [{ data: guardianLinks }, { data: activeEnrollments }] = await Promise.all([
+  const needsUniform = filters.enabledTags?.uniform === true;
+
+  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult] = await Promise.all([
     supabase
       .from("player_guardians")
       .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
       .in("player_id", playerIds)
       .returns<GuardianLinkRow[]>(),
     supabase
-      .from("enrollments")
-      .select("player_id, campus_id, status, campuses(name, code)")
-      .eq("status", "active")
-      .in("player_id", playerIds)
-      .returns<EnrollmentRow[]>()
+      .from("v_enrollment_balances")
+      .select("enrollment_id, balance")
+      .in("enrollment_id", enrollmentIds)
+      .returns<ListBalanceRow[]>(),
+    supabase
+      .from("team_assignments")
+      .select("enrollment_id, teams(type)")
+      .in("enrollment_id", enrollmentIds)
+      .is("end_date", null)
+      .eq("is_primary", true)
+      .returns<ListTeamRow[]>(),
+    needsUniform
+      ? supabase
+          .from("uniform_orders")
+          .select("player_id, status")
+          .in("enrollment_id", enrollmentIds)
+          .returns<UniformOrderRow[]>()
+      : Promise.resolve({ data: null })
   ]);
 
-  const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
-  (guardianLinks ?? []).forEach((row) => {
-    const arr = guardiansByPlayer.get(row.player_id) ?? [];
-    arr.push(row);
-    guardiansByPlayer.set(row.player_id, arr);
-  });
-
-  const enrollmentByPlayer = new Map<string, EnrollmentRow>();
-  (activeEnrollments ?? []).forEach((row) => {
-    if (!enrollmentByPlayer.has(row.player_id)) {
-      enrollmentByPlayer.set(row.player_id, row);
+  // Aggregate uniform status per player: 'pending' if any ordered, 'delivered' if all delivered
+  const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
+  if (needsUniform && uniformResult.data) {
+    const ordersByPlayer = new Map<string, string[]>();
+    for (const row of uniformResult.data) {
+      const arr = ordersByPlayer.get(row.player_id) ?? [];
+      arr.push(row.status);
+      ordersByPlayer.set(row.player_id, arr);
     }
-  });
+    for (const [playerId, statuses] of ordersByPlayer) {
+      uniformStatusByPlayer.set(playerId, statuses.some((s) => s === "ordered") ? "pending" : "delivered");
+    }
+  }
+
+  const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
+  for (const link of guardianLinks ?? []) {
+    const arr = guardiansByPlayer.get(link.player_id) ?? [];
+    arr.push(link);
+    guardiansByPlayer.set(link.player_id, arr);
+  }
+  const balanceByEnrollment = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
+  const teamTypeByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.type ?? null]));
 
   const rows = (players ?? []).map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
@@ -201,20 +267,89 @@ export async function listPlayers(filters: PlayerListFilters) {
       guardians.find((g) => g.is_primary)?.guardians?.phone_primary ??
       guardians.find((g) => !!g.guardians?.phone_primary)?.guardians?.phone_primary ??
       null;
-    const activeEnrollment = enrollmentByPlayer.get(player.id);
+    const enrollment = player.enrollments[0];
+    const enrollmentId = enrollment?.id ?? null;
+    const balance = enrollmentId ? (balanceByEnrollment.get(enrollmentId) ?? 0) : 0;
+    const teamType = enrollmentId ? (teamTypeByEnrollment.get(enrollmentId) ?? null) : null;
 
     return {
       id: player.id,
       fullName: `${player.first_name} ${player.last_name}`,
       birthDate: player.birth_date,
       status: player.status,
-      campusName: activeEnrollment?.campuses?.name ?? "-",
-      campusCode: activeEnrollment?.campuses?.code ?? null,
-      primaryPhone: primary
+      isGoalkeeper: player.is_goalkeeper,
+      campusName: enrollment?.campuses?.name ?? "-",
+      campusCode: enrollment?.campuses?.code ?? null,
+      primaryPhone: primary,
+      balance,
+      teamType,
+      uniformStatus: uniformStatusByPlayer.get(player.id) ?? null,
     };
   });
 
   return { rows, total: count ?? 0, page, pageSize: PAGE_SIZE };
+}
+
+export type BajaListFilters = {
+  q?: string;
+  campusId?: string;
+  page?: number;
+};
+
+export async function listBajas(filters: BajaListFilters) {
+  const supabase = await createClient();
+  const page = Math.max(1, filters.page ?? 1);
+
+  // Exclude players that have an active enrollment
+  const { data: activeRows } = await supabase.from("enrollments").select("player_id").eq("status", "active");
+  const activePlayerIds = new Set((activeRows ?? []).map((row) => row.player_id as string));
+
+  let query = supabase
+    .from("enrollments")
+    .select("player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name)")
+    .in("status", ["ended", "cancelled"])
+    .order("end_date", { ascending: false });
+
+  if (filters.campusId) {
+    query = query.eq("campus_id", filters.campusId);
+  }
+
+  const { data: rows } = await query.returns<BajaEnrollmentRow[]>();
+
+  // Deduplicate: keep only most recent ended enrollment per player; exclude active players
+  const seen = new Set<string>();
+  const textQuery = (filters.q ?? "").trim().toLowerCase();
+
+  const deduped = (rows ?? []).filter((row) => {
+    if (activePlayerIds.has(row.player_id)) return false;
+    if (seen.has(row.player_id)) return false;
+    seen.add(row.player_id);
+    if (textQuery) {
+      const name = `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.toLowerCase();
+      if (!name.includes(textQuery)) return false;
+    }
+    return true;
+  });
+
+  const total = deduped.length;
+  const from = (page - 1) * PAGE_SIZE;
+  const paged = deduped.slice(from, from + PAGE_SIZE);
+
+  const bajaRows = paged.map((row) => {
+    const startDate = new Date(row.start_date);
+    const endDate = row.end_date ? new Date(row.end_date) : null;
+    const daysEnrolled = endDate ? Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    return {
+      playerId: row.player_id,
+      fullName: `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.trim(),
+      startDate: row.start_date,
+      endDate: row.end_date,
+      daysEnrolled,
+      dropoutReason: row.dropout_reason
+    };
+  });
+
+  return { rows: bajaRows, total, page, pageSize: PAGE_SIZE };
 }
 
 export async function listCampuses() {
@@ -229,13 +364,20 @@ export async function listCampuses() {
   return data ?? [];
 }
 
+export async function listBirthYears(): Promise<number[]> {
+  const supabase = await createClient();
+  // Use DB-level distinct via rpc to avoid fetching all rows
+  const { data } = await supabase.rpc("list_active_birth_years");
+  return (data ?? []).map((row: { birth_year: number }) => row.birth_year);
+}
+
 export async function getPlayerDetail(playerId: string) {
   const supabase = await createClient();
 
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
       .from("players")
-      .select("id, first_name, last_name, birth_date, status, gender, medical_notes")
+      .select("id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size, is_goalkeeper")
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerDetailRow | null>(),
@@ -249,7 +391,7 @@ export async function getPlayerDetail(playerId: string) {
     supabase
       .from("enrollments")
       .select(
-        "id, status, start_date, end_date, inscription_date, campuses(id, name, code), pricing_plans(id, name, currency)"
+        "id, status, start_date, end_date, inscription_date, dropout_reason, dropout_notes, campuses(id, name, code), pricing_plans(id, name, currency)"
       )
       .eq("player_id", playerId)
       .order("start_date", { ascending: false })
@@ -259,17 +401,36 @@ export async function getPlayerDetail(playerId: string) {
   if (!player) return null;
 
   const enrollmentIds = (enrollmentRows ?? []).map((row) => row.id);
+  const activeEnrollmentRow = (enrollmentRows ?? []).find((row) => row.status === "active");
+
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
+  let teamAssignment: TeamAssignmentDetailRow | null = null;
 
-  if (enrollmentIds.length > 0) {
-    const { data: balanceRows } = await supabase
-      .from("v_enrollment_balances")
-      .select("enrollment_id, total_charges, total_payments, balance")
-      .in("enrollment_id", enrollmentIds)
-      .returns<EnrollmentBalanceRow[]>();
-
-    balancesByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row]));
-  }
+  await Promise.all([
+    enrollmentIds.length > 0
+      ? supabase
+          .from("v_enrollment_balances")
+          .select("enrollment_id, total_charges, total_payments, balance")
+          .in("enrollment_id", enrollmentIds)
+          .returns<EnrollmentBalanceRow[]>()
+          .then(({ data }) => {
+            balancesByEnrollment = new Map((data ?? []).map((row) => [row.enrollment_id, row]));
+          })
+      : Promise.resolve(),
+    activeEnrollmentRow
+      ? supabase
+          .from("team_assignments")
+          .select("teams(id, name, birth_year, gender, level, coaches(first_name, last_name))")
+          .eq("enrollment_id", activeEnrollmentRow.id)
+          .is("end_date", null)
+          .eq("is_primary", true)
+          .maybeSingle()
+          .returns<TeamAssignmentDetailRow | null>()
+          .then(({ data }) => {
+            teamAssignment = data;
+          })
+      : Promise.resolve()
+  ]);
 
   const guardians = (guardianRows ?? [])
     .filter((row) => !!row.guardians)
@@ -287,6 +448,8 @@ export async function getPlayerDetail(playerId: string) {
       startDate: row.start_date,
       endDate: row.end_date,
       inscriptionDate: row.inscription_date,
+      dropoutReason: row.dropout_reason,
+      dropoutNotes: row.dropout_notes,
       campusName: row.campuses?.name ?? "-",
       campusCode: row.campuses?.code ?? "-",
       pricingPlanName: row.pricing_plans?.name ?? "-",
@@ -297,6 +460,8 @@ export async function getPlayerDetail(playerId: string) {
     };
   });
 
+  const team = (teamAssignment as TeamAssignmentDetailRow | null)?.teams ?? null;
+
   return {
     id: player.id,
     fullName: `${player.first_name} ${player.last_name}`,
@@ -304,7 +469,21 @@ export async function getPlayerDetail(playerId: string) {
     status: player.status,
     gender: player.gender,
     medicalNotes: player.medical_notes,
+    uniformSize: player.uniform_size,
+    isGoalkeeper: player.is_goalkeeper,
     guardians,
-    enrollments
+    enrollments,
+    activeTeam: team
+      ? {
+          id: team.id,
+          name: team.name,
+          birthYear: team.birth_year,
+          gender: team.gender,
+          level: team.level,
+          coachName: team.coaches
+            ? `${team.coaches.first_name} ${team.coaches.last_name}`.trim()
+            : null
+        }
+      : null
   };
 }
