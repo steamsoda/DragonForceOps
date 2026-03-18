@@ -2,10 +2,10 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-18)
+## Current State (as of 2026-03-19)
 - App version: v0.8. Live testing begins 2026-03-19 (first full day with physical printer).
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
-- Real data: 672 players, 694 guardians, 672 enrollments, 2,678 charges, 1,298 payments.
+- Real data: 687 players, 473+ guardians, 687 enrollments (10 beca), 31 teams, 1,860+ charges, 1,080+ payments. Seed run today via SQL editor.
 - Caja POS: player search + category drill-down (campus → birth year → player), pending charges, payment posting, thermal receipt.
 - Cash session management: open/close per campus, linked cash payments, variance notes, Corte Diario integration.
 - Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.
@@ -13,6 +13,9 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Activity log: human-readable audit feed, date range + actor + action type filters.
 - Products catalog: categories + sizes + charge type linking, POS grid in Caja.
 - Role system: `superadmin`, `director_admin`, `front_desk`. RLS enforced. Role-aware nav.
+- **User admin panel**: `/admin/users` — superadmin sees pending + active users, grants/revokes roles. Uses `list_auth_users()` SECURITY DEFINER function. No service role key required.
+- **OAuth first-login fix**: Supabase SSR middleware (`src/middleware.ts`) added — resolves `oauth_exchange_failed` PKCE error on first login.
+- **Unified login page**: `/` merges landing + login — server-side auth check, branded UI, no redirect bounce.
 - Void charges: director-only, any pending charge, with required reason. Audit logged.
 - Batch baja write-off: `/pending/bajas` — bulk void for ended/cancelled enrollments.
 - Player tags: configurable badges (Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme) toggled from `/admin/configuracion`.
@@ -20,6 +23,7 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Uniform orders: `ordered → delivered` lifecycle per player, UI on player detail page.
 - **Teams system**: full team CRUD + roster management — list, create, edit, transfer, refuerzo pattern, new-arrival flag. Auto-assign B2 on enrollment. Team shown on player detail.
 - **Thermal printer (NEW)**: QZ Tray ESC/POS integration. Silent two-copy receipt (COPIA CLIENTE + COPIA ACADEMIA). Auto-print on payment. Manual reprint button. Corte Diario via QZ Tray. Certificate signing via `/api/sign-qz`. Printer name configurable in admin settings. Physical Ethernet setup pending.
+- **Production DB seeded**: 687 players, 687 enrollments (10 beca), 473 guardians, 31 teams, 1,860 charges, 1,080 payments imported from master CSV.
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -119,12 +123,12 @@ Goal: broader operational support and integrations.
    - Remove "Castigo de Baja" button from Pagos Pendientes (redundant — dedicated tab exists).
    - Rename "Castigo Bajas" tab → "Bajas & Saldos Pendientes".
    - Demote "Mensualidades" from main nav to Admin section (pg_cron handles it automatically but keep as manual safety valve).
-6. **Merge preview → production** — after bugs fixed and smoke-tested. Verify production has `NEXT_PUBLIC_QZ_CERTIFICATE` + `QZ_PRIVATE_KEY` env vars.
+6. ✅ **Merge preview → production** — merged 2026-03-19. All session work live.
 
 ### Immediate Post-Testing (2026-03-19+)
 1. **Nav/panel audit** — collect staff feedback from first testing day, then audit what stays/merges/gets cut/needs rewiring.
 2. **Server-side route blocking** — nav hides links but routes may not actively block unauthorized users. Every protected route needs a server-side role check (not just hidden nav). Particularly admin routes.
-3. **User management panel** — `/admin/users` for superadmin: see all users, change roles, revoke access. Requires Supabase admin client (service role key). Director cannot access this panel.
+3. ✅ **User management panel** — `/admin/users` live. Superadmin only. Pending + active users, grant/revoke roles. Uses `list_auth_users()` SECURITY DEFINER function.
 4. **Receipt folio → payment lookup** — folio on receipt is last 8 chars of payment UUID. Actividad log needs to surface payment ID so staff can look up a transaction by its receipt number.
 5. **Caja cancel UX** — cancel during payment returns to player enrollment panel, not page top.
 6. **Caja charge detail** — expandable rows in pending charges showing period + charge type before staff decides what to pay.
