@@ -35,7 +35,7 @@ const DIRECTOR_SECTIONS: NavSection[] = [
       { href: "/admin/mensualidades", label: "Mensualidades" },
       { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
       { href: "/products", label: "Productos" },
-      { href: "/pending/bajas", label: "Castigo Bajas" },
+      { href: "/pending/bajas", label: "Bajas & Saldos Pendientes" },
       { href: "/activity", label: "Actividad" },
       { href: "/admin/configuracion", label: "Configuración" }
     ]

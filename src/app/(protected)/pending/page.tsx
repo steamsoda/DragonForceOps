@@ -44,11 +44,6 @@ export default async function PendingPaymentsPage({ searchParams }: { searchPara
   return (
     <PageShell title="Pagos pendientes" subtitle="Filtra por campus, equipo, rango de saldo y dias vencidos">
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <Link href="/pending/bajas" className="rounded-md border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
-            Castigo de bajas →
-          </Link>
-        </div>
         <PendingFilters
           q={q}
           campusId={campusId}
