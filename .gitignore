@@ -18,3 +18,4 @@ tsconfig.tsbuildinfo
 
 # Reference docs — local only, not for version control
 docs/Reference Docs/
+public/qz-tray.js
