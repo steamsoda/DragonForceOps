@@ -48,23 +48,25 @@ export async function connectQZ(): Promise<void> {
     // Signed mode — no dialog, permanent trust via Site Manager cert
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
     qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise((toSign: string) => {
-      console.log("[QZ] Signing message, length:", toSign.length);
-      return fetch("/api/sign-qz", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: toSign }),
-      }).then((res) => {
-        console.log("[QZ] Sign API status:", res.status);
-        if (!res.ok) return res.text().then((t) => { console.error("[QZ] Sign API error:", t); return Promise.reject(new Error(t)); });
-        return res.text().then((sig) => { console.log("[QZ] Signature length:", sig.length); return sig; });
-      }).catch((err) => { console.error("[QZ] Sign fetch failed:", err); return Promise.reject(err); });
-    });
+    qz.security.setSignaturePromise((toSign: string) =>
+      (resolve: (sig: string) => void, reject: (err: Error) => void) => {
+        console.log("[QZ] Signing message, length:", toSign.length);
+        fetch("/api/sign-qz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: toSign }),
+        }).then((res) => {
+          console.log("[QZ] Sign API status:", res.status);
+          if (!res.ok) return res.text().then((t) => { console.error("[QZ] Sign API error:", t); reject(new Error(t)); });
+          return res.text().then((sig) => { console.log("[QZ] Signature OK, length:", sig.length); resolve(sig); });
+        }).catch((err) => { console.error("[QZ] Sign fetch failed:", err); reject(err); });
+      }
+    );
   } else {
     console.warn("[QZ] No certificate — using unsigned fallback (dialog will appear)");
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
     qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise((_toSign: string) => Promise.resolve(""));
+    qz.security.setSignaturePromise((_toSign: string) => (resolve: (sig: string) => void) => resolve(""));
   }
 
   console.log("[QZ] Connecting...");
