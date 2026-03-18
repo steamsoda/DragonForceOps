@@ -179,10 +179,10 @@ export async function listTeams(): Promise<TeamListItem[]> {
       .order("birth_year", { ascending: false })
       .order("name", { ascending: true })
       .returns<TeamRow[]>(),
-    supabase.rpc("list_teams_with_counts").returns<CountRow[]>()
+    supabase.rpc("list_teams_with_counts")
   ]);
 
-  const countMap = new Map((counts ?? []).map((r) => [r.team_id, r]));
+  const countMap = new Map(((counts ?? []) as CountRow[]).map((r) => [r.team_id, r]));
 
   return (teams ?? []).map((row) => {
     const c = countMap.get(row.id);
@@ -281,8 +281,8 @@ export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> 
       };
     });
 
-  const counts = await supabase.rpc("list_teams_with_counts").returns<CountRow[]>();
-  const countMap = new Map((counts.data ?? []).map((r) => [r.team_id, r]));
+  const counts = await supabase.rpc("list_teams_with_counts");
+  const countMap = new Map(((counts.data ?? []) as CountRow[]).map((r) => [r.team_id, r]));
   const c = countMap.get(teamId);
 
   return {
