@@ -9,7 +9,6 @@ const STAFF_SECTION: NavSection = {
   items: [
     { href: "/caja", label: "Caja" },
     { href: "/players", label: "Jugadores" },
-    { href: "/teams", label: "Equipos" }
   ]
 };
 
@@ -77,6 +76,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
+  const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
   const canAccess = isDirectorOrAbove || isFrontDesk || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
@@ -85,9 +85,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/unauthorized");
   }
 
+  // During testing: only superadmin sees the full nav — everyone else gets Caja + Jugadores only
   const sections: NavSection[] = [
     STAFF_SECTION,
-    ...(isDirectorOrAbove ? DIRECTOR_SECTIONS : [])
+    ...(isSuperAdmin ? DIRECTOR_SECTIONS : [])
   ];
 
   async function signOut() {
