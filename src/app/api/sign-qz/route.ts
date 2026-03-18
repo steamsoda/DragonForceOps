@@ -11,20 +11,29 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const privateKey = process.env.QZ_PRIVATE_KEY;
-  if (!privateKey) {
+  const rawKey = process.env.QZ_PRIVATE_KEY;
+  if (!rawKey) {
     return new Response("QZ_PRIVATE_KEY not configured", { status: 500 });
   }
+
+  // Vercel sometimes collapses newlines — restore proper PEM line breaks
+  const privateKey = rawKey.replace(/\\n/g, "\n");
 
   const { message } = await req.json();
   if (typeof message !== "string") {
     return new Response("Bad request", { status: 400 });
   }
 
-  const sign = createSign("SHA512");
-  sign.update(message);
-  sign.end();
-  const signature = sign.sign(privateKey, "base64");
+  let signature: string;
+  try {
+    const sign = createSign("SHA512");
+    sign.update(message);
+    sign.end();
+    signature = sign.sign(privateKey, "base64");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return new Response(`Sign error: ${msg}`, { status: 500 });
+  }
 
   return new Response(signature, { headers: { "Content-Type": "text/plain" } });
 }
