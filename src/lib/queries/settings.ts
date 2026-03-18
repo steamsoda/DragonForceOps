@@ -28,9 +28,23 @@ export async function getTagSettings(): Promise<TagSettings> {
 
 export type AllSettings = {
   tags: TagSettings;
+  printerName: string;
 };
 
+const PRINTER_DEFAULT = "EPSON TM-T20IV";
+
 export async function getAllSettings(): Promise<AllSettings> {
-  const tags = await getTagSettings();
-  return { tags };
+  const supabase = await createClient();
+  const [tags, { data: printerRow }] = await Promise.all([
+    getTagSettings(),
+    supabase.from("app_settings").select("value").eq("key", "printer_name").maybeSingle(),
+  ]);
+  const printerName = (printerRow?.value as string | null) ?? PRINTER_DEFAULT;
+  return { tags, printerName };
+}
+
+export async function getPrinterName(): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "printer_name").maybeSingle();
+  return (data?.value as string | null) ?? PRINTER_DEFAULT;
 }

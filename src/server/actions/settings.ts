@@ -30,6 +30,24 @@ export async function updateTagSettingsAction(formData: FormData): Promise<void>
   }
 }
 
+export async function updatePrinterSettingsAction(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: isAdmin } = await supabase.rpc("is_director_admin");
+  if (!isAdmin) return;
+
+  const printerName = formData.get("printer_name")?.toString().trim() || "EPSON TM-T20IV";
+
+  await supabase.from("app_settings").upsert(
+    { key: "printer_name", value: printerName, label: "Nombre de impresora", updated_by: user.id, updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
+  revalidatePath("/admin/configuracion");
+}
+
 const TAG_LABELS: Record<string, string> = {
   tag_payment:    "Tag: Al corriente / Pendiente",
   tag_team_type:  "Tag: Selectivo / Clases",

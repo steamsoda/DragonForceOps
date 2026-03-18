@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { PrintReceiptButton } from "./print-receipt-button";
 import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
@@ -62,7 +63,7 @@ type View =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CajaClient() {
+export function CajaClient({ printerName }: { printerName: string }) {
   const [view, setView] = useState<View>({ tag: "idle" });
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -307,6 +308,7 @@ export function CajaClient() {
       {view.tag === "success" && (
         <ReceiptPanel
           receipt={view.receipt}
+          printerName={printerName}
           onDone={reset}
           onBack={() => goBackToPlayer(view.player)}
         />
@@ -843,130 +845,72 @@ function EnrollmentPanel({
 
 function ReceiptPanel({
   receipt,
+  printerName,
   onDone,
   onBack
 }: {
   receipt: Extract<CajaPaymentResult, { ok: true }>;
+  printerName: string;
   onDone: () => void;
   onBack: () => void;
 }) {
   const now = new Date();
   const dateStr = now.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
   const timeStr = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-  const shortId = receipt.paymentId.slice(-8).toUpperCase();
+
+  const receiptData = {
+    playerName: receipt.playerName,
+    campusName: receipt.campusName,
+    method: methodLabel(receipt.method),
+    amount: receipt.amount,
+    currency: receipt.currency,
+    remainingBalance: receipt.remainingBalance,
+    chargesPaid: receipt.chargesPaid,
+    paymentId: receipt.paymentId,
+    date: dateStr,
+    time: timeStr,
+  };
 
   return (
-    <>
-      {/* Screen view */}
-      <div className="print:hidden space-y-4">
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-4 text-center">
-          <p className="text-lg font-semibold text-emerald-700">Pago registrado</p>
-          <p className="text-2xl font-bold text-emerald-800 mt-1">{formatMoney(receipt.amount, receipt.currency)}</p>
-          <p className="text-sm text-emerald-600 mt-1">{receipt.playerName} · {methodLabel(receipt.method)}</p>
-          {receipt.remainingBalance > 0 && (
-            <p className="mt-2 text-sm text-rose-600">Saldo restante: {formatMoney(receipt.remainingBalance, receipt.currency)}</p>
-          )}
-          {receipt.remainingBalance === 0 && (
-            <p className="mt-2 text-sm text-emerald-600">Cuenta al corriente ✓</p>
-          )}
-          {receipt.remainingBalance < 0 && (
-            <p className="mt-2 text-sm text-emerald-600">Crédito en cuenta: {formatMoney(Math.abs(receipt.remainingBalance), receipt.currency)} ✓</p>
-          )}
-        </div>
-        {receipt.sessionWarning && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-            ⚠ Sin sesión de caja abierta. El pago se registró correctamente pero no está vinculado a ninguna sesión.{" "}
-            <a href="/caja/sesion" className="font-medium underline hover:no-underline">Abrir sesión</a>
-          </div>
+    <div className="space-y-4">
+      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-4 text-center">
+        <p className="text-lg font-semibold text-emerald-700">Pago registrado</p>
+        <p className="text-2xl font-bold text-emerald-800 mt-1">{formatMoney(receipt.amount, receipt.currency)}</p>
+        <p className="text-sm text-emerald-600 mt-1">{receipt.playerName} · {methodLabel(receipt.method)}</p>
+        {receipt.remainingBalance > 0 && (
+          <p className="mt-2 text-sm text-rose-600">Saldo restante: {formatMoney(receipt.remainingBalance, receipt.currency)}</p>
         )}
+        {receipt.remainingBalance === 0 && (
+          <p className="mt-2 text-sm text-emerald-600">Cuenta al corriente ✓</p>
+        )}
+        {receipt.remainingBalance < 0 && (
+          <p className="mt-2 text-sm text-emerald-600">Crédito en cuenta: {formatMoney(Math.abs(receipt.remainingBalance), receipt.currency)} ✓</p>
+        )}
+      </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => window.print()}
-            className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            Imprimir recibo
-          </button>
-          <button
-            onClick={onBack}
-            className="flex-1 rounded-xl border border-portoBlue py-2.5 text-sm font-semibold text-portoBlue hover:bg-blue-50"
-          >
-            Regresar a alumno
-          </button>
-          <button
-            onClick={onDone}
-            className="flex-1 rounded-xl bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark"
-          >
-            Siguiente alumno
-          </button>
+      {receipt.sessionWarning && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          ⚠ Sin sesión de caja abierta. El pago se registró correctamente pero no está vinculado a ninguna sesión.{" "}
+          <a href="/caja/sesion" className="font-medium underline hover:no-underline">Abrir sesión</a>
         </div>
+      )}
+
+      <div className="flex gap-3">
+        <PrintReceiptButton data={receiptData} printerName={printerName} />
+        <button
+          onClick={onBack}
+          className="flex-1 rounded-xl border border-portoBlue py-2.5 text-sm font-semibold text-portoBlue hover:bg-blue-50"
+        >
+          Regresar a alumno
+        </button>
+        <button
+          onClick={onDone}
+          className="flex-1 rounded-xl bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark"
+        >
+          Siguiente alumno
+        </button>
       </div>
-
-      {/* Print-only receipt — styled for 80mm thermal paper, two copies */}
-      <div className="hidden print:block w-[72mm] font-mono text-[11px] leading-snug">
-        {[{ label: "COPIA CLIENTE" }, { label: "COPIA ACADEMIA" }].map(({ label }, idx) => (
-          <div key={idx}>
-            {idx > 0 && (
-              <div className="my-3 flex items-center gap-1 text-[9px] text-black">
-                <span className="flex-1 border-t border-dashed border-black" />
-                <span>✂</span>
-                <span className="flex-1 border-t border-dashed border-black" />
-              </div>
-            )}
-
-            <div className="text-center mb-2">
-              <p className="font-bold text-[13px]">INVICTA · Dragon Force Porto</p>
-              <p className="text-[10px]">FC Porto Dragon Force · Monterrey</p>
-              <p className="text-[10px]">{receipt.campusName}</p>
-            </div>
-
-            <div className="border-t border-dashed border-black my-1.5" />
-
-            <div className="space-y-0.5">
-              <p><span className="font-bold">Alumno:</span> {receipt.playerName}</p>
-              <p><span className="font-bold">Fecha:</span> {dateStr}</p>
-              <p><span className="font-bold">Hora:</span> {timeStr}</p>
-              <p><span className="font-bold">Método:</span> {methodLabel(receipt.method)}</p>
-              <p><span className="font-bold">Folio:</span> {shortId}</p>
-            </div>
-
-            <div className="border-t border-dashed border-black my-1.5" />
-
-            {/* Line items */}
-            {receipt.chargesPaid.length > 0 && (
-              <div className="space-y-0.5 mb-1.5">
-                {receipt.chargesPaid.map((c, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span className="mr-2 truncate max-w-[44mm]">{c.description}</span>
-                    <span className="shrink-0">{formatMoney(c.amount, receipt.currency)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="border-t border-black my-1" />
-            <div className="flex justify-between font-bold text-[12px]">
-              <span>TOTAL PAGADO</span>
-              <span>{formatMoney(receipt.amount, receipt.currency)}</span>
-            </div>
-
-            {receipt.remainingBalance > 0 && (
-              <div className="flex justify-between mt-0.5 text-[10px]">
-                <span>Saldo pendiente</span>
-                <span>{formatMoney(receipt.remainingBalance, receipt.currency)}</span>
-              </div>
-            )}
-            {receipt.remainingBalance <= 0 && (
-              <p className="mt-0.5 text-center text-[10px]">Cuenta al corriente ✓</p>
-            )}
-
-            <div className="border-t border-dashed border-black my-1.5" />
-            <p className="text-center text-[10px]">Gracias por su pago</p>
-            <p className="text-center text-[9px] mt-0.5 text-black/60">{label}</p>
-          </div>
-        ))}
-      </div>
-    </>
+    </div>
   );
 }
 

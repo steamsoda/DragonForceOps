@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
+import { getPrinterName } from "@/lib/queries/settings";
 
 export const metadata = { title: "Caja — Dragon Force Ops" };
 
 export default async function CajaPage() {
-  const statuses = await getCampusSessionStatuses();
+  const [statuses, printerName] = await Promise.all([
+    getCampusSessionStatuses(),
+    getPrinterName(),
+  ]);
   const anyOpen = statuses.some((s) => s.session !== null);
 
   return (
@@ -59,7 +63,7 @@ export default async function CajaPage() {
           </div>
         )}
 
-        <CajaClient />
+        <CajaClient printerName={printerName} />
       </div>
     </main>
   );

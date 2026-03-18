@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
 import { getAllSettings } from "@/lib/queries/settings";
-import { updateTagSettingsAction } from "@/server/actions/settings";
+import { updateTagSettingsAction, updatePrinterSettingsAction } from "@/server/actions/settings";
 
 const TAG_DESCRIPTIONS: Record<string, string> = {
   tag_payment:    "Muestra 'Al corriente' o 'Pendiente' según el saldo del jugador.",
@@ -16,7 +16,7 @@ export default async function ConfiguracionPage() {
   const { data: isAdmin } = await supabase.rpc("is_director_admin");
   if (!isAdmin) redirect("/dashboard");
 
-  const { tags } = await getAllSettings();
+  const { tags, printerName } = await getAllSettings();
 
   return (
     <PageShell
@@ -25,6 +25,29 @@ export default async function ConfiguracionPage() {
       breadcrumbs={[{ label: "Configuración" }]}
     >
       <div className="max-w-lg space-y-6">
+        {/* Printer */}
+        <section className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+          <h2 className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-100">Impresora térmica</h2>
+          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            Nombre exacto de la impresora como aparece en Windows → Dispositivos e impresoras. Usado por QZ Tray para imprimir recibos.
+          </p>
+          <form action={updatePrinterSettingsAction} className="flex gap-2">
+            <input
+              type="text"
+              name="printer_name"
+              defaultValue={printerName}
+              placeholder="EPSON TM-T20IV"
+              className="flex-1 rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-900"
+            />
+            <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+              Guardar
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-slate-400">
+            Para USB: usa el nombre del dispositivo. Para Ethernet: pendiente (se configurará cuando tengas la IP).
+          </p>
+        </section>
+
         <section className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
           <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-slate-100">
             Tags de jugadores
