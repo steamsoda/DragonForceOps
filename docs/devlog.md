@@ -1,5 +1,48 @@
 # Devlog
 
+## 2026-03-19 (session 11)
+
+### Production Hardening + DB Seed (v0.8 release)
+
+**OAuth first-login fix — `src/middleware.ts` (new)**
+- Root cause: PKCE code verifier cookie was not propagating through the OAuth redirect chain because Supabase SSR middleware was missing entirely.
+- Added standard Supabase SSR middleware that calls `supabase.auth.getUser()` on every request to keep session cookies in sync.
+- Error was: `oauth_exchange_failed` on first login, redirect loop back to login page.
+
+**Login flow consolidation**
+- Merged landing page + login into a single server component at `/` — checks auth, redirects logged-in users to `/dashboard`, otherwise renders branded login UI with `AzureSignInButton`.
+- Auth callback error redirects updated to `/?error=xxx` (was `/login?error=xxx`).
+- `/login` now just `redirect("/")` for backwards compatibility.
+
+**User admin panel — `/admin/users`**
+- Superadmin-only panel. Two sections: "Esperando acceso" (pending, amber) and "Personal con acceso" (active).
+- Uses `supabase.rpc("list_auth_users")` — a `SECURITY DEFINER` postgres function to read `auth.users` without service role key.
+- Grant role: dropdown + button form → `grantRoleAction` server action.
+- Revoke role: click badge → `revokeRoleAction` server action.
+- Both actions call `assertSuperAdmin()` which returns `{ supabase, user }` to avoid scope bug.
+- Migration `20260319000000_fn_list_auth_users.sql`: `list_auth_users()` SECURITY DEFINER function.
+- Migration `20260319010000_superadmin_user_roles_policy.sql`: RLS policies for `superadmin_manage_user_roles` and `superadmin_read_app_roles`.
+
+**Production migration gap fix**
+- Production had only 2 migrations (from Feb 24). Applied all 36 pending migrations via Supabase CLI binary (`/tmp/supabase.exe db push --db-url ...`).
+- Supabase CLI npm install failed on Windows (postinstall script error) — fixed by downloading Windows binary from GitHub releases via curl + tar.
+- DB URL: password with brackets `[...]` required literal brackets (URL-encoding failed).
+- GitHub Actions workflow `.github/workflows/migrate-production.yml` created — auto-applies migrations on push to `main` when migration files change.
+
+**Pricing plan migration — `20260319020000_seed_prod_reference_data.sql`**
+- Production DB had no pricing plan → all enrollment inserts would fail silently.
+- Idempotent migration: creates `Plan Mensual` (MXN, active), 2-tier tuition rules (days 1–10 = $600, days 11+ = $750), pricing plan items (inscription = $1,800, uniform_training = $600, uniform_game = $600).
+- Applied to production: `Plan Mensual` id `f89c4e66-641f-4a9f-b617-5608e9c14b5f`.
+
+**Production data seed — 687 players**
+- `scripts/generate_production_seed.py`: reads `DragonForce_Prod_Contactos_Review.xlsx - Jugadores.csv`, outputs `scripts/seed_production.sql`.
+- Produces: 687 players, 687 enrollments (10 beca/scholarship), 473 guardians, 31 teams, 1,860 charges, 1,080 payments, 1,080 allocations. Total: 7,045 INSERT statements in `BEGIN/COMMIT`.
+- Payment column logic: date value = charge + posted payment + allocation; `MES P` / `A` (Ausente) = pending charge only; `BECA` = `has_scholarship=true`, skip all charges; blank / junk date = skip.
+- Enrollment-date logic: only create charges for months ≥ player's INSC date (default `2025-08-01` for blank INSC). This correctly skips 168 `A` values for players not yet enrolled.
+- `seed_production.sql` ready to run in Supabase SQL editor (runs as postgres, bypasses RLS).
+
+**Merged preview → main** — all session work merged and pushed.
+
 ## 2026-03-18 (session 10)
 
 ### QZ Tray Thermal Printer Integration (v0.8 continued)

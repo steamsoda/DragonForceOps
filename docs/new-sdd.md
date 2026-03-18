@@ -5,8 +5,9 @@ This is the consolidated, living SDD. It merges and preserves the content from:
 - `docs/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
 
 ## 0) Status
-- Current stage: v0.8 — Phase 1B complete. Internal testing begins 2026-03-17, one campus, directors only.
-- Auth: Supabase Auth with Azure provider, fully wired (preview + prod)
+- Current stage: v0.8 — Phase 1B complete + production hardening (2026-03-19). Internal testing begins 2026-03-19.
+- Auth: Supabase Auth with Azure provider, fully wired (preview + prod). SSR middleware (`src/middleware.ts`) required for PKCE OAuth — propagates code verifier cookie through redirect chain. Login at `/` (server component: checks auth → dashboard or branded login UI).
+- Production DB seeded: 687 players, 687 enrollments (10 beca), 473 guardians, 31 teams, 1,860 charges, 1,080 payments.
 - Environments:
   - Production DB: Supabase main project
   - Preview DB: Supabase preview branch (Pro plan)
@@ -488,9 +489,10 @@ An admin-only page (`director_admin` role) for managing the charge catalog and b
 **Payment void authority:** `director_admin` and `superadmin` only. Always requires a reason note logged in `audit_logs`.
 
 Current operational note:
-- `superadmin` and `director_admin` are the active roles in Phase 1.
-- `front_desk` role to be implemented in Phase 1B alongside the Caja feature.
-- Bootstrap env var (`BOOTSTRAP_ADMIN_EMAILS`) to be removed once `user_roles` records are seeded for all active staff.
+- `superadmin`, `director_admin`, and `front_desk` are all live in production.
+- Bootstrap env var (`BOOTSTRAP_ADMIN_EMAILS`) removed.
+- User management panel at `/admin/users` (superadmin only): lists all auth users, shows pending access vs active roles, grant/revoke roles. Uses `list_auth_users()` SECURITY DEFINER postgres function (no service role key required on client).
+- RLS policies `superadmin_manage_user_roles` + `superadmin_read_app_roles` allow superadmin to fully manage `user_roles` and read `app_roles` via regular client.
 
 ## 9) Core Workflows
 ### 9.1 Registration + Enrollment
@@ -658,7 +660,7 @@ Admin-only route:
 
 ## 15) Assumptions and TBDs / Open Questions
 Assumptions:
-- All Phase 1 users are authenticated Supabase users mapped to `director_admin`.
+- All Phase 1 users are authenticated Supabase users with `director_admin`, `front_desk`, or `superadmin` role.
 - One active enrollment per player globally.
 
 **Resolved:**
