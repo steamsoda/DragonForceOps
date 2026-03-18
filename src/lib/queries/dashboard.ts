@@ -102,11 +102,6 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     activeEnrollmentCountQuery = activeEnrollmentCountQuery.eq("campus_id", filters.campusId);
   }
 
-  let activeEnrollmentIdsQuery = supabase.from("enrollments").select("id").eq("status", "active");
-  if (filters.campusId) {
-    activeEnrollmentIdsQuery = activeEnrollmentIdsQuery.eq("campus_id", filters.campusId);
-  }
-
   let paymentsTodayQuery = supabase
     .from("payments")
     .select("amount, enrollments!inner(campus_id)")
@@ -167,7 +162,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
 
   const [
     activeEnrollmentCountResult,
-    activeEnrollmentIdsResult,
+    balanceKpiResult,
     paymentsTodayResult,
     paymentsCurrentMonthResult,
     paymentsPreviousMonthResult,
@@ -177,7 +172,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     bajasResult
   ] = await Promise.all([
     activeEnrollmentCountQuery,
-    activeEnrollmentIdsQuery.returns<{ id: string }[]>(),
+    supabase.rpc("get_balance_kpis", { p_campus_id: filters.campusId ?? null })
+      .returns<{ pending_balance: number | string; enrollments_with_balance: number | string }[]>(),
     paymentsTodayQuery.returns<SumRow[]>(),
     paymentsCurrentMonthQuery.returns<PaymentWithMethodRow[]>(),
     paymentsPreviousMonthQuery.returns<SumRow[]>(),
@@ -187,22 +183,9 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     bajasQuery
   ]);
 
-  const activeEnrollmentIds = (activeEnrollmentIdsResult.data ?? []).map((row) => row.id);
-
-  let pendingBalance = 0;
-  let enrollmentsWithBalance = 0;
-  if (activeEnrollmentIds.length > 0) {
-    const { data: balances } = await supabase
-      .from("v_enrollment_balances")
-      .select("balance")
-      .gt("balance", 0)
-      .in("enrollment_id", activeEnrollmentIds)
-      .returns<{ balance: number | string | null }[]>();
-
-    const balanceRows = balances ?? [];
-    pendingBalance = balanceRows.reduce((sum, row) => sum + toNumber(row.balance), 0);
-    enrollmentsWithBalance = balanceRows.length;
-  }
+  const kpiRow = (balanceKpiResult.data ?? [])[0];
+  const pendingBalance = toNumber(kpiRow?.pending_balance);
+  const enrollmentsWithBalance = Number(kpiRow?.enrollments_with_balance ?? 0);
 
   const currentMonthPayments = paymentsCurrentMonthResult.data ?? [];
   const methodMap = new Map<string, { methodLabel: string; total: number }>();
