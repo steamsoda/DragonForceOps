@@ -36,30 +36,45 @@ export async function connectQZ(): Promise<void> {
   await loadQZScript();
   const qz = window.qz;
 
-  if (qz.websocket.isActive()) return;
+  if (qz.websocket.isActive()) {
+    console.log("[QZ] Already connected, skipping setup");
+    return;
+  }
+
+  console.log("[QZ] Cert present:", !!QZ_CERTIFICATE);
+  console.log("[QZ] Cert first 60 chars:", QZ_CERTIFICATE.slice(0, 60));
 
   if (QZ_CERTIFICATE) {
     // Signed mode — no dialog, permanent trust via Site Manager cert
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
     qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise((toSign: string) =>
-      fetch("/api/sign-qz", {
+    qz.security.setSignaturePromise((toSign: string) => {
+      console.log("[QZ] Signing message, length:", toSign.length);
+      return fetch("/api/sign-qz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: toSign }),
       }).then((res) => {
-        if (!res.ok) return res.text().then((t) => Promise.reject(new Error(t)));
-        return res.text();
-      })
-    );
+        console.log("[QZ] Sign API status:", res.status);
+        if (!res.ok) return res.text().then((t) => { console.error("[QZ] Sign API error:", t); return Promise.reject(new Error(t)); });
+        return res.text().then((sig) => { console.log("[QZ] Signature length:", sig.length); return sig; });
+      }).catch((err) => { console.error("[QZ] Sign fetch failed:", err); return Promise.reject(err); });
+    });
   } else {
-    // Unsigned fallback — QZ Tray will prompt (set Advanced → Allow all)
+    console.warn("[QZ] No certificate — using unsigned fallback (dialog will appear)");
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise((_toSign: string) => Promise.resolve(""));
   }
 
-  await qz.websocket.connect({ retries: 3, delay: 1 });
+  console.log("[QZ] Connecting...");
+  try {
+    await qz.websocket.connect({ retries: 3, delay: 1 });
+    console.log("[QZ] Connected OK");
+  } catch (err) {
+    console.error("[QZ] Connect failed:", err);
+    throw err;
+  }
 }
 
 // ── ESC/POS receipt builder ───────────────────────────────────────────────────
