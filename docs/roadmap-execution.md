@@ -110,26 +110,44 @@ Goal: broader operational support and integrations.
 
 ## Prioritized Backlog (as of 2026-03-17, pre-testing)
 
-### Immediate — Testing Prep (before/during testing week)
+### Tonight — Pre-testing Critical (2026-03-18)
 1. ✅ **Print: QZ Tray ESC/POS receipt + Corte Diario** — two-copy silent receipt, Corte Diario via QZ Tray. Certificate signing working. Physical print test 2026-03-19.
-2. **Nav/panel audit** — several menu items overlap or show incorrect numbers. Full inspection needed: what stays, what merges, what gets cut, what needs rewiring to real data. Do after first testing session when staff feedback is collected.
-3. **Caja cancel UX** — when "Registrar Pago" panel is open and user clicks cancel, page resets to top. Should return to the enrollment panel for that player. Quick fix.
-4. **Caja drill-down detail panel** — not started. When viewing a player's pending charges in Caja, staff need to see charge detail (what period, what type) before deciding what to pay. Design TBD — possibly inline expandable rows.
-5. **Form accessibility** — several form inputs missing `id`/`name` attributes and labels not associated with fields. Low priority (no functional impact), fix in a cleanup pass post-testing.
-6. **Thermal receipt logo** — print INVICTA/Porto logo at top of ESC/POS receipt (requires bitmap conversion for ESC/POS). Post-testing enhancement.
+2. **Dashboard KPI 0s** — Saldo Pendiente and Alumnos con Saldo show 0. Likely the KPI query is month-scoped when balance is a cumulative total and should not be filtered by month. Must fix before production.
+3. **Pendientes tab empty** — shows no players. Query or filter bug. Critical workflow, must fix before testing tomorrow.
+4. **Void payments** — staff will hit mistake correction immediately in live testing. Pattern: director voids payment (un-allocates charges), voids/corrects wrong charge, creates right one. Audit logged throughout. Same pattern as existing void charges.
+5. **UI cleanup**:
+   - Remove "Castigo de Baja" button from Pagos Pendientes (redundant — dedicated tab exists).
+   - Rename "Castigo Bajas" tab → "Bajas & Saldos Pendientes".
+   - Demote "Mensualidades" from main nav to Admin section (pg_cron handles it automatically but keep as manual safety valve).
+6. **Merge preview → production** — after bugs fixed and smoke-tested. Verify production has `NEXT_PUBLIC_QZ_CERTIFICATE` + `QZ_PRIVATE_KEY` env vars.
+
+### Immediate Post-Testing (2026-03-19+)
+1. **Nav/panel audit** — collect staff feedback from first testing day, then audit what stays/merges/gets cut/needs rewiring.
+2. **Server-side route blocking** — nav hides links but routes may not actively block unauthorized users. Every protected route needs a server-side role check (not just hidden nav). Particularly admin routes.
+3. **User management panel** — `/admin/users` for superadmin: see all users, change roles, revoke access. Requires Supabase admin client (service role key). Director cannot access this panel.
+4. **Receipt folio → payment lookup** — folio on receipt is last 8 chars of payment UUID. Actividad log needs to surface payment ID so staff can look up a transaction by its receipt number.
+5. **Caja cancel UX** — cancel during payment returns to player enrollment panel, not page top.
+6. **Caja charge detail** — expandable rows in pending charges showing period + charge type before staff decides what to pay.
+7. **Form accessibility** — form inputs missing `id`/`name`, labels not associated. Low priority, cleanup pass.
+
+### Security Audit (scheduled post-testing)
+1. **Route-level access control** — audit every route in `(protected)/` for server-side role checks, not just nav visibility. Unauthorized users hitting a URL directly should get 403/redirect, not see the page.
+2. **RLS verification** — run through all tables, confirm policies are correct for each role. `front_desk` should have zero read access to `audit_logs`, financial aggregates.
+3. **sign-qz rate limiting** — `/api/sign-qz` has no rate limit. A logged-in user could hammer it. Add basic throttle.
+4. **Full security writeup** — document weak points, mitigations, recommended next steps.
 
 ### Phase 2 (active)
-1. **Thermal printer — QZ Tray (ESC/POS)**: Epson TM-T20IV on-site. Ethernet connection for multi-machine sharing. QZ Tray on each front desk machine. One-click receipt + Corte Diario, no browser dialog.
-   - ✅ Phase 2a: `window.print()` receipt (two copies, line items) + Corte Diario print layout.
-   - Phase 2b: QZ Tray integration (after printer is set up and Ethernet IP confirmed).
-2. ✅ **Player profile expansion** — active team + coach shown on player detail; uniform orders section; goalkeeper badge; no-team warning for active enrollments.
-3. ✅ **Player list tags** — configurable badges: Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme. Toggle from `/admin/configuracion`.
-4. ✅ **Teams system** — full build: list, create, edit, roster, transfer, refuerzo, new-arrival flag. Auto-assign B2 on enrollment. Team linked from player detail.
-5. **Tournament UI** — `tournaments` table + team entries + player entries. Mandatory vs optional. Auto charge generation. Schema exists, no UI yet.
-6. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
-7. **Uniform delivery tracking**: `uniform_orders` table + UI live. Inventory/stock control is Phase 3.
-8. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
-9. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
+1. **Thermal printer — Ethernet setup** — assign static IP to Epson TM-T20IV, update printer name in Admin → Configuración. QZ Tray on each front desk machine shares via network.
+2. **Thermal receipt logo** — ESC/POS bitmap header (INVICTA/Porto logo). Requires image → ESC/POS raster conversion.
+3. ✅ **Player profile expansion** — active team + coach shown on player detail; uniform orders section; goalkeeper badge; no-team warning for active enrollments.
+4. ✅ **Player list tags** — configurable badges: Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme. Toggle from `/admin/configuracion`.
+5. ✅ **Teams system** — full build: list, create, edit, roster, transfer, refuerzo, new-arrival flag. Auto-assign B2 on enrollment. Team linked from player detail.
+6. **Tournament UI** — `tournaments` table + team entries + player entries. Mandatory vs optional. Auto charge generation. Schema exists, no UI yet.
+7. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
+8. **Uniform delivery tracking**: `uniform_orders` table + UI live. Inventory/stock control is Phase 3.
+9. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
+10. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
+11. **Performance pass** — Jugadores tab loads 672 players with parallel queries for balance + tags + teams. Profile and optimize: DB-level pagination, index review, eliminate N+1 patterns.
 
 ### Phase 3+ (deferred)
 - Coach role + attendance module (coach logs in, takes attendance per session)
@@ -139,6 +157,7 @@ Goal: broader operational support and integrations.
 - Jersey number assignment (business rules TBD)
 - Tournament entity full build (auto charge generation)
 - WhatsApp/SMS automated reminders
+
 
 ## Working Rhythm (Recommended)
 - Plan: 1 short planning session per week (30-45 min).
