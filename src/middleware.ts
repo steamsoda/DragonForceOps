@@ -4,6 +4,24 @@ import type { NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export async function middleware(request: NextRequest) {
+  const maintenanceMode = process.env.MAINTENANCE_MODE === "true";
+  const isVercelPreview = process.env.VERCEL_ENV === "preview";
+  const { pathname } = request.nextUrl;
+
+  const bypassMaintenance =
+    isVercelPreview ||
+    pathname === "/maintenance" ||
+    pathname === "/login" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next");
+
+  if (maintenanceMode && !bypassMaintenance) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/maintenance";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const { url, publicKey } = getSupabaseEnv();
