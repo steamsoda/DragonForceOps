@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 // GET — diagnostic only, remove after debugging
 export async function GET() {
   const rawKey = process.env.QZ_PRIVATE_KEY ?? "";
-  const normalized = rawKey.replace(/\\n/g, "\n");
+  let normalized = rawKey.replace(/\\n/g, "\n").trim();
+  if (!normalized.includes("-----BEGIN")) {
+    normalized = `-----BEGIN PRIVATE KEY-----\n${normalized}\n-----END PRIVATE KEY-----`;
+  }
   const hasCert = !!process.env.NEXT_PUBLIC_QZ_CERTIFICATE;
   const keyPreview = normalized.slice(0, 40) + "...";
   const hasNewlines = normalized.includes("\n");
@@ -41,8 +44,12 @@ export async function POST(req: Request) {
     return new Response("QZ_PRIVATE_KEY not configured", { status: 500 });
   }
 
-  // Vercel sometimes collapses newlines — restore proper PEM line breaks
-  const privateKey = rawKey.replace(/\\n/g, "\n");
+  // Restore newlines and PEM headers if stripped by Vercel
+  let privateKey = rawKey.replace(/\\n/g, "\n").trim();
+  if (!privateKey.includes("-----BEGIN")) {
+    // Headers were stripped — wrap as PKCS#8 (QZ Tray demo key format)
+    privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
+  }
 
   const { message } = await req.json();
   if (typeof message !== "string") {
