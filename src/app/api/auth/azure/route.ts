@@ -4,7 +4,12 @@ import { NextResponse } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url);
+  // Use x-forwarded-host so the origin reflects the public URL the user is on
+  // (e.g. dragon-force-ops.vercel.app), not Vercel's internal deployment URL.
+  // This is critical: the redirectTo must match a URL in Supabase's allowed list.
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  const origin = `${proto}://${host}`;
   const { url, publicKey } = getSupabaseEnv();
 
   // Collect the PKCE code verifier cookie that signInWithOAuth wants to set
