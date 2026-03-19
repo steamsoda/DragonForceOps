@@ -134,48 +134,32 @@ export async function applyEarlyBirdDiscountIfEligible(
   );
   if (!eligibleCharge) return;
 
-  // Check: discount not already applied for this enrollment + period
-  const { data: existingDiscount } = await supabase
-    .from("charges")
-    .select("id")
-    .eq("enrollment_id", enrollmentId)
-    .eq("period_month", currentPeriodMonth)
-    .neq("status", "void")
-    .in(
-      "charge_type_id",
-      (await supabase
-        .from("charge_types")
-        .select("id")
-        .eq("code", "early_bird_discount")
-        .eq("is_active", true)
-        .maybeSingle()
-        .then((r) => (r.data ? [r.data.id] : [])))
-    )
-    .maybeSingle()
-    .returns<DiscountCheckRow | null>();
+  // Fetch discount charge type + enrollment pricing plan in parallel (both needed regardless)
+  const [{ data: discountType }, { data: enrollment }] = await Promise.all([
+    supabase.from("charge_types").select("id").eq("code", "early_bird_discount").eq("is_active", true).maybeSingle(),
+    supabase.from("enrollments").select("pricing_plan_id").eq("id", enrollmentId).maybeSingle()
+  ]);
+  if (!discountType || !enrollment) return;
+
+  // Check existence + fetch tuition rules in parallel (both depend on above results)
+  const [{ data: existingDiscount }, { data: rules }] = await Promise.all([
+    supabase
+      .from("charges")
+      .select("id")
+      .eq("enrollment_id", enrollmentId)
+      .eq("period_month", currentPeriodMonth)
+      .eq("charge_type_id", discountType.id)
+      .neq("status", "void")
+      .maybeSingle()
+      .returns<DiscountCheckRow | null>(),
+    supabase
+      .from("pricing_plan_tuition_rules")
+      .select("amount, day_to")
+      .eq("pricing_plan_id", enrollment.pricing_plan_id)
+      .returns<TuitionRuleRow[]>()
+  ]);
 
   if (existingDiscount) return; // Discount already applied
-
-  // Get charge type IDs
-  const [{ data: discountType }, { data: tuitionType }] = await Promise.all([
-    supabase.from("charge_types").select("id").eq("code", "early_bird_discount").eq("is_active", true).maybeSingle(),
-    supabase.from("charge_types").select("id").eq("code", "monthly_tuition").eq("is_active", true).maybeSingle()
-  ]);
-  if (!discountType || !tuitionType) return;
-
-  // Get the enrollment's pricing plan to look up tuition tiers
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("pricing_plan_id")
-    .eq("id", enrollmentId)
-    .maybeSingle();
-  if (!enrollment) return;
-
-  const { data: rules } = await supabase
-    .from("pricing_plan_tuition_rules")
-    .select("amount, day_to")
-    .eq("pricing_plan_id", enrollment.pricing_plan_id)
-    .returns<TuitionRuleRow[]>();
 
   const allRules = rules ?? [];
   const earlyBirdRule = allRules.find((r) => r.day_to !== null); // rule with a day_to cap = early bird
