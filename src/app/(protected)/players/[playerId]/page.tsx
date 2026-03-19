@@ -52,7 +52,7 @@ export default async function PlayerDetailPage({
   searchParams
 }: {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ ok?: string; err?: string }>;
+  searchParams: Promise<{ ok?: string; err?: string; }>;
 }) {
   const { playerId } = await params;
   const sp = await searchParams;
@@ -91,6 +91,11 @@ export default async function PlayerDetailPage({
       {sp.ok === "updated" && (
         <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
           ✓ Datos del jugador actualizados.
+        </div>
+      )}
+      {sp.ok === "merged" && (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
+          ✓ Jugadores fusionados correctamente. Este es el registro master.
         </div>
       )}
       {activeEnrollment && !player.activeTeam && (
