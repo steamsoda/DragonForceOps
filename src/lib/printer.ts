@@ -39,7 +39,6 @@ export async function connectQZ(): Promise<void> {
   if (qz.websocket.isActive()) return;
 
   if (QZ_CERTIFICATE) {
-    // Signed mode — no dialog, permanent trust via Site Manager cert
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise((toSign: string) =>
@@ -55,7 +54,6 @@ export async function connectQZ(): Promise<void> {
       }
     );
   } else {
-    // Unsigned fallback — QZ Tray will prompt (set Advanced → Allow all)
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(""));
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise((_toSign: string) => (resolve: (sig: string) => void) => resolve(""));
@@ -65,43 +63,99 @@ export async function connectQZ(): Promise<void> {
 }
 
 // ── Item types ────────────────────────────────────────────────────────────────
+// QZ Tray raw printing supports: "plain" | "base64" | "hex" | "file" | "xml"
+// Images must be pre-converted to ESC/POS raster bytes and sent as "base64".
 
 type QZDataItem =
   | { type: "raw"; format: "plain"; data: string }
-  | { type: "raw"; format: "image"; data: string; options: { language: "ESCPOS"; dotDensity: string } };
+  | { type: "raw"; format: "base64"; data: string };
 
 function t(data: string): QZDataItem {
   return { type: "raw", format: "plain", data };
 }
 
-function logoItem(dataUrl: string): QZDataItem {
-  return { type: "raw", format: "image", data: dataUrl, options: { language: "ESCPOS", dotDensity: "double" } };
-}
+// ── ESC/POS image conversion ──────────────────────────────────────────────────
+// Converts an image URL to a GS v 0 ESC/POS raster command (base64 encoded).
+// Uses Canvas to dither to 1-bit monochrome, then builds the binary header + bitmap.
 
-// ── Logo loader (cached after first fetch) ────────────────────────────────────
-
-let cachedLogo: string | null | undefined;
-
-async function fetchLogoDataUrl(): Promise<string | null> {
-  if (cachedLogo !== undefined) return cachedLogo;
+async function imageUrlToESCPOS(url: string, maxWidth = 384): Promise<string | null> {
   try {
-    const res = await fetch("/logos-porto-recibo.png");
-    if (!res.ok) { cachedLogo = null; return null; }
-    const blob = await res.blob();
-    cachedLogo = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    if (typeof window === "undefined" || typeof document === "undefined") return null;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Image load failed"));
+      img.src = url;
     });
-    return cachedLogo;
+
+    // Scale to fit maxWidth, maintaining aspect ratio
+    const scale = Math.min(1, maxWidth / img.naturalWidth);
+    const w = Math.floor(img.naturalWidth * scale);
+    const h = Math.floor(img.naturalHeight * scale);
+
+    // Draw to offscreen canvas with white background
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const { data: pixels } = ctx.getImageData(0, 0, w, h);
+
+    // Build 1-bit bitmap: MSB = leftmost pixel, 1 = black
+    const bytesPerRow = Math.ceil(w / 8);
+    const bitmap = new Uint8Array(bytesPerRow * h);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        const gray = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+        if (gray < 128) {
+          bitmap[y * bytesPerRow + Math.floor(x / 8)] |= 1 << (7 - (x % 8));
+        }
+      }
+    }
+
+    // GS v 0: 1D 76 30 00 xL xH yL yH [bitmap]
+    const xL = bytesPerRow & 0xff;
+    const xH = (bytesPerRow >> 8) & 0xff;
+    const yL = h & 0xff;
+    const yH = (h >> 8) & 0xff;
+    const header = new Uint8Array([0x1d, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+
+    const combined = new Uint8Array(header.length + bitmap.length);
+    combined.set(header);
+    combined.set(bitmap, header.length);
+
+    // Encode as base64 in chunks (avoids stack overflow on large images)
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < combined.length; i += chunkSize) {
+      binary += String.fromCharCode(...combined.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+
   } catch {
-    cachedLogo = null;
     return null;
   }
 }
 
-// ── ESC/POS helpers ───────────────────────────────────────────────────────────
+// ── Logo loader (cached after first conversion) ───────────────────────────────
+
+let cachedLogoESCPOS: string | null | undefined;
+
+async function fetchLogoESCPOS(): Promise<string | null> {
+  if (cachedLogoESCPOS !== undefined) return cachedLogoESCPOS;
+  cachedLogoESCPOS = await imageUrlToESCPOS("/logos-porto-recibo.png", 384);
+  return cachedLogoESCPOS;
+}
+
+// ── ESC/POS text helpers ──────────────────────────────────────────────────────
 
 const ESC = "\x1B";
 const GS  = "\x1D";
@@ -136,34 +190,38 @@ export type ReceiptData = {
   time: string;
 };
 
-function buildReceiptHeader(campusName: string, logoDataUrl: string | null): QZDataItem[] {
-  const items: QZDataItem[] = [t(`${ESC}@`), t(`${ESC}a\x01`)]; // init + center
+function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDataItem[] {
+  const items: QZDataItem[] = [t(`${ESC}@`)]; // initialize printer
 
-  if (logoDataUrl) {
-    items.push(logoItem(logoDataUrl));
-    items.push(t(`\n${campusName}\n`));
+  if (logoESCPOS) {
+    // Image is left-aligned by default; the logo PNG already has centered content on white bg
+    items.push({ type: "raw", format: "base64", data: logoESCPOS });
+    items.push(t(`${ESC}a\x01`)); // center for campus name
+    items.push(t(`${campusName}\n`));
+    items.push(t(`${ESC}a\x00`)); // back to left
   } else {
     items.push(
-      t(`${ESC}!\x10`),
+      t(`${ESC}a\x01`),       // center
+      t(`${ESC}!\x10`),       // double-height font
       t("INVICTA\n"),
-      t(`${ESC}!\x00`),
+      t(`${ESC}!\x00`),       // normal font
       t("FC Porto Dragon Force\n"),
       t(`${campusName}\n`),
+      t(`${ESC}a\x00`),       // left align
     );
   }
   return items;
 }
 
-function buildReceipt(r: ReceiptData, logoDataUrl: string | null): QZDataItem[] {
+function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: r.currency }).format(n);
   const shortId = r.paymentId.slice(-8).toUpperCase();
 
-  const header = buildReceiptHeader(r.campusName, logoDataUrl);
+  const header = buildReceiptHeader(r.campusName, logoESCPOS);
 
   const meta: QZDataItem[] = [
     t(divider() + "\n"),
-    t(`${ESC}a\x00`), // left align
     t(`Alumno: ${r.playerName}\n`),
     t(`Fecha:  ${r.date}\n`),
     t(`Hora:   ${r.time}\n`),
@@ -213,19 +271,16 @@ export type CorteData = {
   payments: { playerName: string; amount: number; methodLabel: string; paidAt: string }[];
 };
 
-function buildCorte(c: CorteData, logoDataUrl: string | null): QZDataItem[] {
+function buildCorte(c: CorteData, logoESCPOS: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: c.currency }).format(n);
 
   const now = new Date();
   const printedAt = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 
-  const header = buildReceiptHeader(c.campusLabel, logoDataUrl);
-
   const items: QZDataItem[] = [
-    ...header,
+    ...buildReceiptHeader(c.campusLabel, logoESCPOS),
     t(divider() + "\n"),
-    t(`${ESC}a\x00`), // left align
     t(`CORTE DIARIO: ${c.date}\n`),
     t(`Impreso: ${printedAt}\n`),
     t(divider() + "\n"),
@@ -276,11 +331,11 @@ async function sendToQZ(printerName: string, items: QZDataItem[]): Promise<void>
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
-  const logo = await fetchLogoDataUrl();
+  const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildReceipt(data, logo));
 }
 
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {
-  const logo = await fetchLogoDataUrl();
+  const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildCorte(data, logo));
 }
