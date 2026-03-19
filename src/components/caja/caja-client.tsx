@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { PrintReceiptButton } from "./print-receipt-button";
-import { printReceipt, type ReceiptData } from "@/lib/printer";
+import { type ReceiptData } from "@/lib/printer";
 import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
@@ -872,12 +872,6 @@ function ReceiptPanel({
     time: timeStr,
   };
 
-  // Auto-print on mount
-  useEffect(() => {
-    printReceipt(printerName, receiptData).catch(() => {/* errors surface via PrintReceiptButton if user retries */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-4 text-center">
@@ -903,7 +897,7 @@ function ReceiptPanel({
       )}
 
       <div className="flex gap-3">
-        <PrintReceiptButton data={receiptData} printerName={printerName} />
+        <PrintReceiptButton data={receiptData} printerName={printerName} autoPrint />
         <button
           onClick={onBack}
           className="flex-1 rounded-xl border border-portoBlue py-2.5 text-sm font-semibold text-portoBlue hover:bg-blue-50"
