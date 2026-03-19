@@ -2,10 +2,10 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-19)
-- App version: v0.8. Live testing begins 2026-03-19 (first full day with physical printer).
+## Current State (as of 2026-03-19, session 12)
+- App version: v0.9. Live testing day 1. Production hardened and stable.
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
-- Real data: 687 players, 473+ guardians, 687 enrollments (10 beca), 31 teams, 1,860+ charges, 1,080+ payments. Seed run today via SQL editor.
+- Real data: 687 players, 473+ guardians, 687 enrollments (10 beca), 31 teams, 1,860+ charges, 1,080+ payments. Seed data corrected — pending tuition charges updated $600 → $750.
 - Caja POS: player search + category drill-down (campus → birth year → player), pending charges, payment posting, thermal receipt.
 - Cash session management: open/close per campus, linked cash payments, variance notes, Corte Diario integration.
 - Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.
@@ -13,17 +13,19 @@ This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 - Activity log: human-readable audit feed, date range + actor + action type filters.
 - Products catalog: categories + sizes + charge type linking, POS grid in Caja.
 - Role system: `superadmin`, `director_admin`, `front_desk`. RLS enforced. Role-aware nav.
-- **User admin panel**: `/admin/users` — superadmin sees pending + active users, grants/revokes roles. Uses `list_auth_users()` SECURITY DEFINER function. No service role key required.
-- **OAuth first-login fix**: Supabase SSR middleware (`src/middleware.ts`) added — resolves `oauth_exchange_failed` PKCE error on first login.
-- **Unified login page**: `/` merges landing + login — server-side auth check, branded UI, no redirect bounce.
+- **User admin panel**: `/admin/users` — superadmin sees pending + active users, grants/revokes roles.
+- **Login fixed**: OAuth callback now writes session cookies directly onto redirect response — single-click login, no redirect loop.
+- **Unified login page**: `/` merges landing + login — server-side auth check, branded UI.
 - Void charges: director-only, any pending charge, with required reason. Audit logged.
 - Batch baja write-off: `/pending/bajas` — bulk void for ended/cancelled enrollments.
 - Player tags: configurable badges (Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme) toggled from `/admin/configuracion`.
 - Goalkeeper flag: `players.is_goalkeeper`, editable, shown as badge on player detail.
 - Uniform orders: `ordered → delivered` lifecycle per player, UI on player detail page.
 - **Teams system**: full team CRUD + roster management — list, create, edit, transfer, refuerzo pattern, new-arrival flag. Auto-assign B2 on enrollment. Team shown on player detail.
-- **Thermal printer (NEW)**: QZ Tray ESC/POS integration. Silent two-copy receipt (COPIA CLIENTE + COPIA ACADEMIA). Auto-print on payment. Manual reprint button. Corte Diario via QZ Tray. Certificate signing via `/api/sign-qz`. Printer name configurable in admin settings. Physical Ethernet setup pending.
-- **Production DB seeded**: 687 players, 687 enrollments (10 beca), 473 guardians, 31 teams, 1,860 charges, 1,080 payments imported from master CSV.
+- **Thermal printer**: QZ Tray ESC/POS integration. Silent two-copy receipt. Auto-print on payment. Corte Diario via QZ Tray. Ethernet setup guide written. Physical setup pending static IP assignment.
+- **Player edit**: full edit form (name, birth date, gender, goalkeeper, uniform size, medical notes). Director-only.
+- **Player merge**: `/admin/merge-players` — atomic DB function merges duplicate players, re-points all FK references, audit logged. Director-only.
+- **Performance**: covering indexes on charges/payments for index-only balance scans. Pending RPC rewritten to single GROUP BY CTE. Loading skeleton screens on all major pages.
 
 ## Delivery Principles
 - Build and validate in `preview` first.
@@ -112,46 +114,41 @@ Goal: broader operational support and integrations.
 10. **Tournament Entity**
 - `tournaments` table, team entries, mandatory vs optional, auto charge generation.
 
-## Prioritized Backlog (as of 2026-03-17, pre-testing)
+## Prioritized Backlog (as of 2026-03-19, session 12)
 
-### Tonight — Pre-testing Critical (2026-03-18)
-1. ✅ **Print: QZ Tray ESC/POS receipt + Corte Diario** — two-copy silent receipt, Corte Diario via QZ Tray. Certificate signing working. Physical print test 2026-03-19.
-2. **Dashboard KPI 0s** — Saldo Pendiente and Alumnos con Saldo show 0. Likely the KPI query is month-scoped when balance is a cumulative total and should not be filtered by month. Must fix before production.
-3. **Pendientes tab empty** — shows no players. Query or filter bug. Critical workflow, must fix before testing tomorrow.
-4. **Void payments** — staff will hit mistake correction immediately in live testing. Pattern: director voids payment (un-allocates charges), voids/corrects wrong charge, creates right one. Audit logged throughout. Same pattern as existing void charges.
-5. **UI cleanup**:
-   - Remove "Castigo de Baja" button from Pagos Pendientes (redundant — dedicated tab exists).
-   - Rename "Castigo Bajas" tab → "Bajas & Saldos Pendientes".
-   - Demote "Mensualidades" from main nav to Admin section (pg_cron handles it automatically but keep as manual safety valve).
-6. ✅ **Merge preview → production** — merged 2026-03-19. All session work live.
+### Session 12 — Completed ✅
+1. ✅ **Login redirect loop** — OAuth callback now writes session cookies onto the redirect response. Single-click login.
+2. ✅ **Player full edit** — name, birth date, gender, goalkeeper, uniform size, medical notes. Director-only page + action.
+3. ✅ **Player merge** — `/admin/merge-players`. Atomic DB function, full FK re-pointing, audit logged.
+4. ✅ **Performance pass** — covering indexes for index-only balance scans; pending RPC rewritten to GROUP BY CTE; loading skeletons on all major pages.
+5. ✅ **Tuition data fix** — pending monthly_tuition charges corrected $600 → $750 (first month per enrollment kept at $600).
+6. ✅ **Thermal printer Ethernet guide** — step-by-step setup guide written. Physical setup pending.
 
-### Immediate Post-Testing (2026-03-19+)
+### Post-Testing Backlog (2026-03-19+)
 1. **Nav/panel audit** — collect staff feedback from first testing day, then audit what stays/merges/gets cut/needs rewiring.
-2. **Server-side route blocking** — nav hides links but routes may not actively block unauthorized users. Every protected route needs a server-side role check (not just hidden nav). Particularly admin routes.
-3. ✅ **User management panel** — `/admin/users` live. Superadmin only. Pending + active users, grant/revoke roles. Uses `list_auth_users()` SECURITY DEFINER function.
-4. **Receipt folio → payment lookup** — folio on receipt is last 8 chars of payment UUID. Actividad log needs to surface payment ID so staff can look up a transaction by its receipt number.
-5. **Caja cancel UX** — cancel during payment returns to player enrollment panel, not page top.
-6. **Caja charge detail** — expandable rows in pending charges showing period + charge type before staff decides what to pay.
-7. **Form accessibility** — form inputs missing `id`/`name`, labels not associated. Low priority, cleanup pass.
+2. **Server-side route blocking** — nav hides links but routes may not actively block unauthorized users. Every protected route needs a server-side role check. Particularly admin routes.
+3. **Receipt folio → payment lookup** — folio on receipt is last 8 chars of payment UUID. Actividad log needs to surface payment ID so staff can look up a transaction by its receipt number.
+4. **Caja cancel UX** — cancel during payment returns to player enrollment panel, not page top.
+5. **Caja charge detail** — expandable rows in pending charges showing period + charge type before staff decides what to pay.
+6. **Dashboard KPI 0s** — Saldo Pendiente and Alumnos con Saldo may still show 0 (balance is cumulative, not month-scoped). Verify after first testing session.
 
 ### Security Audit (scheduled post-testing)
-1. **Route-level access control** — audit every route in `(protected)/` for server-side role checks, not just nav visibility. Unauthorized users hitting a URL directly should get 403/redirect, not see the page.
+1. **Route-level access control** — audit every route in `(protected)/` for server-side role checks, not just nav visibility.
 2. **RLS verification** — run through all tables, confirm policies are correct for each role. `front_desk` should have zero read access to `audit_logs`, financial aggregates.
-3. **sign-qz rate limiting** — `/api/sign-qz` has no rate limit. A logged-in user could hammer it. Add basic throttle.
+3. **sign-qz rate limiting** — `/api/sign-qz` has no rate limit. Add basic throttle.
 4. **Full security writeup** — document weak points, mitigations, recommended next steps.
 
 ### Phase 2 (active)
-1. **Thermal printer — Ethernet setup** — assign static IP to Epson TM-T20IV, update printer name in Admin → Configuración. QZ Tray on each front desk machine shares via network.
+1. **Thermal printer — Ethernet setup** — assign static IP to Epson TM-T20IV, update printer name in Admin → Configuración. QZ Tray on each front desk machine shares via network. Guide written in session 12.
 2. **Thermal receipt logo** — ESC/POS bitmap header (INVICTA/Porto logo). Requires image → ESC/POS raster conversion.
-3. ✅ **Player profile expansion** — active team + coach shown on player detail; uniform orders section; goalkeeper badge; no-team warning for active enrollments.
-4. ✅ **Player list tags** — configurable badges: Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme. Toggle from `/admin/configuracion`.
-5. ✅ **Teams system** — full build: list, create, edit, roster, transfer, refuerzo, new-arrival flag. Auto-assign B2 on enrollment. Team linked from player detail.
+3. ✅ **Player profile expansion** — active team + coach shown on player detail; uniform orders section; goalkeeper badge; no-team warning.
+4. ✅ **Player list tags** — configurable badges: Al corriente/Pendiente, Selectivo/Clases, Portero, Uniforme.
+5. ✅ **Teams system** — full build: list, create, edit, roster, transfer, refuerzo, new-arrival flag.
 6. **Tournament UI** — `tournaments` table + team entries + player entries. Mandatory vs optional. Auto charge generation. Schema exists, no UI yet.
 7. **Campus-scoped access**: deferred until testing stabilizes across both campuses.
 8. **Uniform delivery tracking**: `uniform_orders` table + UI live. Inventory/stock control is Phase 3.
 9. **CSV/PDF exports**: Corte Diario goes through thermal printer. Other reports TBD post-testing.
 10. **External payment reconciliation**: ingestion path for 360Player/Stripe events.
-11. **Performance pass** — Jugadores tab loads 672 players with parallel queries for balance + tags + teams. Profile and optimize: DB-level pagination, index review, eliminate N+1 patterns.
 
 ### Phase 3+ (deferred)
 - Coach role + attendance module (coach logs in, takes attendance per session)

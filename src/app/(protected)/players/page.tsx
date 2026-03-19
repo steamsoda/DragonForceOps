@@ -2,6 +2,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import Link from "next/link";
 import { listCampuses, listBirthYears, listPlayers, listBajas } from "@/lib/queries/players";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
+import { PlayersDrilldown } from "@/components/players/players-drilldown";
 
 const DROPOUT_LABELS: Record<string, string> = {
   cost: "Costo",
@@ -120,73 +121,76 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </Link>
         </div>
 
-        <div className="flex items-center justify-between">
-          <form className="flex flex-wrap gap-3">
-            <input type="hidden" name="view" value={view} />
-            <select
-              name="year"
-              defaultValue={birthYear}
-              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
-            >
-              <option value="">Todas las categorías</option>
-              {birthYears.map((y) => (
-                <option key={y} value={String(y)}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <select
-              name="campus"
-              defaultValue={campusId}
-              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
-            >
-              <option value="">Todos los campus</option>
-              {campuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>
-                  {campus.name}
-                </option>
-              ))}
-            </select>
-            <select
-              name="gender"
-              defaultValue={gender}
-              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
-            >
-              <option value="">Todos</option>
-              <option value="male">Varonil</option>
-              <option value="female">Femenil</option>
-            </select>
-            <input
-              type="text"
-              name="q"
-              defaultValue={q}
-              placeholder="Nombre o apellido"
-              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
-            />
-            {view === "active" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <form className="flex flex-wrap gap-3">
+              <input type="hidden" name="view" value={view} />
+              <select
+                name="year"
+                defaultValue={birthYear}
+                className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+              >
+                <option value="">Todas las categorías</option>
+                {birthYears.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="campus"
+                defaultValue={campusId}
+                className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+              >
+                <option value="">Todos los campus</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="gender"
+                defaultValue={gender}
+                className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+              >
+                <option value="">Todos</option>
+                <option value="male">Varonil</option>
+                <option value="female">Femenil</option>
+              </select>
               <input
                 type="text"
-                name="phone"
-                defaultValue={phone}
-                placeholder="Telefono de tutor"
+                name="q"
+                defaultValue={q}
+                placeholder="Nombre o apellido"
                 className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
               />
+              {view === "active" && (
+                <input
+                  type="text"
+                  name="phone"
+                  defaultValue={phone}
+                  placeholder="Telefono de tutor"
+                  className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+                />
+              )}
+              <button
+                type="submit"
+                className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+              >
+                Filtrar
+              </button>
+            </form>
+            {view === "active" && (
+              <Link
+                href="/players/new"
+                className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+              >
+                + Nuevo jugador
+              </Link>
             )}
-            <button
-              type="submit"
-              className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-            >
-              Filtrar
-            </button>
-          </form>
-          {view === "active" && (
-            <Link
-              href="/players/new"
-              className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-            >
-              + Nuevo jugador
-            </Link>
-          )}
+          </div>
+          {view === "active" && <PlayersDrilldown />}
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
