@@ -1,5 +1,7 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -10,12 +12,27 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/?error=missing_code`);
   }
 
-  let supabase: Awaited<ReturnType<typeof createClient>>;
-  try {
-    supabase = await createClient();
-  } catch {
-    return NextResponse.redirect(`${origin}/?error=supabase_config`);
-  }
+  const cookieStore = await cookies();
+  const { url, publicKey } = getSupabaseEnv();
+
+  // Build the redirect response first so we can write session cookies directly onto it.
+  // The previous pattern used createClient() which writes cookies to cookieStore, then
+  // returned a new NextResponse.redirect() — a separate object that never included those
+  // cookies. The browser never received the session, causing the redirect loop.
+  const redirectTo = NextResponse.redirect(`${origin}${next}`);
+
+  const supabase = createServerClient(url, publicKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          redirectTo.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -23,5 +40,5 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/?error=oauth_exchange_failed`);
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  return redirectTo;
 }
