@@ -26,7 +26,7 @@ export async function GET(request: Request) {
             };
           });
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
         pendingCookies.push(...cookiesToSet);
       },
     },
