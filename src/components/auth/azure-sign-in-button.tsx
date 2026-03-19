@@ -1,45 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useFormStatus } from "react-dom";
+import { signInWithAzureAction } from "@/server/actions/auth";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-70"
+    >
+      {pending ? "Redirigiendo..." : "Entrar con Microsoft 365"}
+    </button>
+  );
+}
 
 export function AzureSignInButton() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  async function signIn() {
-    try {
-      setIsLoading(true);
-      setErrorMessage(null);
-      const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: { redirectTo }
-      });
-
-      if (error) {
-        setErrorMessage(error.message);
-      }
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el acceso con Microsoft.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   return (
-    <>
-      <button
-        type="button"
-        onClick={signIn}
-        disabled={isLoading}
-        className="inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {isLoading ? "Redirigiendo..." : "Entrar con Microsoft 365"}
-      </button>
-      {errorMessage ? <p className="text-sm text-red-700">{errorMessage}</p> : null}
-    </>
+    <form action={signInWithAzureAction}>
+      <SubmitButton />
+    </form>
   );
 }

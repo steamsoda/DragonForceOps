@@ -5,11 +5,17 @@ import { getPrinterName } from "@/lib/queries/settings";
 
 export const metadata = { title: "Caja — Dragon Force Ops" };
 
-export default async function CajaPage() {
-  const [statuses, printerName] = await Promise.all([
+export default async function CajaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ enrollmentId?: string }>;
+}) {
+  const [statuses, printerName, sp] = await Promise.all([
     getCampusSessionStatuses(),
     getPrinterName(),
+    searchParams,
   ]);
+  const initialEnrollmentId = sp.enrollmentId;
   const anyOpen = statuses.some((s) => s.session !== null);
 
   return (
@@ -63,7 +69,7 @@ export default async function CajaPage() {
           </div>
         )}
 
-        <CajaClient printerName={printerName} />
+        <CajaClient printerName={printerName} initialEnrollmentId={initialEnrollmentId} />
       </div>
     </main>
   );

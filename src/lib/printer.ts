@@ -248,7 +248,7 @@ function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
     } else {
       items.push(t(center(`Credito: ${fmt(Math.abs(r.remainingBalance))}`) + "\n"));
     }
-    items.push(t(divider() + "\n"), t(center("Gracias por su pago") + "\n"), t(center(label) + "\n"), t("\n\n"));
+    items.push(t(divider() + "\n"), t(center("Gracias por su pago") + "\n"), t(center(label) + "\n"), t("\n\n\n\n"));
     return items;
   }
 
