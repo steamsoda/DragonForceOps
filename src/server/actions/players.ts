@@ -71,18 +71,34 @@ export async function createPlayerAction(formData: FormData) {
 export async function updatePlayerAction(playerId: string, formData: FormData): Promise<void> {
   const BASE = `/players/${playerId}`;
 
+  const firstName = formData.get("firstName")?.toString().trim();
+  const lastName = formData.get("lastName")?.toString().trim();
+  const birthDate = formData.get("birthDate")?.toString().trim();
   const uniformSize = formData.get("uniformSize")?.toString().trim() || null;
   const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
   const gender = formData.get("gender")?.toString().trim() || null;
   const isGoalkeeper = formData.get("isGoalkeeper") === "1";
 
+  if (!firstName || !lastName || !birthDate) redirect(`${BASE}/edit?err=missing_fields`);
+
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
 
+  const { data: isDirector } = await supabase.rpc("is_director_admin");
+  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+
   const { error } = await supabase
     .from("players")
-    .update({ uniform_size: uniformSize, medical_notes: medicalNotes, gender: gender || null, is_goalkeeper: isGoalkeeper })
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      birth_date: birthDate,
+      uniform_size: uniformSize,
+      medical_notes: medicalNotes,
+      gender: gender || null,
+      is_goalkeeper: isGoalkeeper
+    })
     .eq("id", playerId);
 
   if (error) redirect(`${BASE}/edit?err=update_failed`);

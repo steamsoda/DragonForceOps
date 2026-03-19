@@ -464,6 +464,8 @@ export async function getPlayerDetail(playerId: string) {
 
   return {
     id: player.id,
+    firstName: player.first_name,
+    lastName: player.last_name,
     fullName: `${player.first_name} ${player.last_name}`,
     birthDate: player.birth_date,
     status: player.status,
