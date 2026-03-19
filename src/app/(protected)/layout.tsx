@@ -36,6 +36,7 @@ const DIRECTOR_SECTIONS: NavSection[] = [
       { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
       { href: "/products", label: "Productos" },
       { href: "/pending/bajas", label: "Bajas & Saldos Pendientes" },
+      { href: "/admin/merge-players", label: "Fusionar Jugadores" },
       { href: "/activity", label: "Actividad" },
       { href: "/admin/configuracion", label: "Configuración" }
     ]
