@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-03-19 (session 12)
+
+### Bug Fixes, Performance, Player Merge, Tuition Data Fix
+
+**Build failures — Next.js 16 proxy convention**
+- `src/middleware.ts` and `src/proxy.ts` can't coexist — Next.js 16 deprecated `middleware` in favor of `proxy`. Deleted `proxy.ts` from session 11, renamed `middleware.ts` → `proxy.ts`, export renamed `middleware` → `proxy`. Added explicit `CookieOptions` type to `setAll` (TS strict mode requires it). Same fix re-applied to `src/app/auth/callback/route.ts`.
+
+**Login redirect loop fix — auth callback cookie propagation**
+- Root cause: `exchangeCodeForSession()` was called via `createClient()` which writes session cookies to Next.js `cookieStore`. The handler then returned a new `NextResponse.redirect()` — a separate object that never included those cookies. Browser never received the session; `/dashboard` saw no auth and redirected back to `/`.
+- Fix: pre-build the `redirectTo` response first; pass a Supabase client whose `setAll()` writes directly onto that response. Session cookies now travel with the redirect on the first attempt.
+- File: `src/app/auth/callback/route.ts`
+
+**Player edit page — name + birth date fields**
+- Edit page previously only exposed gender, goalkeeper flag, uniform size, medical notes. Added first name, last name, birth date (all required).
+- `getPlayerDetail` now exposes `firstName` / `lastName` separately in addition to `fullName`.
+- `updatePlayerAction` gated to `is_director_admin()` on both page and action.
+- File: `src/app/(protected)/players/[playerId]/edit/page.tsx`, `src/server/actions/players.ts`, `src/lib/queries/players.ts`
+
+**Performance — covering indexes**
+- Migration `20260319050000`: added partial covering indexes on `charges(enrollment_id, status) INCLUDE(amount) WHERE status <> 'void'` and `payments(enrollment_id, status) INCLUDE(amount) WHERE status = 'posted'`. Enables index-only scans for all balance aggregation — eliminates heap fetches. Also added partial index on `enrollments(campus_id, player_id) WHERE status = 'active'` for player list count.
+- `list_pending_enrollments_full` RPC rewritten (migration `20260319030000`): replaced `v_enrollment_balances` correlated subqueries with a single `GROUP BY` CTE. Previous approach ran N×2 sub-queries per RPC call (~1000+ with 500 active enrollments). New version does one pass over charges + payments.
+- `applyEarlyBirdDiscountIfEligible`: cut from 5 sequential round trips to 3 using `Promise.all` for discountType + enrollment fetch, then existingDiscount check + rules fetch in parallel. Removed redundant `tuitionType` fetch (was fetched but never used).
+- Added `loading.tsx` skeleton screens on Players, Pending, Dashboard, Caja — immediate animated placeholder on navigation instead of blank screen.
+
+**Duplicate player merge — `/admin/merge-players`**
+- New `merge_players(p_master_id, p_duplicate_id, p_actor_id, p_reason)` DB function (migration `20260319040000`): atomic transaction re-points all FK references (enrollments, player_guardians with ON CONFLICT skip, uniform_orders), writes audit log, deletes duplicate. Blocks if both players have active enrollments simultaneously.
+- Director-only UI at `/admin/merge-players`: two-step server-rendered search using URL params for state. Search → select master → search → select duplicate → comparison view → confirm. Added to Admin nav. Success redirects to master player page with confirmation banner.
+
+**Tuition data fix — seeded charges corrected $600 → $750**
+- Seed script had `TUITION_AMOUNT = 600.00` hardcoded — all 1,860 charges were created at $600. The system rule is: monthly_tuition charges created at $750 (regular rate); early-bird -$150 credit applied at payment time on days 1–10.
+- Paid charges left at $600 (self-consistent with $600 payments, balance = $0).
+- Migration `20260319050000`: UPDATE all pending monthly_tuition charges from $600 → $750, EXCEPT the minimum period_month per enrollment (first month at enrollment, legitimately $600).
+- Discount flow confirmed unaffected: pg_cron creates new charges at $750; applyEarlyBirdDiscountIfEligible only runs against current period month charges.
+
+---
+
 ## 2026-03-19 (session 11)
 
 ### Production Hardening + DB Seed (v0.8 release)

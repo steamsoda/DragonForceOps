@@ -5,16 +5,16 @@ This is the consolidated, living SDD. It merges and preserves the content from:
 - `docs/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
 
 ## 0) Status
-- Current stage: v0.8 — Phase 1B complete + production hardening (2026-03-19). Internal testing begins 2026-03-19.
-- Auth: Supabase Auth with Azure provider, fully wired (preview + prod). SSR middleware (`src/middleware.ts`) required for PKCE OAuth — propagates code verifier cookie through redirect chain. Login at `/` (server component: checks auth → dashboard or branded login UI).
-- Production DB seeded: 687 players, 687 enrollments (10 beca), 473 guardians, 31 teams, 1,860 charges, 1,080 payments.
+- Current stage: v0.9 — Live testing day 1 (2026-03-19). Production stable.
+- Auth: Supabase Auth with Azure provider, fully wired (preview + prod). `src/proxy.ts` (Next.js 16 proxy convention) handles PKCE session cookie propagation. Auth callback fixed — cookies written directly onto redirect response, single-click login confirmed working.
+- Production DB seeded and corrected: 687 players, 687 enrollments (10 beca), 473 guardians, 31 teams, 1,860 charges, 1,080 payments. Pending monthly_tuition charges corrected to $750 (seed had hardcoded $600).
 - Environments:
-  - Production DB: Supabase main project
+  - Production DB: Supabase project `hjvytfaalnfcqfgbxsmj` (Dragon_Force_MTY_Ops, East US Ohio)
   - Preview DB: Supabase preview branch (Pro plan)
-  - Hosting: Vercel (prod + preview deployments)
-- Live and working as of 2026-03-17:
+  - Hosting: Vercel (prod + preview deployments, auto-migrations on push to main)
+- Live and working as of 2026-03-19 (session 12):
   - Core billing loop: enrollment → charges → payments → ledger → pending list
-  - Caja POS: player search, pending charges, payment posting, thermal receipt (two copies, line items), ad-hoc charges (products grid)
+  - Caja POS: player search + category drill-down, pending charges, payment posting, thermal receipt (ESC/POS via QZ Tray, two copies), ad-hoc charges (products grid)
   - Cash session management: open/close per campus, Corte Diario inline close, prominent no-session banner
   - Dashboard: 8 KPIs + trends + charts, campus/month filters
   - Reports: Corte Diario (+ print layout), Corte Semanal, Resumen Mensual, Porto Mensual (all sections wired)
@@ -24,13 +24,16 @@ This is the consolidated, living SDD. It merges and preserves the content from:
   - Void charges (director only) + batch baja write-off (`/pending/bajas`)
   - Full 34-reason Porto dropout taxonomy
   - Dark mode with localStorage persistence
-- Known gaps identified pre-testing (2026-03-17):
+  - **Player full edit**: name, birth date, gender, goalkeeper, uniform size, medical notes — director-only
+  - **Player merge**: `/admin/merge-players` — atomic deduplication, director-only
+  - **Performance**: covering indexes for index-only balance scans; pending RPC as GROUP BY CTE; loading skeletons on major pages
+- Known gaps / next up (post session 12):
   - Caja cancel UX: canceling "Registrar Pago" resets page to top instead of returning to enrollment panel
-  - Caja drill-down: no charge detail view inline before payment (period, type, age)
-  - Nav/panel audit needed: some menu items overlap, some reports show incorrect numbers
-  - Player profile: missing uniform size, team assignment, coach on player page
-  - Player list (Jugadores): no status tags (league, tuition paid, balance)
-  - Teams/tournaments: team assignment UX is rough, no tournament registration system yet
+  - Caja charge detail: no inline detail view before payment (period, type)
+  - Nav/panel audit: collect staff feedback from first testing day
+  - Dashboard KPI 0s: Saldo Pendiente / Alumnos con Saldo may still show 0 — verify in testing
+  - Server-side route blocking: routes not actively blocking unauthorized direct access
+  - Thermal printer Ethernet: static IP assignment + QZ Tray multi-machine setup pending
 
 ## 1) Overview and Goals (Phase 1 MVP)
 - Build a secure internal operations app (30–50 staff users) for two campuses in Monterrey: Linda Vista and Contry.
