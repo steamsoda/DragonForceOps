@@ -64,7 +64,44 @@ export async function connectQZ(): Promise<void> {
   await qz.websocket.connect({ retries: 3, delay: 1 });
 }
 
-// ── ESC/POS receipt builder ───────────────────────────────────────────────────
+// ── Item types ────────────────────────────────────────────────────────────────
+
+type QZDataItem =
+  | { type: "raw"; format: "plain"; data: string }
+  | { type: "raw"; format: "image"; data: string; options: { language: "ESCPOS"; dotDensity: string } };
+
+function t(data: string): QZDataItem {
+  return { type: "raw", format: "plain", data };
+}
+
+function logoItem(dataUrl: string): QZDataItem {
+  return { type: "raw", format: "image", data: dataUrl, options: { language: "ESCPOS", dotDensity: "double" } };
+}
+
+// ── Logo loader (cached after first fetch) ────────────────────────────────────
+
+let cachedLogo: string | null | undefined;
+
+async function fetchLogoDataUrl(): Promise<string | null> {
+  if (cachedLogo !== undefined) return cachedLogo;
+  try {
+    const res = await fetch("/logos-porto-recibo.png");
+    if (!res.ok) { cachedLogo = null; return null; }
+    const blob = await res.blob();
+    cachedLogo = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    return cachedLogo;
+  } catch {
+    cachedLogo = null;
+    return null;
+  }
+}
+
+// ── ESC/POS helpers ───────────────────────────────────────────────────────────
 
 const ESC = "\x1B";
 const GS  = "\x1D";
@@ -84,6 +121,8 @@ function divider(char = "-", width = 42): string {
   return char.repeat(width);
 }
 
+// ── Receipt builder ───────────────────────────────────────────────────────────
+
 export type ReceiptData = {
   playerName: string;
   campusName: string;
@@ -97,83 +136,69 @@ export type ReceiptData = {
   time: string;
 };
 
-function buildReceipt(r: ReceiptData): string[] {
+function buildReceiptHeader(campusName: string, logoDataUrl: string | null): QZDataItem[] {
+  const items: QZDataItem[] = [t(`${ESC}@`), t(`${ESC}a\x01`)]; // init + center
+
+  if (logoDataUrl) {
+    items.push(logoItem(logoDataUrl));
+    items.push(t(`\n${campusName}\n`));
+  } else {
+    items.push(
+      t(`${ESC}!\x10`),
+      t("INVICTA\n"),
+      t(`${ESC}!\x00`),
+      t("FC Porto Dragon Force\n"),
+      t(`${campusName}\n`),
+    );
+  }
+  return items;
+}
+
+function buildReceipt(r: ReceiptData, logoDataUrl: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: r.currency }).format(n);
   const shortId = r.paymentId.slice(-8).toUpperCase();
 
-  const lines: string[] = [
-    `${ESC}@`,           // Initialize
-    `${ESC}a\x01`,       // Center align
+  const header = buildReceiptHeader(r.campusName, logoDataUrl);
 
-    `${ESC}!\x10`,       // Double-height font
-    "INVICTA\n",
-    `${ESC}!\x00`,       // Normal font
-    "FC Porto Dragon Force\n",
-    `${r.campusName}\n`,
-
-    divider() + "\n",
-
-    `${ESC}a\x00`,       // Left align
-    `Alumno: ${r.playerName}\n`,
-    `Fecha:  ${r.date}\n`,
-    `Hora:   ${r.time}\n`,
-    `Metodo: ${r.method}\n`,
-    `Folio:  ${shortId}\n`,
-    divider() + "\n",
+  const meta: QZDataItem[] = [
+    t(divider() + "\n"),
+    t(`${ESC}a\x00`), // left align
+    t(`Alumno: ${r.playerName}\n`),
+    t(`Fecha:  ${r.date}\n`),
+    t(`Hora:   ${r.time}\n`),
+    t(`Metodo: ${r.method}\n`),
+    t(`Folio:  ${shortId}\n`),
+    t(divider() + "\n"),
   ];
 
-  for (const c of r.chargesPaid) {
-    lines.push(row(c.description, fmt(c.amount)) + "\n");
-  }
+  const chargeLines: QZDataItem[] = r.chargesPaid.map((c) => t(row(c.description, fmt(c.amount)) + "\n"));
 
-  const copyFooter = (label: string): string[] => {
-    const copy: string[] = [
-      divider("=") + "\n",
-      `${ESC}E\x01`,
-      row("TOTAL PAGADO", fmt(r.amount)) + "\n",
-      `${ESC}E\x00`,
+  function footer(label: string): QZDataItem[] {
+    const items: QZDataItem[] = [
+      t(divider("=") + "\n"),
+      t(`${ESC}E\x01`),
+      t(row("TOTAL PAGADO", fmt(r.amount)) + "\n"),
+      t(`${ESC}E\x00`),
     ];
     if (r.remainingBalance > 0) {
-      copy.push(row("Saldo pendiente", fmt(r.remainingBalance)) + "\n");
+      items.push(t(row("Saldo pendiente", fmt(r.remainingBalance)) + "\n"));
     } else if (r.remainingBalance === 0) {
-      copy.push(center("Cuenta al corriente  ✓") + "\n");
+      items.push(t(center("Cuenta al corriente  ✓") + "\n"));
     } else {
-      copy.push(center(`Credito: ${fmt(Math.abs(r.remainingBalance))}`) + "\n");
+      items.push(t(center(`Credito: ${fmt(Math.abs(r.remainingBalance))}`) + "\n"));
     }
-    copy.push(divider() + "\n", center("Gracias por su pago") + "\n", center(label) + "\n", "\n\n");
-    return copy;
-  };
-
-  // Copy 1 — client
-  lines.push(...copyFooter("-- COPIA CLIENTE --"));
-  lines.push(`${GS}V\x41\x03`); // Partial cut
-
-  // Copy 2 — academy (reprint full receipt)
-  lines.push(
-    `${ESC}@`,
-    `${ESC}a\x01`,
-    `${ESC}!\x10`,
-    "INVICTA\n",
-    `${ESC}!\x00`,
-    "FC Porto Dragon Force\n",
-    `${r.campusName}\n`,
-    divider() + "\n",
-    `${ESC}a\x00`,
-    `Alumno: ${r.playerName}\n`,
-    `Fecha:  ${r.date}\n`,
-    `Hora:   ${r.time}\n`,
-    `Metodo: ${r.method}\n`,
-    `Folio:  ${shortId}\n`,
-    divider() + "\n",
-  );
-  for (const c of r.chargesPaid) {
-    lines.push(row(c.description, fmt(c.amount)) + "\n");
+    items.push(t(divider() + "\n"), t(center("Gracias por su pago") + "\n"), t(center(label) + "\n"), t("\n\n"));
+    return items;
   }
-  lines.push(...copyFooter("-- COPIA ACADEMIA --"));
-  lines.push(`${GS}V\x00`); // Full cut
 
-  return lines;
+  return [
+    ...header, ...meta, ...chargeLines, ...footer("-- COPIA CLIENTE --"),
+    t(`${GS}V\x41\x03`), // partial cut
+    // Copy 2 — academy
+    ...header, ...meta, ...chargeLines, ...footer("-- COPIA ACADEMIA --"),
+    t(`${GS}V\x00`), // full cut
+  ];
 }
 
 // ── Corte Diario builder ──────────────────────────────────────────────────────
@@ -188,74 +213,74 @@ export type CorteData = {
   payments: { playerName: string; amount: number; methodLabel: string; paidAt: string }[];
 };
 
-function buildCorte(c: CorteData): string[] {
+function buildCorte(c: CorteData, logoDataUrl: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: c.currency }).format(n);
 
   const now = new Date();
   const printedAt = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 
-  const lines: string[] = [
-    `${ESC}@`,
-    `${ESC}a\x01`,
-    `${ESC}!\x10`,
-    "INVICTA\n",
-    `${ESC}!\x00`,
-    "FC Porto Dragon Force\n",
-    `${c.campusLabel}\n`,
-    divider() + "\n",
-    `${ESC}a\x00`,
-    `CORTE DIARIO: ${c.date}\n`,
-    `Impreso: ${printedAt}\n`,
-    divider() + "\n",
-    `${ESC}E\x01`,
-    row("TOTAL COBRADO", fmt(c.totalCobrado)) + "\n",
-    `${ESC}E\x00`,
-    divider() + "\n",
+  const header = buildReceiptHeader(c.campusLabel, logoDataUrl);
+
+  const items: QZDataItem[] = [
+    ...header,
+    t(divider() + "\n"),
+    t(`${ESC}a\x00`), // left align
+    t(`CORTE DIARIO: ${c.date}\n`),
+    t(`Impreso: ${printedAt}\n`),
+    t(divider() + "\n"),
+    t(`${ESC}E\x01`),
+    t(row("TOTAL COBRADO", fmt(c.totalCobrado)) + "\n"),
+    t(`${ESC}E\x00`),
+    t(divider() + "\n"),
   ];
 
   if (c.byMethod.length > 0) {
-    lines.push("Por metodo de pago:\n");
+    items.push(t("Por metodo de pago:\n"));
     for (const m of c.byMethod) {
-      lines.push(row(`${m.methodLabel} (${m.count})`, fmt(m.total)) + "\n");
+      items.push(t(row(`${m.methodLabel} (${m.count})`, fmt(m.total)) + "\n"));
     }
-    lines.push(divider() + "\n");
+    items.push(t(divider() + "\n"));
   }
 
   if (c.byChargeType.length > 0) {
-    lines.push("Por tipo de cargo:\n");
-    for (const t of c.byChargeType) {
-      lines.push(row(t.typeName, fmt(t.total)) + "\n");
+    items.push(t("Por tipo de cargo:\n"));
+    for (const tp of c.byChargeType) {
+      items.push(t(row(tp.typeName, fmt(tp.total)) + "\n"));
     }
-    lines.push(divider() + "\n");
+    items.push(t(divider() + "\n"));
   }
 
   if (c.payments.length > 0) {
-    lines.push(`Detalle (${c.payments.length} cobros):\n`);
+    items.push(t(`Detalle (${c.payments.length} cobros):\n`));
     for (const p of c.payments) {
       const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
-      lines.push(`${time} ${p.methodLabel.slice(0, 4).padEnd(4)} ${fmt(p.amount).padStart(10)} ${p.playerName.slice(0, 18)}\n`);
+      items.push(t(`${time} ${p.methodLabel.slice(0, 4).padEnd(4)} ${fmt(p.amount).padStart(10)} ${p.playerName.slice(0, 18)}\n`));
     }
-    lines.push(divider() + "\n");
+    items.push(t(divider() + "\n"));
   }
 
-  lines.push(center("-- fin del corte --") + "\n", "\n\n\n", `${GS}V\x00`);
-  return lines;
+  items.push(t(center("-- fin del corte --") + "\n"), t("\n\n\n"), t(`${GS}V\x00`));
+  return items;
 }
 
-// ── Print receipt ─────────────────────────────────────────────────────────────
+// ── Send to QZ Tray ───────────────────────────────────────────────────────────
 
-async function sendToQZ(printerName: string, lines: string[]): Promise<void> {
+async function sendToQZ(printerName: string, items: QZDataItem[]): Promise<void> {
   await connectQZ();
   const qz = window.qz;
   const config = qz.configs.create(printerName, { encoding: "Cp1252" });
-  await qz.print(config, lines.map((d) => ({ type: "raw", format: "plain", data: d })));
+  await qz.print(config, items);
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
-  await sendToQZ(printerName, buildReceipt(data));
+  const logo = await fetchLogoDataUrl();
+  await sendToQZ(printerName, buildReceipt(data, logo));
 }
 
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {
-  await sendToQZ(printerName, buildCorte(data));
+  const logo = await fetchLogoDataUrl();
+  await sendToQZ(printerName, buildCorte(data, logo));
 }
