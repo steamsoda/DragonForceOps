@@ -42,8 +42,13 @@ export async function proxy(request: NextRequest) {
     }
   });
 
-  // Refresh session on every request so cookies stay up to date.
-  // Do NOT remove this — required for PKCE OAuth flow and session persistence.
+  // Auth routes manage their own session exchange — skip getUser() so the proxy
+  // doesn't touch the PKCE code verifier cookie before the callback handler runs.
+  if (pathname.startsWith("/auth")) {
+    return supabaseResponse;
+  }
+
+  // Refresh session on every other request so cookies stay up to date.
   await supabase.auth.getUser();
 
   return supabaseResponse;

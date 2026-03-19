@@ -194,11 +194,13 @@ function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDa
   const items: QZDataItem[] = [t(`${ESC}@`)]; // initialize printer
 
   if (logoESCPOS) {
-    // Image is left-aligned by default; the logo PNG already has centered content on white bg
+    items.push(t("\n"));                                      // top margin
+    items.push(t(`${ESC}a\x01`));                            // center align (affects raster image position)
     items.push({ type: "raw", format: "base64", data: logoESCPOS });
-    items.push(t(`${ESC}a\x01`)); // center for campus name
-    items.push(t(`${campusName}\n`));
-    items.push(t(`${ESC}a\x00`)); // back to left
+    items.push(t("\n"));                                      // gap between logo and campus name
+    items.push(t(`${campusName}\n`));                         // still centered
+    items.push(t("\n"));                                      // bottom margin before divider
+    items.push(t(`${ESC}a\x00`));                            // back to left
   } else {
     items.push(
       t(`${ESC}a\x01`),       // center
