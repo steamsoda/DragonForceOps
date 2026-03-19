@@ -64,7 +64,7 @@ type View =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CajaClient({ printerName }: { printerName: string }) {
+export function CajaClient({ printerName, initialEnrollmentId }: { printerName: string; initialEnrollmentId?: string }) {
   const [view, setView] = useState<View>({ tag: "idle" });
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +72,36 @@ export function CajaClient({ printerName }: { printerName: string }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
   const [preloadedMeta, setPreloadedMeta] = useState<CajaDrilldownMeta | null>(null);
+  const didAutoload = useRef(false);
 
   // Preload drill-down meta in background so "Seleccionar por categoría" is instant
   useEffect(() => {
     getCajaDrilldownMetaAction().then(setPreloadedMeta);
+  }, []);
+
+  // Auto-load enrollment when deep-linked from player profile (/caja?enrollmentId=...)
+  useEffect(() => {
+    if (!initialEnrollmentId || didAutoload.current) return;
+    didAutoload.current = true;
+    startTransition(async () => {
+      const data = await getEnrollmentForCajaAction(initialEnrollmentId);
+      if (!data) {
+        setError("No se pudo cargar la información del alumno.");
+        return;
+      }
+      const syntheticPlayer: CajaPlayerResult = {
+        playerId: "",
+        playerName: data.playerName,
+        birthYear: null,
+        enrollmentId: data.enrollmentId,
+        campusName: data.campusName,
+        balance: data.balance,
+        teamName: null,
+        coachName: null,
+      };
+      setView({ tag: "enrollment", player: syntheticPlayer, data });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Debounced search
