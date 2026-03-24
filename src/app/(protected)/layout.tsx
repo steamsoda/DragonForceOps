@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
 import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { PrinterTestButton } from "@/components/ui/printer-test-button";
+import { getPrinterName } from "@/lib/queries/settings";
 
 const STAFF_SECTION: NavSection = {
   label: "Diario",
@@ -97,6 +99,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isSuperAdmin ? [superAdminSection] : [])
   ];
 
+  const printerName = await getPrinterName();
+
   async function signOut() {
     "use server";
     const serverClient = await createClient();
@@ -115,6 +119,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         <div className="flex items-center gap-3">
           <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
           <ThemeToggle />
+          {printerName && <PrinterTestButton printerName={printerName} />}
           <form action={signOut}>
             <button
               type="submit"
