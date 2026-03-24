@@ -114,12 +114,12 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-baseline gap-2">
           <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
-          <span className="text-xs text-slate-400 dark:text-slate-500">v0.8</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">v0.8.1</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
           <ThemeToggle />
-          {printerName && <PrinterTestButton printerName={printerName} />}
+          <PrinterTestButton printerName={printerName} />
           <form action={signOut}>
             <button
               type="submit"
