@@ -5,7 +5,10 @@ import { cookies } from "next/headers";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") ?? "https";
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  const origin = `${proto}://${host}`;
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
