@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { connectQZ, sendToQZ } from "@/lib/printer";
+import { printTestPage } from "@/lib/printer";
 
 export function PrinterTestButton({ printerName }: { printerName: string }) {
   const [status, setStatus] = useState<"idle" | "printing" | "ok" | "error">("idle");
@@ -11,25 +11,7 @@ export function PrinterTestButton({ printerName }: { printerName: string }) {
     setStatus("printing");
     setErrorMsg("");
     try {
-      await connectQZ();
-      const now = new Date().toLocaleString("es-MX", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-        hour: "2-digit", minute: "2-digit",
-      });
-      await sendToQZ(printerName, [
-        { type: "raw", format: "plain", data: "\x1B@" },           // init
-        { type: "raw", format: "plain", data: "\x1Ba\x01" },       // center
-        { type: "raw", format: "plain", data: "================================\n" },
-        { type: "raw", format: "plain", data: "   PRUEBA DE IMPRESORA\n" },
-        { type: "raw", format: "plain", data: "   Dragon Force Ops\n" },
-        { type: "raw", format: "plain", data: `   ${now}\n` },
-        { type: "raw", format: "plain", data: "================================\n" },
-        { type: "raw", format: "plain", data: "   Impresora: OK\n" },
-        { type: "raw", format: "plain", data: `   ${printerName}\n` },
-        { type: "raw", format: "plain", data: "================================\n" },
-        { type: "raw", format: "plain", data: "\n\n\n\n" },
-        { type: "raw", format: "plain", data: "\x1Bd\x04" },       // feed & cut
-      ]);
+      await printTestPage(printerName);
       setStatus("ok");
       setTimeout(() => setStatus("idle"), 3000);
     } catch (e) {

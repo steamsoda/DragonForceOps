@@ -341,3 +341,24 @@ export async function printCorte(printerName: string, data: CorteData): Promise<
   const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildCorte(data, logo));
 }
+
+export async function printTestPage(printerName: string): Promise<void> {
+  const now = new Date().toLocaleString("es-MX", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+  await sendToQZ(printerName, [
+    t(`${ESC}@`),
+    t(`${ESC}a\x01`),
+    t("================================\n"),
+    t("   PRUEBA DE IMPRESORA\n"),
+    t("   Dragon Force Ops\n"),
+    t(`   ${now}\n`),
+    t("================================\n"),
+    t("   Impresora: OK\n"),
+    t(`   ${printerName}\n`),
+    t("================================\n"),
+    t("\n\n\n\n"),
+    t(`${ESC}d\x04`),
+  ]);
+}
