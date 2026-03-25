@@ -46,13 +46,23 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
   const selectedCampusId = params.campus ?? "";
 
   const supabase = await createClient();
-  const [campuses, data, sessionStatuses, isDirectorResult, printerName] = await Promise.all([
+  const [campuses, sessionStatuses, isDirectorResult, printerName] = await Promise.all([
     listCampuses(),
-    getCorteDiarioData({ date: selectedDate || undefined, campusId: selectedCampusId || undefined }),
     getCampusSessionStatuses(),
     supabase.rpc("is_director_admin"),
     getPrinterName(),
   ]);
+
+  // Pass open session start time so overnight sessions show full totals
+  const openSession = selectedCampusId
+    ? sessionStatuses.find((s) => s.campusId === selectedCampusId)?.session ?? null
+    : null;
+
+  const data = await getCorteDiarioData({
+    date: selectedDate || undefined,
+    campusId: selectedCampusId || undefined,
+    sessionOpenedAt: openSession?.openedAt ?? undefined,
+  });
   const isDirector = isDirectorResult.data ?? false;
 
   // Filter sessions to selected campus (or all if none selected)
@@ -71,9 +81,12 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
     : null;
 
   const campusLabel = campuses.find((c) => c.id === selectedCampusId)?.name ?? "Todos los campus";
+  const corteSubtitle = data.sessionOpenedAt
+    ? `Sesión abierta desde las ${fmtTime(data.sessionOpenedAt)}`
+    : "Cobros registrados por fecha y campus";
 
   return (
-    <PageShell title="Corte Diario" subtitle="Cobros registrados por fecha y campus">
+    <PageShell title="Corte Diario" subtitle={corteSubtitle}>
       <div className="space-y-6">
         {/* Filters */}
         <form className="print:hidden grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">

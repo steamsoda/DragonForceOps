@@ -65,8 +65,12 @@ function formatMonthValue(date: Date) {
   return `${date.getFullYear()}-${month}`;
 }
 
+// Monterrey is permanently UTC-6 (Mexico abolished DST in 2023).
+const CST_OFFSET_MS = 6 * 60 * 60 * 1000;
+
 function resolveMonthRange(monthInput?: string): MonthRange {
-  const now = new Date();
+  // Shift to Monterrey local time so date components align to Monterrey midnight, not UTC.
+  const now = new Date(Date.now() - CST_OFFSET_MS);
   const selectedMonth = /^\d{4}-\d{2}$/.test(monthInput ?? "") ? (monthInput as string) : formatMonthValue(now);
   const [yearRaw, monthRaw] = selectedMonth.split("-");
   const year = Number(yearRaw);

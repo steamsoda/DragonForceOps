@@ -90,6 +90,7 @@ export type CorteByChargeType = {
 
 export type CorteDiarioData = {
   date: string;
+  sessionOpenedAt: string | null; // set when an open session's start time was used
   totalCobrado: number;
   byMethod: CorteByMethod[];
   byChargeType: CorteByChargeType[];
@@ -97,19 +98,26 @@ export type CorteDiarioData = {
 };
 
 export async function getCorteDiarioData(filters: {
-  date?: string; // YYYY-MM-DD
+  date?: string;        // YYYY-MM-DD
   campusId?: string;
+  sessionOpenedAt?: string; // ISO timestamp — if an open session exists for this campus
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
 
   const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : todayMonterreyString();
   const { start: dateStart, end: dateEnd } = monterreyDayUtcRange(dateStr);
+  const isToday = dateStr === todayMonterreyString();
+
+  // For today's view with an open session: start from when the session opened so
+  // overnight sessions (opened yesterday evening) include all payments since open.
+  const queryStart = (isToday && filters.sessionOpenedAt) ? filters.sessionOpenedAt : dateStart;
+  const sessionOpenedAt = (isToday && filters.sessionOpenedAt) ? filters.sessionOpenedAt : null;
 
   let query = supabase
     .from("payments")
     .select("id, amount, method, paid_at, notes, enrollment_id, enrollments!inner(campus_id, players(first_name, last_name))")
     .eq("status", "posted")
-    .gte("paid_at", dateStart)
+    .gte("paid_at", queryStart)
     .lt("paid_at", dateEnd)
     .order("paid_at", { ascending: false });
 
@@ -160,6 +168,7 @@ export async function getCorteDiarioData(filters: {
 
   return {
     date: dateStr,
+    sessionOpenedAt,
     totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
     byMethod,
     byChargeType,
