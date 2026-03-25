@@ -70,8 +70,24 @@ type QZDataItem =
   | { type: "raw"; format: "plain"; data: string }
   | { type: "raw"; format: "base64"; data: string };
 
+// Encode a JS string to base64 using CP1252 byte values.
+// QZ Tray transmits "plain" strings as UTF-8 over the WebSocket, so ñ (U+00F1)
+// arrives at the printer as two UTF-8 bytes (0xC3 0xB1) instead of one CP1252
+// byte (0xF1). Sending pre-encoded base64 bypasses QZ Tray's text handling
+// entirely and delivers the correct single byte to the ESC/POS printer.
+// Latin-1 supplement chars (U+00A0–U+00FF) are identical in CP1252, so a
+// direct charCodeAt passthrough is sufficient for all Spanish characters.
+function encodeCP1252Base64(str: string): string {
+  let binary = "";
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    binary += String.fromCharCode(c <= 0xff ? c : 0x3f); // 0x3f = '?' for unmappable chars
+  }
+  return btoa(binary);
+}
+
 function t(data: string): QZDataItem {
-  return { type: "raw", format: "plain", data };
+  return { type: "raw", format: "base64", data: encodeCP1252Base64(data) };
 }
 
 // ── ESC/POS image conversion ──────────────────────────────────────────────────
@@ -311,7 +327,7 @@ function buildCorte(c: CorteData, logoESCPOS: string | null): QZDataItem[] {
   if (c.payments.length > 0) {
     items.push(t(`Detalle (${c.payments.length} cobros):\n`));
     for (const p of c.payments) {
-      const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+      const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" });
       items.push(t(`${time} ${p.methodLabel.slice(0, 4).padEnd(4)} ${fmt(p.amount).padStart(10)} ${p.playerName.slice(0, 18)}\n`));
     }
     items.push(t(divider() + "\n"));
