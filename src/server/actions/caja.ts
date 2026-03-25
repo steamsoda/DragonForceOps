@@ -127,6 +127,7 @@ export async function postCajaChargeAction(
   const amount = parseFloat(amountRaw);
   const size = formData.get("size")?.toString().trim() || null;
   const goalkeeper = formData.get("goalkeeper") === "1";
+  const periodMonthRaw = formData.get("period_month")?.toString().trim() || null; // "YYYY-MM"
 
   if (!productId || isNaN(amount) || amount <= 0) {
     return { ok: false, error: "invalid_form" };
@@ -139,10 +140,10 @@ export async function postCajaChargeAction(
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
-  type ProductLookup = { id: string; name: string; charge_type_id: string; has_sizes: boolean };
+  type ProductLookup = { id: string; name: string; charge_type_id: string; has_sizes: boolean; charge_types: { code: string } | null };
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, charge_type_id, has_sizes")
+    .select("id, name, charge_type_id, has_sizes, charge_types(code)")
     .eq("id", productId)
     .eq("is_active", true)
     .maybeSingle()
@@ -167,6 +168,9 @@ export async function postCajaChargeAction(
   const goalkeeperPart = goalkeeper ? " (Portero)" : "";
   const description = `${product.name}${sizePart}${goalkeeperPart}`;
 
+  const isTuition = product.charge_types?.code === "monthly_tuition";
+  const periodMonth = isTuition && periodMonthRaw ? `${periodMonthRaw}-01` : null;
+
   const { error: chargeError } = await supabase.from("charges").insert({
     enrollment_id: enrollmentId,
     charge_type_id: product.charge_type_id,
@@ -177,7 +181,8 @@ export async function postCajaChargeAction(
     amount,
     currency,
     status: "pending",
-    created_by: user.id
+    created_by: user.id,
+    ...(periodMonth ? { period_month: periodMonth } : {}),
   });
 
   if (chargeError) return { ok: false, error: "charge_insert_failed" };

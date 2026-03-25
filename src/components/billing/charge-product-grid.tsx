@@ -21,6 +21,25 @@ const DEFAULT_STYLE = {
   header: "text-slate-600 dark:text-slate-400",
 };
 
+const MONTH_NAMES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+function getDefaultNextMonth(): string {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthOptions(): { value: string; label: string }[] {
+  const now = new Date();
+  return [-1, 0, 1, 2].map((offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return {
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${MONTH_NAMES_ES[d.getMonth()]} ${d.getFullYear()}`,
+    };
+  });
+}
+
 type Props = {
   enrollmentId: string;
   playerName: string;
@@ -36,6 +55,7 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
   const [amount, setAmount] = useState("");
   const [size, setSize] = useState("");
   const [goalkeeper, setGoalkeeper] = useState(false);
+  const [periodMonth, setPeriodMonth] = useState(() => getDefaultNextMonth());
   const [error, setError] = useState<string | null>(null);
 
   function fmt(n: number) {
@@ -47,6 +67,7 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
     setAmount(product.defaultAmount != null ? product.defaultAmount.toFixed(2) : "");
     setSize("");
     setGoalkeeper(false);
+    setPeriodMonth(getDefaultNextMonth());
     setError(null);
   }
 
@@ -58,6 +79,7 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
     fd.set("amount", amount);
     if (size) fd.set("size", size);
     if (goalkeeper) fd.set("goalkeeper", "1");
+    if (selected.categorySlug === "tuition" && periodMonth) fd.set("period_month", periodMonth);
     setError(null);
     startTransition(async () => {
       const result = await postCajaChargeAction(enrollmentId, fd);
@@ -153,6 +175,21 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
                   Portero {goalkeeper ? "✓" : ""}
                 </button>
               </div>
+            )}
+
+            {selected.categorySlug === "tuition" && (
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Período</span>
+                <select
+                  value={periodMonth}
+                  onChange={(e) => setPeriodMonth(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                >
+                  {getMonthOptions().map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </label>
             )}
 
             <label className="block space-y-1 text-sm">
