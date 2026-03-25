@@ -17,7 +17,8 @@ import {
   type CajaPaymentResult,
   type CajaProduct,
   type CajaProductCategory,
-  type CajaDrilldownMeta
+  type CajaDrilldownMeta,
+  type CajaAdvanceTuitionResult
 } from "@/server/actions/caja";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -629,13 +630,14 @@ function EnrollmentPanel({
   const [tuitionPeriod, setTuitionPeriod] = useState(getDefaultNextMonthCaja);
   const [tuitionError, setTuitionError] = useState<string | null>(null);
   const [isTuitionPending, startTuitionTransition] = useTransition();
+  const [advanceTuitionChargeId, setAdvanceTuitionChargeId] = useState<string | null>(null);
 
   function handleTuitionSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tuitionPeriod) return;
     setTuitionError(null);
     startTuitionTransition(async () => {
-      const result = await createAdvanceTuitionAction(data.enrollmentId, tuitionPeriod);
+      const result: CajaAdvanceTuitionResult = await createAdvanceTuitionAction(data.enrollmentId, tuitionPeriod);
       if (!result.ok) {
         const msgs: Record<string, string> = {
           duplicate_period: "Ya existe un cargo de mensualidad para ese período.",
@@ -649,7 +651,9 @@ function EnrollmentPanel({
       }
       setShowTuitionForm(false);
       setTuitionPeriod(getDefaultNextMonthCaja());
-      onDataUpdate(result.updatedData);
+      setAdvanceTuitionChargeId(result.newChargeId);
+      // Auto-navigate to payment for this specific charge
+      onPay(player, result.updatedData, [result.newChargeId]);
     });
   }
 
@@ -659,8 +663,17 @@ function EnrollmentPanel({
   const selectedCharges = data.pendingCharges.filter((c) => selectedIds.has(c.id));
   const selectedTotal = selectedCharges.reduce((sum, c) => sum + c.pendingAmount, 0);
 
+  // For advance tuition charges, show the early bird effective rate (not the gross $750 pending amount)
+  const isAdvanceTuitionPayment =
+    targetCharges.length === 1 &&
+    advanceTuitionChargeId !== null &&
+    targetCharges[0].id === advanceTuitionChargeId &&
+    data.earlyBirdTuitionAmount != null;
+
   const defaultAmount = targetChargeIds.length > 0
-    ? targetCharges.reduce((sum, c) => sum + c.pendingAmount, 0).toFixed(2)
+    ? isAdvanceTuitionPayment
+      ? data.earlyBirdTuitionAmount!.toFixed(2)
+      : targetCharges.reduce((sum, c) => sum + c.pendingAmount, 0).toFixed(2)
     : data.balance > 0
     ? data.balance.toFixed(2)
     : "";
@@ -846,14 +859,18 @@ function EnrollmentPanel({
 
           {/* Targeted charges banner */}
           {targetCharges.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm space-y-1">
-              <p className="font-semibold text-amber-800">
-                {targetCharges.length === 1 ? "Pagando cargo específico:" : `Pagando ${targetCharges.length} cargos específicos:`}
+            <div className={`rounded-lg border px-3 py-2 text-sm space-y-1 ${isAdvanceTuitionPayment ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+              <p className={`font-semibold ${isAdvanceTuitionPayment ? "text-emerald-800" : "text-amber-800"}`}>
+                {isAdvanceTuitionPayment ? "Mensualidad adelantada — descuento anticipado incluido" : targetCharges.length === 1 ? "Pagando cargo específico:" : `Pagando ${targetCharges.length} cargos específicos:`}
               </p>
               {targetCharges.map((c) => (
-                <div key={c.id} className="flex justify-between text-amber-700">
+                <div key={c.id} className={`flex justify-between ${isAdvanceTuitionPayment ? "text-emerald-700" : "text-amber-700"}`}>
                   <span>{c.description}</span>
-                  <span className="font-medium">{formatMoney(c.pendingAmount, data.currency)}</span>
+                  <span className="font-medium">
+                    {isAdvanceTuitionPayment && data.earlyBirdTuitionAmount != null
+                      ? formatMoney(data.earlyBirdTuitionAmount, data.currency)
+                      : formatMoney(c.pendingAmount, data.currency)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -875,7 +892,8 @@ function EnrollmentPanel({
                 min="0.01"
                 required
                 defaultValue={defaultAmount}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                readOnly={isAdvanceTuitionPayment}
+                className={`w-full rounded-lg border px-3 py-2 focus:outline-none ${isAdvanceTuitionPayment ? "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-default" : "border-slate-300 dark:border-slate-600 focus:border-portoBlue"}`}
               />
             </label>
             <label className="space-y-1 text-sm">

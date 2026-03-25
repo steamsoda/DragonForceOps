@@ -70,6 +70,10 @@ export type CajaChargeResult =
   | { ok: true; updatedData: CajaEnrollmentData }
   | { ok: false; error: string };
 
+export type CajaAdvanceTuitionResult =
+  | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string }
+  | { ok: false; error: string };
+
 export async function getProductsForCajaAction(): Promise<CajaProductCategory[]> {
   const supabase = await createClient();
   const {
@@ -299,7 +303,7 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
 export async function createAdvanceTuitionAction(
   enrollmentId: string,
   periodMonth: string // "YYYY-MM"
-): Promise<CajaChargeResult> {
+): Promise<CajaAdvanceTuitionResult> {
   if (!periodMonth) {
     return { ok: false, error: "invalid_form" };
   }
@@ -361,7 +365,7 @@ export async function createAdvanceTuitionAction(
   const label = monthNames[parseInt(month, 10) - 1] ?? month;
   const description = `Mensualidad ${label} ${year}`;
 
-  const { error: chargeError } = await supabase.from("charges").insert({
+  const { data: newCharge, error: chargeError } = await supabase.from("charges").insert({
     enrollment_id: enrollmentId,
     charge_type_id: chargeType.id,
     period_month: `${periodMonth}-01`,
@@ -370,11 +374,11 @@ export async function createAdvanceTuitionAction(
     currency,
     status: "pending",
     created_by: user.id,
-  });
+  }).select("id").single<{ id: string }>();
 
-  if (chargeError) {
+  if (chargeError || !newCharge) {
     // Unique constraint = charge for this period already exists
-    if (chargeError.code === "23505") return { ok: false, error: "duplicate_period" };
+    if (chargeError?.code === "23505") return { ok: false, error: "duplicate_period" };
     return { ok: false, error: "charge_insert_failed" };
   }
 
@@ -389,7 +393,7 @@ export async function createAdvanceTuitionAction(
   const updatedData = await getEnrollmentForCajaAction(enrollmentId);
   if (!updatedData) return { ok: false, error: "reload_failed" };
 
-  return { ok: true, updatedData };
+  return { ok: true, updatedData, newChargeId: newCharge.id };
 }
 
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
