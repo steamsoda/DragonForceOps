@@ -5,6 +5,9 @@ alter table public.enrollments
   add column contactado_notes text        null;
 
 -- Update the pending enrollments RPC to include contact tracking fields
+-- DROP first — CREATE OR REPLACE cannot change a function's return type
+drop function if exists public.list_pending_enrollments_full(uuid);
+
 create or replace function public.list_pending_enrollments_full(
   p_campus_id uuid default null
 )
