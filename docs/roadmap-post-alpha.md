@@ -36,10 +36,10 @@ Last updated: 2026-03-24 (P1 all done)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 12 | **Jersey number on player profile** | 🔴 Open | `players.jersey_number` (integer, nullable). Show + edit on profile. Business rules TBD (even/odd by birth year) |
-| 13 | **Coach on player profile** | 🔴 Open | Active team shown already. Add coach name. Tournament entries if any |
-| 14 | **Past receipt / ticket search** | 🔴 Open | Search by folio or player name. Requires P1-8 (sequential folio) first |
-| 15 | **Advance month payment** | 🔴 Open | Collect April tuition before April 1st charge generates. Approach: manual charge creation for next period (no automation change) |
+| 12 | **Jersey number on player profile** | ✅ Done | Migration + `jersey_number` shown on profile, editable in player edit form |
+| 13 | **Coach on player profile** | ✅ Done | Already implemented — `coaches` join in `getPlayerDetail`, displayed in profile info grid |
+| 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
+| 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🔴 Open | "Contactado" checkbox + notes per enrollment row, persisted across sessions |
 
 ---
