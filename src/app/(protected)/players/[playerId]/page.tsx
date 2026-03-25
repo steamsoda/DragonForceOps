@@ -96,9 +96,9 @@ export default async function PlayerDetailPage({
           Editar jugador
         </Link>
       </div>
-      {sp.ok === "updated" && (
+      {(sp.ok === "updated" || sp.ok === "guardian_updated") && (
         <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
-          ✓ Datos del jugador actualizados.
+          {sp.ok === "guardian_updated" ? "✓ Datos del tutor actualizados." : "✓ Datos del jugador actualizados."}
         </div>
       )}
       {sp.ok === "merged" && (
@@ -162,12 +162,13 @@ export default async function PlayerDetailPage({
                   <th className="px-3 py-2">Telefono secundario</th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Parentesco</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {player.guardians.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
                       No hay tutores vinculados.
                     </td>
                   </tr>
@@ -186,6 +187,14 @@ export default async function PlayerDetailPage({
                       <td className="px-3 py-2">{guardian.phone_secondary ?? "-"}</td>
                       <td className="px-3 py-2">{guardian.email ?? "-"}</td>
                       <td className="px-3 py-2">{guardian.relationship_label ?? "-"}</td>
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/players/${player.id}/guardians/${guardian.id}/edit`}
+                          className="text-xs text-portoBlue hover:underline"
+                        >
+                          Editar
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 )}
