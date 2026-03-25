@@ -131,6 +131,12 @@ export default async function PlayerDetailPage({
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas médicas</p>
             <p className="font-medium">{player.medicalNotes ?? "-"}</p>
           </div>
+          {player.jerseyNumber != null && (
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Número</p>
+              <p className="font-medium">#{player.jerseyNumber}</p>
+            </div>
+          )}
           {player.isGoalkeeper && (
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Posición</p>

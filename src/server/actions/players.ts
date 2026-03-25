@@ -78,6 +78,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
   const gender = formData.get("gender")?.toString().trim() || null;
   const isGoalkeeper = formData.get("isGoalkeeper") === "1";
+  const jerseyNumberRaw = formData.get("jerseyNumber")?.toString().trim();
+  const jerseyNumber = jerseyNumberRaw ? parseInt(jerseyNumberRaw, 10) : null;
 
   if (!firstName || !lastName || !birthDate) redirect(`${BASE}/edit?err=missing_fields`);
 
@@ -97,7 +99,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
       uniform_size: uniformSize,
       medical_notes: medicalNotes,
       gender: gender || null,
-      is_goalkeeper: isGoalkeeper
+      is_goalkeeper: isGoalkeeper,
+      jersey_number: jerseyNumber
     })
     .eq("id", playerId);
 

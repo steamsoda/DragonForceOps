@@ -108,6 +108,20 @@ export default async function PlayerEditPage({
           </label>
         </div>
 
+        {/* Jersey number */}
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Número de camiseta (opcional)</span>
+          <input
+            type="number"
+            name="jerseyNumber"
+            min="0"
+            max="999"
+            defaultValue={player.jerseyNumber ?? ""}
+            placeholder="Ej. 7"
+            className={inputClass}
+          />
+        </label>
+
         {/* Uniform size */}
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Talla de uniforme</span>
