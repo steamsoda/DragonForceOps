@@ -24,7 +24,8 @@ function formatMoney(amount: number, currency: string) {
 
 function formatDate(value: string | null) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-MX").format(new Date(value));
+  const [y, m, d] = value.split("-");
+  return d ? `${d}/${m}/${y}` : value;
 }
 
 function getChargeStatusLabel(status: string) {

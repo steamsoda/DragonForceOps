@@ -714,7 +714,7 @@ function EnrollmentPanel({
                       <span>Cargo total</span><span className="font-medium text-slate-700 dark:text-slate-300">{formatMoney(c.amount, data.currency)}</span>
                       {isPartial && <><span>Ya pagado</span><span className="font-medium text-emerald-600">{formatMoney(c.amount - c.pendingAmount, data.currency)}</span></>}
                       <span>Pendiente</span><span className="font-medium text-rose-600">{formatMoney(c.pendingAmount, data.currency)}</span>
-                      {c.dueDate && <><span>Vencimiento</span><span className={`font-medium ${overdue ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{c.dueDate}</span></>}
+                      {c.dueDate && <><span>Vencimiento</span><span className={`font-medium ${overdue ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{(() => { const [y,m,d] = c.dueDate!.split("-"); return `${d}/${m}/${y}`; })()}</span></>}
                     </div>
                   )}
                 </li>

@@ -9,6 +9,11 @@ type SearchParams = Promise<{
   err?: string;
 }>;
 
+function fmtDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return d ? `${d}/${m}/${y}` : dateStr;
+}
+
 type PlayerRow = {
   id: string;
   first_name: string;
@@ -48,7 +53,7 @@ function PlayerCard({ player, role, href }: { player: PlayerRow; role: "master" 
     <div className={`rounded-lg border-2 ${color} p-4 space-y-2`}>
       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${badge}`}>{label}</span>
       <p className="font-semibold text-slate-900 dark:text-slate-100">{player.first_name} {player.last_name}</p>
-      <p className="text-sm text-slate-600 dark:text-slate-400">Nac: {player.birth_date}</p>
+      <p className="text-sm text-slate-600 dark:text-slate-400">Nac: {fmtDate(player.birth_date)}</p>
       <p className="text-sm text-slate-600 dark:text-slate-400">Campus: {campus}</p>
       <a href={href} className="text-xs text-portoBlue hover:underline">Cambiar selección</a>
     </div>
@@ -69,7 +74,7 @@ function PlayerSearchResult({ player, paramKey, currentParams }: {
       className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
     >
       <span className="font-medium text-slate-900 dark:text-slate-100">{player.first_name} {player.last_name}</span>
-      <span className="text-slate-500 text-xs">{player.birth_date} · {campus}</span>
+      <span className="text-slate-500 text-xs">{fmtDate(player.birth_date)} · {campus}</span>
     </a>
   );
 }

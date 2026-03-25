@@ -9,6 +9,14 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
+// Safe DD/MM/YYYY formatter for date-only strings (YYYY-MM-DD).
+// Avoids new Date() to prevent UTC-midnight timezone shifts.
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const [y, m, d] = dateStr.split("-");
+  return d ? `${d}/${m}/${y}` : dateStr;
+}
+
 const DROPOUT_LABELS: Record<string, string> = {
   coach_capability: "Falta de capacidad del entrenador",
   exercise_difficulty: "Dificultad para realizar los ejercicios",
@@ -109,7 +117,7 @@ export default async function PlayerDetailPage({
         <section className="grid gap-4 rounded-md border border-slate-200 dark:border-slate-700 p-4 md:grid-cols-4">
           <div>
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de nacimiento</p>
-            <p className="font-medium">{player.birthDate}</p>
+            <p className="font-medium">{fmtDate(player.birthDate)}</p>
           </div>
           <div>
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Género</p>
@@ -244,7 +252,7 @@ export default async function PlayerDetailPage({
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
-                  <p className="font-medium">{activeEnrollment.startDate}</p>
+                  <p className="font-medium">{fmtDate(activeEnrollment.startDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>
@@ -298,11 +306,11 @@ export default async function PlayerDetailPage({
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
-                  <p className="font-medium">{lastEnrollment.startDate}</p>
+                  <p className="font-medium">{fmtDate(lastEnrollment.startDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de baja</p>
-                  <p className="font-medium">{lastEnrollment.endDate ?? "-"}</p>
+                  <p className="font-medium">{fmtDate(lastEnrollment.endDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>

@@ -23,7 +23,8 @@ function formatMoney(value: number) {
 
 function formatDate(value: string | null) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-MX").format(new Date(value));
+  const [y, m, d] = value.split("-");
+  return d ? `${d}/${m}/${y}` : value;
 }
 
 export function PendingTable({ rows }: PendingTableProps) {
