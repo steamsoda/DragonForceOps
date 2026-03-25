@@ -38,6 +38,7 @@ export type CajaEnrollmentData = {
   balance: number;
   currency: string;
   pendingCharges: CajaPendingCharge[];
+  earlyBirdTuitionAmount: number | null;
 };
 
 export type CajaPaymentResult =
@@ -297,10 +298,9 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
 
 export async function createAdvanceTuitionAction(
   enrollmentId: string,
-  periodMonth: string, // "YYYY-MM"
-  amount: number
+  periodMonth: string // "YYYY-MM"
 ): Promise<CajaChargeResult> {
-  if (!periodMonth || isNaN(amount) || amount <= 0) {
+  if (!periodMonth) {
     return { ok: false, error: "invalid_form" };
   }
 
@@ -308,17 +308,29 @@ export async function createAdvanceTuitionAction(
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
+  type TuitionRule = { amount: number; day_to: number | null };
+  type EnrollmentWithPlan = {
+    id: string;
+    status: string;
+    pricing_plans: { currency: string; pricing_plan_tuition_rules: TuitionRule[] } | null;
+  };
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, status, pricing_plans(currency)")
+    .select("id, status, pricing_plans(currency, pricing_plan_tuition_rules(amount, day_to))")
     .eq("id", enrollmentId)
     .maybeSingle()
-    .returns<{ id: string; status: string; pricing_plans: { currency: string } | null } | null>();
+    .returns<EnrollmentWithPlan | null>();
 
   if (!enrollment) return { ok: false, error: "enrollment_not_found" };
   if (enrollment.status === "ended" || enrollment.status === "cancelled") {
     return { ok: false, error: "enrollment_inactive" };
   }
+
+  // Always charge the regular (non-discounted) rate; early bird discount is applied automatically on payment
+  const rules: TuitionRule[] = enrollment.pricing_plans?.pricing_plan_tuition_rules ?? [];
+  const regularRate = rules.find((r) => r.day_to === null)?.amount;
+  if (!regularRate) return { ok: false, error: "tuition_rate_not_found" };
+  const amount = regularRate;
 
   // Block advance payment if player has unpaid monthly tuition from prior months
   const ledgerCheck = await getEnrollmentLedger(enrollmentId);
@@ -383,6 +395,7 @@ export async function createAdvanceTuitionAction(
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
 
 export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<CajaEnrollmentData | null> {
+  const supabase = await createClient();
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return null;
 
@@ -400,13 +413,26 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
       dueDate: c.dueDate ?? null
     }));
 
+  // Fetch the early bird tuition rate for display in the advance tuition form
+  type TuitionRule = { amount: number; day_to: number | null };
+  const { data: enrollmentPlan } = await supabase
+    .from("enrollments")
+    .select("pricing_plans(pricing_plan_tuition_rules(amount, day_to))")
+    .eq("id", enrollmentId)
+    .maybeSingle();
+  const rules: TuitionRule[] =
+    (enrollmentPlan as { pricing_plans: { pricing_plan_tuition_rules: TuitionRule[] } | null } | null)
+      ?.pricing_plans?.pricing_plan_tuition_rules ?? [];
+  const earlyBirdTuitionAmount = rules.find((r) => r.day_to !== null)?.amount ?? null;
+
   return {
     enrollmentId,
     playerName: ledger.enrollment.playerName,
     campusName: ledger.enrollment.campusName,
     balance: ledger.totals.balance,
     currency: ledger.enrollment.currency,
-    pendingCharges
+    pendingCharges,
+    earlyBirdTuitionAmount
   };
 }
 

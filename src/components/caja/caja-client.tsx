@@ -627,22 +627,21 @@ function EnrollmentPanel({
   const [splitMode, setSplitMode] = useState(false);
   const [showTuitionForm, setShowTuitionForm] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState(getDefaultNextMonthCaja);
-  const [tuitionAmount, setTuitionAmount] = useState("750");
   const [tuitionError, setTuitionError] = useState<string | null>(null);
   const [isTuitionPending, startTuitionTransition] = useTransition();
 
   function handleTuitionSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const amount = parseFloat(tuitionAmount);
-    if (!tuitionPeriod || isNaN(amount) || amount <= 0) return;
+    if (!tuitionPeriod) return;
     setTuitionError(null);
     startTuitionTransition(async () => {
-      const result = await createAdvanceTuitionAction(data.enrollmentId, tuitionPeriod, amount);
+      const result = await createAdvanceTuitionAction(data.enrollmentId, tuitionPeriod);
       if (!result.ok) {
         const msgs: Record<string, string> = {
           duplicate_period: "Ya existe un cargo de mensualidad para ese período.",
           enrollment_inactive: "La inscripción no está activa.",
           charge_type_not_found: "Error de configuración: tipo de cargo no encontrado.",
+          tuition_rate_not_found: "No se pudo determinar la tarifa de mensualidad.",
           prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar. No se puede cobrar por adelantado.",
         };
         setTuitionError(msgs[result.error] ?? "Error al crear el cargo. Intenta de nuevo.");
@@ -650,7 +649,6 @@ function EnrollmentPanel({
       }
       setShowTuitionForm(false);
       setTuitionPeriod(getDefaultNextMonthCaja());
-      setTuitionAmount("750");
       onDataUpdate(result.updatedData);
     });
   }
@@ -806,18 +804,15 @@ function EnrollmentPanel({
                 ))}
               </select>
             </label>
-            <label className="space-y-1 text-sm">
+            <div className="space-y-1 text-sm">
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={tuitionAmount}
-                onChange={(e) => setTuitionAmount(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
-              />
-            </label>
+              <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {data.earlyBirdTuitionAmount != null
+                  ? formatMoney(data.earlyBirdTuitionAmount, data.currency)
+                  : "—"}
+              </p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">Incluye descuento anticipado</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <button
