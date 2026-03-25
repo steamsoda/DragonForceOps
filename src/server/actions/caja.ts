@@ -293,6 +293,79 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
   }));
 }
 
+// ── Advance tuition charge (inline from Caja panel) ───────────────────────────
+
+export async function createAdvanceTuitionAction(
+  enrollmentId: string,
+  periodMonth: string, // "YYYY-MM"
+  amount: number
+): Promise<CajaChargeResult> {
+  if (!periodMonth || isNaN(amount) || amount <= 0) {
+    return { ok: false, error: "invalid_form" };
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, status, pricing_plans(currency)")
+    .eq("id", enrollmentId)
+    .maybeSingle()
+    .returns<{ id: string; status: string; pricing_plans: { currency: string } | null } | null>();
+
+  if (!enrollment) return { ok: false, error: "enrollment_not_found" };
+  if (enrollment.status === "ended" || enrollment.status === "cancelled") {
+    return { ok: false, error: "enrollment_inactive" };
+  }
+
+  const { data: chargeType } = await supabase
+    .from("charge_types")
+    .select("id")
+    .eq("code", "monthly_tuition")
+    .maybeSingle()
+    .returns<{ id: string } | null>();
+
+  if (!chargeType) return { ok: false, error: "charge_type_not_found" };
+
+  const currency = enrollment.pricing_plans?.currency ?? "MXN";
+  const [year, month] = periodMonth.split("-");
+  const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const label = monthNames[parseInt(month, 10) - 1] ?? month;
+  const description = `Mensualidad ${label} ${year}`;
+
+  const { error: chargeError } = await supabase.from("charges").insert({
+    enrollment_id: enrollmentId,
+    charge_type_id: chargeType.id,
+    period_month: `${periodMonth}-01`,
+    description,
+    amount,
+    currency,
+    status: "pending",
+    created_by: user.id,
+  });
+
+  if (chargeError) {
+    // Unique constraint = charge for this period already exists
+    if (chargeError.code === "23505") return { ok: false, error: "duplicate_period" };
+    return { ok: false, error: "charge_insert_failed" };
+  }
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "charge.created",
+    tableName: "charges",
+    afterData: { enrollment_id: enrollmentId, description, amount, source: "caja-advance-tuition" }
+  });
+
+  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+  if (!updatedData) return { ok: false, error: "reload_failed" };
+
+  return { ok: true, updatedData };
+}
+
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
 
 export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<CajaEnrollmentData | null> {
