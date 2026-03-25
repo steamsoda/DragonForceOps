@@ -2,10 +2,15 @@
 
 This complements `docs/phase-1-sdd.md` with a practical delivery plan.
 
-## Current State (as of 2026-03-19, session 12)
+## Active Task List
+See **`docs/roadmap-post-alpha.md`** for the current prioritized bug + feature list (updated after alpha testing started 2026-03-19).
+
+---
+
+## Current State (as of 2026-03-24, session 13–14)
 - App version: v0.9. Live testing day 1. Production hardened and stable.
 - Core billing loop: enrollment → charges → payments → ledger → pending list → reports. All wired.
-- Real data: 687 players, 473+ guardians, 687 enrollments (10 beca), 31 teams, 1,860+ charges, 1,080+ payments. Seed data corrected — pending tuition charges updated $600 → $750.
+- Real data (reseeded 2026-03-24): 687 players, 811 guardians, 687 enrollments (10 beca), 2,958 charges, 1,585 payments. Full data wipe + clean reseed from corrected Excel (Mes P misclassification fixed).
 - Caja POS: player search + category drill-down (campus → birth year → player), pending charges, payment posting, thermal receipt.
 - Cash session management: open/close per campus, linked cash payments, variance notes, Corte Diario integration.
 - Dashboard: 8 KPIs, MoM trends, payment/charge charts. Campus + month filters. Real data end-to-end.

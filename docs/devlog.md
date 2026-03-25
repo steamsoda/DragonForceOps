@@ -1,5 +1,37 @@
 # Devlog
 
+## 2026-03-24 (session 13–14)
+
+### Data Wipe, Clean Reseed, Auth Fixes, Printer Button (v0.8.1)
+
+**Mes P misclassification — full data wipe + reseed**
+- Root cause: "Mes P" in the original Excel seed was interpreted as "Mes Pendiente" (unpaid). It actually means "Mes Pagado en Plataforma" (paid via 360Player/Stripe). ~150–165 payments per month were missing × 3 months = ~450 missing platform payments, compounding into wrong ledger balances across the board.
+- Decision: wipe all transactional tables and reseed from corrected Excel. Cleaner than patching with migrations.
+- Migration `20260321000000_wipe_transactional_data.sql`: single `TRUNCATE ... RESTART IDENTITY CASCADE` across 18 tables. Preserves all reference/config data (campuses, pricing plans, charge types, products, roles, settings).
+- Previous fix migration `20260319090000` superseded and replaced with no-op `SELECT 1`.
+- `scripts/generate_seed_v2.py`: reads corrected CSV, outputs `scripts/seed_v2.sql`. Column indices cover mom/dad guardian pairs, jan/feb/mar method+date+amount. Key logic: `absent`/`beca` = no charge, no payment; first month = flat $600; early-bird = payment date ≤ day 10 of period month AND amount = $600 → charge $750 + discount credit -$150; standard = $750 charge + $750 payment; unpaid = charge only, no payment.
+- Applied as migration `20260324000000_seed_v2.sql` via `npx supabase db push --linked` (GitHub auto-apply did not trigger).
+- Final counts: 687 players, 811 guardians, 687 enrollments, 2,958 charges (1,815 tuition + 1,143 early-bird credits), 1,585 payments, 1,585 allocations.
+
+**Auth: x-forwarded-host for OAuth origin detection**
+- `request.url` in Next.js Route Handlers returns Vercel's internal deployment URL (e.g. `dragon-force-ops-[hash]-steamsodas-projects.vercel.app`), not the public alias users access.
+- Fix applied to both `src/app/api/auth/azure/route.ts` and `src/app/auth/callback/route.ts`: read `x-forwarded-host` header for hostname, `x-forwarded-proto` for scheme. Falls back to `host` header then `request.url` hostname.
+- Fixes login redirect loop where `redirectTo` pointed to internal URL → Supabase rejected or redirected to wrong domain.
+
+**Preview branch login fix**
+- Preview URL (`dragon-force-ops-git-preview-steamsodas-projects.vercel.app`) was not in Supabase allowed redirect list.
+- Supabase fell back to Site URL and appended `?code=...` to root path instead of hitting `/auth/callback`.
+- Fix: added `https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/**` to preview Supabase project → Auth → URL Configuration → Redirect URLs.
+- Callback route also fixed to use `x-forwarded-host` so post-login redirect stays on the correct domain.
+
+**Printer test button**
+- `src/components/ui/printer-test-button.tsx`: client component with idle/printing/ok/error states. Calls `printTestPage(printerName)`.
+- `printTestPage()` added as a named export in `src/lib/printer.ts` — `sendToQZ` was always internal/private, not exported.
+- Rendered in `src/app/(protected)/layout.tsx` header for all users, between ThemeToggle and logout. Always visible (printer name always has a fallback default).
+- Version bumped to v0.8.1.
+
+---
+
 ## 2026-03-19 (session 12)
 
 ### Bug Fixes, Performance, Player Merge, Tuition Data Fix
