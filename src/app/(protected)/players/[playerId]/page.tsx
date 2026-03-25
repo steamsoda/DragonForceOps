@@ -9,6 +9,14 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
+// Safe DD/MM/YYYY formatter for date-only strings (YYYY-MM-DD).
+// Avoids new Date() to prevent UTC-midnight timezone shifts.
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const [y, m, d] = dateStr.split("-");
+  return d ? `${d}/${m}/${y}` : dateStr;
+}
+
 const DROPOUT_LABELS: Record<string, string> = {
   coach_capability: "Falta de capacidad del entrenador",
   exercise_difficulty: "Dificultad para realizar los ejercicios",
@@ -88,9 +96,9 @@ export default async function PlayerDetailPage({
           Editar jugador
         </Link>
       </div>
-      {sp.ok === "updated" && (
+      {(sp.ok === "updated" || sp.ok === "guardian_updated") && (
         <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
-          ✓ Datos del jugador actualizados.
+          {sp.ok === "guardian_updated" ? "✓ Datos del tutor actualizados." : "✓ Datos del jugador actualizados."}
         </div>
       )}
       {sp.ok === "merged" && (
@@ -109,7 +117,7 @@ export default async function PlayerDetailPage({
         <section className="grid gap-4 rounded-md border border-slate-200 dark:border-slate-700 p-4 md:grid-cols-4">
           <div>
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de nacimiento</p>
-            <p className="font-medium">{player.birthDate}</p>
+            <p className="font-medium">{fmtDate(player.birthDate)}</p>
           </div>
           <div>
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Género</p>
@@ -123,6 +131,12 @@ export default async function PlayerDetailPage({
             <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas médicas</p>
             <p className="font-medium">{player.medicalNotes ?? "-"}</p>
           </div>
+          {player.jerseyNumber != null && (
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Número</p>
+              <p className="font-medium">#{player.jerseyNumber}</p>
+            </div>
+          )}
           {player.isGoalkeeper && (
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Posición</p>
@@ -154,12 +168,13 @@ export default async function PlayerDetailPage({
                   <th className="px-3 py-2">Telefono secundario</th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Parentesco</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {player.guardians.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
                       No hay tutores vinculados.
                     </td>
                   </tr>
@@ -178,6 +193,14 @@ export default async function PlayerDetailPage({
                       <td className="px-3 py-2">{guardian.phone_secondary ?? "-"}</td>
                       <td className="px-3 py-2">{guardian.email ?? "-"}</td>
                       <td className="px-3 py-2">{guardian.relationship_label ?? "-"}</td>
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/players/${player.id}/guardians/${guardian.id}/edit`}
+                          className="text-xs text-portoBlue hover:underline"
+                        >
+                          Editar
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -244,7 +267,7 @@ export default async function PlayerDetailPage({
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
-                  <p className="font-medium">{activeEnrollment.startDate}</p>
+                  <p className="font-medium">{fmtDate(activeEnrollment.startDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>
@@ -298,11 +321,11 @@ export default async function PlayerDetailPage({
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de inicio</p>
-                  <p className="font-medium">{lastEnrollment.startDate}</p>
+                  <p className="font-medium">{fmtDate(lastEnrollment.startDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Fecha de baja</p>
-                  <p className="font-medium">{lastEnrollment.endDate ?? "-"}</p>
+                  <p className="font-medium">{fmtDate(lastEnrollment.endDate)}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Dias inscrito</p>

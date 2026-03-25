@@ -78,6 +78,8 @@ type PendingRpcRow = {
   team_id: string | null;
   team_name: string | null;
   earliest_due_date: string | null;
+  contactado_at: string | null;
+  contactado_notes: string | null;
 };
 
 export async function listPendingEnrollments(filters: PendingEnrollmentsFilters) {
@@ -107,7 +109,9 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
         primaryPhone: r.phone_primary ?? null,
         balance,
         dueDate: r.earliest_due_date ?? null,
-        overdueDays
+        overdueDays,
+        contactadoAt: r.contactado_at ?? null,
+        contactNotes: r.contactado_notes ?? null
       };
     })
     .filter((row) => {

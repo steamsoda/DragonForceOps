@@ -9,6 +9,7 @@ import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
 import { voidChargeAction, voidPaymentAction } from "@/server/actions/billing";
 import { createClient } from "@/lib/supabase/server";
+import { getPrinterName } from "@/lib/queries/settings";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del pago son invalidos. Revisa monto y metodo.",
@@ -39,7 +40,10 @@ export default async function ChargesPage({
 
   // Check if current user is director_admin to show void controls
   const supabase = await createClient();
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
+  const [{ data: isDirector }, printerName] = await Promise.all([
+    supabase.rpc("is_director_admin"),
+    getPrinterName(),
+  ]);
 
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
@@ -107,6 +111,7 @@ export default async function ChargesPage({
             currentBalance={ledger.totals.balance}
             currency={ledger.enrollment.currency}
             action={postPayment}
+            printerName={printerName}
           />
           <PaymentsTable rows={ledger.payments} voidPaymentAction={voidPayment} />
         </section>

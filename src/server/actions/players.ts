@@ -78,6 +78,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
   const gender = formData.get("gender")?.toString().trim() || null;
   const isGoalkeeper = formData.get("isGoalkeeper") === "1";
+  const jerseyNumberRaw = formData.get("jerseyNumber")?.toString().trim();
+  const jerseyNumber = jerseyNumberRaw ? parseInt(jerseyNumberRaw, 10) : null;
 
   if (!firstName || !lastName || !birthDate) redirect(`${BASE}/edit?err=missing_fields`);
 
@@ -97,7 +99,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
       uniform_size: uniformSize,
       medical_notes: medicalNotes,
       gender: gender || null,
-      is_goalkeeper: isGoalkeeper
+      is_goalkeeper: isGoalkeeper,
+      jersey_number: jerseyNumber
     })
     .eq("id", playerId);
 
@@ -105,4 +108,56 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
 
   revalidatePath(BASE);
   redirect(`${BASE}?ok=updated`);
+}
+
+// ── Update guardian ────────────────────────────────────────────────────────────
+
+export async function updateGuardianAction(
+  playerId: string,
+  guardianId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/players/${playerId}`;
+
+  const firstName = formData.get("firstName")?.toString().trim();
+  const lastName = formData.get("lastName")?.toString().trim();
+  const phonePrimary = formData.get("phonePrimary")?.toString().trim();
+  const phoneSecondary = formData.get("phoneSecondary")?.toString().trim() || null;
+  const email = formData.get("email")?.toString().trim() || null;
+  const relationshipLabel = formData.get("relationshipLabel")?.toString().trim() || null;
+
+  if (!firstName || !lastName || !phonePrimary) {
+    redirect(`${BASE}/guardians/${guardianId}/edit?err=missing_fields`);
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+
+  // Verify this guardian belongs to this player
+  const { data: link } = await supabase
+    .from("player_guardians")
+    .select("id")
+    .eq("player_id", playerId)
+    .eq("guardian_id", guardianId)
+    .maybeSingle();
+
+  if (!link) redirect(`${BASE}?err=unauthorized`);
+
+  const { error } = await supabase
+    .from("guardians")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      phone_primary: phonePrimary,
+      phone_secondary: phoneSecondary,
+      email,
+      relationship_label: relationshipLabel
+    })
+    .eq("id", guardianId);
+
+  if (error) redirect(`${BASE}/guardians/${guardianId}/edit?err=update_failed`);
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=guardian_updated`);
 }

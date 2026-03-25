@@ -12,6 +12,7 @@ type EnrollmentRow = {
   players: {
     first_name: string | null;
     last_name: string | null;
+    birth_date: string | null;
   } | null;
   pricing_plans: {
     name: string | null;
@@ -74,6 +75,7 @@ export type EnrollmentLedger = {
     campusName: string;
     campusCode: string;
     playerName: string;
+    birthYear: number | null;
     pricingPlanName: string;
     currency: string;
   };
@@ -115,7 +117,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
   const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, campuses(name, code), players(first_name, last_name), pricing_plans(name, currency)")
+      .select("id, status, start_date, end_date, campuses(name, code), players(first_name, last_name, birth_date), pricing_plans(name, currency)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentRow | null>(),
@@ -179,6 +181,9 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       campusName: enrollment.campuses?.name ?? "-",
       campusCode: enrollment.campuses?.code ?? "-",
       playerName: `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim(),
+      birthYear: enrollment.players?.birth_date
+        ? new Date(enrollment.players.birth_date).getUTCFullYear()
+        : null,
       pricingPlanName: enrollment.pricing_plans?.name ?? "-",
       currency: enrollment.pricing_plans?.currency ?? "MXN"
     },

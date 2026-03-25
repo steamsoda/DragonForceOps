@@ -14,12 +14,20 @@ function toNumber(value: number | string | null | undefined) {
   return 0;
 }
 
-function todayUtcString() {
-  const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(now.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+// Monterrey is permanently UTC-6 (Mexico abolished DST in 2023).
+const CST_OFFSET_MS = 6 * 60 * 60 * 1000;
+
+function todayMonterreyString() {
+  const now = new Date(Date.now() - CST_OFFSET_MS);
+  return now.toISOString().slice(0, 10);
+}
+
+// Returns UTC bounds that correspond to a full calendar day in Monterrey.
+// Monterrey midnight = UTC 06:00, so a local day spans T06:00Z → T06:00Z next day.
+function monterreyDayUtcRange(dateStr: string): { start: string; end: string } {
+  const start = new Date(`${dateStr}T06:00:00.000Z`);
+  const end = new Date(start.getTime() + 86_400_000);
+  return { start: start.toISOString(), end: end.toISOString() };
 }
 
 function currentMonthString() {
@@ -94,10 +102,8 @@ export async function getCorteDiarioData(filters: {
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
 
-  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : todayUtcString();
-
-  const dateStart = `${dateStr}T00:00:00.000Z`;
-  const dateEnd = new Date(new Date(dateStart).getTime() + 86_400_000).toISOString();
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : todayMonterreyString();
+  const { start: dateStart, end: dateEnd } = monterreyDayUtcRange(dateStr);
 
   let query = supabase
     .from("payments")

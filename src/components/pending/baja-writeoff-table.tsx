@@ -16,6 +16,12 @@ type BajaRow = {
   pendingTotal: number;
 };
 
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const [y, m, d] = dateStr.split("-");
+  return d ? `${d}/${m}/${y}` : dateStr;
+}
+
 const DROPOUT_LABELS: Record<string, string> = {
   coach_capability: "Falta de capacidad del entrenador",
   exercise_difficulty: "Dificultad para realizar los ejercicios",
@@ -137,7 +143,7 @@ export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
-                  {row.endDate ?? "—"}
+                  {fmtDate(row.endDate)}
                 </td>
                 <td className="px-3 py-2 text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={row.dropoutReason ? (DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason) : ""}>
                   {row.dropoutReason ? (DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason) : <span className="text-slate-400">—</span>}

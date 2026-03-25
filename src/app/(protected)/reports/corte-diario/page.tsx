@@ -20,13 +20,13 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-MX", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "UTC"
+    timeZone: "America/Monterrey"
   });
 }
 
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC"
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey"
   });
 }
 
@@ -268,7 +268,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  <th className="px-3 py-2">Hora (UTC)</th>
+                  <th className="px-3 py-2">Hora</th>
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Método</th>
                   <th className="px-3 py-2 text-right">Monto</th>

@@ -9,6 +9,7 @@ import {
   postCajaPaymentAction,
   getProductsForCajaAction,
   postCajaChargeAction,
+  createAdvanceTuitionAction,
   getCajaDrilldownMetaAction,
   listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
@@ -307,6 +308,7 @@ export function CajaClient({ printerName, initialEnrollmentId }: { printerName: 
           targetChargeIds={view.tag === "paying" ? view.targetChargeIds : []}
           onPay={goToPayment}
           onAddCharge={goToAddCharge}
+          onDataUpdate={(updatedData) => setView({ tag: "enrollment", player: view.player, data: updatedData })}
           onCancel={
             view.tag === "paying"
               ? () => setView({ tag: "enrollment", player: view.player, data: view.data })
@@ -576,6 +578,25 @@ function SearchPanel({
 
 // ── Enrollment panel ──────────────────────────────────────────────────────────
 
+const MONTH_NAMES_ES_CAJA = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+function getDefaultNextMonthCaja() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthOptionsCaja() {
+  const now = new Date();
+  return [-1, 0, 1, 2].map((offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    return {
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${MONTH_NAMES_ES_CAJA[d.getMonth()]} ${d.getFullYear()}`,
+    };
+  });
+}
+
 function EnrollmentPanel({
   player,
   data,
@@ -585,6 +606,7 @@ function EnrollmentPanel({
   onAddCharge,
   onCancel,
   onSubmit,
+  onDataUpdate,
   isPending,
   error
 }: {
@@ -596,11 +618,42 @@ function EnrollmentPanel({
   onAddCharge: (p: CajaPlayerResult, d: CajaEnrollmentData) => void;
   onCancel: () => void;
   onSubmit: (player: CajaPlayerResult, enrollmentId: string, formData: FormData) => void;
+  onDataUpdate: (updatedData: CajaEnrollmentData) => void;
   isPending: boolean;
   error: string | null;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [splitMode, setSplitMode] = useState(false);
+  const [showTuitionForm, setShowTuitionForm] = useState(false);
+  const [tuitionPeriod, setTuitionPeriod] = useState(getDefaultNextMonthCaja);
+  const [tuitionAmount, setTuitionAmount] = useState("750");
+  const [tuitionError, setTuitionError] = useState<string | null>(null);
+  const [isTuitionPending, startTuitionTransition] = useTransition();
+
+  function handleTuitionSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const amount = parseFloat(tuitionAmount);
+    if (!tuitionPeriod || isNaN(amount) || amount <= 0) return;
+    setTuitionError(null);
+    startTuitionTransition(async () => {
+      const result = await createAdvanceTuitionAction(data.enrollmentId, tuitionPeriod, amount);
+      if (!result.ok) {
+        const msgs: Record<string, string> = {
+          duplicate_period: "Ya existe un cargo de mensualidad para ese período.",
+          enrollment_inactive: "La inscripción no está activa.",
+          charge_type_not_found: "Error de configuración: tipo de cargo no encontrado.",
+          prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar. No se puede cobrar por adelantado.",
+        };
+        setTuitionError(msgs[result.error] ?? "Error al crear el cargo. Intenta de nuevo.");
+        return;
+      }
+      setShowTuitionForm(false);
+      setTuitionPeriod(getDefaultNextMonthCaja());
+      setTuitionAmount("750");
+      onDataUpdate(result.updatedData);
+    });
+  }
 
   const targetSet = new Set(targetChargeIds);
   const targetCharges = data.pendingCharges.filter((c) => targetSet.has(c.id));
@@ -714,7 +767,7 @@ function EnrollmentPanel({
                       <span>Cargo total</span><span className="font-medium text-slate-700 dark:text-slate-300">{formatMoney(c.amount, data.currency)}</span>
                       {isPartial && <><span>Ya pagado</span><span className="font-medium text-emerald-600">{formatMoney(c.amount - c.pendingAmount, data.currency)}</span></>}
                       <span>Pendiente</span><span className="font-medium text-rose-600">{formatMoney(c.pendingAmount, data.currency)}</span>
-                      {c.dueDate && <><span>Vencimiento</span><span className={`font-medium ${overdue ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{c.dueDate}</span></>}
+                      {c.dueDate && <><span>Vencimiento</span><span className={`font-medium ${overdue ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}`}>{(() => { const [y,m,d] = c.dueDate!.split("-"); return `${d}/${m}/${y}`; })()}</span></>}
                     </div>
                   )}
                 </li>
@@ -728,6 +781,61 @@ function EnrollmentPanel({
             ? `Crédito disponible: ${formatMoney(Math.abs(data.balance), data.currency)}. Se aplicará al siguiente cargo.`
             : "No hay cargos pendientes. ✓"}
         </div>
+      )}
+
+      {/* Advance tuition inline form */}
+      {showTuitionForm && !paying && (
+        <form
+          onSubmit={handleTuitionSubmit}
+          className="rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-3"
+        >
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Mensualidad adelantada</p>
+          {tuitionError && (
+            <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">{tuitionError}</p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1 text-sm">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
+              <select
+                value={tuitionPeriod}
+                onChange={(e) => setTuitionPeriod(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
+              >
+                {getMonthOptionsCaja().map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={tuitionAmount}
+                onChange={(e) => setTuitionAmount(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
+              />
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={isTuitionPending}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {isTuitionPending ? "Creando…" : "Crear cargo"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowTuitionForm(false); setTuitionError(null); }}
+              className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
       )}
 
       {/* Payment form */}
@@ -785,6 +893,52 @@ function EnrollmentPanel({
               </select>
             </label>
           </div>
+
+          {/* Split payment toggle + second row */}
+          {!splitMode ? (
+            <button
+              type="button"
+              onClick={() => setSplitMode(true)}
+              className="text-xs text-portoBlue hover:underline"
+            >
+              + Dividir pago en dos métodos
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Segundo método de pago</span>
+                <button
+                  type="button"
+                  onClick={() => setSplitMode(false)}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  × Cancelar división
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Monto 2</span>
+                  <input
+                    type="number"
+                    name="amount2"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
+                  <select name="method2" required className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none">
+                    <option value="cash">Efectivo</option>
+                    <option value="transfer">Transferencia</option>
+                    <option value="card">Tarjeta</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
 
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
@@ -850,6 +1004,13 @@ function EnrollmentPanel({
             Cobrar todo
           </button>
           <button
+            onClick={() => { setShowTuitionForm((v) => !v); setTuitionError(null); }}
+            disabled={isPending}
+            className="rounded-xl border border-emerald-300 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 disabled:opacity-50"
+          >
+            + Mensualidad
+          </button>
+          <button
             onClick={() => onAddCharge(player, data)}
             disabled={isPending}
             className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
@@ -888,14 +1049,19 @@ function ReceiptPanel({
   const receiptData: ReceiptData = {
     playerName: receipt.playerName,
     campusName: receipt.campusName,
+    birthYear: receipt.birthYear,
     method: methodLabel(receipt.method),
     amount: receipt.amount,
     currency: receipt.currency,
     remainingBalance: receipt.remainingBalance,
     chargesPaid: receipt.chargesPaid,
     paymentId: receipt.paymentId,
+    folio: receipt.folio,
     date: dateStr,
     time: timeStr,
+    splitPayment: receipt.splitPayment
+      ? { amount: receipt.splitPayment.amount, method: methodLabel(receipt.splitPayment.method) }
+      : undefined,
   };
 
   return (

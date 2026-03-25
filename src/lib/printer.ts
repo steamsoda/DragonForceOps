@@ -70,8 +70,24 @@ type QZDataItem =
   | { type: "raw"; format: "plain"; data: string }
   | { type: "raw"; format: "base64"; data: string };
 
+// Encode a JS string to base64 using CP1252 byte values.
+// QZ Tray transmits "plain" strings as UTF-8 over the WebSocket, so ñ (U+00F1)
+// arrives at the printer as two UTF-8 bytes (0xC3 0xB1) instead of one CP1252
+// byte (0xF1). Sending pre-encoded base64 bypasses QZ Tray's text handling
+// entirely and delivers the correct single byte to the ESC/POS printer.
+// Latin-1 supplement chars (U+00A0–U+00FF) are identical in CP1252, so a
+// direct charCodeAt passthrough is sufficient for all Spanish characters.
+function encodeCP1252Base64(str: string): string {
+  let binary = "";
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    binary += String.fromCharCode(c <= 0xff ? c : 0x3f); // 0x3f = '?' for unmappable chars
+  }
+  return btoa(binary);
+}
+
 function t(data: string): QZDataItem {
-  return { type: "raw", format: "plain", data };
+  return { type: "raw", format: "base64", data: encodeCP1252Base64(data) };
 }
 
 // ── ESC/POS image conversion ──────────────────────────────────────────────────
@@ -180,14 +196,17 @@ function divider(char = "-", width = 42): string {
 export type ReceiptData = {
   playerName: string;
   campusName: string;
+  birthYear: number | null;
   method: string;
   amount: number;
   currency: string;
   remainingBalance: number;
   chargesPaid: { description: string; amount: number }[];
   paymentId: string;
+  folio: string | null;
   date: string;
   time: string;
+  splitPayment?: { amount: number; method: string };
 };
 
 function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDataItem[] {
@@ -218,16 +237,24 @@ function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDa
 function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: r.currency }).format(n);
-  const shortId = r.paymentId.slice(-8).toUpperCase();
+  const shortId = r.folio ?? r.paymentId.slice(-8).toUpperCase();
 
   const header = buildReceiptHeader(r.campusName, logoESCPOS);
+
+  const methodLines: QZDataItem[] = r.splitPayment
+    ? [
+        t(row(`Pago 1 (${r.method})`, fmt(r.amount - r.splitPayment.amount)) + "\n"),
+        t(row(`Pago 2 (${r.splitPayment.method})`, fmt(r.splitPayment.amount)) + "\n"),
+      ]
+    : [t(`Metodo: ${r.method}\n`)];
 
   const meta: QZDataItem[] = [
     t(divider() + "\n"),
     t(`Alumno: ${r.playerName}\n`),
+    ...(r.birthYear != null ? [t(`Categ.: ${r.birthYear}\n`)] : []),
     t(`Fecha:  ${r.date}\n`),
     t(`Hora:   ${r.time}\n`),
-    t(`Metodo: ${r.method}\n`),
+    ...methodLines,
     t(`Folio:  ${shortId}\n`),
     t(divider() + "\n"),
   ];
@@ -311,7 +338,7 @@ function buildCorte(c: CorteData, logoESCPOS: string | null): QZDataItem[] {
   if (c.payments.length > 0) {
     items.push(t(`Detalle (${c.payments.length} cobros):\n`));
     for (const p of c.payments) {
-      const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+      const time = new Date(p.paidAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" });
       items.push(t(`${time} ${p.methodLabel.slice(0, 4).padEnd(4)} ${fmt(p.amount).padStart(10)} ${p.playerName.slice(0, 18)}\n`));
     }
     items.push(t(divider() + "\n"));
@@ -340,4 +367,25 @@ export async function printReceipt(printerName: string, data: ReceiptData): Prom
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {
   const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildCorte(data, logo));
+}
+
+export async function printTestPage(printerName: string): Promise<void> {
+  const now = new Date().toLocaleString("es-MX", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+  await sendToQZ(printerName, [
+    t(`${ESC}@`),
+    t(`${ESC}a\x01`),
+    t("================================\n"),
+    t("   PRUEBA DE IMPRESORA\n"),
+    t("   Dragon Force Ops\n"),
+    t(`   ${now}\n`),
+    t("================================\n"),
+    t("   Impresora: OK\n"),
+    t(`   ${printerName}\n`),
+    t("================================\n"),
+    t("\n\n\n\n"),
+    t(`${ESC}d\x04`),
+  ]);
 }

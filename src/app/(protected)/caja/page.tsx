@@ -26,12 +26,20 @@ export default async function CajaPage({
             <h1 className="text-2xl font-bold text-portoDark dark:text-portoBlue">Caja</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Búsqueda rápida y registro de pagos</p>
           </div>
-          <Link
-            href="/caja/sesion"
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-          >
-            Gestionar sesión
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/players/new"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Nueva inscripción
+            </Link>
+            <Link
+              href="/caja/sesion"
+              className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Gestionar sesión
+            </Link>
+          </div>
         </div>
 
         {/* Session status */}

@@ -4,6 +4,12 @@ import { listCampuses, listBirthYears, listPlayers, listBajas } from "@/lib/quer
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
 
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const [y, m, d] = dateStr.split("-");
+  return d ? `${d}/${m}/${y}` : dateStr;
+}
+
 const DROPOUT_LABELS: Record<string, string> = {
   cost: "Costo",
   distance: "Distancia",
@@ -261,8 +267,8 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                           {row.fullName}
                         </Link>
                       </td>
-                      <td className="px-3 py-2">{row.startDate}</td>
-                      <td className="px-3 py-2">{row.endDate ?? "-"}</td>
+                      <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
+                      <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
                       <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>
                       <td className="px-3 py-2">{row.dropoutReason ? (DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason) : "-"}</td>
                     </tr>

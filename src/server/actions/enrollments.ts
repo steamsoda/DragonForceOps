@@ -205,3 +205,34 @@ export async function updateEnrollmentAction(
   revalidatePath(`/players/${playerId}`);
   redirect(`/players/${playerId}`);
 }
+
+// ── Call center contact tracking ─────────────────────────────────────────────
+
+export type UpdateContactadoResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function updateContactadoAction(
+  enrollmentId: string,
+  contacted: boolean,
+  notes: string
+): Promise<UpdateContactadoResult> {
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const { error } = await supabase
+    .from("enrollments")
+    .update(
+      contacted
+        ? { contactado_at: new Date().toISOString(), contactado_by: user.id, contactado_notes: notes || null }
+        : { contactado_at: null, contactado_by: null, contactado_notes: null }
+    )
+    .eq("id", enrollmentId);
+
+  if (error) return { ok: false, error: "update_failed" };
+
+  revalidatePath("/pending");
+  return { ok: true };
+}
+

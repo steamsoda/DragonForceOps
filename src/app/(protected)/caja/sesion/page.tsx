@@ -12,7 +12,7 @@ function fmt(v: number) {
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC"
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey"
   });
 }
 

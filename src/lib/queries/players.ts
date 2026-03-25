@@ -63,6 +63,8 @@ type PlayerDetailRow = {
   is_goalkeeper: boolean;
 };
 
+type JerseyNumberRow = { jersey_number: number | null };
+
 type PlayerGuardianDetailRow = {
   is_primary: boolean;
   guardians: {
@@ -400,6 +402,15 @@ export async function getPlayerDetail(playerId: string) {
 
   if (!player) return null;
 
+  // Defensive: fetch jersey_number separately so a missing migration doesn't 404 the page
+  const { data: jrData } = await supabase
+    .from("players")
+    .select("jersey_number")
+    .eq("id", playerId)
+    .maybeSingle()
+    .returns<JerseyNumberRow | null>();
+  const jerseyNumber = jrData?.jersey_number ?? null;
+
   const enrollmentIds = (enrollmentRows ?? []).map((row) => row.id);
   const activeEnrollmentRow = (enrollmentRows ?? []).find((row) => row.status === "active");
 
@@ -473,6 +484,7 @@ export async function getPlayerDetail(playerId: string) {
     medicalNotes: player.medical_notes,
     uniformSize: player.uniform_size,
     isGoalkeeper: player.is_goalkeeper,
+    jerseyNumber,
     guardians,
     enrollments,
     activeTeam: team

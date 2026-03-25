@@ -1,0 +1,11 @@
+project_id = "hjvytfaalnfcqfgbxsmj"
+
+[auth]
+site_url = "https://dragon-force-ops-steamsodas-projects.vercel.app"
+additional_redirect_urls = [
+  "https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/**",
+  "http://localhost:3000/**"
+]
+
+[auth.email]
+enable_signup = false
