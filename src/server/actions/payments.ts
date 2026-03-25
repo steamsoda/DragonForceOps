@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { parsePaymentFormData } from "@/lib/validations/payment";
@@ -11,15 +10,38 @@ import { writeAuditLog } from "@/lib/audit";
 type TuitionRuleRow = { amount: number; day_to: number | null };
 type DiscountCheckRow = { id: string };
 
-function redirectWithError(enrollmentId: string, code: string): never {
-  redirect(`/enrollments/${enrollmentId}/charges?err=${code}`);
-}
+const METHOD_LABELS: Record<string, string> = {
+  cash: "Efectivo",
+  transfer: "Transferencia",
+  card: "Tarjeta",
+  stripe_360player: "360Player/Stripe",
+  other: "Otro"
+};
 
-export async function postEnrollmentPaymentAction(enrollmentId: string, formData: FormData) {
+export type EnrollmentPaymentResult =
+  | {
+      ok: true;
+      receipt: {
+        playerName: string;
+        campusName: string;
+        method: string;
+        amount: number;
+        currency: string;
+        remainingBalance: number;
+        chargesPaid: { description: string; amount: number }[];
+        paymentId: string;
+        date: string;
+        time: string;
+      };
+    }
+  | { ok: false; error: string };
+
+export async function postEnrollmentPaymentAction(
+  enrollmentId: string,
+  formData: FormData
+): Promise<EnrollmentPaymentResult> {
   const parsed = parsePaymentFormData(formData);
-  if (!parsed) {
-    return redirectWithError(enrollmentId, "invalid_form");
-  }
+  if (!parsed) return { ok: false, error: "invalid_form" };
 
   const supabase = await createClient();
   const {
@@ -27,23 +49,17 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
     error: userError
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    return redirectWithError(enrollmentId, "unauthenticated");
-  }
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
 
   const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger) {
-    return redirectWithError(enrollmentId, "enrollment_not_found");
-  }
+  if (!ledger) return { ok: false, error: "enrollment_not_found" };
 
   // Pending charges sorted oldest-first for auto-allocation
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  if (pendingCharges.length === 0) {
-    return redirectWithError(enrollmentId, "no_pending_charges");
-  }
+  if (pendingCharges.length === 0) return { ok: false, error: "no_pending_charges" };
 
   // Auto-allocate oldest-first. Any excess over total pending = credit balance.
   const allocations: Array<{ chargeId: string; amount: number }> = [];
@@ -57,11 +73,12 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
   }
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const now = new Date();
   const { data: paymentRow, error: paymentError } = await supabase
     .from("payments")
     .insert({
       enrollment_id: enrollmentId,
-      paid_at: new Date().toISOString(),
+      paid_at: now.toISOString(),
       method: parsed.method,
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
@@ -74,9 +91,7 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
     .select("id")
     .single<{ id: string }>();
 
-  if (paymentError || !paymentRow) {
-    return redirectWithError(enrollmentId, "payment_insert_failed");
-  }
+  if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
   if (allocations.length > 0) {
     const { error: allocationError } = await supabase.from("payment_allocations").insert(
@@ -89,13 +104,11 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
 
     if (allocationError) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
-      return redirectWithError(enrollmentId, "allocation_insert_failed");
+      return { ok: false, error: "allocation_insert_failed" };
     }
   }
 
   // ── Early bird discount ───────────────────────────────────────────────────
-  // If payment is on days 1–10 of the month and touches a monthly_tuition charge
-  // for the current period, automatically create a discount credit line.
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allocations, ledger, user.id);
 
   await writeAuditLog(supabase, {
@@ -108,7 +121,27 @@ export async function postEnrollmentPaymentAction(enrollmentId: string, formData
   });
 
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
-  redirect(`/enrollments/${enrollmentId}/charges?ok=payment_posted`);
+
+  const chargesPaid = allocations.map((a) => {
+    const charge = ledger.charges.find((c) => c.id === a.chargeId);
+    return { description: charge?.description ?? "Cargo", amount: a.amount };
+  });
+
+  return {
+    ok: true,
+    receipt: {
+      playerName: ledger.enrollment.playerName,
+      campusName: ledger.enrollment.campusName,
+      method: METHOD_LABELS[parsed.method] ?? parsed.method,
+      amount: parsed.amount,
+      currency: ledger.enrollment.currency,
+      remainingBalance: ledger.totals.balance - parsed.amount,
+      chargesPaid,
+      paymentId: paymentRow.id,
+      date: now.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Monterrey" }),
+      time: now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" }),
+    }
+  };
 }
 
 export async function applyEarlyBirdDiscountIfEligible(

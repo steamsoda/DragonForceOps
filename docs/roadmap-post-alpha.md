@@ -11,11 +11,11 @@ Last updated: 2026-03-24
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 1 | **No receipt on new enrollment charge** | 🔴 Open | Payment action fires but receipt never prints — only auto-prints from Caja flow |
-| 2 | **No receipt from player profile payment** | 🔴 Open | Same root cause — receipt only auto-prints from Caja, not from profile payment action |
-| 3 | **Garbled ñ / accents on printed receipts** | 🔴 Open | ESC/POS encoding bug — printer expects CP1252 but strings are UTF-8; ñ prints as two garbage chars |
-| 4 | **Corte Diario UTC offset** | 🔴 Open | All timestamps use UTC — Monterrey is UTC-6 (CST). "0.00 cobrado hoy" at 6am UTC scared staff |
-| 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | 🔴 Open | Mexican standard everywhere — receipts, player profile, Corte, Pendientes, all date fields |
+| 1 | **No receipt on enrollment ledger page** | ✅ Done | `postEnrollmentPaymentAction` now returns receipt data; `PaymentPostForm` is a client component using `useActionState` + `PrintReceiptButton` with `autoPrint` |
+| 2 | **No receipt from player profile payment** | ✅ Done | Player profile links to Caja (`/caja?enrollmentId=...`) which already auto-prints — not a separate bug |
+| 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts`; all Spanish chars now print correctly |
+| 4 | **Corte Diario UTC offset** | ✅ Done | Date queries now use Monterrey midnight (UTC+6h); display uses `timeZone: "America/Monterrey"` |
+| 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting (no `new Date()`) applied across all date display sites |
 
 ---
 
