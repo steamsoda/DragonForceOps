@@ -58,7 +58,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <KpiCard
             label="Pagos de hoy"
             value={formatCurrency(dashboard.paymentsToday)}
-            description="Cobros registrados desde las 00:00 UTC"
+            description="Cobros registrados desde las 00:00 (Monterrey)"
           />
           <KpiCard
             label="Pagos del mes"
