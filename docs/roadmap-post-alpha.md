@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. This document tracks all bugs, QOL improvements,
 and new features surfaced during testing. Updated continuously.
 
-Last updated: 2026-03-24
+Last updated: 2026-03-24 (P1 all done)
 
 ---
 
@@ -23,12 +23,12 @@ Last updated: 2026-03-24
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 6 | **Alphabetical sort in Caja category drill-down** | 🔴 Open | Player list within birth-year/campus shows in enrollment order; needs A–Z by first or last name |
-| 7 | **Categoría + Campus on receipt** | 🔴 Open | Add birth year and campus name to printed receipt header |
-| 8 | **Sequential receipt folio numbers** | 🔴 Open | Replace last-8-of-UUID with `LV-0042` / `CT-0017` format. Counter per campus in DB |
-| 9 | **Split payment (multiple methods)** | 🔴 Open | Parents paying half cash, half card. UI: 2 method rows summing to total. Backend: 2 payments + 2 allocation sets |
-| 10 | **"Nueva Inscripción" button in Caja** | 🔴 Open | Shortcut to new player flow or quick-search existing player → new enrollment |
-| 11 | **Edit guardian/tutor info from player profile** | 🔴 Open | Guardian name + phone not editable from UI. Player edit exists but guardian edit does not |
+| 6 | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
+| 7 | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |
+| 8 | **Sequential receipt folio numbers** | ✅ Done | `campus_folio_counters` table + BEFORE INSERT trigger; format `LV-202603-00042` |
+| 9 | **Split payment (multiple methods)** | ✅ Done | Two-pass FIFO allocation; 2 payment rows + split UI toggle in `caja-client.tsx` |
+| 10 | **"Nueva Inscripción" button in Caja** | ✅ Done | Link button added to Caja page header alongside "Gestionar sesión" |
+| 11 | **Edit guardian/tutor info from player profile** | ✅ Done | `/players/[id]/guardians/[id]/edit` page + `updateGuardianAction` with ownership check |
 
 ---
 
