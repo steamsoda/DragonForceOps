@@ -643,6 +643,7 @@ function EnrollmentPanel({
           duplicate_period: "Ya existe un cargo de mensualidad para ese período.",
           enrollment_inactive: "La inscripción no está activa.",
           charge_type_not_found: "Error de configuración: tipo de cargo no encontrado.",
+          prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar. No se puede cobrar por adelantado.",
         };
         setTuitionError(msgs[result.error] ?? "Error al crear el cargo. Intenta de nuevo.");
         return;

@@ -320,6 +320,20 @@ export async function createAdvanceTuitionAction(
     return { ok: false, error: "enrollment_inactive" };
   }
 
+  // Block advance payment if player has unpaid monthly tuition from prior months
+  const ledgerCheck = await getEnrollmentLedger(enrollmentId);
+  if (!ledgerCheck) return { ok: false, error: "ledger_failed" };
+  const requestedPeriodDate = `${periodMonth}-01`;
+  const hasArrears = ledgerCheck.charges.some(
+    (c) =>
+      c.typeCode === "monthly_tuition" &&
+      c.status !== "void" &&
+      c.pendingAmount > 0 &&
+      !!c.periodMonth &&
+      c.periodMonth < requestedPeriodDate
+  );
+  if (hasArrears) return { ok: false, error: "prior_month_arrears" };
+
   const { data: chargeType } = await supabase
     .from("charge_types")
     .select("id")

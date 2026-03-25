@@ -165,19 +165,26 @@ export async function applyEarlyBirdDiscountIfEligible(
 ) {
   const today = new Date();
   const dayOfMonth = today.getDate();
-  if (dayOfMonth > 10) return; // Outside early-bird window
-
   const currentPeriodMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 
-  // Find any allocation that touched a monthly_tuition charge for the current period month
+  // Find any allocation that touched a monthly_tuition charge eligible for early-bird:
+  //   - future month (advance payment): always eligible
+  //   - current month: eligible only on days 1–10
   const allocatedChargeIds = new Set(allocations.map((a) => a.chargeId));
   const eligibleCharge = ledger.charges.find(
     (c) =>
       allocatedChargeIds.has(c.id) &&
       c.typeCode === "monthly_tuition" &&
-      c.periodMonth === currentPeriodMonth
+      !!c.periodMonth &&
+      (
+        c.periodMonth > currentPeriodMonth ||
+        (c.periodMonth === currentPeriodMonth && dayOfMonth <= 10)
+      )
   );
   if (!eligibleCharge) return;
+
+  // Use the charge's period month (not today's) so advance payments show the right period
+  const chargePeriodMonth = eligibleCharge.periodMonth!;
 
   // Fetch discount charge type + enrollment pricing plan in parallel (both needed regardless)
   const [{ data: discountType }, { data: enrollment }] = await Promise.all([
@@ -192,7 +199,7 @@ export async function applyEarlyBirdDiscountIfEligible(
       .from("charges")
       .select("id")
       .eq("enrollment_id", enrollmentId)
-      .eq("period_month", currentPeriodMonth)
+      .eq("period_month", chargePeriodMonth)
       .eq("charge_type_id", discountType.id)
       .neq("status", "void")
       .maybeSingle()
@@ -204,7 +211,7 @@ export async function applyEarlyBirdDiscountIfEligible(
       .returns<TuitionRuleRow[]>()
   ]);
 
-  if (existingDiscount) return; // Discount already applied
+  if (existingDiscount) return; // Discount already applied for this period
 
   const allRules = rules ?? [];
   const earlyBirdRule = allRules.find((r) => r.day_to !== null); // rule with a day_to cap = early bird
@@ -214,14 +221,13 @@ export async function applyEarlyBirdDiscountIfEligible(
   const discountAmount = -(regularRule.amount - earlyBirdRule.amount); // e.g., -150
   if (discountAmount >= 0) return; // Only apply if there's actually a discount
 
-  const month = today.getMonth();
-  const year = today.getFullYear();
-  const description = `Descuento pago anticipado - ${MONTH_NAMES_ES[month]} ${year}`;
+  const [pmYear, pmMonthStr] = chargePeriodMonth.split("-");
+  const description = `Descuento pago anticipado - ${MONTH_NAMES_ES[parseInt(pmMonthStr, 10) - 1]} ${pmYear}`;
 
   await supabase.from("charges").insert({
     enrollment_id: enrollmentId,
     charge_type_id: discountType.id,
-    period_month: currentPeriodMonth,
+    period_month: chargePeriodMonth,
     description,
     amount: discountAmount,
     currency: ledger.enrollment.currency,
