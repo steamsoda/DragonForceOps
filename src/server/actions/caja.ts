@@ -41,7 +41,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
+  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -369,39 +369,44 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     .map((c) => ({ ...c, pendingAmount: effectivePending.get(c.id) ?? 0 }))
     .filter((c) => c.pendingAmount > 0);
 
-  // ── Allocate new payment ──────────────────────────────────────────────────
-  const allocations: Array<{ chargeId: string; amount: number }> = [];
-  let remaining = parsed.amount;
-
-  if (targetChargeIds.length > 0) {
-    // Targeted payment: allocate to selected charges first (in their pending order), then FIFO for remainder
-    for (const charge of effectiveCharges.filter((c) => targetSet.has(c.id))) {
-      if (remaining <= 0) break;
-      const allocated = Math.min(remaining, charge.pendingAmount);
-      allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
-      remaining = Math.round((remaining - allocated) * 100) / 100;
+  // ── Allocate new payment(s) ───────────────────────────────────────────────
+  // Helper: runs a FIFO allocation pass, consuming from `available` map
+  function allocatePass(
+    budget: number,
+    chargeList: typeof effectiveCharges,
+    available: Map<string, number>,
+    priorityIds: Set<string>
+  ): Array<{ chargeId: string; amount: number }> {
+    const result: Array<{ chargeId: string; amount: number }> = [];
+    let rem = budget;
+    const ordered = priorityIds.size > 0
+      ? [...chargeList.filter(c => priorityIds.has(c.id)), ...chargeList.filter(c => !priorityIds.has(c.id))]
+      : chargeList;
+    for (const charge of ordered) {
+      if (rem <= 0) break;
+      const ep = available.get(charge.id) ?? 0;
+      if (ep <= 0) continue;
+      const alloc = Math.round(Math.min(rem, ep) * 100) / 100;
+      result.push({ chargeId: charge.id, amount: alloc });
+      available.set(charge.id, Math.round((ep - alloc) * 100) / 100);
+      rem = Math.round((rem - alloc) * 100) / 100;
     }
-    for (const charge of effectiveCharges.filter((c) => !targetSet.has(c.id))) {
-      if (remaining <= 0) break;
-      const allocated = Math.min(remaining, charge.pendingAmount);
-      allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
-      remaining = Math.round((remaining - allocated) * 100) / 100;
-    }
-  } else {
-    for (const charge of effectiveCharges) {
-      if (remaining <= 0) break;
-      const allocated = Math.min(remaining, charge.pendingAmount);
-      allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
-      remaining = Math.round((remaining - allocated) * 100) / 100;
-    }
+    return result;
   }
 
+  const available = new Map(effectiveCharges.map(c => [c.id, c.pendingAmount]));
+  const allocations1 = allocatePass(parsed.amount, effectiveCharges, available, targetSet);
+  const allocations2 = parsed.split
+    ? allocatePass(parsed.split.amount, effectiveCharges, available, new Set())
+    : [];
+
+  const paidAt = new Date().toISOString();
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase
     .from("payments")
     .insert({
       enrollment_id: enrollmentId,
-      paid_at: new Date().toISOString(),
+      paid_at: paidAt,
       method: parsed.method,
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
@@ -416,6 +421,33 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
+  // Insert second payment row if split
+  let paymentRow2: { id: string; folio: string | null } | null = null;
+  if (parsed.split) {
+    const { data: p2, error: p2Error } = await supabase
+      .from("payments")
+      .insert({
+        enrollment_id: enrollmentId,
+        paid_at: paidAt,
+        method: parsed.split.method,
+        amount: parsed.split.amount,
+        currency: ledger.enrollment.currency,
+        status: "posted",
+        provider_ref: `${providerRef}-b`,
+        external_source: "manual",
+        notes: parsed.notes,
+        created_by: user.id
+      })
+      .select("id, folio")
+      .single<{ id: string; folio: string | null }>();
+
+    if (p2Error || !p2) {
+      await supabase.from("payments").delete().eq("id", paymentRow.id);
+      return { ok: false, error: "payment_insert_failed" };
+    }
+    paymentRow2 = p2;
+  }
+
   // Insert allocations for prior unallocated credit first
   if (priorAllocations.length > 0) {
     const { error: priorAllocError } = await supabase.from("payment_allocations").insert(
@@ -427,34 +459,57 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     );
     if (priorAllocError) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
+      if (paymentRow2) await supabase.from("payments").delete().eq("id", paymentRow2.id);
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
 
-  if (allocations.length > 0) {
+  if (allocations1.length > 0) {
     const { error: allocationError } = await supabase.from("payment_allocations").insert(
-      allocations.map((a) => ({
+      allocations1.map((a) => ({
         payment_id: paymentRow.id,
         charge_id: a.chargeId,
         amount: a.amount
       }))
     );
-
     if (allocationError) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
+      if (paymentRow2) await supabase.from("payments").delete().eq("id", paymentRow2.id);
+      return { ok: false, error: "allocation_insert_failed" };
+    }
+  }
+
+  if (paymentRow2 && allocations2.length > 0) {
+    const { error: allocationError2 } = await supabase.from("payment_allocations").insert(
+      allocations2.map((a) => ({
+        payment_id: paymentRow2!.id,
+        charge_id: a.chargeId,
+        amount: a.amount
+      }))
+    );
+    if (allocationError2) {
+      await supabase.from("payments").delete().eq("id", paymentRow.id);
+      await supabase.from("payments").delete().eq("id", paymentRow2.id);
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
 
   const allAllocatedCharges = [
     ...priorAllocations.map((a) => ({ chargeId: a.chargeId, amount: a.amount })),
-    ...allocations
+    ...allocations1,
+    ...allocations2
   ];
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
 
-  // ── Link cash payment to open session ─────────────────────────────────────
+  // ── Link cash payments to open session ────────────────────────────────────
   let sessionWarning = false;
-  if (parsed.method === "cash") {
+  const paymentsToLink: Array<{ id: string; amount: number; method: string }> = [
+    { id: paymentRow.id, amount: parsed.amount, method: parsed.method },
+    ...(paymentRow2 && parsed.split ? [{ id: paymentRow2.id, amount: parsed.split.amount, method: parsed.split.method }] : [])
+  ];
+
+  const cashPayments = paymentsToLink.filter(p => p.method === "cash");
+  if (cashPayments.length > 0) {
     const { data: campusRow } = await supabase
       .from("enrollments")
       .select("campus_id")
@@ -465,15 +520,17 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     if (campusId) {
       const openSession = await getOpenSessionForCampus(campusId);
       if (openSession) {
-        await supabase.from("cash_session_entries").insert({
-          cash_session_id: openSession.id,
-          payment_id: paymentRow.id,
-          entry_type: "payment_in",
-          amount: parsed.amount,
-          created_by: user.id
-        });
+        await supabase.from("cash_session_entries").insert(
+          cashPayments.map(p => ({
+            cash_session_id: openSession.id,
+            payment_id: p.id,
+            entry_type: "payment_in",
+            amount: p.amount,
+            created_by: user.id
+          }))
+        );
       } else {
-        sessionWarning = true; // cash payment with no open session
+        sessionWarning = true;
       }
     }
   }
@@ -484,27 +541,33 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     action: "payment.posted",
     tableName: "payments",
     recordId: paymentRow.id,
-    afterData: { enrollment_id: enrollmentId, amount: parsed.amount, method: parsed.method, source: "caja" }
+    afterData: { enrollment_id: enrollmentId, amount: parsed.amount, method: parsed.method, source: "caja", split: !!parsed.split }
   });
 
   revalidatePath("/caja");
 
-  const newBalance = ledger.totals.balance - parsed.amount;
+  const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
+  const newBalance = ledger.totals.balance - totalPaid;
 
   const chargeMap = new Map(pendingCharges.map((c) => [c.id, c.description]));
-  const chargesPaid = allocations
+  const chargesPaid = [...allocations1, ...allocations2]
     .filter((a) => a.amount > 0)
     .map((a) => ({ description: chargeMap.get(a.chargeId) ?? "Cargo", amount: a.amount }));
+
+  const splitPayment = parsed.split
+    ? { amount: parsed.split.amount, method: parsed.split.method }
+    : undefined;
 
   return {
     ok: true,
     paymentId: paymentRow.id,
     folio: paymentRow.folio,
-    amount: parsed.amount,
+    amount: totalPaid,
     playerName: ledger.enrollment.playerName,
     campusName: ledger.enrollment.campusName,
     birthYear: ledger.enrollment.birthYear,
     method: parsed.method,
+    splitPayment,
     remainingBalance: newBalance,
     currency: ledger.enrollment.currency,
     sessionWarning,

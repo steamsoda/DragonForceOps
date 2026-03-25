@@ -206,6 +206,7 @@ export type ReceiptData = {
   folio: string | null;
   date: string;
   time: string;
+  splitPayment?: { amount: number; method: string };
 };
 
 function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDataItem[] {
@@ -240,13 +241,20 @@ function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
 
   const header = buildReceiptHeader(r.campusName, logoESCPOS);
 
+  const methodLines: QZDataItem[] = r.splitPayment
+    ? [
+        t(row(`Pago 1 (${r.method})`, fmt(r.amount - r.splitPayment.amount)) + "\n"),
+        t(row(`Pago 2 (${r.splitPayment.method})`, fmt(r.splitPayment.amount)) + "\n"),
+      ]
+    : [t(`Metodo: ${r.method}\n`)];
+
   const meta: QZDataItem[] = [
     t(divider() + "\n"),
     t(`Alumno: ${r.playerName}\n`),
     ...(r.birthYear != null ? [t(`Categ.: ${r.birthYear}\n`)] : []),
     t(`Fecha:  ${r.date}\n`),
     t(`Hora:   ${r.time}\n`),
-    t(`Metodo: ${r.method}\n`),
+    ...methodLines,
     t(`Folio:  ${shortId}\n`),
     t(divider() + "\n"),
   ];

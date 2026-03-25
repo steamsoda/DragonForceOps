@@ -601,6 +601,7 @@ function EnrollmentPanel({
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [splitMode, setSplitMode] = useState(false);
 
   const targetSet = new Set(targetChargeIds);
   const targetCharges = data.pendingCharges.filter((c) => targetSet.has(c.id));
@@ -786,6 +787,52 @@ function EnrollmentPanel({
             </label>
           </div>
 
+          {/* Split payment toggle + second row */}
+          {!splitMode ? (
+            <button
+              type="button"
+              onClick={() => setSplitMode(true)}
+              className="text-xs text-portoBlue hover:underline"
+            >
+              + Dividir pago en dos métodos
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Segundo método de pago</span>
+                <button
+                  type="button"
+                  onClick={() => setSplitMode(false)}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  × Cancelar división
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Monto 2</span>
+                  <input
+                    type="number"
+                    name="amount2"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
+                  <select name="method2" required className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none">
+                    <option value="cash">Efectivo</option>
+                    <option value="transfer">Transferencia</option>
+                    <option value="card">Tarjeta</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
+
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
             <input
@@ -898,6 +945,9 @@ function ReceiptPanel({
     folio: receipt.folio,
     date: dateStr,
     time: timeStr,
+    splitPayment: receipt.splitPayment
+      ? { amount: receipt.splitPayment.amount, method: methodLabel(receipt.splitPayment.method) }
+      : undefined,
   };
 
   return (
