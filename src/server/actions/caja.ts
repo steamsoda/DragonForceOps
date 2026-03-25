@@ -511,7 +511,10 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     .select("id")
     .single<{ id: string }>();
 
-  if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
+  if (paymentError || !paymentRow) {
+    console.error("[postCajaPaymentAction] payment insert failed:", paymentError);
+    return { ok: false, error: "payment_insert_failed" };
+  }
 
   // Insert second payment row if split
   let paymentRow2Id: string | null = null;
