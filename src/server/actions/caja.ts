@@ -41,7 +41,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; amount: number; playerName: string; campusName: string; method: string; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
+  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -411,8 +411,8 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       notes: parsed.notes,
       created_by: user.id
     })
-    .select("id")
-    .single<{ id: string }>();
+    .select("id, folio")
+    .single<{ id: string; folio: string | null }>();
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
@@ -499,9 +499,11 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   return {
     ok: true,
     paymentId: paymentRow.id,
+    folio: paymentRow.folio,
     amount: parsed.amount,
     playerName: ledger.enrollment.playerName,
     campusName: ledger.enrollment.campusName,
+    birthYear: ledger.enrollment.birthYear,
     method: parsed.method,
     remainingBalance: newBalance,
     currency: ledger.enrollment.currency,

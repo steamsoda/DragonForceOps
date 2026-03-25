@@ -888,12 +888,14 @@ function ReceiptPanel({
   const receiptData: ReceiptData = {
     playerName: receipt.playerName,
     campusName: receipt.campusName,
+    birthYear: receipt.birthYear,
     method: methodLabel(receipt.method),
     amount: receipt.amount,
     currency: receipt.currency,
     remainingBalance: receipt.remainingBalance,
     chargesPaid: receipt.chargesPaid,
     paymentId: receipt.paymentId,
+    folio: receipt.folio,
     date: dateStr,
     time: timeStr,
   };

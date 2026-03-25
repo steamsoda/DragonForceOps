@@ -24,12 +24,14 @@ export type EnrollmentPaymentResult =
       receipt: {
         playerName: string;
         campusName: string;
+        birthYear: number | null;
         method: string;
         amount: number;
         currency: string;
         remainingBalance: number;
         chargesPaid: { description: string; amount: number }[];
         paymentId: string;
+        folio: string | null;
         date: string;
         time: string;
       };
@@ -88,8 +90,8 @@ export async function postEnrollmentPaymentAction(
       notes: parsed.notes,
       created_by: user.id
     })
-    .select("id")
-    .single<{ id: string }>();
+    .select("id, folio")
+    .single<{ id: string; folio: string | null }>();
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
@@ -132,12 +134,14 @@ export async function postEnrollmentPaymentAction(
     receipt: {
       playerName: ledger.enrollment.playerName,
       campusName: ledger.enrollment.campusName,
+      birthYear: ledger.enrollment.birthYear,
       method: METHOD_LABELS[parsed.method] ?? parsed.method,
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
       remainingBalance: ledger.totals.balance - parsed.amount,
       chargesPaid,
       paymentId: paymentRow.id,
+      folio: paymentRow.folio,
       date: now.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Monterrey" }),
       time: now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" }),
     }

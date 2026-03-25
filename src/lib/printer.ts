@@ -196,12 +196,14 @@ function divider(char = "-", width = 42): string {
 export type ReceiptData = {
   playerName: string;
   campusName: string;
+  birthYear: number | null;
   method: string;
   amount: number;
   currency: string;
   remainingBalance: number;
   chargesPaid: { description: string; amount: number }[];
   paymentId: string;
+  folio: string | null;
   date: string;
   time: string;
 };
@@ -234,13 +236,14 @@ function buildReceiptHeader(campusName: string, logoESCPOS: string | null): QZDa
 function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
   const fmt = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: r.currency }).format(n);
-  const shortId = r.paymentId.slice(-8).toUpperCase();
+  const shortId = r.folio ?? r.paymentId.slice(-8).toUpperCase();
 
   const header = buildReceiptHeader(r.campusName, logoESCPOS);
 
   const meta: QZDataItem[] = [
     t(divider() + "\n"),
     t(`Alumno: ${r.playerName}\n`),
+    ...(r.birthYear != null ? [t(`Categ.: ${r.birthYear}\n`)] : []),
     t(`Fecha:  ${r.date}\n`),
     t(`Hora:   ${r.time}\n`),
     t(`Metodo: ${r.method}\n`),
