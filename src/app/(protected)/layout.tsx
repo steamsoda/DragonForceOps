@@ -92,7 +92,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const superAdminSection: NavSection = {
     label: "Super Admin",
-    items: [{ href: "/admin/users", label: "Usuarios y Permisos" }]
+    items: [
+      { href: "/admin/users", label: "Usuarios y Permisos" },
+      { href: "/admin/actividad", label: "Auditoría" }
+    ]
   };
 
   const sections: NavSection[] = [
