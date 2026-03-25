@@ -332,9 +332,14 @@ export async function createAdvanceTuitionAction(
 
   // Always charge the regular (non-discounted) rate; early bird discount is applied automatically on payment
   const rules: TuitionRule[] = enrollment.pricing_plans?.pricing_plan_tuition_rules ?? [];
+  // Advance payments are ALWAYS eligible for early bird — create at early bird rate directly.
+  // This avoids a split ledger where the $750 charge has $600 allocated + a floating -$150 discount.
+  // The guard in applyEarlyBirdDiscountIfEligible will skip the discount for charges already at
+  // the early bird rate, preventing a double-discount.
+  const earlyBirdRate = rules.find((r) => r.day_to !== null)?.amount;
   const regularRate = rules.find((r) => r.day_to === null)?.amount;
-  if (!regularRate) return { ok: false, error: "tuition_rate_not_found" };
-  const amount = regularRate;
+  if (!earlyBirdRate || !regularRate) return { ok: false, error: "tuition_rate_not_found" };
+  const amount = earlyBirdRate; // e.g., 600 — the amount the cashier collects
 
   // Block advance payment if player has unpaid monthly tuition from prior months
   const ledgerCheck = await getEnrollmentLedger(enrollmentId);

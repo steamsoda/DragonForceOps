@@ -221,6 +221,10 @@ export async function applyEarlyBirdDiscountIfEligible(
   const discountAmount = -(regularRule.amount - earlyBirdRule.amount); // e.g., -150
   if (discountAmount >= 0) return; // Only apply if there's actually a discount
 
+  // Skip: charge was already created at the early bird rate (advance tuition flow).
+  // Applying the discount again would create an incorrect credit on the account.
+  if (eligibleCharge.amount <= earlyBirdRule.amount) return;
+
   const [pmYear, pmMonthStr] = chargePeriodMonth.split("-");
   const description = `Descuento pago anticipado - ${MONTH_NAMES_ES[parseInt(pmMonthStr, 10) - 1]} ${pmYear}`;
 
