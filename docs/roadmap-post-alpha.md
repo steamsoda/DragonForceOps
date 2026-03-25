@@ -51,7 +51,7 @@ Last updated: 2026-03-24 (P1 all done)
 | 17 | **Uniformes tab** | 🔴 Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page |
 | 18 | **Server-side route blocking** | 🔴 Open | Every `(protected)/` route needs explicit role check server-side, not just nav hiding |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 after reseed — verify |
-| 20 | **Caja cancel UX** | 🔴 Open | Cancel during payment should return to enrollment panel, not page top |
+| 20 | **Caja cancel UX** | ✅ Done | Cancel returns to enrollment panel — resolved as part of prior Caja refactor |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio. Needs P1-8 first |
 
