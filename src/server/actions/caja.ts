@@ -416,13 +416,13 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       notes: parsed.notes,
       created_by: user.id
     })
-    .select("id, folio")
-    .single<{ id: string; folio: string | null }>();
+    .select("id")
+    .single<{ id: string }>();
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
 
   // Insert second payment row if split
-  let paymentRow2: { id: string; folio: string | null } | null = null;
+  let paymentRow2Id: string | null = null;
   if (parsed.split) {
     const { data: p2, error: p2Error } = await supabase
       .from("payments")
@@ -438,14 +438,14 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
         notes: parsed.notes,
         created_by: user.id
       })
-      .select("id, folio")
-      .single<{ id: string; folio: string | null }>();
+      .select("id")
+      .single<{ id: string }>();
 
     if (p2Error || !p2) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
       return { ok: false, error: "payment_insert_failed" };
     }
-    paymentRow2 = p2;
+    paymentRow2Id = p2.id;
   }
 
   // Insert allocations for prior unallocated credit first
@@ -459,7 +459,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     );
     if (priorAllocError) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
-      if (paymentRow2) await supabase.from("payments").delete().eq("id", paymentRow2.id);
+      if (paymentRow2Id) await supabase.from("payments").delete().eq("id", paymentRow2Id);
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
@@ -474,22 +474,22 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     );
     if (allocationError) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
-      if (paymentRow2) await supabase.from("payments").delete().eq("id", paymentRow2.id);
+      if (paymentRow2Id) await supabase.from("payments").delete().eq("id", paymentRow2Id);
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
 
-  if (paymentRow2 && allocations2.length > 0) {
+  if (paymentRow2Id && allocations2.length > 0) {
     const { error: allocationError2 } = await supabase.from("payment_allocations").insert(
       allocations2.map((a) => ({
-        payment_id: paymentRow2!.id,
+        payment_id: paymentRow2Id!,
         charge_id: a.chargeId,
         amount: a.amount
       }))
     );
     if (allocationError2) {
       await supabase.from("payments").delete().eq("id", paymentRow.id);
-      await supabase.from("payments").delete().eq("id", paymentRow2.id);
+      await supabase.from("payments").delete().eq("id", paymentRow2Id);
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
@@ -505,7 +505,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   let sessionWarning = false;
   const paymentsToLink: Array<{ id: string; amount: number; method: string }> = [
     { id: paymentRow.id, amount: parsed.amount, method: parsed.method },
-    ...(paymentRow2 && parsed.split ? [{ id: paymentRow2.id, amount: parsed.split.amount, method: parsed.split.method }] : [])
+    ...(paymentRow2Id && parsed.split ? [{ id: paymentRow2Id, amount: parsed.split.amount, method: parsed.split.method }] : [])
   ];
 
   const cashPayments = paymentsToLink.filter(p => p.method === "cash");
@@ -546,6 +546,14 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   revalidatePath("/caja");
 
+  // Fetch folio after insert (separate query; graceful if column doesn't exist yet)
+  const { data: folioRow } = await supabase
+    .from("payments")
+    .select("folio")
+    .eq("id", paymentRow.id)
+    .maybeSingle<{ folio: string | null }>();
+  const folio = folioRow?.folio ?? null;
+
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
   const newBalance = ledger.totals.balance - totalPaid;
 
@@ -561,7 +569,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   return {
     ok: true,
     paymentId: paymentRow.id,
-    folio: paymentRow.folio,
+    folio,
     amount: totalPaid,
     playerName: ledger.enrollment.playerName,
     campusName: ledger.enrollment.campusName,

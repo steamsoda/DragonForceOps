@@ -90,10 +90,18 @@ export async function postEnrollmentPaymentAction(
       notes: parsed.notes,
       created_by: user.id
     })
-    .select("id, folio")
-    .single<{ id: string; folio: string | null }>();
+    .select("id")
+    .single<{ id: string }>();
 
   if (paymentError || !paymentRow) return { ok: false, error: "payment_insert_failed" };
+
+  // Fetch folio separately — defensive in case migration hasn't applied yet
+  const { data: folioRow } = await supabase
+    .from("payments")
+    .select("folio")
+    .eq("id", paymentRow.id)
+    .maybeSingle<{ folio: string | null }>();
+  const folio = folioRow?.folio ?? null;
 
   if (allocations.length > 0) {
     const { error: allocationError } = await supabase.from("payment_allocations").insert(
@@ -141,7 +149,7 @@ export async function postEnrollmentPaymentAction(
       remainingBalance: ledger.totals.balance - parsed.amount,
       chargesPaid,
       paymentId: paymentRow.id,
-      folio: paymentRow.folio,
+      folio,
       date: now.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Monterrey" }),
       time: now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" }),
     }
