@@ -48,7 +48,7 @@ type PaymentWithPlayer = {
   enrollment_id: string;
   enrollments: {
     campus_id: string;
-    players: { first_name: string | null; last_name: string | null } | null;
+    players: { first_name: string | null; last_name: string | null; birth_date: string | null } | null;
   } | null;
 };
 
@@ -68,6 +68,7 @@ export type CortePaymentRow = {
   id: string;
   enrollmentId: string;
   playerName: string;
+  birthYear: number | null;
   amount: number;
   method: string;
   methodLabel: string;
@@ -125,7 +126,7 @@ export async function getCorteDiarioData(filters: {
 
   let query = supabase
     .from("payments")
-    .select("id, amount, method, paid_at, notes, enrollment_id, enrollments!inner(campus_id, players(first_name, last_name))")
+    .select("id, amount, method, paid_at, notes, enrollment_id, enrollments!inner(campus_id, players(first_name, last_name, birth_date))")
     .eq("status", "posted")
     .gte("paid_at", queryStart)
     .lt("paid_at", queryEnd)
@@ -186,6 +187,7 @@ export async function getCorteDiarioData(filters: {
       id: p.id,
       enrollmentId: p.enrollment_id,
       playerName: `${p.enrollments?.players?.first_name ?? ""} ${p.enrollments?.players?.last_name ?? ""}`.trim() || "-",
+      birthYear: p.enrollments?.players?.birth_date ? parseInt(p.enrollments.players.birth_date.slice(0, 4), 10) : null,
       amount: p.amount,
       method: p.method,
       methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method,

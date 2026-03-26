@@ -13,10 +13,10 @@ Stack: Next.js App Router + TypeScript + Tailwind + shadcn/ui + Supabase + Verce
 ## Versioning
 - Current version is in `package.json` → `"version"`
 - **Bump the version on every commit** before committing
-  - Patch bump (0.8.2 → 0.8.3): bug fixes, small tweaks
-  - Minor bump (0.8.x → 0.9.0): new features or significant additions
-  - Major bump: reserved for production launch milestones
-- Always include the new version in the commit message (e.g. `v0.8.3`)
+  - Patch bump (x.y.Z → x.y.Z+1): bug fixes, small tweaks — can go above 9 (e.g. 1.0.14)
+  - Minor bump (x.Y.z → x.Y+1.0): new features or additions — can go above 9 (e.g. 1.21.0)
+  - Major bump (X.y.z): reserved for special production milestones only
+- Always include the new version in the commit message (e.g. `v1.1.0`)
 
 ## Workflow Rules
 - Preview-first: all changes go to `preview` branch, never directly to `main`

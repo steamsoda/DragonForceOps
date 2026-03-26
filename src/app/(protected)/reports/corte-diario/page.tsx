@@ -286,6 +286,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   <th className="px-3 py-2">Hora</th>
                   <th className="px-3 py-2">Jugador</th>
+                  <th className="px-3 py-2">Cat.</th>
                   <th className="px-3 py-2">Método</th>
                   <th className="px-3 py-2 text-right">Monto</th>
                   <th className="px-3 py-2">Notas</th>
@@ -300,6 +301,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                         {p.playerName}
                       </Link>
                     </td>
+                    <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.birthYear ?? "-"}</td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{p.methodLabel}</td>
                     <td className="px-3 py-2 text-right font-medium">{fmt(p.amount)}</td>
                     <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs">{p.notes ?? "-"}</td>
@@ -308,7 +310,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
-                  <td className="px-3 py-2" colSpan={3}>Total</td>
+                  <td className="px-3 py-2" colSpan={4}>Total</td>
                   <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
                   <td />
                 </tr>
