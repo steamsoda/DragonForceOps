@@ -28,16 +28,19 @@ function formatDate(value: string | null) {
   return d ? `${d}/${m}/${y}` : value;
 }
 
-function getChargeStatusLabel(status: string) {
-  switch (status) {
-    case "pending":
-      return "Pendiente";
-    case "posted":
-      return "Registrado";
-    case "void":
-      return "Anulado";
-    default:
-      return status;
+function getEffectiveStatus(status: string, pendingAmount: number) {
+  if (status === "void") return "void";
+  if (status === "pending" && pendingAmount <= 0) return "paid";
+  if (status === "pending") return "pending";
+  return "posted";
+}
+
+function getChargeStatusLabel(effectiveStatus: string) {
+  switch (effectiveStatus) {
+    case "paid":    return "Pagado";
+    case "pending": return "Pendiente";
+    case "void":    return "Anulado";
+    default:        return "Registrado";
   }
 }
 
@@ -75,17 +78,20 @@ export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTabl
                 </td>
                 <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.description}</td>
                 <td className="px-3 py-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      row.status === "pending"
-                        ? "bg-amber-100 text-amber-800"
-                        : row.status === "void"
-                        ? "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}
-                  >
-                    {getChargeStatusLabel(row.status)}
-                  </span>
+                  {(() => {
+                    const eff = getEffectiveStatus(row.status, row.pendingAmount);
+                    return (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        eff === "pending"
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          : eff === "void"
+                          ? "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                      }`}>
+                        {getChargeStatusLabel(eff)}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{formatMoney(row.amount, row.currency)}</td>
                 <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{formatMoney(row.allocatedAmount, row.currency)}</td>

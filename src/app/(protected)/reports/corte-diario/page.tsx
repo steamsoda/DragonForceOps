@@ -3,7 +3,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { PrintButton } from "./print-button";
 import { listCampuses } from "@/lib/queries/players";
 import { getCorteDiarioData } from "@/lib/queries/reports";
-import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
+import { getCampusSessionStatuses, getSessionForDate } from "@/lib/queries/cash-sessions";
 import { closeCashSessionAction } from "@/server/actions/cash-sessions";
 import { createClient } from "@/lib/supabase/server";
 import { getPrinterName } from "@/lib/queries/settings";
@@ -53,15 +53,18 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
     getPrinterName(),
   ]);
 
-  // Pass open session start time so overnight sessions show full totals
-  const openSession = selectedCampusId
-    ? sessionStatuses.find((s) => s.campusId === selectedCampusId)?.session ?? null
+  // Look up the session for this campus + date (open or closed) so the Corte Diario
+  // time window is anchored to the session rather than the calendar day boundary.
+  // This handles sessions that span midnight correctly.
+  const sessionForDate = selectedCampusId
+    ? await getSessionForDate(selectedCampusId, selectedDate || new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().slice(0, 10))
     : null;
 
   const data = await getCorteDiarioData({
     date: selectedDate || undefined,
     campusId: selectedCampusId || undefined,
-    sessionOpenedAt: openSession?.openedAt ?? undefined,
+    sessionOpenedAt: sessionForDate?.openedAt ?? undefined,
+    sessionClosedAt: sessionForDate?.closedAt ?? undefined,
   });
   const isDirector = isDirectorResult.data ?? false;
 

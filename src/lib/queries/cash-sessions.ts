@@ -63,6 +63,32 @@ export async function getCampusSessionStatuses(): Promise<CampusSessionStatus[]>
   }));
 }
 
+// Monterrey is permanently UTC-6 (Mexico abolished DST after 2023).
+const CST_OFFSET_MS = 6 * 60 * 60 * 1000;
+
+// Returns any session (open or closed) whose opened_at falls within the given
+// Monterrey calendar day. Used by Corte Diario to anchor the time window to the
+// session even when staff run the report the morning after.
+export async function getSessionForDate(
+  campusId: string,
+  dateStr: string
+): Promise<{ openedAt: string; closedAt: string | null } | null> {
+  const supabase = await createClient();
+  const dayStart = new Date(`${dateStr}T06:00:00.000Z`); // MTY midnight = UTC 06:00
+  const dayEnd   = new Date(dayStart.getTime() + 86_400_000);
+  const { data } = await supabase
+    .from("cash_sessions")
+    .select("opened_at, closed_at")
+    .eq("campus_id", campusId)
+    .gte("opened_at", dayStart.toISOString())
+    .lt("opened_at", dayEnd.toISOString())
+    .order("opened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ opened_at: string; closed_at: string | null }>();
+  if (!data) return null;
+  return { openedAt: data.opened_at, closedAt: data.closed_at };
+}
+
 // Returns the open session for a specific campus (used during payment posting)
 export async function getOpenSessionForCampus(campusId: string): Promise<{ id: string } | null> {
   const supabase = await createClient();

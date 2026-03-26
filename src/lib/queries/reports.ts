@@ -98,27 +98,37 @@ export type CorteDiarioData = {
 };
 
 export async function getCorteDiarioData(filters: {
-  date?: string;        // YYYY-MM-DD
+  date?: string;            // YYYY-MM-DD
   campusId?: string;
-  sessionOpenedAt?: string; // ISO timestamp — if an open session exists for this campus
+  sessionOpenedAt?: string; // ISO timestamp — session opened_at for this campus+date
+  sessionClosedAt?: string; // ISO timestamp — session closed_at (null if still open)
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
 
   const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : todayMonterreyString();
   const { start: dateStart, end: dateEnd } = monterreyDayUtcRange(dateStr);
-  const isToday = dateStr === todayMonterreyString();
 
-  // For today's view with an open session: start from when the session opened so
-  // overnight sessions (opened yesterday evening) include all payments since open.
-  const queryStart = (isToday && filters.sessionOpenedAt) ? filters.sessionOpenedAt : dateStart;
-  const sessionOpenedAt = (isToday && filters.sessionOpenedAt) ? filters.sessionOpenedAt : null;
+  // Anchor start to when the session opened so payments before the calendar day
+  // boundary are included (e.g. session opened late on day N-1).
+  const queryStart = filters.sessionOpenedAt ?? dateStart;
+
+  // Extend end boundary if the session closed after the calendar day ended
+  // (e.g. session closed at 00:05 AM which is past midnight in UTC).
+  const queryEnd = filters.sessionClosedAt
+    ? new Date(Math.max(
+        new Date(filters.sessionClosedAt).getTime(),
+        new Date(dateEnd).getTime()
+      )).toISOString()
+    : dateEnd;
+
+  const sessionOpenedAt = filters.sessionOpenedAt ?? null;
 
   let query = supabase
     .from("payments")
     .select("id, amount, method, paid_at, notes, enrollment_id, enrollments!inner(campus_id, players(first_name, last_name))")
     .eq("status", "posted")
     .gte("paid_at", queryStart)
-    .lt("paid_at", dateEnd)
+    .lt("paid_at", queryEnd)
     .order("paid_at", { ascending: false });
 
   if (filters.campusId) {
