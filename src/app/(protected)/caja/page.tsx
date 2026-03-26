@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
 import { getPrinterName } from "@/lib/queries/settings";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Caja — Dragon Force Ops" };
 
@@ -10,11 +11,14 @@ export default async function CajaPage({
 }: {
   searchParams: Promise<{ enrollmentId?: string }>;
 }) {
-  const [statuses, printerName, sp] = await Promise.all([
+  const supabase = await createClient();
+  const [statuses, printerName, sp, isDirectorResult] = await Promise.all([
     getCampusSessionStatuses(),
     getPrinterName(),
     searchParams,
+    supabase.rpc("is_director_admin"),
   ]);
+  const isDirector = isDirectorResult.data ?? false;
   const initialEnrollmentId = sp.enrollmentId;
   const anyOpen = statuses.some((s) => s.session !== null);
 
@@ -26,7 +30,16 @@ export default async function CajaPage({
             <h1 className="text-2xl font-bold text-portoDark dark:text-portoBlue">Caja</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Búsqueda rápida y registro de pagos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 justify-end">
+            {isDirector && statuses.map(({ campusId, campusName }) => (
+              <Link
+                key={campusId}
+                href={`/reports/corte-diario?campus=${campusId}`}
+                className="rounded-md border border-portoBlue/40 px-3 py-1.5 text-xs font-medium text-portoBlue hover:bg-portoBlue/10"
+              >
+                Corte {campusName}
+              </Link>
+            ))}
             <Link
               href="/players/new"
               className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"

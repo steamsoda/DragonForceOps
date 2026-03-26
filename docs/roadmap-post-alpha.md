@@ -1,21 +1,21 @@
 # Post-Alpha Roadmap — Dragon Force Ops (INVICTA)
 
-Live testing started 2026-03-19. This document tracks all bugs, QOL improvements,
-and new features surfaced during testing. Updated continuously.
-
-Last updated: 2026-03-24 (P1 all done)
+Live testing started 2026-03-19. Session 2: 2026-03-26.
+Updated continuously. Last updated: 2026-03-26.
 
 ---
 
-## P0 — Critical Bugs (fix before next testing session)
+## P0 — Critical Bugs
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 1 | **No receipt on enrollment ledger page** | ✅ Done | `postEnrollmentPaymentAction` now returns receipt data; `PaymentPostForm` is a client component using `useActionState` + `PrintReceiptButton` with `autoPrint` |
-| 2 | **No receipt from player profile payment** | ✅ Done | Player profile links to Caja (`/caja?enrollmentId=...`) which already auto-prints — not a separate bug |
-| 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts`; all Spanish chars now print correctly |
+| 2 | **No receipt from player profile payment** | ✅ Done | Player profile links to Caja (`/caja?enrollmentId=...`) which already auto-prints |
+| 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts` |
 | 4 | **Corte Diario UTC offset** | ✅ Done | Date queries now use Monterrey midnight (UTC+6h); display uses `timeZone: "America/Monterrey"` |
-| 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting (no `new Date()`) applied across all date display sites |
+| 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting applied across all date display sites |
+| 23 | **Charge status stuck on "Pendiente" when fully paid** | 🔴 Open | Charges with $0 remaining still show "Pendiente" status in the charge list. Fix: render "Pagado" when `pending_amount ≤ 0`, regardless of `charges.status` field. |
+| 24 | **Cash session panel shows $0 MXN after midnight** | 🔴 Open | If a session opened before midnight has payments logged after midnight, the Caja dashboard panel shows $0 collected. Date-boundary query bug. |
 
 ---
 
@@ -23,12 +23,17 @@ Last updated: 2026-03-24 (P1 all done)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 6 | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
-| 7 | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |
-| 8 | **Sequential receipt folio numbers** | ✅ Done | `campus_folio_counters` table + BEFORE INSERT trigger; format `LV-202603-00042` |
-| 9 | **Split payment (multiple methods)** | ✅ Done | Two-pass FIFO allocation; 2 payment rows + split UI toggle in `caja-client.tsx` |
+| 6  | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
+| 7  | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |
+| 8  | **Sequential receipt folio numbers** | ✅ Done | `campus_folio_counters` table + BEFORE INSERT trigger; format `LV-202603-00042` |
+| 9  | **Split payment (multiple methods)** | ✅ Done | Two-pass FIFO allocation; 2 payment rows + split UI toggle in `caja-client.tsx` |
 | 10 | **"Nueva Inscripción" button in Caja** | ✅ Done | Link button added to Caja page header alongside "Gestionar sesión" |
 | 11 | **Edit guardian/tutor info from player profile** | ✅ Done | `/players/[id]/guardians/[id]/edit` page + `updateGuardianAction` with ownership check |
+| 25 | **Sort all player lists by first name A→Z** | ✅ Done | Migration fixes ORDER BY in 3 RPCs (caja search, caja drill-down, pending). Pendientes: primary sort by birth year, then first name A→Z. |
+| 26 | **Year of birth visible everywhere** | ✅ Done | Cat. column in Jugadores, Pendientes, Corte Diario. birthYear on all player rows. |
+| 27 | **Player level (B1/B2/B3) at a glance** | ✅ Done | Nivel column in Jugadores list. Level sourced from team assignment join. |
+| 28 | **Corte Diario quick-access shortcuts** | ✅ Done | "Corte {campus}" buttons in Caja header, directors only, pre-filter campus for today. |
+| 29 | **Multiple items in Caja (cart model)** | 🔴 Open | Add multiple ad-hoc charges in one Caja session before posting payment. Cart-style: add items → review total → pay once. E.g. 2 uniforms in one transaction. |
 
 ---
 
@@ -37,23 +42,48 @@ Last updated: 2026-03-24 (P1 all done)
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 12 | **Jersey number on player profile** | ✅ Done | Migration + `jersey_number` shown on profile, editable in player edit form |
-| 13 | **Coach on player profile** | ✅ Done | Already implemented — `coaches` join in `getPlayerDetail`, displayed in profile info grid |
+| 13 | **Coach on player profile** | ✅ Done | `coaches` join in `getPlayerDetail`, displayed in profile info grid |
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🔴 Open | "Contactado" checkbox + notes per enrollment row, persisted across sessions |
+| 30 | **New-enrollment tuition tiers (3 tiers)** | 🔴 Open | NUEVAS INSCRIPCIONES only — does NOT affect existing players or monthly charge generation. Days 1–10: $600. Days 11–20: $300 (half month; player missed early bird). Days 21+: $750 applied to NEXT month, current month free. UI: replace free-text first-month input with button selection, pre-selecting the correct tier based on today's date. |
+| 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | Create `retorno` pricing plan in DB alongside standard plan. Staff picks at enrollment. Inscription + tuition amounts **TBD — confirm with director before implementing**. Enrollment is tagged with this plan; monthly charges follow retorno rules. Previous enrollment history preserved in DB. |
+| 32 | **Absence/injury charge skip** | 🔴 Open | Staff flags an active enrollment to skip its next monthly charge for a specific month. Monthly charge generator respects flag (single-use, auto-clears after month passes). Schema: `enrollment_charge_skips (enrollment_id, period_month, reason, created_by)`. Show skip status on enrollment ledger page. |
+| 33 | **Stripe payment recording + reconciliation** | 🔴 Open | Phase A (manual, now): staff enters Stripe payments — amount, Stripe reference ID, enrollment. Method = `stripe`. Excluded from Corte Diario cash/card totals; shown in a separate "Pagos Stripe" reconciliation block below the main summary. Phase B (later): Stripe webhook auto-creates payment + matches to enrollment by reference. |
+| 34 | **Cross-campus payment flag** | 🔴 Open | Payment goes to the open session's campus Corte Diario (intended behavior). Add "Pago Inter-Campus" flag on payment record + visible label in session view and Corte Diario so staff can spot cross-campus transactions easily. |
 
 ---
 
-## P3 — Backlog (after P1/P2 stabilizes)
+## P3 — Backlog
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 17 | **Uniformes tab** | 🔴 Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page |
 | 18 | **Server-side route blocking** | 🔴 Open | Every `(protected)/` route needs explicit role check server-side, not just nav hiding |
-| 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 after reseed — verify |
-| 20 | **Caja cancel UX** | ✅ Done | Cancel returns to enrollment panel — resolved as part of prior Caja refactor |
+| 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
-| 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio. Needs P1-8 first |
+| 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |
+| 35 | **Player profile consolidation** | 🔴 Open | Show full account (enrollment, charges, payments, uniforms, guardians) directly on player profile page. "Cuenta Completa" accessible without navigating away — reduce clicks significantly. |
+| 36 | **Document uploads per player** | 🔴 Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
+| 37 | **Player dropout historical record** | 🔴 Open | Improve Bajas view: full enrollment history per player — start date, end date, dropout reason, amounts paid, charges outstanding at dropout. Useful for re-enrollment decision-making. |
+| 38 | **League/tournament tag + management tab** | 🔴 Open | New player tag: has player paid current season league fee? New Director Deportivo section: tournament/league management — team entries, per-player payment status, % paid, amounts collected. Builds on existing `tournaments` table (schema exists, no UI yet). |
+| 39 | **Input fields → button toggles (UX pass)** | 🔴 Open | Replace 2-option dropdowns with toggle buttons in Caja and elsewhere: payment method (Efectivo/Tarjeta), campus selector, gender, tuition tier selection. |
+| 40 | **Custom receipt tickets** | ⚠ Needs spec | Some products need a different ticket format. **Spec not provided — ask director which products and what the ticket should show before implementing.** |
+
+---
+
+## Later Phases
+
+| Item | Notes |
+|------|-------|
+| Coach role + coach module | Coach logs in, takes attendance per training session |
+| Attendance tracking | Per-session records, attendance-based baja detection (3 consecutive missed months) |
+| Director Deportivo role + dashboard | Separate role with sports-ops focus |
+| Campus-scoped access (Contry cashier role) | front_desk sees only their campus data |
+| Stripe webhook automation | Auto-ingest + match payments to enrollments |
+| Uniform stock control | Count-based inventory, dashboard widget |
+| Jersey number assignment | Business rules TBD |
+| WhatsApp/SMS automated reminders | Phase 3+ |
 
 ---
 
@@ -63,3 +93,8 @@ Last updated: 2026-03-24 (P1 all done)
 |---|------|---------|-------|
 | — | Printer test button in top bar | 14 | `PrinterTestButton` next to logout, all users |
 | — | Preview branch login fix | 14 | x-forwarded-host in callback route + Supabase redirect URL added |
+| — | RBAC overhaul: front_desk expansion + admin_restricted removal | 15 | 13 RLS policies, relaxed app-layer guards (void payment, edit player, open/close session), nav restructure |
+| — | Contextual undo in Auditoría | 15 | `reversed_at` / `reversed_by` columns; payment.voided + charge.voided actions from audit log |
+| — | Nuke player (superadmin) | 15 | Atomic `nuke_player()` DB function, name-confirmation page, audit logged |
+| — | Auditoría page (superadmin) | 15 | Full audit log, 500 entries, filters, expandable JSON, contextual action buttons |
+| — | Early bird redesign | 15 | Direct charge amount update at payment time instead of separate discount charge row |
