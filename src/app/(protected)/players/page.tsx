@@ -63,6 +63,7 @@ type SearchParams = Promise<{
   gender?: string;
   page?: string;
   view?: string;
+  ok?: string;
 }>;
 
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
@@ -103,6 +104,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
       breadcrumbs={[{ label: "Jugadores" }]}
     >
       <div className="space-y-4">
+        {params.ok === "nuked" && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">
+            Jugador eliminado permanentemente.
+          </div>
+        )}
         {/* View toggle */}
         <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
           <Link

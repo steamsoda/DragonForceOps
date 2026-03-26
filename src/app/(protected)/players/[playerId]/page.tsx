@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { createClient } from "@/lib/supabase/server";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
@@ -60,11 +61,19 @@ export default async function PlayerDetailPage({
   searchParams
 }: {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ ok?: string; err?: string; }>;
+  searchParams: Promise<{ ok?: string; err?: string; nuked?: string }>;
 }) {
   const { playerId } = await params;
   const sp = await searchParams;
   const player = await getPlayerDetail(playerId);
+
+  // Check superadmin for nuke button
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: myRoles } = user
+    ? await supabase.from("user_roles").select("app_roles(code)").eq("user_id", user.id).returns<{ app_roles: { code: string } | null }[]>()
+    : { data: null };
+  const isSuperAdmin = (myRoles ?? []).some((r) => r.app_roles?.code === "superadmin");
 
   if (!player) {
     notFound();
@@ -91,10 +100,18 @@ export default async function PlayerDetailPage({
       title={player.fullName}
       breadcrumbs={[{ label: "Jugadores", href: "/players" }, { label: player.fullName }]}
     >
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-end gap-2 mb-2">
         <Link href={`/players/${player.id}/edit`} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
           Editar jugador
         </Link>
+        {isSuperAdmin && (
+          <Link
+            href={`/players/${player.id}/nuke`}
+            className="rounded-md border border-rose-300 dark:border-rose-700 px-3 py-1.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950"
+          >
+            Eliminar todo
+          </Link>
+        )}
       </div>
       {(sp.ok === "updated" || sp.ok === "guardian_updated") && (
         <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
