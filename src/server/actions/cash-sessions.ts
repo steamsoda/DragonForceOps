@@ -7,11 +7,11 @@ import { writeAuditLog } from "@/lib/audit";
 
 const BASE = "/caja/sesion";
 
-async function assertDirectorAdmin() {
+async function assertOperationalAccess() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
-  const { data } = await supabase.rpc("is_director_admin");
+  const { data } = await supabase.rpc("has_operational_access");
   if (!data) return null;
   return { supabase, user };
 }
@@ -24,7 +24,7 @@ export async function openCashSessionAction(formData: FormData): Promise<void> {
   if (!campusId) redirect(`${BASE}?err=invalid_form`);
   if (isNaN(openingCash) || openingCash < 0) redirect(`${BASE}?err=invalid_amount`);
 
-  const auth = await assertDirectorAdmin();
+  const auth = await assertOperationalAccess();
   if (!auth) redirect(`${BASE}?err=unauthorized`);
   const { supabase, user } = auth;
 
@@ -77,7 +77,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
     redirect(`${redirectTo}?err=invalid_amount`);
   }
 
-  const auth = await assertDirectorAdmin();
+  const auth = await assertOperationalAccess();
   if (!auth) redirect(`${redirectTo}?err=unauthorized`);
   const { supabase, user } = auth;
 

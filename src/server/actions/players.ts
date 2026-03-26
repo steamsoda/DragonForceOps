@@ -87,8 +87,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
 
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+  const { data: hasAccess } = await supabase.rpc("has_operational_access");
+  if (!hasAccess) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase
     .from("players")

@@ -15,37 +15,45 @@ const STAFF_SECTION: NavSection = {
   ]
 };
 
-const DIRECTOR_SECTIONS: NavSection[] = [
-  {
-    label: "Gestión",
-    items: [
-      { href: "/dashboard", label: "Panel" },
-      { href: "/pending", label: "Pendientes" }
-    ]
-  },
-  {
-    label: "Reportes",
-    items: [
-      { href: "/reports/corte-diario", label: "Corte Diario" },
-      { href: "/reports/corte-semanal", label: "Corte Semanal" },
-      { href: "/reports/resumen-mensual", label: "Res. Mensual" },
-      { href: "/reports/porto-mensual", label: "Reporte Porto" },
-      { href: "/receipts", label: "Recibos" }
-    ]
-  },
-  {
-    label: "Admin",
-    items: [
-      { href: "/admin/mensualidades", label: "Mensualidades" },
-      { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
-      { href: "/products", label: "Productos" },
-      { href: "/pending/bajas", label: "Bajas & Saldos Pendientes" },
-      { href: "/admin/merge-players", label: "Fusionar Jugadores" },
-      { href: "/activity", label: "Actividad" },
-      { href: "/admin/configuracion", label: "Configuración" }
-    ]
-  }
-];
+const GESTION_SECTION: NavSection = {
+  label: "Gestión",
+  items: [
+    { href: "/dashboard", label: "Panel" },
+    { href: "/pending", label: "Pendientes" }
+  ]
+};
+
+const FRONT_DESK_REPORTES_SECTION: NavSection = {
+  label: "Reportes",
+  items: [
+    { href: "/reports/corte-diario", label: "Corte Diario" },
+    { href: "/receipts", label: "Recibos" }
+  ]
+};
+
+const DIRECTOR_REPORTES_SECTION: NavSection = {
+  label: "Reportes",
+  items: [
+    { href: "/reports/corte-diario", label: "Corte Diario" },
+    { href: "/reports/corte-semanal", label: "Corte Semanal" },
+    { href: "/reports/resumen-mensual", label: "Res. Mensual" },
+    { href: "/reports/porto-mensual", label: "Reporte Porto" },
+    { href: "/receipts", label: "Recibos" }
+  ]
+};
+
+const ADMIN_SECTION: NavSection = {
+  label: "Admin",
+  items: [
+    { href: "/admin/mensualidades", label: "Mensualidades" },
+    { href: "/admin/cargos-equipo", label: "Cargo Equipo" },
+    { href: "/products", label: "Productos" },
+    { href: "/pending/bajas", label: "Bajas & Saldos Pendientes" },
+    { href: "/admin/merge-players", label: "Fusionar Jugadores" },
+    { href: "/activity", label: "Actividad" },
+    { href: "/admin/configuracion", label: "Configuración" }
+  ]
+};
 
 type RoleRow = {
   app_roles: {
@@ -84,7 +92,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk || roleCodes.includes(APP_ROLES.ADMIN_RESTRICTED);
+  const canAccess = isDirectorOrAbove || isFrontDesk;
 
   if (!canAccess) {
     redirect("/unauthorized");
@@ -100,7 +108,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const sections: NavSection[] = [
     STAFF_SECTION,
-    ...(isDirectorOrAbove ? DIRECTOR_SECTIONS : []),
+    GESTION_SECTION,
+    ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : [FRONT_DESK_REPORTES_SECTION]),
     ...(isSuperAdmin ? [superAdminSection] : [])
   ];
 

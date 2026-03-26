@@ -7,7 +7,6 @@ const ALL_ROLES = [
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
   { code: "front_desk", label: "Recepción / Caja" },
-  { code: "admin_restricted", label: "Admin Restringido" },
   { code: "coach", label: "Coach" }
 ] as const;
 

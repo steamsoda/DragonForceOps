@@ -1,8 +1,7 @@
 export const APP_ROLES = {
   SUPERADMIN: "superadmin",
   DIRECTOR_ADMIN: "director_admin",
-  ADMIN_RESTRICTED: "admin_restricted",
-  FRONT_DESK: "front_desk",
+FRONT_DESK: "front_desk",
   COACH: "coach"
 } as const;
 
