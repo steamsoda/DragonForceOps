@@ -214,6 +214,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <tr>
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Categoría</th>
+                  <th className="px-3 py-2">Nivel</th>
                   <th className="px-3 py-2">Campus</th>
                   <th className="px-3 py-2">Teléfono</th>
                   <th className="px-3 py-2">Estado</th>
@@ -222,7 +223,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
                       No se encontraron jugadores con esos filtros.
                     </td>
                   </tr>
@@ -235,6 +236,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
                       <td className="px-3 py-2">

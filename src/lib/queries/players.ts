@@ -155,7 +155,7 @@ type ListBalanceRow = {
 
 type ListTeamRow = {
   enrollment_id: string;
-  teams: { type: string } | null;
+  teams: { type: string; level: string | null } | null;
 };
 
 export async function listPlayers(filters: PlayerListFilters) {
@@ -180,8 +180,8 @@ export async function listPlayers(filters: PlayerListFilters) {
     .from("players")
     .select("id, first_name, last_name, birth_date, status, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
     .eq("enrollments.status", "active")
-    .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })
+    .order("last_name", { ascending: true })
     .range(from, to);
 
   if (filters.campusId) {
@@ -226,7 +226,7 @@ export async function listPlayers(filters: PlayerListFilters) {
       .returns<ListBalanceRow[]>(),
     supabase
       .from("team_assignments")
-      .select("enrollment_id, teams(type)")
+      .select("enrollment_id, teams(type, level)")
       .in("enrollment_id", enrollmentIds)
       .is("end_date", null)
       .eq("is_primary", true)
@@ -262,6 +262,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   }
   const balanceByEnrollment = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
   const teamTypeByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.type ?? null]));
+  const levelByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.level ?? null]));
 
   const rows = (players ?? []).map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
@@ -278,6 +279,7 @@ export async function listPlayers(filters: PlayerListFilters) {
       id: player.id,
       fullName: `${player.first_name} ${player.last_name}`,
       birthDate: player.birth_date,
+      birthYear: parseInt(player.birth_date.slice(0, 4), 10),
       status: player.status,
       isGoalkeeper: player.is_goalkeeper,
       campusName: enrollment?.campuses?.name ?? "-",
@@ -285,6 +287,7 @@ export async function listPlayers(filters: PlayerListFilters) {
       primaryPhone: primary,
       balance,
       teamType,
+      level: enrollmentId ? (levelByEnrollment.get(enrollmentId) ?? null) : null,
       uniformStatus: uniformStatusByPlayer.get(player.id) ?? null,
     };
   });

@@ -71,6 +71,7 @@ type PendingRpcRow = {
   campus_id: string;
   player_first_name: string | null;
   player_last_name: string | null;
+  birth_date: string | null;
   campus_name: string | null;
   campus_code: string | null;
   phone_primary: string | null;
@@ -102,6 +103,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
         enrollmentId: r.enrollment_id,
         playerId: r.player_id,
         playerName,
+        birthYear: r.birth_date ? parseInt(r.birth_date.slice(0, 4), 10) : null,
         campusName: r.campus_name ?? "-",
         campusCode: r.campus_code ?? "-",
         teamId: r.team_id ?? null,
@@ -124,7 +126,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
       }
       return true;
     })
-    .sort((a, b) => b.balance - a.balance || b.overdueDays - a.overdueDays || a.playerName.localeCompare(b.playerName));
+    .sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999) || b.balance - a.balance || b.overdueDays - a.overdueDays || a.playerName.localeCompare(b.playerName));
 
   const total = rows.length;
   const from = (page - 1) * PAGE_SIZE;

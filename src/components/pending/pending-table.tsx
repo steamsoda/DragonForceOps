@@ -8,6 +8,7 @@ export type PendingRow = {
   enrollmentId: string;
   playerId: string;
   playerName: string;
+  birthYear: number | null;
   campusName: string;
   campusCode: string;
   teamName: string;
@@ -93,6 +94,7 @@ export function PendingTable({ rows }: PendingTableProps) {
         <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-600 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Jugador</th>
+            <th className="px-3 py-2">Cat.</th>
             <th className="px-3 py-2">Campus</th>
             <th className="px-3 py-2">Equipo</th>
             <th className="px-3 py-2">Telefono</th>
@@ -106,7 +108,7 @@ export function PendingTable({ rows }: PendingTableProps) {
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={9}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={10}>
                 No hay inscripciones pendientes con los filtros actuales.
               </td>
             </tr>
@@ -118,6 +120,7 @@ export function PendingTable({ rows }: PendingTableProps) {
                     {row.playerName}
                   </Link>
                 </td>
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.birthYear ?? "-"}</td>
                 <td className="px-3 py-2">
                   {row.campusName} ({row.campusCode})
                 </td>
