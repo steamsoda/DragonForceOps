@@ -1,5 +1,54 @@
 # Devlog
 
+## 2026-03-30 (session 16)
+
+### Cat. column, Versioning Rules, Caja Shortcuts, Patch 1 Data Migration (v1.0.5–v1.1.1)
+
+**Categoría column in Corte Diario (v1.0.5)**
+- Added "Cat." column to the Corte Diario payments table showing birth year next to player name.
+- Also added `birthYear` to `PendingRow` type and Cat. column to `pending-table.tsx` (completing P1 #26 for Pendientes).
+- `players/page.tsx` updated with Nivel column (completing P1 #27).
+- Versioning rules updated in `CLAUDE.md`: patch for bug fixes, minor for features, major for milestones; can exceed 9 (e.g. 1.21.0).
+
+**Corte Diario quick-access shortcuts in Caja header (v1.1.0)**
+- `src/app/(protected)/caja/page.tsx`: added `is_director_admin` check; director-only "Corte {campusName}" link buttons rendered from `statuses` (no extra DB query). Links to `/reports/corte-diario?campus={id}` pre-filtered for today.
+- P1 items #25–28 marked done in roadmap.
+
+**Patch 1 data migration (v1.1.1)**
+- Migration `supabase/migrations/20260330120000_patch1_data_corrections.sql` — 69 total DB actions:
+  - **Section 1** (11): player name/birthdate corrections — typos, abbreviated surnames, wrong birth years (1977→2013, 2010→2012)
+  - **Section 2** (3): duplicate player deletions — DF-0170 (double-H), DF-0574 (wrong last name), DF-0527 (wrong birth year). Each guarded by `RAISE EXCEPTION` if unexpected payments exist.
+  - **Section 3** (4): enrollment bajas — status=ended, dropout_reason=otro, end_date=2026-03-30. Three by UUID, one by name search (Gerardo Selva Rocha).
+  - **Section 4** (2): new player inserts — Alessandro and Leonardo Mitre Gomez (Contry, March 27). Includes enrollment + inscription ($1,800) + first-month tuition ($600) charges. 4 other new players deferred pending reception confirmation.
+  - **Section 5** (45): March 2026 payment backfill — 19 cash + 26 stripe_360player. Each: find/create tuition charge → early bird update (charge.amount=600 for day 1–10) → idempotent insert. DF-0435 gets Feb + Mar payments. DF-0246 method updated to cash if stripe exists.
+- All `created_by = NULL` (nullable per migration 20260311130000).
+
+---
+
+## 2026-03-26 (session 15)
+
+### RBAC Overhaul, P0 Bug Fixes, P1 UX Pass (v1.0.2–v1.0.4)
+
+**RBAC overhaul — front_desk expansion (v1.0.2)**
+- Migration `20260326000000_rbac_front_desk_expansion.sql`: 13 new RLS policies giving front_desk read/write access to all operational tables (charges, payments, allocations, enrollments, players, guardians, teams, etc.).
+- `admin_restricted` role deleted — consolidated into front_desk.
+- Nav restructure: all operational sections visible to front_desk; Reportes and Admin sections gated to director+.
+- App-layer guards relaxed: front_desk can now void payments, edit players, open/close sessions.
+- `src/lib/auth/permissions.ts` deleted — inline role checks throughout.
+
+**P0 fixes (v1.0.3)**
+- **#23 Charge status display**: `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx`. Status badge shows "Pagado" (emerald) when `pendingAmount ≤ 0`, regardless of `charges.status` DB field.
+- **#24 Corte Diario midnight**: `getSessionForDate(campusId, dateStr)` helper in `cash-sessions.ts` finds any session (open or closed) by campus + calendar date. `getCorteDiarioData()` now accepts `sessionOpenedAt` + `sessionClosedAt`; extends `queryEnd` past midnight when session closed after calendar day boundary. `isToday` guard removed.
+
+**P1 UX pass (v1.0.4)**
+- Migration `20260326010000_p1_sort_first_name_birth_year_level.sql`: fixes ORDER BY in 3 RPCs (`search_players_for_caja`, `list_caja_players_by_campus_year`, `list_pending_enrollments_full`) to use `first_name, last_name`. Adds `team_level` to caja RPC and `birth_date` to pending RPC (required DROP + recreate for return type change).
+- `src/lib/queries/players.ts`: ORDER BY `first_name` then `last_name`; added `teams(type, level)` to join; `birthYear` and `level` fields on returned rows.
+- `src/lib/queries/enrollments.ts`: `PendingRpcRow` updated with `birth_date`; `birthYear` added to mapped row.
+- `src/components/pending/pending-table.tsx`: `birthYear` added to `PendingRow` type; Cat. column added.
+- `src/app/(protected)/players/page.tsx`: Nivel column added; Categoría already showed birth year.
+
+---
+
 ## 2026-03-24 (session 13–14)
 
 ### Data Wipe, Clean Reseed, Auth Fixes, Printer Button (v0.8.1)

@@ -1,7 +1,7 @@
 # Post-Alpha Roadmap — Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-03-26.
+Updated continuously. Last updated: 2026-03-30.
 
 ---
 
@@ -14,8 +14,8 @@ Updated continuously. Last updated: 2026-03-26.
 | 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts` |
 | 4 | **Corte Diario UTC offset** | ✅ Done | Date queries now use Monterrey midnight (UTC+6h); display uses `timeZone: "America/Monterrey"` |
 | 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting applied across all date display sites |
-| 23 | **Charge status stuck on "Pendiente" when fully paid** | 🔴 Open | Charges with $0 remaining still show "Pendiente" status in the charge list. Fix: render "Pagado" when `pending_amount ≤ 0`, regardless of `charges.status` field. |
-| 24 | **Cash session panel shows $0 MXN after midnight** | 🔴 Open | If a session opened before midnight has payments logged after midnight, the Caja dashboard panel shows $0 collected. Date-boundary query bug. |
+| 23 | **Charge status stuck on "Pendiente" when fully paid** | ✅ Done | `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx` — shows "Pagado" when `pendingAmount ≤ 0` |
+| 24 | **Cash session panel shows $0 MXN after midnight** | ✅ Done | `getSessionForDate()` helper in `cash-sessions.ts`; `sessionOpenedAt` + `sessionClosedAt` passed to `getCorteDiarioData()`, extending query window beyond midnight |
 
 ---
 
@@ -98,3 +98,7 @@ Updated continuously. Last updated: 2026-03-26.
 | — | Nuke player (superadmin) | 15 | Atomic `nuke_player()` DB function, name-confirmation page, audit logged |
 | — | Auditoría page (superadmin) | 15 | Full audit log, 500 entries, filters, expandable JSON, contextual action buttons |
 | — | Early bird redesign | 15 | Direct charge amount update at payment time instead of separate discount charge row |
+| — | P0 fixes: charge status + Corte Diario midnight | 15–16 | v1.0.3: `getEffectiveStatus` for ledger display; `getSessionForDate` + session-anchored query window for Corte Diario |
+| — | P1 UX pass: sort, birth year, level, Cat. column | 15–16 | v1.0.4–1.0.5: ORDER BY first_name across all lists; birth year in Jugadores/Pendientes/Corte Diario; Nivel column in Jugadores; migration fixes 3 RPCs |
+| — | Corte Diario shortcuts in Caja header | 16 | v1.1.0: "Corte Linda Vista" / "Corte Contry" link buttons for directors; pre-filters campus for today |
+| — | Patch 1 data migration | 16 | v1.1.1: 11 name/birthdate corrections, 3 duplicate deletions, 4 bajas, 2 new players (Mitre brothers), 45 March payment backfills |
