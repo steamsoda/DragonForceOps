@@ -13,7 +13,7 @@ Updated continuously. Last updated: 2026-03-31.
 | 2 | **No receipt from player profile payment** | âœ… Done | Player profile links to Caja (`/caja?enrollmentId=...`) which already auto-prints |
 | 3 | **Garbled Ã± / accents on printed receipts** | âœ… Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts` |
 | 4 | **Corte Diario UTC offset** | âœ… Done | Date queries now use Monterrey midnight (UTC+6h); display uses `timeZone: "America/Monterrey"` |
-| 5 | **Date format MM/DD/YYYY ??? DD/MM/YYYY** | ??? Done | Manual `DD/MM/YYYY` formatting applied across date displays, and player create/edit birth-date entry now uses explicit `DD/MM/YYYY` instead of the browser-native US-style date widget. |
+| 5 | **Date format MM/DD/YYYY ??? DD/MM/YYYY** | ??? Done | Manual `DD/MM/YYYY` formatting applied across date displays, and both player birth-date and enrollment start-date entry now use guided `DD/MM/YYYY` inputs instead of locale-dependent browser date widgets. |
 | 23 | **Charge status stuck on "Pendiente" when fully paid** | âœ… Done | `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx` â€” shows "Pagado" when `pendingAmount â‰¤ 0` |
 | 24 | **Cash session panel shows $0 MXN after midnight** | âœ… Done | `getSessionForDate()` helper in `cash-sessions.ts`; `sessionOpenedAt` + `sessionClosedAt` passed to `getCorteDiarioData()`, extending query window beyond midnight |
 | 41 | **Enrollment payment does not auto-print receipt / wire into receipts correctly** | âœ… Done | Ledger payment flow now shares payment side-effect helpers with Caja: cash payments link into open sessions, `/receipts` is revalidated, and direct `?payment=` lookup works from AuditorÃ­a. |
@@ -65,7 +65,7 @@ Updated continuously. Last updated: 2026-03-31.
 | 34 | **Cross-campus payment flag** | ðŸ”´ Open | Payment goes to the open session's campus Corte Diario (intended behavior). Add "Pago Inter-Campus" flag on payment record + visible label in session view and Corte Diario so staff can spot cross-campus transactions easily. |
 | 42 | **Reprint receipt from app** | âœ… Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
 | 43 | **Pricing change rollout (non-breaking)** | DONE | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
-| 55 | **Replace free-number financial inputs with guided button choices** | IN PROGRESS | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja now resolves automatically from the selected month/version, the new-enrollment campus picker is now a direct button choice, and player birth-date entry uses a guided `DD/MM/YYYY` format instead of a locale-dependent browser date widget. Remaining work is the broader POS/cart UI pass so bounded product flows also stop relying on open amount fields. |
+| 55 | **Replace free-number financial inputs with guided button choices** | IN PROGRESS | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja now resolves automatically from the selected month/version, the new-enrollment campus picker is now a direct button choice, and both player birth-date and enrollment start-date entry use guided `DD/MM/YYYY` inputs with calendar access instead of locale-dependent browser date widgets. Remaining work is the broader POS/cart UI pass so bounded product flows also stop relying on open amount fields. |
 
 ---
 
@@ -122,5 +122,6 @@ Updated continuously. Last updated: 2026-03-31.
 | â€” | Preview build hotfix for shared payment helper | 18 | v1.1.5: fixed Next.js server-action build error by making `revalidatePaymentSurfaces()` async inside `"use server"` module and awaiting it from ledger/Caja payment flows |
 | â€” | Receipts search regression fix | 18 | v1.1.6: `/receipts` now loads payments first and resolves enrollment/player/campus labels in a second query, avoiding null nested relation rows that hid all receipts |
 | â€” | Receipts filtering hotfix | 18 | v1.1.7: removed DB-side prefiltering by enrollment/player for `/receipts`; filtering now happens after loading posted payments and enrollment metadata, which fixes zero-result searches in preview |
+
 
 

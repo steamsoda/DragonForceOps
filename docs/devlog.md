@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-03-31 (session 22)
+
+### Player Date Input Hotfix
+
+- Applied the same masked date-entry pattern from `Nueva Inscripcion` to player birth-date fields.
+- `Nuevo jugador` now supports:
+  - typing `01012020` and auto-formatting to `01/01/2020`
+  - a `Calendario` button that opens the native picker
+- Reused the same input in `Editar jugador` so create/edit stay aligned.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 21)
 
 ### Enrollment Form UX Hotfix
