@@ -5,6 +5,7 @@ export type ReceiptSearchRow = {
   folio: string | null;
   paidAt: string;
   playerName: string;
+  campusId: string;
   campusName: string;
   amount: number;
   method: string;
@@ -19,20 +20,17 @@ export type ReceiptSearchResult = {
 
 const PAGE_SIZE = 30;
 
-type PaymentRow = {
-  id: string;
+type ReceiptRpcRow = {
+  payment_id: string;
   folio: string | null;
   paid_at: string;
-  amount: number;
+  player_name: string;
+  campus_id: string;
+  campus_name: string;
+  amount: number | string;
   method: string;
   enrollment_id: string;
-};
-
-type EnrollmentInfoRow = {
-  id: string;
-  campus_id: string;
-  campuses: { name: string | null } | null;
-  players: { first_name: string | null; last_name: string | null } | null;
+  total_count: number;
 };
 
 export async function searchReceipts({
@@ -47,81 +45,37 @@ export async function searchReceipts({
   page?: number;
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
-  const trimmed = q?.trim() ?? "";
-  const trimmedLower = trimmed.toLowerCase();
-  const trimmedPaymentId = paymentId?.trim() ?? "";
-  const offset = (page - 1) * PAGE_SIZE;
+  const safePage = Math.max(page, 1);
+  const offset = (safePage - 1) * PAGE_SIZE;
 
-  let query = supabase
-    .from("payments")
-    .select("id, folio, paid_at, amount, method, enrollment_id")
-    .eq("status", "posted")
-    .order("paid_at", { ascending: false });
+  const { data, error } = await supabase.rpc("search_receipts", {
+    p_query: q?.trim() || null,
+    p_campus_id: campusId || null,
+    p_payment_id: paymentId || null,
+    p_limit: PAGE_SIZE,
+    p_offset: offset,
+  });
 
-  if (trimmedPaymentId) {
-    query = query.eq("id", trimmedPaymentId) as typeof query;
+  if (error) {
+    console.error("[searchReceipts] rpc failed:", error);
+    return { rows: [], total: 0, pageSize: PAGE_SIZE };
   }
 
-  if (trimmed && looksLikeFolio(trimmed)) {
-    query = query.ilike("folio", `%${trimmed}%`) as typeof query;
-  }
-
-  const { data: paymentRows } = await query.returns<PaymentRow[]>();
-  const payments = paymentRows ?? [];
-
-  const enrollmentIds = Array.from(new Set(payments.map((row) => row.enrollment_id)));
-  const enrollmentInfoById = new Map<string, EnrollmentInfoRow>();
-
-  if (enrollmentIds.length > 0) {
-    const { data: enrollmentRows } = await supabase
-      .from("enrollments")
-      .select("id, campus_id, campuses(name), players(first_name, last_name)")
-      .in("id", enrollmentIds)
-      .returns<EnrollmentInfoRow[]>();
-
-    (enrollmentRows ?? []).forEach((row) => {
-      enrollmentInfoById.set(row.id, row);
-    });
-  }
-
-  const filteredRows = payments
-    .map<ReceiptSearchRow>((row) => {
-      const enrollment = enrollmentInfoById.get(row.enrollment_id);
-      const firstName = enrollment?.players?.first_name?.trim() ?? "";
-      const lastName = enrollment?.players?.last_name?.trim() ?? "";
-
-      return {
-        paymentId: row.id,
-        folio: row.folio,
-        paidAt: row.paid_at,
-        playerName: `${firstName} ${lastName}`.trim() || "Jugador",
-        campusName: enrollment?.campuses?.name ?? "-",
-        amount: row.amount,
-        method: row.method,
-        enrollmentId: row.enrollment_id,
-      };
-    })
-    .filter((row) => {
-      const enrollment = enrollmentInfoById.get(row.enrollmentId);
-
-      if (campusId && enrollment?.campus_id !== campusId) {
-        return false;
-      }
-
-      if (trimmed && !looksLikeFolio(trimmed)) {
-        return row.playerName.toLowerCase().includes(trimmedLower);
-      }
-
-      return true;
-    });
+  const rows = ((data ?? []) as ReceiptRpcRow[]).map((row) => ({
+    paymentId: row.payment_id,
+    folio: row.folio,
+    paidAt: row.paid_at,
+    playerName: row.player_name,
+    campusId: row.campus_id,
+    campusName: row.campus_name,
+    amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
+    method: row.method,
+    enrollmentId: row.enrollment_id,
+  }));
 
   return {
-    rows: filteredRows.slice(offset, offset + PAGE_SIZE),
-    total: filteredRows.length,
+    rows,
+    total: data && data.length > 0 ? Number((data[0] as ReceiptRpcRow).total_count) : 0,
     pageSize: PAGE_SIZE,
   };
-}
-
-function looksLikeFolio(q: string): boolean {
-  return /^[A-Z]{2,}-/.test(q);
 }

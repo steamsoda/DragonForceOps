@@ -2,6 +2,16 @@
 
 ## 2026-03-30 (session 18)
 
+### Financial Hardening + Receipts Scalability (v1.1.8)
+
+- Retired post-payment charge mutation from the live payment model: posted payments no longer change charge amounts after the fact.
+- Ledger/Caja payment success payloads now compute remaining balance from a fresh ledger reload instead of trusting the pre-payment snapshot.
+- Added `src/lib/time.ts` and started standardizing finance/reporting surfaces on Monterrey-local business time with `DD/MM/YYYY` rendering.
+- Added migration `20260330193000_receipts_search_and_finance_indexes.sql` with a DB-backed `search_receipts(...)` RPC plus finance indexes for posted payments, charge period month, and player-name search.
+- `/receipts` now loads recent posted receipts by default and filters/paginates from SQL instead of app memory.
+- `Resumen Mensual` now keeps collections on `paid_at` while monthly tuition obligation logic uses `period_month` where present.
+- Historical payments, allocations, folios, and receipts were not rewritten.
+
 ### Receipts Filtering Hotfix (v1.1.7)
 
 - Reworked `src/lib/queries/receipts.ts` again after the first receipts patch was still returning zero rows in preview.

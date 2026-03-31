@@ -334,7 +334,7 @@ export async function createAdvanceTuitionAction(
     return { ok: false, error: "enrollment_inactive" };
   }
 
-  // Always charge the regular (non-discounted) rate; early bird discount is applied automatically on payment
+  // Always create the exact intended tuition charge up front.
   const rules: TuitionRule[] = enrollment.pricing_plans?.pricing_plan_tuition_rules ?? [];
   // Advance payments are ALWAYS eligible for early bird — create at early bird rate directly.
   // This avoids a split ledger where the $750 charge has $600 allocated + a floating -$150 discount.
@@ -654,11 +654,12 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   });
 
   await revalidatePaymentSurfaces(ledger);
+  const refreshedLedger = await getEnrollmentLedger(enrollmentId);
 
   const folio = await fetchPaymentFolio(supabase, paymentRow.id);
 
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
-  const newBalance = ledger.totals.balance - totalPaid;
+  const newBalance = refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - totalPaid, 0);
 
   const chargeMap = new Map(pendingCharges.map((c) => [c.id, c.description]));
   const chargesPaid = [...allocations1, ...allocations2]

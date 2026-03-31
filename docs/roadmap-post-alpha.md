@@ -1,11 +1,11 @@
-# Post-Alpha Roadmap — Dragon Force Ops (INVICTA)
+# Post-Alpha Roadmap ? Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-03-30.
 
 ---
 
-## P0 — Critical Bugs
+## P0 ? Critical Bugs
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -17,6 +17,11 @@ Updated continuously. Last updated: 2026-03-30.
 | 23 | **Charge status stuck on "Pendiente" when fully paid** | ✅ Done | `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx` — shows "Pagado" when `pendingAmount ≤ 0` |
 | 24 | **Cash session panel shows $0 MXN after midnight** | ✅ Done | `getSessionForDate()` helper in `cash-sessions.ts`; `sessionOpenedAt` + `sessionClosedAt` passed to `getCorteDiarioData()`, extending query window beyond midnight |
 | 41 | **Enrollment payment does not auto-print receipt / wire into receipts correctly** | ✅ Done | Ledger payment flow now shares payment side-effect helpers with Caja: cash payments link into open sessions, `/receipts` is revalidated, and direct `?payment=` lookup works from Auditoría. |
+| 44 | **Freeze historical data + retire post-payment charge mutation** | ? Done | Live payment flows no longer mutate charge amounts after posting. Historical payments, allocations, folios, and receipts remain untouched. |
+| 45 | **Canonical financial definitions (`paid_at` vs `period_month`)** | ? Done | Collections remain tied to `payments.paid_at`; tuition-period reporting uses `charges.period_month` where present. |
+| 46 | **Monterrey-local finance/reporting time standardization** | ? Done | Shared Monterrey time helpers are now used on key finance/reporting surfaces with `DD/MM/YYYY` display. |
+| 47 | **Scalable receipts search / recent receipts default** | ? Done | New SQL `search_receipts(...)` RPC + finance indexes; `/receipts` now defaults to recent posted receipts and paginates/filter in SQL. |
+| 48 | **SQL-side aggregation hardening for financial reports** | ?? Open | Receipts search is SQL-backed; remaining report aggregation should keep moving from app memory into DB-side summary functions/views. |
 
 ---
 

@@ -3,6 +3,7 @@
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import {
   fetchPaymentFolio,
@@ -10,8 +11,6 @@ import {
   revalidatePaymentSurfaces,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
-
-type TuitionRuleRow = { amount: number; day_to: number | null };
 
 export type EnrollmentPaymentResult =
   | {
@@ -52,14 +51,12 @@ export async function postEnrollmentPaymentAction(
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
 
-  // Pending charges sorted oldest-first for auto-allocation
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (pendingCharges.length === 0) return { ok: false, error: "no_pending_charges" };
 
-  // Auto-allocate oldest-first. Any excess over total pending = credit balance.
   const allocations: Array<{ chargeId: string; amount: number }> = [];
   let remaining = parsed.amount;
 
@@ -108,9 +105,6 @@ export async function postEnrollmentPaymentAction(
     }
   }
 
-  // ── Early bird discount ───────────────────────────────────────────────────
-  await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allocations, ledger, user.id);
-
   const sessionWarning = await linkCashPaymentsToOpenSession(
     supabase,
     enrollmentId,
@@ -130,6 +124,7 @@ export async function postEnrollmentPaymentAction(
   });
 
   await revalidatePaymentSurfaces(ledger);
+  const refreshedLedger = await getEnrollmentLedger(enrollmentId);
 
   const chargesPaid = allocations.map((a) => {
     const charge = ledger.charges.find((c) => c.id === a.chargeId);
@@ -145,72 +140,17 @@ export async function postEnrollmentPaymentAction(
       method: PAYMENT_METHOD_LABELS[parsed.method] ?? parsed.method,
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
-      remainingBalance: ledger.totals.balance - parsed.amount,
+      remainingBalance: refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - parsed.amount, 0),
       chargesPaid,
       paymentId: paymentRow.id,
       folio,
-      date: now.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Monterrey" }),
-      time: now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey" }),
+      date: formatDateMonterrey(now),
+      time: formatTimeMonterrey(now),
       sessionWarning,
     }
   };
 }
 
-export async function applyEarlyBirdDiscountIfEligible(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  enrollmentId: string,
-  allocations: Array<{ chargeId: string; amount: number }>,
-  ledger: NonNullable<Awaited<ReturnType<typeof getEnrollmentLedger>>>,
-  userId: string
-) {
-  const today = new Date();
-  const dayOfMonth = today.getDate();
-  const currentPeriodMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-
-  // Find any allocation that touched a monthly_tuition charge eligible for early-bird:
-  //   - future month (advance payment): always eligible
-  //   - current month: eligible only on days 1–10
-  const allocatedChargeIds = new Set(allocations.map((a) => a.chargeId));
-  const eligibleCharge = ledger.charges.find(
-    (c) =>
-      allocatedChargeIds.has(c.id) &&
-      c.typeCode === "monthly_tuition" &&
-      !!c.periodMonth &&
-      (
-        c.periodMonth > currentPeriodMonth ||
-        (c.periodMonth === currentPeriodMonth && dayOfMonth <= 10)
-      )
-  );
-  if (!eligibleCharge) return;
-
-  // Fetch enrollment pricing plan
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("pricing_plan_id")
-    .eq("id", enrollmentId)
-    .maybeSingle();
-  if (!enrollment) return;
-
-  const { data: rules } = await supabase
-    .from("pricing_plan_tuition_rules")
-    .select("amount, day_to")
-    .eq("pricing_plan_id", enrollment.pricing_plan_id)
-    .returns<TuitionRuleRow[]>();
-
-  const allRules = rules ?? [];
-  const earlyBirdRule = allRules.find((r) => r.day_to !== null); // rule with a day_to cap = early bird
-  const regularRule = allRules.find((r) => r.day_to === null);   // open-ended = regular
-  if (!earlyBirdRule || !regularRule) return;
-  if (earlyBirdRule.amount >= regularRule.amount) return; // No actual discount
-
-  // Skip: charge was already at (or below) the early bird rate — no adjustment needed.
-  if (eligibleCharge.amount <= earlyBirdRule.amount) return;
-
-  // Update the tuition charge amount directly to the early bird rate.
-  const { error: adjustError } = await supabase
-    .from("charges")
-    .update({ amount: earlyBirdRule.amount })
-    .eq("id", eligibleCharge.id);
-  // Silently ignore errors — discount is a bonus; don't fail the whole payment over it
-  if (adjustError) console.error("[applyEarlyBirdRate] charge adjust failed:", adjustError);
+export async function applyEarlyBirdDiscountIfEligible(..._args: unknown[]) {
+  return;
 }

@@ -1,4 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  getMonterreyDateParts,
+  getMonterreyDateString,
+  getMonterreyDayBounds,
+  getMonterreyMonthBounds,
+  getMonterreyMonthString,
+} from "@/lib/time";
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -14,29 +21,7 @@ function toNumber(value: number | string | null | undefined) {
   return 0;
 }
 
-// Monterrey is permanently UTC-6 (Mexico abolished DST in 2023).
-const CST_OFFSET_MS = 6 * 60 * 60 * 1000;
-
-function todayMonterreyString() {
-  const now = new Date(Date.now() - CST_OFFSET_MS);
-  return now.toISOString().slice(0, 10);
-}
-
-// Returns UTC bounds that correspond to a full calendar day in Monterrey.
 // Monterrey midnight = UTC 06:00, so a local day spans T06:00Z → T06:00Z next day.
-function monterreyDayUtcRange(dateStr: string): { start: string; end: string } {
-  const start = new Date(`${dateStr}T06:00:00.000Z`);
-  const end = new Date(start.getTime() + 86_400_000);
-  return { start: start.toISOString(), end: end.toISOString() };
-}
-
-function currentMonthString() {
-  const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PaymentWithPlayer = {
@@ -54,6 +39,8 @@ type PaymentWithPlayer = {
 
 type ChargeWithType = {
   amount: number;
+  period_month: string | null;
+  created_at: string;
   charge_types: { code: string | null; name: string | null } | null;
 };
 
@@ -106,8 +93,8 @@ export async function getCorteDiarioData(filters: {
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
 
-  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : todayMonterreyString();
-  const { start: dateStart, end: dateEnd } = monterreyDayUtcRange(dateStr);
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : getMonterreyDateString();
+  const { start: dateStart, end: dateEnd } = getMonterreyDayBounds(dateStr);
 
   // Anchor start to when the session opened so payments before the calendar day
   // boundary are included (e.g. session opened late on day N-1).
@@ -229,12 +216,8 @@ export async function getResumenMensualData(filters: {
 }): Promise<ResumenMensualData> {
   const supabase = await createClient();
 
-  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : currentMonthString();
-  const [yearRaw, monthRaw] = month.split("-");
-  const year = Number(yearRaw);
-  const monthIndex = Number(monthRaw) - 1;
-  const monthStart = new Date(year, monthIndex, 1).toISOString();
-  const nextMonthStart = new Date(year, monthIndex + 1, 1).toISOString();
+  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : getMonterreyMonthString();
+  const { start: monthStart, end: nextMonthStart, periodMonth } = getMonterreyMonthBounds(month);
 
   let activeEnrollmentIdsQuery = supabase.from("enrollments").select("id").eq("status", "active");
   if (filters.campusId) {
@@ -243,10 +226,9 @@ export async function getResumenMensualData(filters: {
 
   let chargesQuery = supabase
     .from("charges")
-    .select("amount, charge_types(code, name), enrollments!inner(campus_id)")
+    .select("amount, period_month, created_at, charge_types(code, name), enrollments!inner(campus_id)")
     .neq("status", "void")
-    .gte("created_at", monthStart)
-    .lt("created_at", nextMonthStart);
+    .or(`period_month.eq.${periodMonth},and(period_month.is.null,created_at.gte.${monthStart},created_at.lt.${nextMonthStart})`);
   if (filters.campusId) {
     chargesQuery = chargesQuery.eq("enrollments.campus_id", filters.campusId);
   }
@@ -360,12 +342,11 @@ export async function getCorteSemanallData(filters: {
 }): Promise<CorteSemanalData> {
   const supabase = await createClient();
 
-  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : currentMonthString();
+  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : getMonterreyMonthString();
   const [yearRaw, monthRaw] = month.split("-");
   const year = Number(yearRaw);
   const monthIndex = Number(monthRaw) - 1;
-  const monthStart = new Date(Date.UTC(year, monthIndex, 1)).toISOString();
-  const nextMonthStart = new Date(Date.UTC(year, monthIndex + 1, 1)).toISOString();
+  const { start: monthStart, end: nextMonthStart } = getMonterreyMonthBounds(month);
 
   let query = supabase
     .from("payments")
@@ -390,7 +371,7 @@ export async function getCorteSemanallData(filters: {
   for (let w = 1; w <= numWeeks; w++) weekBuckets.set(w, []);
 
   payments.forEach((p) => {
-    const day = new Date(p.paid_at).getUTCDate();
+    const day = Number(getMonterreyDateParts(p.paid_at).day);
     const weekNum = Math.ceil(day / 7);
     weekBuckets.get(weekNum)?.push(p);
   });

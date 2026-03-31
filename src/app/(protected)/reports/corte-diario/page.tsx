@@ -7,6 +7,7 @@ import { getCampusSessionStatuses, getSessionForDate } from "@/lib/queries/cash-
 import { closeCashSessionAction } from "@/server/actions/cash-sessions";
 import { createClient } from "@/lib/supabase/server";
 import { getPrinterName } from "@/lib/queries/settings";
+import { formatDateTimeMonterrey, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
 
 function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -17,17 +18,11 @@ function fmt(value: number) {
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Monterrey"
-  });
+  return formatTimeMonterrey(iso);
 }
 
 function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey"
-  });
+  return formatDateTimeMonterrey(iso);
 }
 
 const CLOSE_ERROR_LABELS: Record<string, string> = {
@@ -57,7 +52,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
   // time window is anchored to the session rather than the calendar day boundary.
   // This handles sessions that span midnight correctly.
   const sessionForDate = selectedCampusId
-    ? await getSessionForDate(selectedCampusId, selectedDate || new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().slice(0, 10))
+    ? await getSessionForDate(selectedCampusId, selectedDate || getMonterreyDateString())
     : null;
 
   const data = await getCorteDiarioData({
@@ -319,7 +314,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           </div>
         )}
 
-        <p className="print:hidden text-xs text-slate-400">Horarios en UTC. Campus: {campusLabel}.</p>
+        <p className="print:hidden text-xs text-slate-400">Horarios en Monterrey. Campus: {campusLabel}.</p>
 
         {/* ── Print-only Corte Diario layout (80mm thermal) ── */}
         <div className="hidden print:block w-[72mm] font-mono text-[11px] leading-snug">
@@ -384,7 +379,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           )}
 
           <div className="border-t border-dashed border-black my-1.5" />
-          <p className="text-center text-[10px]">Horarios en UTC</p>
+          <p className="text-center text-[10px]">Horarios en Monterrey</p>
         </div>
       </div>
     </PageShell>

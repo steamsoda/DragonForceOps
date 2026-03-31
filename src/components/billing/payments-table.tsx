@@ -1,3 +1,5 @@
+import { formatDateTimeMonterrey } from "@/lib/time";
+
 type PaymentItem = {
   id: string;
   paidAt: string;
@@ -19,10 +21,7 @@ function formatMoney(amount: number, currency: string) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("es-MX", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(new Date(value));
+  return formatDateTimeMonterrey(value);
 }
 
 function getPaymentMethodLabel(method: string) {
@@ -133,4 +132,3 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
     </div>
   );
 }
-

@@ -3,6 +3,7 @@ import { ReprintReceiptButton } from "@/components/receipts/reprint-receipt-butt
 import { PageShell } from "@/components/ui/page-shell";
 import { searchReceipts } from "@/lib/queries/receipts";
 import { getPrinterName } from "@/lib/queries/settings";
+import { formatDateTimeMonterrey } from "@/lib/time";
 import { listCampuses } from "@/lib/queries/players";
 
 type SearchParams = Promise<{
@@ -14,16 +15,6 @@ type SearchParams = Promise<{
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
-}
-
-function formatDate(value: string) {
-  const d = new Date(value);
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const year = d.getUTCFullYear();
-  const hours = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
-  return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
 const METHOD_LABELS: Record<string, string> = {
@@ -51,9 +42,10 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
   const prevPage = page > 1 ? page - 1 : null;
   const nextPage = page < totalPages ? page + 1 : null;
   const qsBase = `q=${encodeURIComponent(q)}&campus=${encodeURIComponent(campusId)}&payment=${encodeURIComponent(paymentId)}`;
+  const hasFilters = Boolean(q || campusId || paymentId);
 
   return (
-    <PageShell title="Buscar recibos" subtitle="Busca por folio o nombre del jugador">
+    <PageShell title="Buscar recibos" subtitle="Recibos recientes y busqueda por folio o jugador">
       <div className="space-y-4">
         <form method="GET" className="flex flex-wrap gap-3">
           <input
@@ -81,7 +73,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           >
             Buscar
           </button>
-          {q || campusId ? (
+          {hasFilters ? (
             <Link
               href="/receipts"
               className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -91,11 +83,10 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           ) : null}
         </form>
 
-        {(q || campusId || paymentId) && (
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            {result.total} resultado{result.total !== 1 ? "s" : ""}
-          </p>
-        )}
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          {result.total} resultado{result.total !== 1 ? "s" : ""}
+          {!hasFilters ? " recientes" : ""}
+        </p>
 
         <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
           <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -115,11 +106,9 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
               {result.rows.length === 0 ? (
                 <tr>
                   <td className="px-3 py-6 text-slate-500 dark:text-slate-400" colSpan={8}>
-                    {q || campusId
+                    {hasFilters
                       ? "No se encontraron recibos con esos filtros."
-                      : paymentId
-                      ? "No se encontro un recibo para ese pago."
-                      : "Ingresa un folio o nombre para buscar."}
+                      : "No hay recibos publicados todavia."}
                   </td>
                 </tr>
               ) : (
@@ -128,7 +117,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                     <td className="px-3 py-2 font-mono text-xs">
                       {row.folio ?? <span className="text-slate-400">-</span>}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2">{formatDate(row.paidAt)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{formatDateTimeMonterrey(row.paidAt)}</td>
                     <td className="px-3 py-2">{row.playerName}</td>
                     <td className="px-3 py-2">{row.campusName}</td>
                     <td className="px-3 py-2 font-medium">{formatMoney(row.amount)}</td>
@@ -151,7 +140,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           </table>
         </div>
 
-        {(q || campusId || paymentId) && result.total > result.pageSize && (
+        {result.total > result.pageSize && (
           <div className="flex items-center justify-between text-sm">
             <p>
               Pagina {page} de {totalPages}

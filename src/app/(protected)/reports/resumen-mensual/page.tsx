@@ -79,7 +79,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
           <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
             <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cargos emitidos</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCargosEmitidos)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">No anulados, creados en el mes</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Mensualidades por periodo y cargos operativos del mes</p>
           </div>
           <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
             <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total cobrado</p>

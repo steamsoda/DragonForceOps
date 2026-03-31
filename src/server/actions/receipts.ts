@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -149,17 +150,8 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
       chargesPaid,
       paymentId: payment.id,
       folio: payment.folio,
-      date: paidAt.toLocaleDateString("es-MX", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        timeZone: "America/Monterrey"
-      }),
-      time: paidAt.toLocaleTimeString("es-MX", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "America/Monterrey"
-      })
+      date: formatDateMonterrey(paidAt),
+      time: formatTimeMonterrey(paidAt)
     }
   };
 }
