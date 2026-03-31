@@ -66,7 +66,7 @@ export async function searchReceipts({
       total: 0,
       pageSize: PAGE_SIZE,
       error: isMissingFunction
-        ? "La busqueda de recibos no esta disponible en esta base de datos. Falta aplicar la migracion de preview para `search_receipts(...)`."
+        ? "La busqueda de recibos no esta disponible en esta base de datos. Falta aplicar la migracion requerida para `search_receipts(...)`."
         : "No se pudo cargar la busqueda de recibos. Revisa la configuracion de la base de datos o intenta de nuevo.",
     };
   }

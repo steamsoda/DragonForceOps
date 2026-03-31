@@ -62,11 +62,11 @@ as $$
       and (
         prm.q is null
         or (
-          prm.q ~ '^[A-Z]{2,}-'
+          prm.q ~ '^[A-Z_]{2,}-\d{6}-\d+'
           and coalesce(p.folio, '') ilike '%' || prm.q || '%'
         )
         or (
-          prm.q !~ '^[A-Z]{2,}-'
+          prm.q !~ '^[A-Z_]{2,}-\d{6}-\d+'
           and trim(coalesce(pl.first_name, '') || ' ' || coalesce(pl.last_name, '')) ilike '%' || prm.q || '%'
         )
       )

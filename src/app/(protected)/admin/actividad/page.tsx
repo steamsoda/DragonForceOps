@@ -323,11 +323,7 @@ export default async function SuperAdminActividadPage({ searchParams }: { search
                               <input type="hidden" name="log_id" value={log.id} />
                               <button type="submit"
                                 className="inline-flex items-center gap-1 rounded bg-rose-50 dark:bg-rose-900/20 px-2 py-1 text-xs font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 whitespace-nowrap"
-                                onClick={(e) => {
-                                  if (!confirm(`¿Revertir "${label}"?\n\nEsto anulará el registro subyacente. El log quedará marcado como revertido.`)) {
-                                    e.preventDefault();
-                                  }
-                                }}
+                                title={`Revertir "${label}"`}
                               >
                                 ↩ Revertir
                               </button>

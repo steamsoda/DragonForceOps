@@ -2,6 +2,12 @@
 
 ## 2026-03-30 (session 18)
 
+### Prod Follow-up Fixes (v1.1.10)
+
+- Fixed prod `Actividad` crash: the superadmin audit page had a server-component `<button onClick=...>` confirm handler, which Next.js rejects at runtime.
+- Generalized the receipts RPC error copy so it no longer incorrectly refers to "preview" when the same failure happens in production.
+- Fixed folio search classification in `search_receipts(...)` so folios with underscore campus codes like `LINDA_VISTA-202603-00032` are treated as folios instead of player-name queries.
+
 ### Preview Receipts Recovery + Preview DB Safety (v1.1.9)
 
 - Diagnosed the preview `/receipts` outage correctly: preview had posted payments, but the preview DB was missing the `search_receipts(...)` migration entirely.
