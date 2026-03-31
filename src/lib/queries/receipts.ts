@@ -16,6 +16,7 @@ export type ReceiptSearchResult = {
   rows: ReceiptSearchRow[];
   total: number;
   pageSize: number;
+  error: string | null;
 };
 
 const PAGE_SIZE = 30;
@@ -58,7 +59,16 @@ export async function searchReceipts({
 
   if (error) {
     console.error("[searchReceipts] rpc failed:", error);
-    return { rows: [], total: 0, pageSize: PAGE_SIZE };
+    const isMissingFunction =
+      error.code === "42883" || error.message.toLowerCase().includes("search_receipts");
+    return {
+      rows: [],
+      total: 0,
+      pageSize: PAGE_SIZE,
+      error: isMissingFunction
+        ? "La busqueda de recibos no esta disponible en esta base de datos. Falta aplicar la migracion de preview para `search_receipts(...)`."
+        : "No se pudo cargar la busqueda de recibos. Revisa la configuracion de la base de datos o intenta de nuevo.",
+    };
   }
 
   const rows = ((data ?? []) as ReceiptRpcRow[]).map((row) => ({
@@ -77,5 +87,6 @@ export async function searchReceipts({
     rows,
     total: data && data.length > 0 ? Number((data[0] as ReceiptRpcRow).total_count) : 0,
     pageSize: PAGE_SIZE,
+    error: null,
   };
 }

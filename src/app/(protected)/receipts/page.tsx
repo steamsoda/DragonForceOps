@@ -43,6 +43,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
   const nextPage = page < totalPages ? page + 1 : null;
   const qsBase = `q=${encodeURIComponent(q)}&campus=${encodeURIComponent(campusId)}&payment=${encodeURIComponent(paymentId)}`;
   const hasFilters = Boolean(q || campusId || paymentId);
+  const hasError = Boolean(result.error);
 
   return (
     <PageShell title="Buscar recibos" subtitle="Recibos recientes y busqueda por folio o jugador">
@@ -83,10 +84,21 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           ) : null}
         </form>
 
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          {result.total} resultado{result.total !== 1 ? "s" : ""}
-          {!hasFilters ? " recientes" : ""}
-        </p>
+        {hasError ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            <p className="font-medium">Error operativo en Recibos</p>
+            <p>{result.error}</p>
+            <p className="mt-2 font-mono text-xs">
+              Validacion sugerida en preview SQL editor: `select count(*) from public.payments where status = 'posted';`
+              y `select * from public.search_receipts(null, null, null, 5, 0);`
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {result.total} resultado{result.total !== 1 ? "s" : ""}
+            {!hasFilters ? " recientes" : ""}
+          </p>
+        )}
 
         <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
           <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -106,7 +118,9 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
               {result.rows.length === 0 ? (
                 <tr>
                   <td className="px-3 py-6 text-slate-500 dark:text-slate-400" colSpan={8}>
-                    {hasFilters
+                    {hasError
+                      ? "La busqueda de recibos no pudo cargarse en esta base de datos."
+                      : hasFilters
                       ? "No se encontraron recibos con esos filtros."
                       : "No hay recibos publicados todavia."}
                   </td>
@@ -140,7 +154,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           </table>
         </div>
 
-        {result.total > result.pageSize && (
+        {!hasError && result.total > result.pageSize && (
           <div className="flex items-center justify-between text-sm">
             <p>
               Pagina {page} de {totalPages}

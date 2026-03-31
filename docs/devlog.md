@@ -2,6 +2,14 @@
 
 ## 2026-03-30 (session 18)
 
+### Preview Receipts Recovery + Preview DB Safety (v1.1.9)
+
+- Diagnosed the preview `/receipts` outage correctly: preview had posted payments, but the preview DB was missing the `search_receipts(...)` migration entirely.
+- Production stayed untouched and continued working, which confirmed the issue was preview schema drift rather than missing payment data.
+- `src/lib/queries/receipts.ts` no longer hides RPC failures as fake zero-result states.
+- `src/app/(protected)/receipts/page.tsx` now shows a clear operational error when the receipts RPC is missing or failing, including the exact preview SQL checks to run.
+- Operational rule documented: Vercel preview deploys do **not** imply preview DB migrations were applied; preview schema-dependent work must be validated separately.
+
 ### Financial Hardening + Receipts Scalability (v1.1.8)
 
 - Retired post-payment charge mutation from the live payment model: posted payments no longer change charge amounts after the fact.
