@@ -6,6 +6,9 @@
 
 - Diagnosed the preview `/receipts` outage correctly: preview had posted payments, but the preview DB was missing the `search_receipts(...)` migration entirely.
 - Production stayed untouched and continued working, which confirmed the issue was preview schema drift rather than missing payment data.
+- Compared applied migration history between preview and prod: preview had stopped at `20260321000000`, while prod continued through `20260326010000`.
+- Root cause was not one bad receipts migration but a missing March 24-26 migration block in preview, including `payments.folio` and folio-trigger work.
+- Preview was manually reconciled with the missing non-seed migrations plus receipts search, and old preview payments were backfilled with folios for testing.
 - `src/lib/queries/receipts.ts` no longer hides RPC failures as fake zero-result states.
 - `src/app/(protected)/receipts/page.tsx` now shows a clear operational error when the receipts RPC is missing or failing, including the exact preview SQL checks to run.
 - Operational rule documented: Vercel preview deploys do **not** imply preview DB migrations were applied; preview schema-dependent work must be validated separately.
