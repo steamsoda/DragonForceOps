@@ -16,6 +16,7 @@ Updated continuously. Last updated: 2026-03-30.
 | 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting applied across all date display sites |
 | 23 | **Charge status stuck on "Pendiente" when fully paid** | ✅ Done | `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx` — shows "Pagado" when `pendingAmount ≤ 0` |
 | 24 | **Cash session panel shows $0 MXN after midnight** | ✅ Done | `getSessionForDate()` helper in `cash-sessions.ts`; `sessionOpenedAt` + `sessionClosedAt` passed to `getCorteDiarioData()`, extending query window beyond midnight |
+| 41 | **Enrollment payment does not auto-print receipt** | 🔴 Open | Regression/new bug. When posting payment during new-student enrollment flow, printer does not fire automatically. Verify whether receipt data is missing from the action result or the client flow is not mounting the print trigger panel. |
 
 ---
 
@@ -33,7 +34,7 @@ Updated continuously. Last updated: 2026-03-30.
 | 26 | **Year of birth visible everywhere** | ✅ Done | Cat. column in Jugadores, Pendientes, Corte Diario. birthYear on all player rows. |
 | 27 | **Player level (B1/B2/B3) at a glance** | ✅ Done | Nivel column in Jugadores list. Level sourced from team assignment join. |
 | 28 | **Corte Diario quick-access shortcuts** | ✅ Done | "Corte {campus}" buttons in Caja header, directors only, pre-filter campus for today. |
-| 29 | **Multiple items in Caja (cart model)** | 🔴 Open | Add multiple ad-hoc charges in one Caja session before posting payment. Cart-style: add items → review total → pay once. E.g. 2 uniforms in one transaction. |
+| 29 | **Multiple items in Caja (cart model)** | 🔴 Open | Full product cart still open. Tuition case is now improved: staff can add multiple advance tuition charges, keep them selected, and charge them together in one payment. |
 
 ---
 
@@ -51,6 +52,8 @@ Updated continuously. Last updated: 2026-03-30.
 | 32 | **Absence/injury charge skip** | 🔴 Open | Staff flags an active enrollment to skip its next monthly charge for a specific month. Monthly charge generator respects flag (single-use, auto-clears after month passes). Schema: `enrollment_charge_skips (enrollment_id, period_month, reason, created_by)`. Show skip status on enrollment ledger page. |
 | 33 | **Stripe payment recording + reconciliation** | 🔴 Open | Phase A (manual, now): staff enters Stripe payments — amount, Stripe reference ID, enrollment. Method = `stripe`. Excluded from Corte Diario cash/card totals; shown in a separate "Pagos Stripe" reconciliation block below the main summary. Phase B (later): Stripe webhook auto-creates payment + matches to enrollment by reference. |
 | 34 | **Cross-campus payment flag** | 🔴 Open | Payment goes to the open session's campus Corte Diario (intended behavior). Add "Pago Inter-Campus" flag on payment record + visible label in session view and Corte Diario so staff can spot cross-campus transactions easily. |
+| 42 | **Reprint receipt from app** | ✅ Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
+| 43 | **Pricing change rollout (non-breaking)** | 🔴 Open | New pricing changes are coming. Implement behind explicit pricing-plan/rule versioning so existing enrollments, historical charges, and posted payments remain untouched. Prefer additive migrations and forward-only plan assignment over retroactive mutation. |
 
 ---
 
@@ -102,3 +105,4 @@ Updated continuously. Last updated: 2026-03-30.
 | — | P1 UX pass: sort, birth year, level, Cat. column | 15–16 | v1.0.4–1.0.5: ORDER BY first_name across all lists; birth year in Jugadores/Pendientes/Corte Diario; Nivel column in Jugadores; migration fixes 3 RPCs |
 | — | Corte Diario shortcuts in Caja header | 16 | v1.1.0: "Corte Linda Vista" / "Corte Contry" link buttons for directors; pre-filters campus for today |
 | — | Patch 1 data migration | 16 | v1.1.1: 11 name/birthdate corrections, 3 duplicate deletions, 4 bajas, 2 new players (Mitre brothers), 45 March payment backfills |
+| — | Receipt reprint + multi-month tuition selection in Caja | 17 | v1.1.3: `/receipts` can reprint historical receipts through QZ Tray; Caja advance tuition no longer forces immediate payment and can be stacked/charged together |
