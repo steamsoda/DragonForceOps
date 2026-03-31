@@ -2,6 +2,11 @@
 
 ## 2026-03-30 (session 18)
 
+### Receipts Partial Folio Search (v1.1.11)
+
+- Added a follow-up migration so `search_receipts(...)` matches partial folio fragments as well as player-name fragments.
+- Example: searching `202603` now matches folios like `LINDA_VISTA-202603-00032` instead of requiring the full exact folio.
+
 ### Prod Follow-up Fixes (v1.1.10)
 
 - Fixed prod `Actividad` crash: the superadmin audit page had a server-component `<button onClick=...>` confirm handler, which Next.js rejects at runtime.
