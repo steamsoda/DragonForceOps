@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-03-31 (session 21)
+
+### Enrollment Form UX Hotfix
+
+- Updated the new-enrollment start-date field to behave like a masked front-desk input:
+  - typing `01012020` now auto-formats to `01/01/2020`
+  - the field still stores canonical `YYYY-MM-DD` on submit
+  - a `Calendario` button now opens the native date picker for staff who prefer tapping instead of typing
+- Replaced the new-enrollment campus dropdown with direct button choices for the two campuses.
+- Kept server-side enrollment date parsing tolerant so the action accepts both the masked `DD/MM/YYYY` text entry and ISO values from the native picker.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 20)
 
 ### Enrollment Handoff + Date Input Cleanup

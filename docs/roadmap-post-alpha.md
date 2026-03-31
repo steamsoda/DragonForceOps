@@ -45,7 +45,7 @@ Updated continuously. Last updated: 2026-03-31.
 | 27 | **Player level (B1/B2/B3) at a glance** | âœ… Done | Nivel column in Jugadores list. Level sourced from team assignment join. |
 | 28 | **Corte Diario quick-access shortcuts** | âœ… Done | "Corte {campus}" buttons in Caja header, directors only, pre-filter campus for today. |
 | 29 | **Multiple items in Caja (cart model)** | OPEN | Expand into a true POS cart flow: front-desk-friendly tile menu, running cart, tuition/inscription/product charges in one checkout, and fewer free-form inputs overall. The May pricing rollout hardened the monthly-tuition amount logic underneath, but the full POS cart/menu redesign is still pending. |
-| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | OPEN | The pricing engine and first-month tuition automation are now in place, and after creating an enrollment the app now jumps directly to Caja with that new enrollment preloaded. The broader one-page intake flow (player + guardian + enrollment + optional initial payment in one compact screen) still needs the UI redesign pass. |
+| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | OPEN | The pricing engine and first-month tuition automation are now in place, the app already jumps directly to Caja after creating an enrollment, and the enrollment form now has a masked `DD/MM/YYYY` start-date field plus direct campus buttons. The broader one-page intake flow (player + guardian + enrollment + optional initial payment in one compact screen) still needs the UI redesign pass. |
 
 ---
 
@@ -65,7 +65,7 @@ Updated continuously. Last updated: 2026-03-31.
 | 34 | **Cross-campus payment flag** | ðŸ”´ Open | Payment goes to the open session's campus Corte Diario (intended behavior). Add "Pago Inter-Campus" flag on payment record + visible label in session view and Corte Diario so staff can spot cross-campus transactions easily. |
 | 42 | **Reprint receipt from app** | âœ… Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
 | 43 | **Pricing change rollout (non-breaking)** | DONE | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
-| 55 | **Replace free-number financial inputs with guided button choices** | IN PROGRESS | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja now resolves automatically from the selected month/version, and player birth-date entry now uses a guided `DD/MM/YYYY` format instead of a locale-dependent browser date widget. Remaining work is the broader POS/cart UI pass so bounded product flows also stop relying on open amount fields. |
+| 55 | **Replace free-number financial inputs with guided button choices** | IN PROGRESS | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja now resolves automatically from the selected month/version, the new-enrollment campus picker is now a direct button choice, and player birth-date entry uses a guided `DD/MM/YYYY` format instead of a locale-dependent browser date widget. Remaining work is the broader POS/cart UI pass so bounded product flows also stop relying on open amount fields. |
 
 ---
 
@@ -122,4 +122,5 @@ Updated continuously. Last updated: 2026-03-31.
 | â€” | Preview build hotfix for shared payment helper | 18 | v1.1.5: fixed Next.js server-action build error by making `revalidatePaymentSurfaces()` async inside `"use server"` module and awaiting it from ledger/Caja payment flows |
 | â€” | Receipts search regression fix | 18 | v1.1.6: `/receipts` now loads payments first and resolves enrollment/player/campus labels in a second query, avoiding null nested relation rows that hid all receipts |
 | â€” | Receipts filtering hotfix | 18 | v1.1.7: removed DB-side prefiltering by enrollment/player for `/receipts`; filtering now happens after loading posted payments and enrollment metadata, which fixes zero-result searches in preview |
+
 
