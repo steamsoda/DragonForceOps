@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-03-31 (session 24)
+
+### Caja POS Hotfix Pass
+
+- Expanded Caja's local desktop width so the POS flow can use more screen space without touching the global app shell.
+- Rebalanced the POS layout to give more room to:
+  - `Cargos pendientes`
+  - the POS tile area
+  - the current checkout summary
+- Replaced `Carrito` wording with `Cobro actual` to make the front-desk intent clearer.
+- Made the full pending-charge row clickable for add/remove selection, while keeping the chevron reserved for expanding details.
+- Restored advance tuition as a dedicated visible card inside the POS area instead of relying on the old buried configurator path.
+- Tightened product guidance:
+  - uniform items now require `Talla` before they can be added
+  - only special/manual charges keep open-amount capture
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 23)
 
 ### Caja POS Cart Redesign

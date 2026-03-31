@@ -239,7 +239,7 @@ export function CajaClient({ printerName, initialEnrollmentId }: { printerName: 
   const showSearchArea = view.tag === "idle" || view.tag === "searching" || view.tag === "results";
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 lg:px-6 xl:px-8">
       {/* Search box — always visible unless in a later state */}
       {showSearchArea && (
         <SearchPanel
@@ -671,6 +671,24 @@ function PosEnrollmentPanel({
     resetConfigurator(null);
   }
 
+  function addTuitionToCurrentCharge() {
+    const selectedOption = availableTuitionOptions.find(
+      (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
+    );
+    if (!selectedOption) {
+      setPanelError("No hay mensualidades adelantadas disponibles para agregar.");
+      return;
+    }
+
+    addStagedItem({
+      id: makeCartItemId(),
+      label: `Mensualidad ${selectedOption.label}`,
+      detail: "Se crea al cobrar el cobro actual",
+      amount: selectedOption.amount,
+      payload: { kind: "tuition", periodMonth: selectedOption.periodMonth.slice(0, 7) }
+    });
+  }
+
   function handleProductTile(product: CajaProduct) {
     if (product.categorySlug === "tuition" || product.hasSizes || product.defaultAmount == null) {
       resetConfigurator(product);
@@ -689,21 +707,7 @@ function PosEnrollmentPanel({
     if (!selectedProduct) return;
 
     if (selectedProduct.categorySlug === "tuition") {
-      const selectedOption = availableTuitionOptions.find(
-        (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
-      );
-      if (!selectedOption) {
-        setPanelError("No hay mensualidades adelantadas disponibles para agregar.");
-        return;
-      }
-
-      addStagedItem({
-        id: makeCartItemId(),
-        label: `Mensualidad ${selectedOption.label}`,
-        detail: "Se crea al cobrar el carrito",
-        amount: selectedOption.amount,
-        payload: { kind: "tuition", periodMonth: selectedOption.periodMonth.slice(0, 7) }
-      });
+      addTuitionToCurrentCharge();
       return;
     }
 
@@ -800,8 +804,8 @@ function PosEnrollmentPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-4">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
+        <div className="space-y-6">
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos pendientes</p>
@@ -822,10 +826,24 @@ function PosEnrollmentPanel({
                   const overdue = charge.dueDate && new Date(charge.dueDate) < new Date();
                   return (
                     <li key={charge.id} className={isSelected ? "bg-blue-50/70 dark:bg-blue-950/20" : ""}>
-                      <div className="flex items-center gap-3 px-4 py-3 text-sm">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleCharge(charge.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleCharge(charge.id);
+                          }
+                        }}
+                        className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm"
+                      >
                         <button
                           type="button"
-                          onClick={() => setExpandedId(isExpanded ? null : charge.id)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExpandedId(isExpanded ? null : charge.id);
+                          }}
                           className="shrink-0 text-slate-400 hover:text-slate-600"
                           aria-label={isExpanded ? "Ocultar detalle" : "Ver detalle"}
                         >
@@ -846,17 +864,15 @@ function PosEnrollmentPanel({
                         <span className={`shrink-0 font-semibold ${isSelected ? "text-portoBlue" : "text-rose-600"}`}>
                           {formatMoney(charge.pendingAmount, data.currency)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleCharge(charge.id)}
+                        <span
                           className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
                             isSelected
                               ? "bg-portoBlue text-white hover:bg-portoDark"
                               : "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
                           }`}
                         >
-                          {isSelected ? "Quitar" : "Agregar al carrito"}
-                        </button>
+                          {isSelected ? "En cobro" : "Tocar para agregar"}
+                        </span>
                       </div>
                       {isExpanded && (
                         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-t border-slate-100 bg-slate-50 px-10 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
@@ -883,11 +899,66 @@ function PosEnrollmentPanel({
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Mensualidad adelantada</p>
+                <p className="text-xs text-emerald-700/80 dark:text-emerald-400">
+                  Agrega el próximo mes al cobro actual con la tarifa automática.
+                </p>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-700 shadow-sm dark:bg-slate-900 dark:text-emerald-300">
+                Hasta 4 meses
+              </span>
+            </div>
+
+            {availableTuitionOptions.length === 0 ? (
+              <div className="rounded-lg border border-emerald-200/70 bg-white px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-emerald-300">
+                No hay mensualidades adelantadas disponibles para agregar en este momento.
+              </div>
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-end">
+                <label className="space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
+                  <select
+                    value={tuitionPeriod}
+                    onChange={(e) => setTuitionPeriod(e.target.value)}
+                    className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none dark:border-emerald-900/40 dark:bg-slate-900"
+                  >
+                    {availableTuitionOptions.map((option) => (
+                      <option key={option.periodMonth} value={option.periodMonth.slice(0, 7)}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="space-y-1 text-sm">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
+                  <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-slate-300">
+                    {availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)?.amount != null
+                      ? formatMoney(
+                          availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)!.amount,
+                          data.currency
+                        )
+                      : "Sin opciones"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addTuitionToCurrentCharge}
+                  className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Agregar al cobro
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Menú POS</p>
-                <p className="text-xs text-slate-400">Productos cerrados y mensualidades configurables</p>
+                <p className="text-xs text-slate-400">Productos cerrados y cargos especiales con más espacio para configurar.</p>
               </div>
               {productsLoading && <span className="text-xs text-slate-400">Cargando productos…</span>}
             </div>
@@ -896,29 +967,27 @@ function PosEnrollmentPanel({
                 Preparando catálogo…
               </div>
             ) : (
-              <div className="space-y-5">
-                {products.map((category) => {
+              <div className="space-y-6">
+                {products.filter((category) => category.slug !== "tuition").map((category) => {
                   const style = CATEGORY_STYLES[category.slug] ?? DEFAULT_STYLE;
                   return (
                     <div key={category.slug}>
                       <p className={`mb-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
                         {category.name}
                       </p>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                         {category.products.map((product) => (
                           <button
                             key={product.id}
                             type="button"
                             onClick={() => handleProductTile(product)}
-                            className={`rounded-xl border p-4 text-left transition-all ${
+                            className={`min-h-[112px] rounded-xl border px-4 py-4 text-left transition-all ${
                               selectedProduct?.id === product.id ? style.selected : style.tile
                             }`}
                           >
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{product.name}</p>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                              {product.categorySlug === "tuition"
-                                ? "Elegir mes"
-                                : product.defaultAmount != null
+                            <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                              {product.defaultAmount != null
                                 ? formatMoney(product.defaultAmount, data.currency)
                                 : "Cargo especial"}
                             </p>
@@ -953,35 +1022,7 @@ function PosEnrollmentPanel({
                   </button>
                 </div>
 
-                {selectedProduct.categorySlug === "tuition" ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1 text-sm">
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
-                      <select
-                        value={tuitionPeriod}
-                        onChange={(e) => setTuitionPeriod(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
-                      >
-                        {availableTuitionOptions.map((option) => (
-                          <option key={option.periodMonth} value={option.periodMonth.slice(0, 7)}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="space-y-1 text-sm">
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
-                      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)?.amount != null
-                          ? formatMoney(
-                              availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)!.amount,
-                              data.currency
-                            )
-                          : "Sin opciones"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
+                {selectedProduct.categorySlug !== "tuition" ? (
                   <>
                     {selectedProduct.hasSizes && (
                       <div className="space-y-3">
@@ -1003,6 +1044,11 @@ function PosEnrollmentPanel({
                               </button>
                             ))}
                           </div>
+                          {!size && (
+                            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                              Selecciona una talla antes de agregar este uniforme al cobro actual.
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1039,16 +1085,16 @@ function PosEnrollmentPanel({
                       </div>
                     )}
                   </>
-                )}
+                ) : null}
 
                 <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={addConfiguredProduct}
-                    disabled={selectedProduct.categorySlug === "tuition" && availableTuitionOptions.length === 0}
+                    disabled={(selectedProduct.hasSizes && !size) || (selectedProduct.categorySlug === "tuition" && availableTuitionOptions.length === 0)}
                     className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
                   >
-                    Agregar al carrito
+                    Agregar al cobro
                   </button>
                   <button
                     type="button"
@@ -1063,13 +1109,13 @@ function PosEnrollmentPanel({
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Carrito</p>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cobro actual</p>
                 <p className="text-xs text-slate-400">
-                  {cartTotal > 0 ? "Todo se cobra en una sola salida." : "Vacío. Puedes cobrar todo sin armar carrito."}
+                  {cartTotal > 0 ? "Todo se cobra en una sola salida." : "Vacío. Puedes cobrar todo sin armar una selección."}
                 </p>
               </div>
               {(selectedIds.size > 0 || stagedItems.length > 0) && (
@@ -1084,7 +1130,7 @@ function PosEnrollmentPanel({
             </div>
             {selectedIds.size === 0 && stagedItems.length === 0 ? (
               <div className="px-4 py-5 text-sm text-slate-400">
-                Sin artículos en carrito. Si continúas, se cobrará el saldo total pendiente.
+                Sin artículos en el cobro actual. Si continúas, se cobrará el saldo total pendiente.
               </div>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1128,7 +1174,7 @@ function PosEnrollmentPanel({
             )}
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {cartTotal > 0 ? "Total del carrito" : "Saldo a cobrar"}
+                {cartTotal > 0 ? "Total del cobro actual" : "Saldo a cobrar"}
               </span>
               <span className="text-lg font-bold text-portoDark">
                 {formatMoney(checkoutTotal, data.currency)}
@@ -1142,7 +1188,7 @@ function PosEnrollmentPanel({
           >
             <div>
               <p className="font-medium text-slate-800 dark:text-slate-200">
-                {cartTotal > 0 ? "Cobro del carrito" : "Cobrar todo"}
+                {cartTotal > 0 ? "Cobro actual" : "Cobrar todo"}
               </p>
               <p className="text-xs text-slate-400">
                 {cartTotal > 0
