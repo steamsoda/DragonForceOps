@@ -30,6 +30,18 @@
   - `search_receipts('202603', ...)` works in prod
 - Result: the prod migration chain is unblocked again and future migrations can move normally.
 
+### GitHub Actions Migration Verification
+
+- Verified with GitHub CLI that `.github/workflows/migrate-production.yml` was triggering correctly on `main` pushes touching `supabase/migrations/**`.
+- Recent prod migration runs failed for the expected reason: they were all blocked on the old Patch 1 migration until the recovery push.
+- Confirmed the latest prod migration workflow run completed successfully immediately after the Patch 1 recovery commit.
+- Added `.github/workflows/migrate-preview.yml` so the `preview` branch can have its own isolated Supabase migration automation.
+- Preview workflow uses separate secrets:
+  - `SUPABASE_PREVIEW_PROJECT_REF`
+  - `SUPABASE_PREVIEW_DB_PASSWORD`
+  - shared `SUPABASE_ACCESS_TOKEN`
+- This keeps preview DB automation separate from production and avoids repeating the manual drift incident.
+
 ### Receipts Partial Folio Search (v1.1.11)
 
 - Added a follow-up migration so `search_receipts(...)` matches partial folio fragments as well as player-name fragments.
