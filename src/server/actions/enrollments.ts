@@ -129,7 +129,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   });
 
   revalidatePath(`/players/${playerId}`);
-  redirect(`/enrollments/${enrollmentId}/charges`);
+  redirect(`/caja?enrollmentId=${enrollmentId}`);
 }
 
 function redirectWithEditError(enrollmentId: string, playerId: string, code: string): never {
@@ -233,4 +233,3 @@ export async function updateContactadoAction(
   revalidatePath("/pending");
   return { ok: true };
 }
-

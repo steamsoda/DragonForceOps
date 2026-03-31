@@ -3,6 +3,14 @@ type PlayerCreateFormProps = {
 };
 
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm";
+const dateInputProps = {
+  type: "text" as const,
+  inputMode: "numeric" as const,
+  placeholder: "DD/MM/AAAA",
+  pattern: "\\d{2}/\\d{2}/\\d{4}",
+  title: "Usa el formato DD/MM/AAAA",
+  autoComplete: "bday",
+};
 
 export function PlayerCreateForm({ action }: PlayerCreateFormProps) {
   return (
@@ -26,7 +34,8 @@ export function PlayerCreateForm({ action }: PlayerCreateFormProps) {
             <span className="font-medium text-slate-700 dark:text-slate-300">
               Fecha de nacimiento <span className="text-rose-500">*</span>
             </span>
-            <input type="date" name="birthDate" required className={inputClass} />
+            <input {...dateInputProps} name="birthDate" required className={inputClass} />
+            <p className="text-xs text-slate-500 dark:text-slate-400">Formato: DD/MM/AAAA</p>
           </label>
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Genero</span>

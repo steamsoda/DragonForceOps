@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
+import { parseDateOnlyInput } from "@/lib/time";
 
 function redirectWithError(code: string): never {
   redirect(`/players/new?err=${code}`);
@@ -73,7 +74,7 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
 
   const firstName = formData.get("firstName")?.toString().trim();
   const lastName = formData.get("lastName")?.toString().trim();
-  const birthDate = formData.get("birthDate")?.toString().trim();
+  const birthDate = parseDateOnlyInput(formData.get("birthDate")?.toString());
   const uniformSize = formData.get("uniformSize")?.toString().trim() || null;
   const medicalNotes = formData.get("medicalNotes")?.toString().trim() || null;
   const gender = formData.get("gender")?.toString().trim() || null;

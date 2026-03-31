@@ -3,6 +3,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { updatePlayerAction } from "@/server/actions/players";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateOnlyDdMmYyyy } from "@/lib/time";
 
 const SIZES = ["XCH JR", "CH JR", "M JR", "G JR", "XL JR", "CH", "M", "G", "XL"];
 
@@ -77,12 +78,18 @@ export default async function PlayerEditPage({
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Fecha de nacimiento <span className="text-rose-500">*</span></span>
           <input
-            type="date"
+            type="text"
+            inputMode="numeric"
             name="birthDate"
             required
-            defaultValue={player.birthDate}
+            defaultValue={formatDateOnlyDdMmYyyy(player.birthDate)}
+            placeholder="DD/MM/AAAA"
+            pattern="\d{2}/\d{2}/\d{4}"
+            title="Usa el formato DD/MM/AAAA"
+            autoComplete="bday"
             className={inputClass}
           />
+          <p className="text-xs text-slate-500 dark:text-slate-400">Formato: DD/MM/AAAA</p>
         </label>
 
         {/* Gender + Goalkeeper */}

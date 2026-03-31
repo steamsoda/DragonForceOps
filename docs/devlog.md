@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-03-31 (session 20)
+
+### Enrollment Handoff + Date Input Cleanup
+
+- New enrollment creation now redirects straight into Caja with `?enrollmentId=...` instead of dropping staff into the ledger/cargos page first.
+- This keeps the front-desk flow tighter: create the enrollment, land in Caja with that new account loaded, then take payment immediately.
+- Replaced the browser-native player birth-date control on both create and edit flows with explicit `DD/MM/YYYY` text entry:
+  - `Nuevo jugador`
+  - `Editar jugador`
+- Added shared date-only parsing/formatting helpers so birth dates are stored as canonical `YYYY-MM-DD` while staff enters `DD/MM/YYYY`.
+- The parser accepts only valid calendar dates and avoids UTC-shift bugs from native date parsing.
+- Fixed the regular `/activity` page to use Monterrey-local display time and Monterrey day bounds for `Desde/Hasta` filters instead of UTC.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 19)
 
 ### May 2026 Tuition Pricing Rollout

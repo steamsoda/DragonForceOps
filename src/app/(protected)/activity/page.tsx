@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { createClient } from "@/lib/supabase/server";
+import { formatDateTimeMonterrey, getMonterreyDayBounds } from "@/lib/time";
 
 type AuditLogRow = {
   id: string;
@@ -25,14 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
 const ACTION_OPTIONS = Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label }));
 
 function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC"
-  });
+  return formatDateTimeMonterrey(iso);
 }
 
 function actionColor(action: string) {
@@ -88,8 +82,8 @@ export default async function ActivityPage({ searchParams }: { searchParams: Sea
     .order("event_at", { ascending: false })
     .limit(200);
 
-  if (filterFrom) query = query.gte("event_at", `${filterFrom}T00:00:00Z`);
-  if (filterTo)   query = query.lte("event_at", `${filterTo}T23:59:59Z`);
+  if (filterFrom) query = query.gte("event_at", getMonterreyDayBounds(filterFrom).start);
+  if (filterTo) query = query.lt("event_at", getMonterreyDayBounds(filterTo).end);
   if (filterAction) query = query.eq("action", filterAction);
   if (filterActor)  query = query.ilike("actor_email", `%${filterActor}%`);
 

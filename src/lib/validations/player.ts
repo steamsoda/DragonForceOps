@@ -1,3 +1,5 @@
+import { parseDateOnlyInput } from "@/lib/time";
+
 export type ParsedPlayerInput = {
   firstName: string;
   lastName: string;
@@ -15,7 +17,7 @@ export type ParsedPlayerInput = {
 export function parsePlayerFormData(formData: FormData): ParsedPlayerInput | null {
   const firstName = (formData.get("firstName") as string | null)?.trim() ?? "";
   const lastName = (formData.get("lastName") as string | null)?.trim() ?? "";
-  const birthDate = (formData.get("birthDate") as string | null)?.trim() ?? "";
+  const birthDate = parseDateOnlyInput((formData.get("birthDate") as string | null) ?? "");
   const genderRaw = (formData.get("gender") as string | null) ?? "";
   const medicalNotes = (formData.get("medicalNotes") as string | null)?.trim() || null;
   const guardianFirstName = (formData.get("guardianFirstName") as string | null)?.trim() ?? "";
