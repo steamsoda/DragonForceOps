@@ -23,6 +23,7 @@ type ActiveEnrollmentRow = {
 };
 
 type TuitionRuleRow = {
+  id: string;
   pricing_plan_id: string;
   amount: number;
   day_to: number | null;
@@ -81,11 +82,11 @@ export async function generateMonthlyChargesCore(
   const uniquePlanIds = [...new Set(toCharge.map((e) => e.pricing_plan_id))];
   const { data: tuitionRules } = await supabase
     .from("pricing_plan_tuition_rules")
-    .select("pricing_plan_id, amount, day_to")
+    .select("id, pricing_plan_id, amount, day_to")
     .in("pricing_plan_id", uniquePlanIds);
 
   // Regular rate = open-ended rule (day_to IS NULL). Fallback: highest amount rule.
-  const regularRateByPlan = new Map<string, number>();
+  const regularRuleByPlan = new Map<string, TuitionRuleRow>();
   const rulesByPlan = new Map<string, TuitionRuleRow[]>();
   ((tuitionRules ?? []) as TuitionRuleRow[]).forEach((rule) => {
     const arr = rulesByPlan.get(rule.pricing_plan_id) ?? [];
@@ -95,24 +96,26 @@ export async function generateMonthlyChargesCore(
   rulesByPlan.forEach((rules, planId) => {
     const openEnded = rules.find((r) => r.day_to === null);
     const fallback = rules.reduce((a, b) => (a.amount > b.amount ? a : b), rules[0]);
-    if (openEnded ?? fallback) {
-      regularRateByPlan.set(planId, (openEnded ?? fallback).amount);
+    const selectedRule = openEnded ?? fallback;
+    if (selectedRule) {
+      regularRuleByPlan.set(planId, selectedRule);
     }
   });
 
   const charges = toCharge
     .map((enrollment) => {
-      const amount = regularRateByPlan.get(enrollment.pricing_plan_id);
-      if (!amount) return null;
+      const selectedRule = regularRuleByPlan.get(enrollment.pricing_plan_id);
+      if (!selectedRule) return null;
       return {
         enrollment_id: enrollment.id,
         charge_type_id: chargeType.id,
         period_month: periodMonth,
         description,
-        amount,
+        amount: selectedRule.amount,
         currency: enrollment.pricing_plans?.currency ?? "MXN",
         status: "pending",
         due_date: dueDate,
+        pricing_rule_id: selectedRule.id,
         created_by: userId
       };
     })

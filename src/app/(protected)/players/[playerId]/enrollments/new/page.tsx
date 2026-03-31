@@ -60,16 +60,16 @@ export default async function EnrollmentCreatePage({
           </Link>
         </div>
 
-        {!context.plan ? (
+        {context.pricingVersions.length === 0 ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
             No hay un plan de precios activo. Configura uno antes de crear inscripciones.
           </div>
         ) : (
           <EnrollmentCreateForm
             campuses={context.campuses}
-            plan={context.plan}
-            defaultInscriptionAmount={context.defaultInscriptionAmount}
-            defaultFirstMonthAmount={context.defaultFirstMonthAmount}
+            planCode={context.planCode}
+            pricingVersions={context.pricingVersions}
+            defaultStartDate={context.defaultStartDate}
             action={submit}
           />
         )}

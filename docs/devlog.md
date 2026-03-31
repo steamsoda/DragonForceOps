@@ -1,5 +1,36 @@
 # Devlog
 
+## 2026-03-31 (session 19)
+
+### May 2026 Tuition Pricing Rollout
+
+- Added additive pricing-plan versioning groundwork for tuition changes:
+  - `pricing_plans` now support effective-date resolution by plan family/code.
+  - seeded a May 2026 standard tuition version in a new rollout migration instead of mutating historical plans in place.
+- Added `pricing_plan_enrollment_tuition_rules` so new-enrollment first-month tuition can be versioned separately from active-player monthly tuition.
+- Seeded canonical tuition behavior:
+  - pre-May active players: 600 days 1-10, 750 day 11+
+  - May+ active players: 700 days 1-10, 900 day 11+
+  - pre-May new enrollments: 600 days 1-10, 300 days 11-20, 600 next-month carryover on day 21+
+  - May+ new enrollments: 700 days 1-10, 350 days 11-20, 700 next-month carryover on day 21+
+- Replaced the remaining free-form enrollment tuition flow:
+  - the enrollment form now shows system-selected pricing instead of free-number amount inputs
+  - the server action computes inscription + first tuition from the versioned rule set
+  - day 21+ enrollments now create only the next-month tuition charge
+- Hardened Caja advance tuition:
+  - advance-month amounts now resolve by the selected future `period_month`, not the current month
+  - selectable range is now current month + next 3 months
+  - pending future tuition repricing migration updates only charges with `status = pending`, `period_month >= 2026-05-01`, and no allocations
+- Replaced the monthly tuition automation model in SQL:
+  - `generate_monthly_charges()` now creates day-1 charges at the early tier for the target month/version
+  - new `reprice_pending_monthly_tuition()` bumps still-pending charges to the regular tier on day 11
+  - both jobs are scheduled in `pg_cron`
+- Manual admin monthly-generation action now calls the DB function directly so manual runs and cron runs share one source of truth.
+- Advance tuition and enrollment pricing now resolve through shared helpers in `src/lib/pricing/plans.ts`, reducing the chance of app-vs-DB pricing drift.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-30 (session 18)
 
 ### Patch 1 Migration Blocker Audit

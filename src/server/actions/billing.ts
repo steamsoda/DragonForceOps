@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { generateMonthlyChargesCore } from "@/lib/billing/generate-monthly-charges";
 import { writeAuditLog } from "@/lib/audit";
 
 type TeamAssignmentRow = {
@@ -28,10 +27,18 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
   } = await supabase.auth.getUser();
   if (userError || !user) redirect("/admin/mensualidades?err=unauthenticated");
 
-  const result = await generateMonthlyChargesCore(supabase, periodMonth, user!.id);
+  const { data: result } = await supabase.rpc("generate_monthly_charges", {
+    p_period_month: periodMonth
+  });
 
-  if (result.error) redirect(`/admin/mensualidades?err=${result.error}`);
-  redirect(`/admin/mensualidades?ok=1&created=${result.created}&skipped=${result.skipped}`);
+  const typedResult = (result ?? { created: 0, skipped: 0, error: "rpc_failed" }) as {
+    created?: number;
+    skipped?: number;
+    error?: string;
+  };
+
+  if (typedResult.error) redirect(`/admin/mensualidades?err=${typedResult.error}`);
+  redirect(`/admin/mensualidades?ok=1&created=${typedResult.created ?? 0}&skipped=${typedResult.skipped ?? 0}`);
 }
 
 // ── Void payment ─────────────────────────────────────────────────────────────

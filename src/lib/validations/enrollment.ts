@@ -1,19 +1,9 @@
 export type ParsedEnrollmentInput = {
   campusId: string;
-  pricingPlanId: string;
+  pricingPlanCode: string;
   startDate: string;
-  inscriptionAmount: number;
-  firstMonthAmount: number;
   notes: string | null;
 };
-
-function parsePositiveMoney(value: string | null): number | null {
-  if (!value) return null;
-  const normalized = value.replace(",", ".").trim();
-  const amount = Number(normalized);
-  if (!Number.isFinite(amount) || amount <= 0) return null;
-  return Math.round(amount * 100) / 100;
-}
 
 function parseDate(value: string | null): string | null {
   if (!value) return null;
@@ -104,13 +94,11 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
 
 export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInput | null {
   const campusId = String(formData.get("campusId") ?? "").trim();
-  const pricingPlanId = String(formData.get("pricingPlanId") ?? "").trim();
+  const pricingPlanCode = String(formData.get("pricingPlanCode") ?? "").trim();
   const startDate = parseDate(String(formData.get("startDate") ?? ""));
-  const inscriptionAmount = parsePositiveMoney(String(formData.get("inscriptionAmount") ?? ""));
-  const firstMonthAmount = parsePositiveMoney(String(formData.get("firstMonthAmount") ?? ""));
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  if (!campusId || !pricingPlanId || !startDate || !inscriptionAmount || !firstMonthAmount) return null;
+  if (!campusId || !pricingPlanCode || !startDate) return null;
 
-  return { campusId, pricingPlanId, startDate, inscriptionAmount, firstMonthAmount, notes };
+  return { campusId, pricingPlanCode, startDate, notes };
 }

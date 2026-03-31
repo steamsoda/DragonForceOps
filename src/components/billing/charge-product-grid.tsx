@@ -25,13 +25,12 @@ const MONTH_NAMES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio"
 
 function getDefaultNextMonth(): string {
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getMonthOptions(): { value: string; label: string }[] {
   const now = new Date();
-  return [-1, 0, 1, 2].map((offset) => {
+  return [0, 1, 2, 3].map((offset) => {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
     return {
       value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
@@ -192,18 +191,24 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
               </label>
             )}
 
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
-              />
-            </label>
+            {selected.categorySlug === "tuition" ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                El monto de mensualidad se calcula automaticamente segun el periodo seleccionado.
+              </div>
+            ) : (
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                />
+              </label>
+            )}
 
             <div className="flex gap-3">
               <button

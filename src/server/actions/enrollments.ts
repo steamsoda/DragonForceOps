@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
 import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
@@ -20,11 +21,10 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   const supabase = await createClient();
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return redirectWithError(playerId, "unauthenticated");
 
-  // Verify player exists and has no active enrollment
   const [{ data: player }, { data: existingEnrollment }] = await Promise.all([
     supabase.from("players").select("id, birth_date, gender").eq("id", playerId).maybeSingle(),
     supabase
@@ -32,34 +32,41 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       .select("id")
       .eq("player_id", playerId)
       .eq("status", "active")
-      .maybeSingle()
+      .maybeSingle(),
   ]);
 
   if (!player) return redirectWithError(playerId, "player_not_found");
   if (existingEnrollment) return redirectWithError(playerId, "already_enrolled");
 
-  // Resolve charge type IDs
-  const { data: chargeTypes } = await supabase
-    .from("charge_types")
-    .select("id, code")
-    .in("code", ["inscription", "monthly_tuition"])
-    .returns<ChargeTypeRow[]>();
+  const [pricingQuote, chargeTypesResult] = await Promise.all([
+    getEnrollmentPricingQuote(supabase, {
+      planCode: parsed.pricingPlanCode,
+      startDate: parsed.startDate,
+    }),
+    supabase
+      .from("charge_types")
+      .select("id, code")
+      .in("code", ["inscription", "monthly_tuition"])
+      .returns<ChargeTypeRow[]>(),
+  ]);
 
+  const chargeTypes = chargeTypesResult.data;
   const inscriptionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
   const tuitionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "monthly_tuition")?.id;
-  if (!inscriptionTypeId || !tuitionTypeId) return redirectWithError(playerId, "config_error");
+  if (!pricingQuote || !inscriptionTypeId || !tuitionTypeId) {
+    return redirectWithError(playerId, "config_error");
+  }
 
-  // Create enrollment
   const { data: enrollment, error: enrollmentError } = await supabase
     .from("enrollments")
     .insert({
       player_id: playerId,
       campus_id: parsed.campusId,
-      pricing_plan_id: parsed.pricingPlanId,
+      pricing_plan_id: pricingQuote.plan.id,
       status: "active",
       start_date: parsed.startDate,
       inscription_date: parsed.startDate,
-      notes: parsed.notes ?? null
+      notes: parsed.notes ?? null,
     })
     .select("id, pricing_plans(currency)")
     .maybeSingle()
@@ -68,38 +75,33 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   if (enrollmentError || !enrollment) return redirectWithError(playerId, "enrollment_failed");
 
   const enrollmentId = enrollment.id;
-  const currency = enrollment.pricing_plans?.currency ?? "MXN";
+  const currency = enrollment.pricing_plans?.currency ?? pricingQuote.plan.currency ?? "MXN";
+  const tuitionDescription = `Mensualidad ${formatPeriodMonthLabel(pricingQuote.tuitionPeriodMonth)}`;
 
-  // period_month = first day of the start_date's month
-  const [year, month] = parsed.startDate.split("-");
-  const periodMonth = `${year}-${month}-01`;
-
-  // Create 2 initial charges atomically
   const { error: chargesError } = await supabase.from("charges").insert([
     {
       enrollment_id: enrollmentId,
       charge_type_id: inscriptionTypeId,
-      description: "Inscripción",
-      amount: parsed.inscriptionAmount,
+      description: "Inscripcion",
+      amount: pricingQuote.inscriptionAmount,
       currency,
       status: "pending",
-      created_by: user.id
+      created_by: user.id,
     },
     {
       enrollment_id: enrollmentId,
       charge_type_id: tuitionTypeId,
-      description: `Mensualidad ${month}/${year}`,
-      amount: parsed.firstMonthAmount,
+      description: tuitionDescription,
+      amount: pricingQuote.tuitionAmount,
       currency,
       status: "pending",
-      period_month: periodMonth,
-      created_by: user.id
-    }
+      period_month: pricingQuote.tuitionPeriodMonth,
+      created_by: user.id,
+    },
   ]);
 
   if (chargesError) return redirectWithError(playerId, "charges_failed");
 
-  // Auto-assign to B2 team if one exists for this campus + birth year + gender
   const birthYear = player.birth_date ? new Date(player.birth_date).getFullYear() : null;
   if (birthYear) {
     const b2Team = await findB2TeamForAutoAssign(parsed.campusId, birthYear, player.gender ?? null);
@@ -123,14 +125,12 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
     action: "enrollment.created",
     tableName: "enrollments",
     recordId: enrollmentId,
-    afterData: { player_id: playerId, campus_id: parsed.campusId, start_date: parsed.startDate }
+    afterData: { player_id: playerId, campus_id: parsed.campusId, start_date: parsed.startDate },
   });
 
   revalidatePath(`/players/${playerId}`);
   redirect(`/enrollments/${enrollmentId}/charges`);
 }
-
-// ── Update enrollment (edit + baja) ──────────────────────────────────────────
 
 function redirectWithEditError(enrollmentId: string, playerId: string, code: string): never {
   redirect(`/players/${playerId}/enrollments/${enrollmentId}/edit?err=${code}`);
@@ -147,11 +147,10 @@ export async function updateEnrollmentAction(
   const supabase = await createClient();
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return redirectWithEditError(enrollmentId, playerId, "unauthenticated");
 
-  // Verify enrollment exists and belongs to this player
   const { data: enrollment } = await supabase
     .from("enrollments")
     .select("id")
@@ -161,12 +160,10 @@ export async function updateEnrollmentAction(
 
   if (!enrollment) return redirectWithEditError(enrollmentId, playerId, "not_found");
 
-  // Auto-set end_date when ending/cancelling without an explicit date
   let endDate: string | null = parsed.endDate;
   if ((parsed.status === "ended" || parsed.status === "cancelled") && !endDate) {
     endDate = new Date().toISOString().split("T")[0];
   }
-  // Reactivating clears end_date
   if (parsed.status === "active") {
     endDate = null;
   }
@@ -180,7 +177,7 @@ export async function updateEnrollmentAction(
       notes: parsed.notes,
       dropout_reason: parsed.dropoutReason,
       dropout_notes: parsed.dropoutNotes,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq("id", enrollmentId);
 
@@ -199,14 +196,12 @@ export async function updateEnrollmentAction(
     action,
     tableName: "enrollments",
     recordId: enrollmentId,
-    afterData: { status: parsed.status, end_date: endDate, dropout_reason: parsed.dropoutReason }
+    afterData: { status: parsed.status, end_date: endDate, dropout_reason: parsed.dropoutReason },
   });
 
   revalidatePath(`/players/${playerId}`);
   redirect(`/players/${playerId}`);
 }
-
-// ── Call center contact tracking ─────────────────────────────────────────────
 
 export type UpdateContactadoResult =
   | { ok: true }
@@ -218,7 +213,10 @@ export async function updateContactadoAction(
   notes: string
 ): Promise<UpdateContactadoResult> {
   const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
   const { error } = await supabase

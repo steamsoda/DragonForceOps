@@ -583,8 +583,7 @@ const MONTH_NAMES_ES_CAJA = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","J
 
 function getDefaultNextMonthCaja() {
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getMonthOptionsCaja() {
@@ -627,9 +626,23 @@ function EnrollmentPanel({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [splitMode, setSplitMode] = useState(false);
   const [showTuitionForm, setShowTuitionForm] = useState(false);
-  const [tuitionPeriod, setTuitionPeriod] = useState(getDefaultNextMonthCaja);
+  const [tuitionPeriod, setTuitionPeriod] = useState(
+    data.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? getDefaultNextMonthCaja()
+  );
   const [tuitionError, setTuitionError] = useState<string | null>(null);
   const [isTuitionPending, startTuitionTransition] = useTransition();
+
+  useEffect(() => {
+    const firstOption = data.advanceTuitionOptions[0]?.periodMonth.slice(0, 7);
+    if (!firstOption) return;
+    const hasCurrentOption = data.advanceTuitionOptions.some(
+      (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
+    );
+    if (!hasCurrentOption) {
+      setTuitionPeriod(firstOption);
+    }
+  }, [data.advanceTuitionOptions, tuitionPeriod]);
+
   function handleTuitionSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!tuitionPeriod) return;
@@ -648,7 +661,7 @@ function EnrollmentPanel({
         return;
       }
       setShowTuitionForm(false);
-      setTuitionPeriod(getDefaultNextMonthCaja());
+      setTuitionPeriod(result.updatedData.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? getDefaultNextMonthCaja());
       onDataUpdate(result.updatedData);
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -804,16 +817,19 @@ function EnrollmentPanel({
                 onChange={(e) => setTuitionPeriod(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
               >
-                {getMonthOptionsCaja().map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {data.advanceTuitionOptions.map((opt) => (
+                  <option key={opt.periodMonth} value={opt.periodMonth.slice(0, 7)}>{opt.label}</option>
                 ))}
               </select>
             </label>
             <div className="space-y-1 text-sm">
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
               <p className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                {data.earlyBirdTuitionAmount != null
-                  ? formatMoney(data.earlyBirdTuitionAmount, data.currency)
+                {data.advanceTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)?.amount != null
+                  ? formatMoney(
+                      data.advanceTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)!.amount,
+                      data.currency
+                    )
                   : "—"}
               </p>
               <p className="text-xs text-emerald-600 dark:text-emerald-400">Incluye descuento anticipado</p>
@@ -1332,3 +1348,6 @@ function chargeErrorMessage(code: string): string {
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
 }
+
+
+
