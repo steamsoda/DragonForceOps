@@ -1,12 +1,12 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { createClient } from "@/lib/supabase/server";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
-  PAYMENT_METHOD_LABELS,
   revalidatePaymentSurfaces,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
@@ -129,7 +129,7 @@ export async function postEnrollmentPaymentAction(
     split: false
   });
 
-  revalidatePaymentSurfaces(ledger);
+  await revalidatePaymentSurfaces(ledger);
 
   const chargesPaid = allocations.map((a) => {
     const charge = ledger.charges.find((c) => c.id === a.chargeId);

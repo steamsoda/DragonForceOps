@@ -653,7 +653,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     split: !!parsed.split
   });
 
-  revalidatePaymentSurfaces(ledger);
+  await revalidatePaymentSurfaces(ledger);
 
   const folio = await fetchPaymentFolio(supabase, paymentRow.id);
 

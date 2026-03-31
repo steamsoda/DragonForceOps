@@ -15,21 +15,42 @@ WITH active_plan AS (
 active_campuses AS (
   SELECT
     COALESCE(
-      MAX(id) FILTER (WHERE code = 'LINDA_VISTA'),
-      MAX(id) FILTER (WHERE name ILIKE '%Linda%')
+      (SELECT id
+       FROM public.campuses
+       WHERE is_active = true AND code = 'LINDA_VISTA'
+       ORDER BY name
+       LIMIT 1),
+      (SELECT id
+       FROM public.campuses
+       WHERE is_active = true AND name ILIKE '%Linda%'
+       ORDER BY name
+       LIMIT 1)
     ) AS linda_vista_id,
     COALESCE(
-      MAX(id) FILTER (WHERE code = 'CONTRY'),
-      MAX(id) FILTER (WHERE name ILIKE '%Contry%')
+      (SELECT id
+       FROM public.campuses
+       WHERE is_active = true AND code = 'CONTRY'
+       ORDER BY name
+       LIMIT 1),
+      (SELECT id
+       FROM public.campuses
+       WHERE is_active = true AND name ILIKE '%Contry%'
+       ORDER BY name
+       LIMIT 1)
     ) AS contry_id
-  FROM public.campuses
-  WHERE is_active = true
 ),
 charge_type_ids AS (
   SELECT
-    MAX(id) FILTER (WHERE code = 'inscription') AS inscription_type_id,
-    MAX(id) FILTER (WHERE code = 'monthly_tuition') AS tuition_type_id
-  FROM public.charge_types
+    (SELECT id
+     FROM public.charge_types
+     WHERE code = 'inscription'
+     ORDER BY name
+     LIMIT 1) AS inscription_type_id,
+    (SELECT id
+     FROM public.charge_types
+     WHERE code = 'monthly_tuition'
+     ORDER BY name
+     LIMIT 1) AS tuition_type_id
 )
 SELECT *
 FROM active_plan

@@ -2,6 +2,12 @@
 
 ## 2026-03-30 (session 18)
 
+### Preview Build Hotfix (v1.1.5)
+
+- Fixed Vercel preview build failure caused by exporting a non-async function from `src/server/actions/payment-posting.ts` under a `"use server"` module.
+- `revalidatePaymentSurfaces()` is now async, and both ledger/Caja payment actions now `await` it.
+- Result: the shared payment helper keeps the same behavior, but the app now satisfies Next.js server action export rules during `npm run build`.
+
 ### Preview Demo Seed + Enrollment Ledger Payment Wiring Fix (v1.1.4)
 
 **Preview-only demo SQL seed**

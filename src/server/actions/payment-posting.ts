@@ -6,14 +6,6 @@ import { getOpenSessionForCampus } from "@/lib/queries/cash-sessions";
 import type { EnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
 
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  cash: "Efectivo",
-  transfer: "Transferencia",
-  card: "Tarjeta",
-  stripe_360player: "360Player/Stripe",
-  other: "Otro"
-};
-
 export type PostedPaymentLink = {
   id: string;
   amount: number;
@@ -98,7 +90,7 @@ export async function writePostedPaymentAudit(
   });
 }
 
-export function revalidatePaymentSurfaces(ledger: EnrollmentLedger) {
+export async function revalidatePaymentSurfaces(ledger: EnrollmentLedger) {
   revalidatePath(`/enrollments/${ledger.enrollment.id}/charges`);
   revalidatePath("/receipts");
   revalidatePath("/caja");
