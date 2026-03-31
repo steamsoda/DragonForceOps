@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-03-31 (session 23)
+
+### Caja POS Cart Redesign
+
+- Reworked Caja around a true transient POS cart instead of the old split between pending-charge selection, separate product screen, and payment screen.
+- Once an enrollment is loaded, Caja now shows one unified checkout view with:
+  - pending charges that can be added or removed from cart inline
+  - POS product tiles by category
+  - staged cart items for products and advance tuition
+  - a running cart summary
+  - one checkout/payment panel for the cart or for quick `Cobrar todo`
+- Added a cart-oriented server action so the client can stage new items, create them only at checkout time, and then post one payment flow across the selected existing charges plus staged items.
+- Locked normal catalog pricing in Caja:
+  - fixed-price products add directly from the tile menu
+  - tuition resolves from the selected future month/version
+  - size/goalkeeper products require configuration first
+  - only special/manual charges keep open-amount input
+- Preserved the existing payment engine behavior:
+  - targeted charges still get paid first
+  - excess still allocates FIFO
+  - split payment still works
+  - receipt/folio/session behavior stays in the existing payment path
+- Added staged-charge audit suppression during cart checkout so failed checkout rollback does not leave orphan `charge.created` audit entries behind.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 22)
 
 ### Player Date Input Hotfix

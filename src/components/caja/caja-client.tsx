@@ -10,6 +10,7 @@ import {
   getProductsForCajaAction,
   postCajaChargeAction,
   createAdvanceTuitionAction,
+  checkoutCajaCartAction,
   getCajaDrilldownMetaAction,
   listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
@@ -18,7 +19,8 @@ import {
   type CajaProduct,
   type CajaProductCategory,
   type CajaDrilldownMeta,
-  type CajaAdvanceTuitionResult
+  type CajaAdvanceTuitionResult,
+  type CajaCartItemInput
 } from "@/server/actions/caja";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,11 +76,16 @@ export function CajaClient({ printerName, initialEnrollmentId }: { printerName: 
   const searchRef = useRef<HTMLInputElement>(null);
   const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
   const [preloadedMeta, setPreloadedMeta] = useState<CajaDrilldownMeta | null>(null);
+  const [preloadedProducts, setPreloadedProducts] = useState<CajaProductCategory[] | null>(null);
   const didAutoload = useRef(false);
 
   // Preload drill-down meta in background so "Seleccionar por categoría" is instant
   useEffect(() => {
     getCajaDrilldownMetaAction().then(setPreloadedMeta);
+  }, []);
+
+  useEffect(() => {
+    getProductsForCajaAction().then(setPreloadedProducts);
   }, []);
 
   // Auto-load enrollment when deep-linked from player profile (/caja?enrollmentId=...)
@@ -293,44 +300,16 @@ export function CajaClient({ printerName, initialEnrollmentId }: { printerName: 
         </div>
       )}
 
-      {/* Loading products */}
-      {view.tag === "loading-products" && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          Cargando productos…
-        </div>
-      )}
-
-      {/* Enrollment panel */}
-      {(view.tag === "enrollment" || view.tag === "paying") && (
-        <EnrollmentPanel
+      {/* Enrollment POS panel */}
+      {(view.tag === "enrollment" || view.tag === "paying" || view.tag === "loading-products" || view.tag === "adding-charge") && (
+        <PosEnrollmentPanel
           player={view.player}
           data={view.data}
-          paying={view.tag === "paying"}
-          targetChargeIds={view.tag === "paying" ? view.targetChargeIds : []}
-          onPay={goToPayment}
-          onAddCharge={goToAddCharge}
+          products={preloadedProducts ?? []}
+          productsLoading={preloadedProducts === null}
+          onCancel={reset}
           onDataUpdate={(updatedData) => setView({ tag: "enrollment", player: view.player, data: updatedData })}
-          onCancel={
-            view.tag === "paying"
-              ? () => setView({ tag: "enrollment", player: view.player, data: view.data })
-              : reset
-          }
-          onSubmit={handlePaymentSubmit}
-          isPending={isPending}
-          error={error}
-        />
-      )}
-
-      {/* Product grid panel */}
-      {view.tag === "adding-charge" && (
-        <ProductGridPanel
-          player={view.player}
-          data={view.data}
-          products={view.products}
-          onCancel={() => setView({ tag: "enrollment", player: view.player, data: view.data })}
-          onSubmit={handleChargeSubmit}
-          isPending={isPending}
-          error={error}
+          onCheckoutSuccess={(receipt) => setView({ tag: "success", receipt, player: view.player })}
         />
       )}
 
@@ -578,6 +557,716 @@ function SearchPanel({
 }
 
 // ── Enrollment panel ──────────────────────────────────────────────────────────
+
+type StagedCartItem = {
+  id: string;
+  label: string;
+  detail?: string | null;
+  amount: number;
+  payload: CajaCartItemInput;
+};
+
+function makeCartItemId() {
+  return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function PosEnrollmentPanel({
+  player,
+  data,
+  products,
+  productsLoading,
+  onCancel,
+  onDataUpdate,
+  onCheckoutSuccess
+}: {
+  player: CajaPlayerResult;
+  data: CajaEnrollmentData;
+  products: CajaProductCategory[];
+  productsLoading: boolean;
+  onCancel: () => void;
+  onDataUpdate: (updatedData: CajaEnrollmentData) => void;
+  onCheckoutSuccess: (receipt: Extract<CajaPaymentResult, { ok: true }>) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
+  const [size, setSize] = useState("");
+  const [goalkeeper, setGoalkeeper] = useState(false);
+  const [manualAmount, setManualAmount] = useState("");
+  const [tuitionPeriod, setTuitionPeriod] = useState(
+    data.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? getDefaultNextMonthCaja()
+  );
+  const [stagedItems, setStagedItems] = useState<StagedCartItem[]>([]);
+  const [splitMode, setSplitMode] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentAmount2, setPaymentAmount2] = useState("");
+  const [paymentMethod2, setPaymentMethod2] = useState("transfer");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [isCheckoutPending, startCheckoutTransition] = useTransition();
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>();
+      const validIds = new Set(data.pendingCharges.map((charge) => charge.id));
+      for (const id of prev) {
+        if (validIds.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [data.pendingCharges]);
+
+  const stagedTuitionPeriods = new Set(
+    stagedItems.flatMap((item) =>
+      item.payload.kind === "tuition" ? [item.payload.periodMonth] : []
+    )
+  );
+  const availableTuitionOptions = data.advanceTuitionOptions.filter(
+    (option) => !stagedTuitionPeriods.has(option.periodMonth.slice(0, 7))
+  );
+
+  useEffect(() => {
+    const firstOption = availableTuitionOptions[0]?.periodMonth.slice(0, 7);
+    if (!firstOption) return;
+    const hasCurrentOption = availableTuitionOptions.some(
+      (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
+    );
+    if (!hasCurrentOption) {
+      setTuitionPeriod(firstOption);
+    }
+  }, [availableTuitionOptions, tuitionPeriod]);
+
+  const selectedCharges = data.pendingCharges.filter((charge) => selectedIds.has(charge.id));
+  const cartTotal =
+    selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
+    stagedItems.reduce((sum, item) => sum + item.amount, 0);
+  const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
+  const payableNow = checkoutTotal > 0;
+
+  useEffect(() => {
+    setPaymentAmount(checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "");
+  }, [checkoutTotal]);
+
+  function resetConfigurator(nextProduct?: CajaProduct | null) {
+    setSelectedProduct(nextProduct ?? null);
+    setSize("");
+    setGoalkeeper(false);
+    setManualAmount(nextProduct?.defaultAmount != null ? nextProduct.defaultAmount.toFixed(2) : "");
+    setPanelError(null);
+  }
+
+  function toggleCharge(id: string) {
+    setPanelError(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function addStagedItem(item: StagedCartItem) {
+    setStagedItems((prev) => [...prev, item]);
+    resetConfigurator(null);
+  }
+
+  function handleProductTile(product: CajaProduct) {
+    if (product.categorySlug === "tuition" || product.hasSizes || product.defaultAmount == null) {
+      resetConfigurator(product);
+      return;
+    }
+
+    addStagedItem({
+      id: makeCartItemId(),
+      label: product.name,
+      amount: product.defaultAmount,
+      payload: { kind: "product", productId: product.id }
+    });
+  }
+
+  function addConfiguredProduct() {
+    if (!selectedProduct) return;
+
+    if (selectedProduct.categorySlug === "tuition") {
+      const selectedOption = availableTuitionOptions.find(
+        (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
+      );
+      if (!selectedOption) {
+        setPanelError("No hay mensualidades adelantadas disponibles para agregar.");
+        return;
+      }
+
+      addStagedItem({
+        id: makeCartItemId(),
+        label: `Mensualidad ${selectedOption.label}`,
+        detail: "Se crea al cobrar el carrito",
+        amount: selectedOption.amount,
+        payload: { kind: "tuition", periodMonth: selectedOption.periodMonth.slice(0, 7) }
+      });
+      return;
+    }
+
+    const resolvedAmount =
+      selectedProduct.defaultAmount != null
+        ? selectedProduct.defaultAmount
+        : Number.parseFloat(manualAmount);
+    if (!Number.isFinite(resolvedAmount) || resolvedAmount <= 0) {
+      setPanelError("Captura un monto válido para este cargo especial.");
+      return;
+    }
+
+    const detailParts: string[] = [];
+    if (size) detailParts.push(`Talla ${size}`);
+    if (goalkeeper) detailParts.push("Portero");
+
+    addStagedItem({
+      id: makeCartItemId(),
+      label: selectedProduct.name,
+      detail: detailParts.length > 0 ? detailParts.join(" · ") : null,
+      amount: Math.round(resolvedAmount * 100) / 100,
+      payload: {
+        kind: "product",
+        productId: selectedProduct.id,
+        amount: selectedProduct.defaultAmount == null ? resolvedAmount : undefined,
+        size: size || null,
+        goalkeeper
+      }
+    });
+  }
+
+  function removeStagedItem(id: string) {
+    setPanelError(null);
+    setStagedItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function clearCart() {
+    setSelectedIds(new Set());
+    setStagedItems([]);
+    resetConfigurator(null);
+  }
+
+  function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPanelError(null);
+    startCheckoutTransition(async () => {
+      const formData = new FormData();
+      formData.set("amount", paymentAmount);
+      formData.set("method", paymentMethod);
+      if (paymentNotes.trim()) formData.set("notes", paymentNotes.trim());
+      if (splitMode) {
+        formData.set("amount2", paymentAmount2);
+        formData.set("method2", paymentMethod2);
+      }
+      formData.set("targetChargeIds", Array.from(selectedIds).join(","));
+      formData.set("cartItems", JSON.stringify(stagedItems.map((item) => item.payload)));
+
+      const result = await checkoutCajaCartAction(data.enrollmentId, formData);
+      if (!result.ok) {
+        setPanelError(errorMessage(result.error));
+        return;
+      }
+
+      clearCart();
+      onCheckoutSuccess(result);
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
+        <div>
+          <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}
+          </p>
+          {player.teamName && (
+            <p className="mt-0.5 text-xs text-slate-400">
+              {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
+            </p>
+          )}
+        </div>
+        <div className="text-right">
+          <p className={`text-xl font-bold ${data.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+            {data.balance > 0
+              ? formatMoney(data.balance, data.currency)
+              : data.balance < 0
+              ? formatMoney(Math.abs(data.balance), data.currency)
+              : "Al corriente"}
+          </p>
+          <p className="text-xs text-slate-400">
+            {data.balance > 0 ? "Saldo pendiente" : data.balance < 0 ? "Crédito en cuenta" : "Al corriente"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos pendientes</p>
+              <span className="text-xs text-slate-400">Agrega los que quieras cobrar en este turno</span>
+            </div>
+            {data.pendingCharges.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-emerald-700">
+                {data.balance < 0
+                  ? `Crédito disponible: ${formatMoney(Math.abs(data.balance), data.currency)}`
+                  : "No hay cargos pendientes."}
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {data.pendingCharges.map((charge) => {
+                  const isSelected = selectedIds.has(charge.id);
+                  const isExpanded = expandedId === charge.id;
+                  const isPartial = charge.pendingAmount < charge.amount;
+                  const overdue = charge.dueDate && new Date(charge.dueDate) < new Date();
+                  return (
+                    <li key={charge.id} className={isSelected ? "bg-blue-50/70 dark:bg-blue-950/20" : ""}>
+                      <div className="flex items-center gap-3 px-4 py-3 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : charge.id)}
+                          className="shrink-0 text-slate-400 hover:text-slate-600"
+                          aria-label={isExpanded ? "Ocultar detalle" : "Ver detalle"}
+                        >
+                          {isExpanded ? "▾" : "▸"}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-800 dark:text-slate-200">{charge.description}</p>
+                          <p className="text-xs text-slate-400">
+                            {charge.periodMonth ? (
+                              <span className="capitalize">{formatPeriodMonth(charge.periodMonth)}</span>
+                            ) : (
+                              charge.typeName
+                            )}
+                            {overdue && <span className="ml-2 text-rose-500">Vencido</span>}
+                            {isPartial && <span className="ml-2 text-amber-500">Pago parcial</span>}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 font-semibold ${isSelected ? "text-portoBlue" : "text-rose-600"}`}>
+                          {formatMoney(charge.pendingAmount, data.currency)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleCharge(charge.id)}
+                          className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                            isSelected
+                              ? "bg-portoBlue text-white hover:bg-portoDark"
+                              : "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-portoBlue hover:text-portoBlue"
+                          }`}
+                        >
+                          {isSelected ? "Quitar" : "Agregar al carrito"}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-t border-slate-100 bg-slate-50 px-10 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
+                          <span>Tipo</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{charge.typeName}</span>
+                          <span>Total</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{formatMoney(charge.amount, data.currency)}</span>
+                          {isPartial && (
+                            <>
+                              <span>Ya pagado</span>
+                              <span className="font-medium text-emerald-600">
+                                {formatMoney(charge.amount - charge.pendingAmount, data.currency)}
+                              </span>
+                            </>
+                          )}
+                          <span>Pendiente</span>
+                          <span className="font-medium text-rose-600">{formatMoney(charge.pendingAmount, data.currency)}</span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Menú POS</p>
+                <p className="text-xs text-slate-400">Productos cerrados y mensualidades configurables</p>
+              </div>
+              {productsLoading && <span className="text-xs text-slate-400">Cargando productos…</span>}
+            </div>
+            {productsLoading ? (
+              <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">
+                Preparando catálogo…
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {products.map((category) => {
+                  const style = CATEGORY_STYLES[category.slug] ?? DEFAULT_STYLE;
+                  return (
+                    <div key={category.slug}>
+                      <p className={`mb-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
+                        {category.name}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {category.products.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => handleProductTile(product)}
+                            className={`rounded-xl border p-4 text-left transition-all ${
+                              selectedProduct?.id === product.id ? style.selected : style.tile
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{product.name}</p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {product.categorySlug === "tuition"
+                                ? "Elegir mes"
+                                : product.defaultAmount != null
+                                ? formatMoney(product.defaultAmount, data.currency)
+                                : "Cargo especial"}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedProduct && (
+              <div className="mt-4 space-y-3 rounded-xl border border-portoBlue bg-blue-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">{selectedProduct.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {selectedProduct.categorySlug === "tuition"
+                        ? "La mensualidad se crea hasta cobrar el carrito."
+                        : selectedProduct.defaultAmount != null
+                        ? "Precio bloqueado del catálogo."
+                        : "Cargo especial con monto abierto."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => resetConfigurator(null)}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                {selectedProduct.categorySlug === "tuition" ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1 text-sm">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
+                      <select
+                        value={tuitionPeriod}
+                        onChange={(e) => setTuitionPeriod(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-800 focus:border-emerald-500 focus:outline-none"
+                      >
+                        {availableTuitionOptions.map((option) => (
+                          <option key={option.periodMonth} value={option.periodMonth.slice(0, 7)}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="space-y-1 text-sm">
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
+                      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)?.amount != null
+                          ? formatMoney(
+                              availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)!.amount,
+                              data.currency
+                            )
+                          : "Sin opciones"}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {selectedProduct.hasSizes && (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SIZES.map((option) => (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => setSize(size === option ? "" : option)}
+                                className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                  size === option
+                                    ? "border-portoBlue bg-portoBlue text-white"
+                                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGoalkeeper((value) => !value)}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            goalkeeper
+                              ? "border-violet-500 bg-violet-500 text-white"
+                              : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          Portero {goalkeeper ? "✓" : ""}
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedProduct.defaultAmount == null ? (
+                      <label className="block space-y-1 text-sm">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={manualAmount}
+                          onChange={(e) => setManualAmount(e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                        />
+                      </label>
+                    ) : (
+                      <div className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
+                        <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {formatMoney(selectedProduct.defaultAmount, data.currency)}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={addConfiguredProduct}
+                    disabled={selectedProduct.categorySlug === "tuition" && availableTuitionOptions.length === 0}
+                    className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
+                  >
+                    Agregar al carrito
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resetConfigurator(null)}
+                    className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Carrito</p>
+                <p className="text-xs text-slate-400">
+                  {cartTotal > 0 ? "Todo se cobra en una sola salida." : "Vacío. Puedes cobrar todo sin armar carrito."}
+                </p>
+              </div>
+              {(selectedIds.size > 0 || stagedItems.length > 0) && (
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            {selectedIds.size === 0 && stagedItems.length === 0 ? (
+              <div className="px-4 py-5 text-sm text-slate-400">
+                Sin artículos en carrito. Si continúas, se cobrará el saldo total pendiente.
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {selectedCharges.map((charge) => (
+                  <li key={charge.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{charge.description}</p>
+                      <p className="text-xs text-slate-400">Cargo pendiente existente</p>
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {formatMoney(charge.pendingAmount, data.currency)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleCharge(charge.id)}
+                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      Quitar
+                    </button>
+                  </li>
+                ))}
+                {stagedItems.map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{item.label}</p>
+                      {item.detail && <p className="text-xs text-slate-400">{item.detail}</p>}
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {formatMoney(item.amount, data.currency)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeStagedItem(item.id)}
+                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      Quitar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {cartTotal > 0 ? "Total del carrito" : "Saldo a cobrar"}
+              </span>
+              <span className="text-lg font-bold text-portoDark">
+                {formatMoney(checkoutTotal, data.currency)}
+              </span>
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleCheckoutSubmit}
+            className="space-y-4 rounded-xl border border-portoBlue bg-white p-5 dark:bg-slate-900"
+          >
+            <div>
+              <p className="font-medium text-slate-800 dark:text-slate-200">
+                {cartTotal > 0 ? "Cobro del carrito" : "Cobrar todo"}
+              </p>
+              <p className="text-xs text-slate-400">
+                {cartTotal > 0
+                  ? "Los cargos seleccionados se cobran primero y el excedente sigue FIFO."
+                  : "Pago rápido del saldo pendiente completo."}
+              </p>
+            </div>
+
+            {panelError && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{panelError}</p>}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                >
+                  <option value="cash">Efectivo</option>
+                  <option value="transfer">Transferencia</option>
+                  <option value="card">Tarjeta</option>
+                  <option value="other">Otro</option>
+                </select>
+              </label>
+            </div>
+
+            {!splitMode ? (
+              <button
+                type="button"
+                onClick={() => setSplitMode(true)}
+                className="text-xs text-portoBlue hover:underline"
+              >
+                + Dividir pago en dos métodos
+              </button>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Segundo método de pago</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSplitMode(false);
+                      setPaymentAmount2("");
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    × Cancelar división
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Monto 2</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      required
+                      value={paymentAmount2}
+                      onChange={(e) => setPaymentAmount2(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
+                    <select
+                      value={paymentMethod2}
+                      onChange={(e) => setPaymentMethod2(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                    >
+                      <option value="cash">Efectivo</option>
+                      <option value="transfer">Transferencia</option>
+                      <option value="card">Tarjeta</option>
+                      <option value="other">Otro</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
+              <input
+                type="text"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                placeholder="Referencia, comentario o aclaración"
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+              />
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={!payableNow || isCheckoutPending}
+                className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
+              >
+                {isCheckoutPending ? "Procesando…" : cartTotal > 0 ? "Cobrar carrito" : "Cobrar todo"}
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const MONTH_NAMES_ES_CAJA = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -1331,7 +2020,14 @@ function errorMessage(code: string): string {
     enrollment_not_found: "No se encontró la inscripción.",
     enrollment_inactive: "Esta inscripción está inactiva.",
     payment_insert_failed: "Error al registrar el pago. Intenta de nuevo.",
-    allocation_insert_failed: "Error al aplicar el pago. Verifica con el administrador."
+    allocation_insert_failed: "Error al aplicar el pago. Verifica con el administrador.",
+    product_not_found: "Producto no encontrado o inactivo.",
+    charge_insert_failed: "Error al crear el cargo del carrito. Intenta de nuevo.",
+    reload_failed: "Se cobrÃ³, pero no se pudo refrescar la vista. Busca al alumno de nuevo.",
+    duplicate_period: "Ya existe una mensualidad para ese perÃ­odo.",
+    tuition_rate_not_found: "No se pudo determinar la tarifa de mensualidad.",
+    prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar.",
+    charge_type_not_found: "Error de configuraciÃ³n: tipo de cargo no encontrado."
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
 }

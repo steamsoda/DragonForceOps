@@ -77,18 +77,90 @@ export type CajaProductCategory = {
 };
 
 export type CajaChargeResult =
-  | { ok: true; updatedData: CajaEnrollmentData }
+  | { ok: true; updatedData: CajaEnrollmentData; newChargeId?: string }
   | { ok: false; error: string };
 
 export type CajaAdvanceTuitionResult =
   | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string }
   | { ok: false; error: string };
 
+export type CajaCartItemInput =
+  | {
+      kind: "product";
+      productId: string;
+      amount?: number;
+      size?: string | null;
+      goalkeeper?: boolean;
+    }
+  | {
+      kind: "tuition";
+      periodMonth: string;
+    };
+
 type EnrollmentPlanLookup = {
   id: string;
   status: string;
   pricing_plans: { currency: string; plan_code: string } | null;
 };
+
+function parseOptionalMoney(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value * 100) / 100;
+}
+
+function parseCheckoutCartItems(raw: string): CajaCartItemInput[] | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(parsed)) return null;
+
+  const items: CajaCartItemInput[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") return null;
+    const kind = (item as { kind?: unknown }).kind;
+
+    if (kind === "tuition") {
+      const periodMonth =
+        typeof (item as { periodMonth?: unknown }).periodMonth === "string"
+          ? (item as { periodMonth: string }).periodMonth.trim()
+          : "";
+      if (!periodMonth) return null;
+      items.push({ kind: "tuition", periodMonth });
+      continue;
+    }
+
+    if (kind === "product") {
+      const productId =
+        typeof (item as { productId?: unknown }).productId === "string"
+          ? (item as { productId: string }).productId.trim()
+          : "";
+      if (!productId) return null;
+
+      items.push({
+        kind: "product",
+        productId,
+        amount: parseOptionalMoney((item as { amount?: unknown }).amount) ?? undefined,
+        size:
+          typeof (item as { size?: unknown }).size === "string"
+            ? (item as { size: string }).size.trim() || null
+            : null,
+        goalkeeper: (item as { goalkeeper?: unknown }).goalkeeper === true,
+      });
+      continue;
+    }
+
+    return null;
+  }
+
+  return items;
+}
 
 async function createResolvedAdvanceTuitionCharge(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -227,6 +299,7 @@ export async function postCajaChargeAction(
   formData: FormData
 ): Promise<CajaChargeResult> {
   const productId = formData.get("productId")?.toString().trim() ?? "";
+  const suppressAudit = formData.get("suppressAudit") === "1";
   const amountRaw = formData.get("amount")?.toString() ?? "";
   const amount = parseFloat(amountRaw);
   const size = formData.get("size")?.toString().trim() || null;
@@ -244,10 +317,17 @@ export async function postCajaChargeAction(
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
-  type ProductLookup = { id: string; name: string; charge_type_id: string; has_sizes: boolean; charge_types: { code: string } | null };
+  type ProductLookup = {
+    id: string;
+    name: string;
+    charge_type_id: string;
+    default_amount: number | null;
+    has_sizes: boolean;
+    charge_types: { code: string } | null;
+  };
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, charge_type_id, has_sizes, charge_types(code)")
+    .select("id, name, charge_type_id, default_amount, has_sizes, charge_types(code)")
     .eq("id", productId)
     .eq("is_active", true)
     .maybeSingle()
@@ -256,6 +336,7 @@ export async function postCajaChargeAction(
   if (!product) return { ok: false, error: "product_not_found" };
 
   const isTuition = product.charge_types?.code === "monthly_tuition";
+  let createdChargeId: string | undefined;
   if (isTuition) {
     if (!periodMonthRaw) return { ok: false, error: "invalid_form" };
 
@@ -266,24 +347,28 @@ export async function postCajaChargeAction(
     });
     if (!tuitionResult.ok) return tuitionResult;
 
-    await writeAuditLog(supabase, {
-      actorUserId: user.id,
-      actorEmail: user.email ?? null,
-      action: "charge.created",
-      tableName: "charges",
-      recordId: tuitionResult.newChargeId,
-      afterData: {
-        enrollment_id: enrollmentId,
-        product_id: productId,
-        description: tuitionResult.description,
-        amount: tuitionResult.amount,
-        source: "caja"
-      }
-    });
-  } else {
-    if (isNaN(amount) || amount <= 0) {
-      return { ok: false, error: "invalid_form" };
+    if (!suppressAudit) {
+      await writeAuditLog(supabase, {
+        actorUserId: user.id,
+        actorEmail: user.email ?? null,
+        action: "charge.created",
+        tableName: "charges",
+        recordId: tuitionResult.newChargeId,
+        afterData: {
+          enrollment_id: enrollmentId,
+          product_id: productId,
+          description: tuitionResult.description,
+          amount: tuitionResult.amount,
+          source: "caja"
+        }
+      });
     }
+    createdChargeId = tuitionResult.newChargeId;
+  } else {
+      const resolvedAmount = product.default_amount ?? amount;
+      if (!resolvedAmount || isNaN(resolvedAmount) || resolvedAmount <= 0) {
+        return { ok: false, error: "invalid_form" };
+      }
 
     const { data: enrollment } = await supabase
       .from("enrollments")
@@ -302,34 +387,52 @@ export async function postCajaChargeAction(
     const goalkeeperPart = goalkeeper ? " (Portero)" : "";
     const description = `${product.name}${sizePart}${goalkeeperPart}`;
 
-    const { error: chargeError } = await supabase.from("charges").insert({
-      enrollment_id: enrollmentId,
-      charge_type_id: product.charge_type_id,
-      product_id: productId,
-      size,
-      is_goalkeeper: product.has_sizes ? goalkeeper : null,
-      description,
-      amount,
-      currency,
-      status: "pending",
-      created_by: user.id,
-    });
+      const { data: newCharge, error: chargeError } = await supabase
+        .from("charges")
+        .insert({
+          enrollment_id: enrollmentId,
+          charge_type_id: product.charge_type_id,
+          product_id: productId,
+          size,
+          is_goalkeeper: product.has_sizes ? goalkeeper : null,
+          description,
+          amount: resolvedAmount,
+          currency,
+          status: "pending",
+          created_by: user.id,
+        })
+        .select("id")
+        .single<{ id: string }>();
 
-    if (chargeError) return { ok: false, error: "charge_insert_failed" };
+      if (chargeError || !newCharge) return { ok: false, error: "charge_insert_failed" };
 
-    await writeAuditLog(supabase, {
-      actorUserId: user.id,
-      actorEmail: user.email ?? null,
-      action: "charge.created",
-      tableName: "charges",
-      afterData: { enrollment_id: enrollmentId, product_id: productId, description, amount, source: "caja" }
-    });
+      if (!suppressAudit) {
+        await writeAuditLog(supabase, {
+          actorUserId: user.id,
+          actorEmail: user.email ?? null,
+          action: "charge.created",
+          tableName: "charges",
+          recordId: newCharge.id,
+          afterData: {
+            enrollment_id: enrollmentId,
+            product_id: productId,
+            description,
+            amount: resolvedAmount,
+            source: "caja",
+          }
+        });
+      }
+
+      const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+      if (!updatedData) return { ok: false, error: "reload_failed" };
+
+    return { ok: true, updatedData, newChargeId: newCharge.id };
   }
 
   const updatedData = await getEnrollmentForCajaAction(enrollmentId);
   if (!updatedData) return { ok: false, error: "reload_failed" };
 
-  return { ok: true, updatedData };
+  return { ok: true, updatedData, newChargeId: createdChargeId };
 }
 
 // ── Caja drill-down ───────────────────────────────────────────────────────────
@@ -517,6 +620,74 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
 }
 
 // ── Post payment from Caja (returns result, does not redirect) ────────────────
+
+export async function checkoutCajaCartAction(
+  enrollmentId: string,
+  formData: FormData
+): Promise<CajaPaymentResult> {
+  const amount = formData.get("amount")?.toString() ?? "";
+  const method = formData.get("method")?.toString() ?? "";
+  const notes = formData.get("notes")?.toString() ?? "";
+  const amount2 = formData.get("amount2")?.toString() ?? "";
+  const method2 = formData.get("method2")?.toString() ?? "";
+  const targetChargeIdsRaw = formData.get("targetChargeIds")?.toString().trim() ?? "";
+  const existingTargetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
+  const cartItems = parseCheckoutCartItems(formData.get("cartItems")?.toString() ?? "[]");
+
+  if (cartItems === null) return { ok: false, error: "invalid_form" };
+
+  const createdChargeIds: string[] = [];
+  const supabase = await createClient();
+
+  for (const item of cartItems) {
+    const chargeForm = new FormData();
+
+    if (item.kind === "tuition") {
+      const tuitionProducts = await getProductsForCajaAction();
+      const tuitionProduct = tuitionProducts
+        .flatMap((category) => category.products)
+        .find((product) => product.categorySlug === "tuition");
+
+      if (!tuitionProduct) return { ok: false, error: "product_not_found" };
+
+      chargeForm.set("productId", tuitionProduct.id);
+      chargeForm.set("period_month", item.periodMonth);
+    } else {
+      chargeForm.set("productId", item.productId);
+      if (item.amount) chargeForm.set("amount", item.amount.toFixed(2));
+      if (item.size) chargeForm.set("size", item.size);
+      if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
+    }
+    chargeForm.set("suppressAudit", "1");
+
+    const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
+    if (!chargeResult.ok) {
+      if (createdChargeIds.length > 0) {
+        await supabase.from("charges").delete().in("id", createdChargeIds);
+      }
+      return chargeResult;
+    }
+
+    if (chargeResult.newChargeId) {
+      createdChargeIds.push(chargeResult.newChargeId);
+    }
+  }
+
+  const paymentForm = new FormData();
+  paymentForm.set("amount", amount);
+  paymentForm.set("method", method);
+  if (notes) paymentForm.set("notes", notes);
+  if (amount2) paymentForm.set("amount2", amount2);
+  if (method2) paymentForm.set("method2", method2);
+  paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...createdChargeIds].join(","));
+
+  const paymentResult = await postCajaPaymentAction(enrollmentId, paymentForm);
+  if (!paymentResult.ok && createdChargeIds.length > 0) {
+    await supabase.from("charges").delete().in("id", createdChargeIds);
+  }
+
+  return paymentResult;
+}
 
 export async function postCajaPaymentAction(enrollmentId: string, formData: FormData): Promise<CajaPaymentResult> {
   const parsed = parsePaymentFormData(formData);
