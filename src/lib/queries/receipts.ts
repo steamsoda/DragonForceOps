@@ -30,6 +30,7 @@ type PaymentRow = {
 
 type EnrollmentInfoRow = {
   id: string;
+  campus_id: string;
   campuses: { name: string | null } | null;
   players: { first_name: string | null; last_name: string | null } | null;
 };
@@ -46,44 +47,14 @@ export async function searchReceipts({
   page?: number;
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
-  const offset = (page - 1) * PAGE_SIZE;
   const trimmed = q?.trim() ?? "";
+  const trimmedLower = trimmed.toLowerCase();
   const trimmedPaymentId = paymentId?.trim() ?? "";
+  const offset = (page - 1) * PAGE_SIZE;
 
-  // If searching by player name, resolve to enrollment IDs first
-  let enrollmentIds: string[] | null = null;
-  if (trimmed && !looksLikeFolio(trimmed)) {
-    const { data: players } = await supabase
-      .from("players")
-      .select("id")
-      .or(`first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%`);
-
-    if (players && players.length > 0) {
-      const playerIds = players.map((p) => p.id);
-      const { data: enrollments } = await supabase
-        .from("enrollments")
-        .select("id")
-        .in("player_id", playerIds);
-      enrollmentIds = (enrollments ?? []).map((e) => e.id);
-    } else {
-      enrollmentIds = []; // No matches
-    }
-  }
-
-  // Resolve campus to enrollment IDs if needed
-  let campusEnrollmentIds: string[] | null = null;
-  if (campusId) {
-    const { data: enrollments } = await supabase
-      .from("enrollments")
-      .select("id")
-      .eq("campus_id", campusId);
-    campusEnrollmentIds = (enrollments ?? []).map((e) => e.id);
-  }
-
-  // Build main payments query
   let query = supabase
     .from("payments")
-    .select("id, folio, paid_at, amount, method, enrollment_id", { count: "exact" })
+    .select("id, folio, paid_at, amount, method, enrollment_id")
     .eq("status", "posted")
     .order("paid_at", { ascending: false });
 
@@ -91,42 +62,21 @@ export async function searchReceipts({
     query = query.eq("id", trimmedPaymentId) as typeof query;
   }
 
-  // Apply folio filter if query looks like a folio
   if (trimmed && looksLikeFolio(trimmed)) {
     query = query.ilike("folio", `%${trimmed}%`) as typeof query;
   }
 
-  // Apply enrollment ID filter for player name search
-  if (enrollmentIds !== null) {
-    if (enrollmentIds.length === 0) {
-      // No player matches — return empty
-      return { rows: [], total: 0, pageSize: PAGE_SIZE };
-    }
-    query = query.in("enrollment_id", enrollmentIds) as typeof query;
-  }
+  const { data: paymentRows } = await query.returns<PaymentRow[]>();
+  const payments = paymentRows ?? [];
 
-  // Apply campus filter
-  if (campusEnrollmentIds !== null) {
-    if (campusEnrollmentIds.length === 0) {
-      return { rows: [], total: 0, pageSize: PAGE_SIZE };
-    }
-    const ids = campusEnrollmentIds;
-    query = enrollmentIds !== null
-      ? query.in("enrollment_id", ids.filter((id) => enrollmentIds!.includes(id))) as typeof query
-      : query.in("enrollment_id", ids) as typeof query;
-  }
-
-  const { data, count } = await (query.range(offset, offset + PAGE_SIZE - 1).returns<PaymentRow[]>());
-  const payments = data ?? [];
-
+  const enrollmentIds = Array.from(new Set(payments.map((row) => row.enrollment_id)));
   const enrollmentInfoById = new Map<string, EnrollmentInfoRow>();
-  const paymentEnrollmentIds = Array.from(new Set(payments.map((row) => row.enrollment_id)));
 
-  if (paymentEnrollmentIds.length > 0) {
+  if (enrollmentIds.length > 0) {
     const { data: enrollmentRows } = await supabase
       .from("enrollments")
-      .select("id, campuses(name), players(first_name, last_name)")
-      .in("id", paymentEnrollmentIds)
+      .select("id, campus_id, campuses(name), players(first_name, last_name)")
+      .in("id", enrollmentIds)
       .returns<EnrollmentInfoRow[]>();
 
     (enrollmentRows ?? []).forEach((row) => {
@@ -134,28 +84,44 @@ export async function searchReceipts({
     });
   }
 
-  const rows: ReceiptSearchRow[] = payments.map((row) => {
-    const enrollment = enrollmentInfoById.get(row.enrollment_id);
-    const firstName = enrollment?.players?.first_name?.trim() ?? "";
-    const lastName = enrollment?.players?.last_name?.trim() ?? "";
-    const playerName = `${firstName} ${lastName}`.trim() || "Jugador";
+  const filteredRows = payments
+    .map<ReceiptSearchRow>((row) => {
+      const enrollment = enrollmentInfoById.get(row.enrollment_id);
+      const firstName = enrollment?.players?.first_name?.trim() ?? "";
+      const lastName = enrollment?.players?.last_name?.trim() ?? "";
 
-    return {
-      paymentId: row.id,
-      folio: row.folio,
-      paidAt: row.paid_at,
-      playerName,
-      campusName: enrollment?.campuses?.name ?? "-",
-      amount: row.amount,
-      method: row.method,
-      enrollmentId: row.enrollment_id,
-    };
-  });
+      return {
+        paymentId: row.id,
+        folio: row.folio,
+        paidAt: row.paid_at,
+        playerName: `${firstName} ${lastName}`.trim() || "Jugador",
+        campusName: enrollment?.campuses?.name ?? "-",
+        amount: row.amount,
+        method: row.method,
+        enrollmentId: row.enrollment_id,
+      };
+    })
+    .filter((row) => {
+      const enrollment = enrollmentInfoById.get(row.enrollmentId);
 
-  return { rows, total: count ?? 0, pageSize: PAGE_SIZE };
+      if (campusId && enrollment?.campus_id !== campusId) {
+        return false;
+      }
+
+      if (trimmed && !looksLikeFolio(trimmed)) {
+        return row.playerName.toLowerCase().includes(trimmedLower);
+      }
+
+      return true;
+    });
+
+  return {
+    rows: filteredRows.slice(offset, offset + PAGE_SIZE),
+    total: filteredRows.length,
+    pageSize: PAGE_SIZE,
+  };
 }
 
 function looksLikeFolio(q: string): boolean {
-  // Folio format: LV-202603-00042 — starts with uppercase letters + dash
   return /^[A-Z]{2,}-/.test(q);
 }

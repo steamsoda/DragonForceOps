@@ -2,6 +2,12 @@
 
 ## 2026-03-30 (session 18)
 
+### Receipts Filtering Hotfix (v1.1.7)
+
+- Reworked `src/lib/queries/receipts.ts` again after the first receipts patch was still returning zero rows in preview.
+- The search now loads posted payments directly, resolves enrollment/player/campus labels in a second pass, and applies campus/name filtering in memory before pagination.
+- This avoids the DB-side prefilter path that was still excluding valid receipt rows.
+
 ### Receipts Search Regression Fix (v1.1.6)
 
 - Fixed the `/receipts` page returning an empty table even when posted payments existed.
