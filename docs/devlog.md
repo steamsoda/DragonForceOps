@@ -2,6 +2,12 @@
 
 ## 2026-03-30 (session 18)
 
+### Receipts Search Regression Fix (v1.1.6)
+
+- Fixed the `/receipts` page returning an empty table even when posted payments existed.
+- Root cause: the page depended on a nested `payments -> enrollments -> players/campuses` select and then discarded rows when the nested relation came back null.
+- `src/lib/queries/receipts.ts` now fetches posted payments first, then resolves enrollment/player/campus display data in a second query keyed by `enrollment_id`, so receipt rows render reliably.
+
 ### Preview Build Hotfix (v1.1.5)
 
 - Fixed Vercel preview build failure caused by exporting a non-async function from `src/server/actions/payment-posting.ts` under a `"use server"` module.

@@ -26,12 +26,12 @@ type PaymentRow = {
   amount: number;
   method: string;
   enrollment_id: string;
-  enrollments: {
-    id: string;
-    campus_id: string;
-    campuses: { name: string } | null;
-    players: { first_name: string; last_name: string } | null;
-  } | null;
+};
+
+type EnrollmentInfoRow = {
+  id: string;
+  campuses: { name: string | null } | null;
+  players: { first_name: string | null; last_name: string | null } | null;
 };
 
 export async function searchReceipts({
@@ -83,10 +83,7 @@ export async function searchReceipts({
   // Build main payments query
   let query = supabase
     .from("payments")
-    .select(
-      "id, folio, paid_at, amount, method, enrollment_id, enrollments(id, campus_id, campuses(name), players(first_name, last_name))",
-      { count: "exact" }
-    )
+    .select("id, folio, paid_at, amount, method, enrollment_id", { count: "exact" })
     .eq("status", "posted")
     .order("paid_at", { ascending: false });
 
@@ -120,19 +117,40 @@ export async function searchReceipts({
   }
 
   const { data, count } = await (query.range(offset, offset + PAGE_SIZE - 1).returns<PaymentRow[]>());
+  const payments = data ?? [];
 
-  const rows: ReceiptSearchRow[] = (data ?? [])
-    .filter((row) => row.enrollments?.players)
-    .map((row) => ({
+  const enrollmentInfoById = new Map<string, EnrollmentInfoRow>();
+  const paymentEnrollmentIds = Array.from(new Set(payments.map((row) => row.enrollment_id)));
+
+  if (paymentEnrollmentIds.length > 0) {
+    const { data: enrollmentRows } = await supabase
+      .from("enrollments")
+      .select("id, campuses(name), players(first_name, last_name)")
+      .in("id", paymentEnrollmentIds)
+      .returns<EnrollmentInfoRow[]>();
+
+    (enrollmentRows ?? []).forEach((row) => {
+      enrollmentInfoById.set(row.id, row);
+    });
+  }
+
+  const rows: ReceiptSearchRow[] = payments.map((row) => {
+    const enrollment = enrollmentInfoById.get(row.enrollment_id);
+    const firstName = enrollment?.players?.first_name?.trim() ?? "";
+    const lastName = enrollment?.players?.last_name?.trim() ?? "";
+    const playerName = `${firstName} ${lastName}`.trim() || "Jugador";
+
+    return {
       paymentId: row.id,
       folio: row.folio,
       paidAt: row.paid_at,
-      playerName: `${row.enrollments!.players!.first_name} ${row.enrollments!.players!.last_name}`,
-      campusName: row.enrollments?.campuses?.name ?? "-",
+      playerName,
+      campusName: enrollment?.campuses?.name ?? "-",
       amount: row.amount,
       method: row.method,
-      enrollmentId: row.enrollments!.id,
-    }));
+      enrollmentId: row.enrollment_id,
+    };
+  });
 
   return { rows, total: count ?? 0, pageSize: PAGE_SIZE };
 }
