@@ -1,13 +1,17 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { writeAuditLog } from "@/lib/audit";
 import { applyEarlyBirdDiscountIfEligible } from "@/server/actions/payments";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
-import { getOpenSessionForCampus } from "@/lib/queries/cash-sessions";
+import {
+  fetchPaymentFolio,
+  linkCashPaymentsToOpenSession,
+  revalidatePaymentSurfaces,
+  writePostedPaymentAudit
+} from "@/server/actions/payment-posting";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -632,57 +636,26 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
 
   // ── Link cash payments to open session ────────────────────────────────────
-  let sessionWarning = false;
   const paymentsToLink: Array<{ id: string; amount: number; method: string }> = [
     { id: paymentRow.id, amount: parsed.amount, method: parsed.method },
     ...(paymentRow2Id && parsed.split ? [{ id: paymentRow2Id, amount: parsed.split.amount, method: parsed.split.method }] : [])
   ];
+  const sessionWarning = await linkCashPaymentsToOpenSession(supabase, enrollmentId, paymentsToLink, user.id);
 
-  const cashPayments = paymentsToLink.filter(p => p.method === "cash");
-  if (cashPayments.length > 0) {
-    const { data: campusRow } = await supabase
-      .from("enrollments")
-      .select("campus_id")
-      .eq("id", enrollmentId)
-      .maybeSingle<{ campus_id: string }>();
-
-    const campusId = campusRow?.campus_id ?? null;
-    if (campusId) {
-      const openSession = await getOpenSessionForCampus(campusId);
-      if (openSession) {
-        await supabase.from("cash_session_entries").insert(
-          cashPayments.map(p => ({
-            cash_session_id: openSession.id,
-            payment_id: p.id,
-            entry_type: "payment_in",
-            amount: p.amount,
-            created_by: user.id
-          }))
-        );
-      } else {
-        sessionWarning = true;
-      }
-    }
-  }
-
-  await writeAuditLog(supabase, {
+  await writePostedPaymentAudit(supabase, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
-    action: "payment.posted",
-    tableName: "payments",
     recordId: paymentRow.id,
-    afterData: { enrollment_id: enrollmentId, amount: parsed.amount, method: parsed.method, source: "caja", split: !!parsed.split }
+    enrollmentId,
+    amount: parsed.amount,
+    method: parsed.method,
+    source: "caja",
+    split: !!parsed.split
   });
 
-  revalidatePath("/caja");
+  revalidatePaymentSurfaces(ledger);
 
-  // Fetch folio after insert (separate query; graceful if column doesn't exist yet)
-  const { data: folioRow } = await supabase
-    .from("payments")
-    .select("folio")
-    .eq("id", paymentRow.id)
-    .maybeSingle<{ folio: string | null }>();
-  const folio = folioRow?.folio ?? null;
+  const folio = await fetchPaymentFolio(supabase, paymentRow.id);
 
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
   const newBalance = ledger.totals.balance - totalPaid;

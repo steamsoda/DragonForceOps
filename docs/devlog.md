@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-03-30 (session 18)
+
+### Preview Demo Seed + Enrollment Ledger Payment Wiring Fix (v1.1.4)
+
+**Preview-only demo SQL seed**
+- Added `docs/preview-demo-seed.sql`: paste-ready SQL for the Supabase editor, intentionally **not** a migration.
+- Scope: 20 clearly fake players across both campuses, guardians, active enrollments, mixed tuition/inscription charges, mixed payments, and coherent allocations for UI/testing.
+- Additive only: does not alter schema and does not auto-run on push because it lives in `docs/`, not `supabase/migrations/`.
+
+**Enrollment ledger payments now align with Caja operationally**
+- Root issue: payments posted from `/enrollments/[enrollmentId]/charges` were not fully behaving like Caja payments. Insert path existed, but cash-session linking and downstream visibility were inconsistent.
+- Added shared helper module `src/server/actions/payment-posting.ts` for payment-side effects shared by ledger and Caja:
+  - fetch folio
+  - link cash payments into open cash session
+  - write normalized `payment.posted` audit log
+  - revalidate all payment surfaces (`/receipts`, ledger, Caja, Corte Diario, player page)
+- `src/server/actions/payments.ts`: ledger payment flow now uses the shared helpers, includes `sessionWarning` in the receipt payload, and revalidates `/receipts`.
+- `src/server/actions/caja.ts`: switched the overlapping post-payment side effects to the same shared helper path.
+- `src/components/billing/payment-post-form.tsx`: shows warning when a ledger cash payment posts without an open cash session.
+
+**Receipts lookup consistency**
+- `src/lib/queries/receipts.ts`: added optional direct `paymentId` filter.
+- `src/app/(protected)/receipts/page.tsx`: supports `?payment=...`, so links from Auditoría now resolve correctly.
+- Result: a payment posted from the enrollment ledger should now appear in `/receipts` consistently and be directly reachable by payment ID.
+
+---
+
 ## 2026-03-30 (session 17)
 
 ### Receipt Reprint + Caja Multi-Month Tuition Selection (v1.1.3)

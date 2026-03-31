@@ -10,6 +10,7 @@ type EnrollmentRow = {
     code: string | null;
   } | null;
   players: {
+    id: string | null;
     first_name: string | null;
     last_name: string | null;
     birth_date: string | null;
@@ -72,6 +73,7 @@ export type EnrollmentLedger = {
     status: string;
     startDate: string;
     endDate: string | null;
+    playerId: string | null;
     campusName: string;
     campusCode: string;
     playerName: string;
@@ -117,7 +119,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
   const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, campuses(name, code), players(first_name, last_name, birth_date), pricing_plans(name, currency)")
+      .select("id, status, start_date, end_date, campuses(name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentRow | null>(),
@@ -178,6 +180,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       status: enrollment.status,
       startDate: enrollment.start_date,
       endDate: enrollment.end_date,
+      playerId: enrollment.players?.id ?? null,
       campusName: enrollment.campuses?.name ?? "-",
       campusCode: enrollment.campuses?.code ?? "-",
       playerName: `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim(),

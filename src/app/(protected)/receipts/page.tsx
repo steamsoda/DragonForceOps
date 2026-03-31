@@ -9,6 +9,7 @@ type SearchParams = Promise<{
   q?: string;
   campus?: string;
   page?: string;
+  payment?: string;
 }>;
 
 function formatMoney(value: number) {
@@ -37,18 +38,19 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
   const params = await searchParams;
   const q = params.q ?? "";
   const campusId = params.campus ?? "";
+  const paymentId = params.payment ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
 
   const [campuses, result, printerName] = await Promise.all([
     listCampuses(),
-    searchReceipts({ q: q || undefined, campusId: campusId || undefined, page }),
+    searchReceipts({ q: q || undefined, campusId: campusId || undefined, paymentId: paymentId || undefined, page }),
     getPrinterName(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const prevPage = page > 1 ? page - 1 : null;
   const nextPage = page < totalPages ? page + 1 : null;
-  const qsBase = `q=${encodeURIComponent(q)}&campus=${encodeURIComponent(campusId)}`;
+  const qsBase = `q=${encodeURIComponent(q)}&campus=${encodeURIComponent(campusId)}&payment=${encodeURIComponent(paymentId)}`;
 
   return (
     <PageShell title="Buscar recibos" subtitle="Busca por folio o nombre del jugador">
@@ -89,7 +91,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           ) : null}
         </form>
 
-        {(q || campusId) && (
+        {(q || campusId || paymentId) && (
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {result.total} resultado{result.total !== 1 ? "s" : ""}
           </p>
@@ -115,6 +117,8 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                   <td className="px-3 py-6 text-slate-500 dark:text-slate-400" colSpan={8}>
                     {q || campusId
                       ? "No se encontraron recibos con esos filtros."
+                      : paymentId
+                      ? "No se encontro un recibo para ese pago."
                       : "Ingresa un folio o nombre para buscar."}
                   </td>
                 </tr>
@@ -147,7 +151,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           </table>
         </div>
 
-        {(q || campusId) && result.total > result.pageSize && (
+        {(q || campusId || paymentId) && result.total > result.pageSize && (
           <div className="flex items-center justify-between text-sm">
             <p>
               Pagina {page} de {totalPages}

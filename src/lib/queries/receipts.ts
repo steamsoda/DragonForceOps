@@ -37,15 +37,18 @@ type PaymentRow = {
 export async function searchReceipts({
   q,
   campusId,
+  paymentId,
   page = 1,
 }: {
   q?: string;
   campusId?: string;
+  paymentId?: string;
   page?: number;
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
   const offset = (page - 1) * PAGE_SIZE;
   const trimmed = q?.trim() ?? "";
+  const trimmedPaymentId = paymentId?.trim() ?? "";
 
   // If searching by player name, resolve to enrollment IDs first
   let enrollmentIds: string[] | null = null;
@@ -86,6 +89,10 @@ export async function searchReceipts({
     )
     .eq("status", "posted")
     .order("paid_at", { ascending: false });
+
+  if (trimmedPaymentId) {
+    query = query.eq("id", trimmedPaymentId) as typeof query;
+  }
 
   // Apply folio filter if query looks like a folio
   if (trimmed && looksLikeFolio(trimmed)) {

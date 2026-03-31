@@ -48,6 +48,11 @@ export function PaymentPostForm({ currentBalance, currency, action, printerName 
         <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
           Pago registrado — {formatMoney(state.receipt.amount, state.receipt.currency)}
         </p>
+        {state.receipt.sessionWarning && (
+          <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Sin sesión de caja abierta. El pago se registró correctamente pero no quedó vinculado a una sesión.
+          </div>
+        )}
         <PrintReceiptButton data={state.receipt} printerName={printerName} autoPrint />
       </div>
     );
