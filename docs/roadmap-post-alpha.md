@@ -25,6 +25,7 @@ Updated continuously. Last updated: 2026-03-30.
 | 49 | **Preview DB schema drift visibility for receipts/RPC features** | ? Done | `/receipts` now shows an explicit operational error when `search_receipts(...)` is missing instead of fake zero results. Preview policy: deploy validation must include confirming preview DB migrations/functions exist. Session 18 found preview DB had stopped at `20260321000000`; missing March 24-26 migrations were applied manually in preview to restore parity. |
 | 50 | **Prod post-merge receipts/activity follow-up** | ? Done | Fixed the `Actividad` server-component `onClick` crash and corrected folio-search classification for underscore campus codes in `search_receipts(...)`. |
 | 51 | **Receipts partial folio fragment search** | ? Done | `search_receipts(...)` now matches partial folio fragments like `202603` in addition to full folios and player names. |
+| 52 | **Unblock prod migration chain blocked by Patch 1** | ✅ Done | Reworked `20260330120000_patch1_data_corrections.sql` into a recovery-safe, idempotent migration and pushed prod successfully. Patch 1 duplicates were removed, bajas and Mitre inserts were applied, and the blocked prod chain now records `20260330120000`, `20260330193000`, and `20260331041000`. |
 
 ---
 

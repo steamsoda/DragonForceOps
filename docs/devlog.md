@@ -2,6 +2,34 @@
 
 ## 2026-03-30 (session 18)
 
+### Patch 1 Migration Blocker Audit
+
+- Investigated why `supabase db push` and the prod migration workflow were not applying newer migrations.
+- Root cause was not auth or CLI wiring: prod migration history is blocked on `20260330120000_patch1_data_corrections.sql`.
+- Direct prod audit showed Patch 1 is only partially reflected:
+  - Section 1 player corrections: 5 already match, 6 still pending.
+  - Section 2 duplicate cleanup: all 3 duplicate player rows still exist; 2 already have allocated payments and cannot be deleted blindly.
+  - Section 3 bajas: all 4 intended enrollment endings are still pending.
+  - Section 4 Mitre inserts: neither player exists in prod.
+- Section 5 payment backfill: the player/enrollment references are valid in prod, but none of the 45 expected payments match exactly; only 4 target charges already have some allocated payment, and those do not match the migration cleanly.
+- Conclusion: Patch 1 cannot be safely replayed as-is and also cannot be marked applied honestly.
+- Operational direction set: replace blind replay with a Patch 1 recovery pass that separates safe corrections from risky duplicate/payment handling, then unblock later migrations.
+- Reworked `20260330120000_patch1_data_corrections.sql` into an idempotent recovery-safe migration:
+  - 11 player corrections now update only when still missing.
+  - 3 duplicate-player deletions now use guarded duplicate cleanup against the intended master records and preserve guardians before deleting the duplicate history.
+  - 4 bajas now use the valid enum code `other`.
+  - 2 Mitre inserts are safe to rerun.
+- Ran `supabase db push` successfully against prod. Applied and recorded:
+  - `20260330120000_patch1_data_corrections.sql`
+  - `20260330193000_receipts_search_and_finance_indexes.sql`
+  - `20260331041000_receipts_partial_folio_search.sql`
+- Post-apply verification:
+  - duplicate Patch 1 players are gone
+  - all 4 bajas are ended with `dropout_reason = 'other'`
+  - both Mitre players now exist
+  - `search_receipts('202603', ...)` works in prod
+- Result: the prod migration chain is unblocked again and future migrations can move normally.
+
 ### Receipts Partial Folio Search (v1.1.11)
 
 - Added a follow-up migration so `search_receipts(...)` matches partial folio fragments as well as player-name fragments.
