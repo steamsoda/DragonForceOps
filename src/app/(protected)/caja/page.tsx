@@ -24,7 +24,7 @@ export default async function CajaPage({
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-800">
-      <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-6 xl:px-8">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-portoDark dark:text-portoBlue">Caja</h1>

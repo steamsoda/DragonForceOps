@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-03-31 (session 25)
+
+### Caja Width Hotfix
+
+- Fixed the real Caja layout bottleneck at the page level: `/caja` was still wrapped in `max-w-2xl`, which kept the entire POS flow cramped even after the internal POS cards were widened.
+- Expanded the route container to a desktop-wide layout so the existing POS grid can finally use the available screen width.
+- No payment, cart, pricing, or receipt behavior changed in this hotfix.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 24)
 
 ### Caja POS Hotfix Pass
