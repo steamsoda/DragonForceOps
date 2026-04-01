@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-01 (session 31)
+
+### Issue 33 Rollback for Replan
+
+- Reverted the first manual-heavy `360Player / Stripe` reconciliation UI pass from `preview`.
+- Reason:
+  - the front-desk workflow was too heavy to be practical
+  - it required too much manual data entry to be viable in daily operations
+- Added a cleanup migration to remove the temporary reconciliation table/enum from preview DB so the branch returns to the pre-issue-33 state cleanly.
+- Decision locked for the replan:
+  - do **not** depend on daily manual 360Player CSV export as the primary workflow
+  - re-evaluate issue `#33` around stronger automation paths before rebuilding it
+
 ## 2026-04-01 (session 30)
 
 ### Roadmap Refresh After Final Testing
