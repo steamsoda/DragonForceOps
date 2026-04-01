@@ -5,6 +5,7 @@ export type ParsedPlayerInput = {
   lastName: string;
   birthDate: string;
   gender: "male" | "female" | null;
+  isReturning: boolean;
   medicalNotes: string | null;
   guardianFirstName: string;
   guardianLastName: string;
@@ -19,6 +20,7 @@ export function parsePlayerFormData(formData: FormData): ParsedPlayerInput | nul
   const lastName = (formData.get("lastName") as string | null)?.trim() ?? "";
   const birthDate = parseDateOnlyInput((formData.get("birthDate") as string | null) ?? "");
   const genderRaw = (formData.get("gender") as string | null) ?? "";
+  const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const medicalNotes = (formData.get("medicalNotes") as string | null)?.trim() || null;
   const guardianFirstName = (formData.get("guardianFirstName") as string | null)?.trim() ?? "";
   const guardianLastName = (formData.get("guardianLastName") as string | null)?.trim() ?? "";
@@ -37,6 +39,7 @@ export function parsePlayerFormData(formData: FormData): ParsedPlayerInput | nul
     lastName,
     birthDate,
     gender,
+    isReturning,
     medicalNotes,
     guardianFirstName,
     guardianLastName,

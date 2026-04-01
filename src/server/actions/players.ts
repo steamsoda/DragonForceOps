@@ -6,20 +6,23 @@ import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
 import { parseDateOnlyInput } from "@/lib/time";
 
-function redirectWithError(code: string): never {
-  redirect(`/players/new?err=${code}`);
+function redirectWithError(code: string, isReturning = false): never {
+  const params = new URLSearchParams({ err: code });
+  if (isReturning) params.set("returning", "1");
+  redirect(`/players/new?${params.toString()}`);
 }
 
 export async function createPlayerAction(formData: FormData) {
+  const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const parsed = parsePlayerFormData(formData);
-  if (!parsed) return redirectWithError("invalid_form");
+  if (!parsed) return redirectWithError("invalid_form", isReturning);
 
   const supabase = await createClient();
   const {
     data: { user },
     error: userError
   } = await supabase.auth.getUser();
-  if (userError || !user) return redirectWithError("unauthenticated");
+  if (userError || !user) return redirectWithError("unauthenticated", parsed.isReturning);
 
   // Create guardian first
   const { data: guardian, error: guardianError } = await supabase
@@ -36,7 +39,7 @@ export async function createPlayerAction(formData: FormData) {
     .maybeSingle()
     .returns<{ id: string } | null>();
 
-  if (guardianError || !guardian) return redirectWithError("guardian_failed");
+  if (guardianError || !guardian) return redirectWithError("guardian_failed", parsed.isReturning);
 
   // Create player
   const { data: player, error: playerError } = await supabase
@@ -53,7 +56,7 @@ export async function createPlayerAction(formData: FormData) {
     .maybeSingle()
     .returns<{ id: string } | null>();
 
-  if (playerError || !player) return redirectWithError("player_failed");
+  if (playerError || !player) return redirectWithError("player_failed", parsed.isReturning);
 
   // Link guardian to player as primary contact
   const { error: linkError } = await supabase.from("player_guardians").insert({
@@ -62,9 +65,15 @@ export async function createPlayerAction(formData: FormData) {
     is_primary: true
   });
 
-  if (linkError) return redirectWithError("link_failed");
+  if (linkError) return redirectWithError("link_failed", parsed.isReturning);
 
-  redirect(`/players/${player.id}/enrollments/new`);
+  const nextParams = new URLSearchParams();
+  if (parsed.isReturning) nextParams.set("returning", "1");
+  redirect(
+    nextParams.size > 0
+      ? `/players/${player.id}/enrollments/new?${nextParams.toString()}`
+      : `/players/${player.id}/enrollments/new`
+  );
 }
 
 // ── Update player profile ──────────────────────────────────────────────────────

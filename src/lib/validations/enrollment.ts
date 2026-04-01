@@ -1,9 +1,12 @@
 import { parseDateOnlyInput } from "@/lib/time";
+import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 
 export type ParsedEnrollmentInput = {
   campusId: string;
   pricingPlanCode: string;
   startDate: string;
+  isReturning: boolean;
+  returnInscriptionMode: ReturningInscriptionMode | null;
   notes: string | null;
 };
 
@@ -95,9 +98,15 @@ export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInp
   const campusId = String(formData.get("campusId") ?? "").trim();
   const pricingPlanCode = String(formData.get("pricingPlanCode") ?? "").trim();
   const startDate = parseDate(String(formData.get("startDate") ?? ""));
+  const isReturning = String(formData.get("isReturning") ?? "") === "1";
+  const returnInscriptionModeRaw = String(formData.get("returnInscriptionMode") ?? "").trim();
+  const returnInscriptionMode = isReturningInscriptionMode(returnInscriptionModeRaw)
+    ? returnInscriptionModeRaw
+    : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   if (!campusId || !pricingPlanCode || !startDate) return null;
+  if (isReturning && !returnInscriptionMode) return null;
 
-  return { campusId, pricingPlanCode, startDate, notes };
+  return { campusId, pricingPlanCode, startDate, isReturning, returnInscriptionMode, notes };
 }

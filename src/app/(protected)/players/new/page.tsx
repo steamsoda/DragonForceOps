@@ -14,10 +14,11 @@ const errorMessages: Record<string, string> = {
 export default async function NewPlayerPage({
   searchParams
 }: {
-  searchParams: Promise<{ err?: string }>;
+  searchParams: Promise<{ err?: string; returning?: string }>;
 }) {
   const query = await searchParams;
   const errorMessage = query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;
+  const isReturning = query.returning === "1";
 
   return (
     <PageShell
@@ -38,7 +39,7 @@ export default async function NewPlayerPage({
           </Link>
         </div>
 
-        <PlayerCreateForm action={createPlayerAction} />
+        <PlayerCreateForm action={createPlayerAction} initialIsReturning={isReturning} />
       </div>
     </PageShell>
   );

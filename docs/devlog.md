@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-03-31 (session 26)
+
+### Regreso Enrollment Workflow
+
+- Extended the player-to-enrollment handoff so `Nuevo jugador` can explicitly mark a new record as `Regreso` before submit.
+- Carried that workflow state into `Nueva inscripcion` through the redirect instead of hiding it in notes or asking staff to remember it manually.
+- Added a return-aware branch on the enrollment form:
+  - normal enrollment keeps the standard plan inscription amount
+  - `Regreso` now offers explicit inscription buttons:
+    - `Inscripcion completa` = 1800
+    - `Solo inscripcion` = 600
+    - `Exento de inscripcion` = 0
+  - monthly tuition remains driven by the same automatic date-window rules as the standard enrollment flow
+- Added explicit enrollment persistence for return handling:
+  - `enrollments.is_returning`
+  - `enrollments.return_inscription_mode`
+- Relaxed the old `charges_amount_nonzero` DB constraint so the system can store a real zero-amount inscription charge for waived-return cases without hacks; Caja still stays clean because it only surfaces charges with `pendingAmount > 0`.
+- Enrollment creation audit payloads now include whether the enrollment was a return and which return inscription mode was chosen.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 25)
 
 ### Caja Width Hotfix

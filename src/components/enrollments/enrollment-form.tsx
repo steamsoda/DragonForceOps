@@ -2,6 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  RETURNING_INSCRIPTION_OPTIONS,
+  getReturningInscriptionOption,
+  type ReturningInscriptionMode,
+} from "@/lib/enrollments/returning";
+import {
   quoteEnrollmentPricingFromVersions,
   type PricingPlanVersionSnapshot,
 } from "@/lib/pricing/plans";
@@ -12,6 +17,8 @@ type EnrollmentCreateFormProps = {
   planCode: string;
   pricingVersions: PricingPlanVersionSnapshot[];
   defaultStartDate: string;
+  isReturning: boolean;
+  initialReturnInscriptionMode?: ReturningInscriptionMode;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -20,15 +27,20 @@ export function EnrollmentCreateForm({
   planCode,
   pricingVersions,
   defaultStartDate,
+  isReturning,
+  initialReturnInscriptionMode = "full",
   action,
 }: EnrollmentCreateFormProps) {
   const [campusId, setCampusId] = useState("");
   const [startDateText, setStartDateText] = useState(formatDateOnlyDdMmYyyy(defaultStartDate));
+  const [returnInscriptionMode, setReturnInscriptionMode] =
+    useState<ReturningInscriptionMode>(initialReturnInscriptionMode);
   const calendarInputRef = useRef<HTMLInputElement | null>(null);
 
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
   const quote = startDate ? quoteEnrollmentPricingFromVersions(pricingVersions, startDate) : null;
   const startDay = startDate ? Number(startDate.slice(8, 10)) : null;
+  const selectedReturnOption = getReturningInscriptionOption(returnInscriptionMode);
 
   function formatDateMask(rawValue: string) {
     const digits = rawValue.replace(/\D/g, "").slice(0, 8);
@@ -54,6 +66,18 @@ export function EnrollmentCreateForm({
       <input type="hidden" name="pricingPlanCode" value={planCode} />
       <input type="hidden" name="campusId" value={campusId} />
       <input type="hidden" name="startDate" value={startDate ?? ""} />
+      <input type="hidden" name="isReturning" value={isReturning ? "1" : "0"} />
+      <input type="hidden" name="returnInscriptionMode" value={isReturning ? returnInscriptionMode : ""} />
+
+      {isReturning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Regreso</p>
+          <p className="mt-1 text-sm text-slate-700">
+            Este flujo aplica opciones especiales de inscripcion para reingreso. La mensualidad se calcula con las
+            mismas reglas automaticas del alta normal.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         <fieldset className="space-y-1 text-sm">
@@ -115,13 +139,40 @@ export function EnrollmentCreateForm({
       {quote ? (
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Inscripcion</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
-              ${quote.inscriptionAmount.toFixed(2)}
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+              {isReturning ? "Inscripcion regreso" : "Inscripcion"}
             </p>
-            <p className="mt-1 text-xs text-slate-600">
-              El sistema usa el valor del plan activo. Ya no se captura manualmente.
-            </p>
+            {isReturning ? (
+              <div className="mt-3 space-y-2">
+                {RETURNING_INSCRIPTION_OPTIONS.map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    onClick={() => setReturnInscriptionMode(option.mode)}
+                    className={`w-full rounded-lg border px-3 py-3 text-left transition ${
+                      returnInscriptionMode === option.mode
+                        ? "border-portoBlue bg-white text-slate-900 shadow-sm"
+                        : "border-sky-100 bg-sky-50/60 text-slate-700 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{option.label}</p>
+                        <p className="mt-1 text-xs text-slate-500">{option.description}</p>
+                      </div>
+                      <span className="text-lg font-bold text-slate-900">${option.amount.toFixed(2)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-2xl font-bold text-slate-900">${quote.inscriptionAmount.toFixed(2)}</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  El sistema usa el valor del plan activo. Ya no se captura manualmente.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
@@ -134,6 +185,12 @@ export function EnrollmentCreateForm({
             <p className="mt-1 text-xs text-slate-600">
               Periodo a crear: {quote.tuitionPeriodMonth.slice(5, 7)}/{quote.tuitionPeriodMonth.slice(0, 4)}
             </p>
+            {isReturning && (
+              <p className="mt-2 text-xs text-slate-600">
+                Modalidad seleccionada de regreso:{" "}
+                <span className="font-semibold text-slate-700">{selectedReturnOption.label}</span>
+              </p>
+            )}
           </div>
         </div>
       ) : (

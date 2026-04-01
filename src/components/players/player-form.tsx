@@ -1,14 +1,62 @@
+"use client";
+
+import { useState } from "react";
 import { DateInputWithPicker } from "@/components/ui/date-input-with-picker";
 
 type PlayerCreateFormProps = {
   action: (formData: FormData) => Promise<void>;
+  initialIsReturning?: boolean;
 };
 
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm";
 
-export function PlayerCreateForm({ action }: PlayerCreateFormProps) {
+export function PlayerCreateForm({ action, initialIsReturning = false }: PlayerCreateFormProps) {
+  const [isReturning, setIsReturning] = useState(initialIsReturning);
+
   return (
     <form action={action} className="space-y-6">
+      <input type="hidden" name="isReturning" value={isReturning ? "1" : "0"} />
+
+      <section className="space-y-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de alta</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Marca <span className="font-medium text-slate-700 dark:text-slate-300">Regreso</span> cuando el jugador
+            vuelve a la academia y necesitara opciones especiales de inscripcion.
+          </p>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setIsReturning(false)}
+            className={`rounded-md border px-3 py-3 text-left text-sm transition ${
+              !isReturning
+                ? "border-portoBlue bg-blue-50 text-slate-900"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+          >
+            <p className="font-semibold">Nuevo ingreso</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Flujo normal con inscripcion estandar.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsReturning(true)}
+            className={`rounded-md border px-3 py-3 text-left text-sm transition ${
+              isReturning
+                ? "border-emerald-500 bg-emerald-50 text-slate-900"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+          >
+            <p className="font-semibold">Regreso</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Activa opciones especiales de inscripcion para reingreso.
+            </p>
+          </button>
+        </div>
+      </section>
+
       <section className="space-y-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Datos del jugador</h2>
         <div className="grid gap-3 md:grid-cols-2">
@@ -107,7 +155,7 @@ export function PlayerCreateForm({ action }: PlayerCreateFormProps) {
         type="submit"
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
       >
-        Registrar jugador
+        {isReturning ? "Registrar jugador y continuar con regreso" : "Registrar jugador"}
       </button>
     </form>
   );

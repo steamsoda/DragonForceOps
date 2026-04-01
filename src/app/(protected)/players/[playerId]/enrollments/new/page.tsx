@@ -20,7 +20,7 @@ export default async function EnrollmentCreatePage({
   searchParams
 }: {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ err?: string }>;
+  searchParams: Promise<{ err?: string; returning?: string; returnMode?: string }>;
 }) {
   const { playerId } = await params;
   const query = await searchParams;
@@ -29,12 +29,15 @@ export default async function EnrollmentCreatePage({
   if (!context) notFound();
 
   const errorMessage = query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;
+  const isReturning = query.returning === "1";
+  const initialReturnInscriptionMode =
+    query.returnMode === "inscription_only" || query.returnMode === "waived" ? query.returnMode : "full";
   const submit = createEnrollmentAction.bind(null, playerId);
 
   return (
     <PageShell
       title="Nueva inscripcion"
-      subtitle={context.player.fullName}
+      subtitle={isReturning ? `${context.player.fullName} - Regreso` : context.player.fullName}
       breadcrumbs={[
         { label: "Jugadores", href: "/players" },
         { label: context.player.fullName, href: `/players/${playerId}` },
@@ -70,6 +73,8 @@ export default async function EnrollmentCreatePage({
             planCode={context.planCode}
             pricingVersions={context.pricingVersions}
             defaultStartDate={context.defaultStartDate}
+            isReturning={isReturning}
+            initialReturnInscriptionMode={initialReturnInscriptionMode}
             action={submit}
           />
         )}

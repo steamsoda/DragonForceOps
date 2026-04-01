@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
 import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
 import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
@@ -10,20 +11,36 @@ import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
 
 type ChargeTypeRow = { id: string; code: string };
 
-function redirectWithError(playerId: string, code: string): never {
-  redirect(`/players/${playerId}/enrollments/new?err=${code}`);
+function redirectWithError(
+  playerId: string,
+  code: string,
+  options?: { isReturning?: boolean; returnMode?: string | null }
+): never {
+  const params = new URLSearchParams({ err: code });
+  if (options?.isReturning) params.set("returning", "1");
+  if (options?.isReturning && options.returnMode) params.set("returnMode", options.returnMode);
+  redirect(`/players/${playerId}/enrollments/new?${params.toString()}`);
 }
 
 export async function createEnrollmentAction(playerId: string, formData: FormData) {
+  const isReturning = String(formData.get("isReturning") ?? "") === "1";
+  const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
   const parsed = parseEnrollmentFormData(formData);
-  if (!parsed) return redirectWithError(playerId, "invalid_form");
+  if (!parsed) {
+    return redirectWithError(playerId, "invalid_form", { isReturning, returnMode });
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
-  if (userError || !user) return redirectWithError(playerId, "unauthenticated");
+  if (userError || !user) {
+    return redirectWithError(playerId, "unauthenticated", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
 
   const [{ data: player }, { data: existingEnrollment }] = await Promise.all([
     supabase.from("players").select("id, birth_date, gender").eq("id", playerId).maybeSingle(),
@@ -35,8 +52,18 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       .maybeSingle(),
   ]);
 
-  if (!player) return redirectWithError(playerId, "player_not_found");
-  if (existingEnrollment) return redirectWithError(playerId, "already_enrolled");
+  if (!player) {
+    return redirectWithError(playerId, "player_not_found", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
+  if (existingEnrollment) {
+    return redirectWithError(playerId, "already_enrolled", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(supabase, {
@@ -54,8 +81,18 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   const inscriptionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
   const tuitionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "monthly_tuition")?.id;
   if (!pricingQuote || !inscriptionTypeId || !tuitionTypeId) {
-    return redirectWithError(playerId, "config_error");
+    return redirectWithError(playerId, "config_error", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
   }
+
+  const returnOption =
+    parsed.isReturning && parsed.returnInscriptionMode
+      ? getReturningInscriptionOption(parsed.returnInscriptionMode)
+      : null;
+  const inscriptionAmount = returnOption?.amount ?? pricingQuote.inscriptionAmount;
+  const inscriptionDescription = returnOption?.chargeDescription ?? "Inscripcion";
 
   const { data: enrollment, error: enrollmentError } = await supabase
     .from("enrollments")
@@ -66,13 +103,20 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       status: "active",
       start_date: parsed.startDate,
       inscription_date: parsed.startDate,
+      is_returning: parsed.isReturning,
+      return_inscription_mode: parsed.isReturning ? parsed.returnInscriptionMode : null,
       notes: parsed.notes ?? null,
     })
     .select("id, pricing_plans(currency)")
     .maybeSingle()
     .returns<{ id: string; pricing_plans: { currency: string } | null } | null>();
 
-  if (enrollmentError || !enrollment) return redirectWithError(playerId, "enrollment_failed");
+  if (enrollmentError || !enrollment) {
+    return redirectWithError(playerId, "enrollment_failed", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
 
   const enrollmentId = enrollment.id;
   const currency = enrollment.pricing_plans?.currency ?? pricingQuote.plan.currency ?? "MXN";
@@ -82,8 +126,8 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
     {
       enrollment_id: enrollmentId,
       charge_type_id: inscriptionTypeId,
-      description: "Inscripcion",
-      amount: pricingQuote.inscriptionAmount,
+      description: inscriptionDescription,
+      amount: inscriptionAmount,
       currency,
       status: "pending",
       created_by: user.id,
@@ -100,7 +144,12 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
     },
   ]);
 
-  if (chargesError) return redirectWithError(playerId, "charges_failed");
+  if (chargesError) {
+    return redirectWithError(playerId, "charges_failed", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
 
   const birthYear = player.birth_date ? new Date(player.birth_date).getFullYear() : null;
   if (birthYear) {
@@ -125,7 +174,13 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
     action: "enrollment.created",
     tableName: "enrollments",
     recordId: enrollmentId,
-    afterData: { player_id: playerId, campus_id: parsed.campusId, start_date: parsed.startDate },
+    afterData: {
+      player_id: playerId,
+      campus_id: parsed.campusId,
+      start_date: parsed.startDate,
+      is_returning: parsed.isReturning,
+      return_inscription_mode: parsed.isReturning ? parsed.returnInscriptionMode : null,
+    },
   });
 
   revalidatePath(`/players/${playerId}`);
