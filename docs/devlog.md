@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-01 (session 35)
+
+### Roles + Campus Scope Hotfix
+
+- Added a shared role-scope formatter so role labels render consistently across the app.
+- The fixed top bar now shows the signed-in user's roles plus campus scope next to the email:
+  - campus-specific roles show the assigned campus
+  - multi-campus/global scope collapses to `Todos`
+- Updated `Usuarios y Permisos` so assigned role badges also show their campus scope instead of only the raw role label.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 34)
 
 ### Simplified Corte Diario + Automatic Campus Checkpoints

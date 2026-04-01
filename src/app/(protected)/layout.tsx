@@ -6,6 +6,7 @@ import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PrinterTestButton } from "@/components/ui/printer-test-button";
 import { getPrinterName } from "@/lib/queries/settings";
+import { summarizeRoleScopes, type RoleScope } from "@/lib/auth/role-display";
 
 const STAFF_SECTION: NavSection = {
   label: "Diario",
@@ -56,6 +57,11 @@ const ADMIN_SECTION: NavSection = {
 };
 
 type RoleRow = {
+  campus_id: string | null;
+  campuses: {
+    name: string | null;
+    code: string | null;
+  } | null;
   app_roles: {
     code: string;
   } | null;
@@ -80,7 +86,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const { data: roleRows, error: rolesError } = await supabase
     .from("user_roles")
-    .select("app_roles(code)")
+    .select("campus_id, campuses(name, code), app_roles(code)")
     .eq("user_id", user.id)
     .returns<RoleRow[]>();
 
@@ -89,6 +95,14 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
+  const roleScopes: RoleScope[] = (roleRows ?? [])
+    .filter((row): row is RoleRow & { app_roles: { code: string } } => Boolean(row.app_roles?.code))
+    .map((row) => ({
+      code: row.app_roles.code,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? null
+    }));
+  const roleSummary = summarizeRoleScopes(roleScopes).join(" | ");
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
@@ -131,7 +145,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           <span className="text-xs text-slate-400 dark:text-slate-500">v{version}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="max-w-[200px] truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
+          <div className="max-w-[420px] text-right">
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
+            <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{roleSummary}</p>
+          </div>
           <ThemeToggle />
           <PrinterTestButton printerName={printerName} />
           <form action={signOut}>

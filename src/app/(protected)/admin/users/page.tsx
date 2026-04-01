@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { formatRoleWithCampus } from "@/lib/auth/role-display";
 import { createClient } from "@/lib/supabase/server";
 import { grantRoleAction, revokeRoleAction } from "@/server/actions/users";
 
@@ -32,17 +33,12 @@ type RoleAssignment = {
 };
 type SearchParams = Promise<{ ok?: string; err?: string }>;
 
-function roleLabel(role: RoleAssignment) {
-  const base = ALL_ROLES.find((r) => r.code === role.code)?.label ?? role.code;
-  if (role.code !== "front_desk") return base;
-  return `${base} · ${role.campusName ?? "Todos"}`;
-}
-
 export default async function UsersAdminPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
+
   if (!user) redirect("/");
 
   const { data: myRoles } = await supabase
@@ -51,7 +47,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     .eq("user_id", user.id)
     .returns<{ app_roles: { code: string } | null }[]>();
 
-  const myCodes = (myRoles ?? []).map((r) => r.app_roles?.code).filter(Boolean);
+  const myCodes = (myRoles ?? []).map((role) => role.app_roles?.code).filter(Boolean);
   if (!myCodes.includes("superadmin")) redirect("/unauthorized");
 
   const [{ data: authUsersRaw, error: usersError }, { data: allRoleRows }, { data: campuses }] = await Promise.all([
@@ -70,8 +66,10 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
 
   const authUsers = (authUsersRaw ?? []) as AuthUserRow[];
   const rolesByUser: Record<string, RoleAssignment[]> = {};
+
   for (const row of allRoleRows ?? []) {
     if (!row.app_roles?.code) continue;
+
     (rolesByUser[row.user_id] ??= []).push({
       code: row.app_roles.code,
       campusId: row.campus_id,
@@ -79,16 +77,16 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     });
   }
 
-  const pendingUsers = authUsers.filter((u) => !rolesByUser[u.id]?.length);
-  const activeUsers = authUsers.filter((u) => rolesByUser[u.id]?.length);
+  const pendingUsers = authUsers.filter((authUser) => !rolesByUser[authUser.id]?.length);
+  const activeUsers = authUsers.filter((authUser) => rolesByUser[authUser.id]?.length);
 
   const query = await searchParams;
   const successMessage = query.ok === "granted" ? "Rol asignado." : query.ok === "revoked" ? "Rol revocado." : null;
   const errorMessage = query.err ? ERROR_MESSAGES[query.err] ?? "Error desconocido." : null;
 
-  function formatDate(v: string | null) {
-    if (!v) return "Nunca";
-    return new Intl.DateTimeFormat("es-MX", { dateStyle: "short", timeStyle: "short" }).format(new Date(v));
+  function formatDate(value: string | null) {
+    if (!value) return "Nunca";
+    return new Intl.DateTimeFormat("es-MX", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
   }
 
   function RoleBadges({ userId, roles }: { userId: string; roles: RoleAssignment[] }) {
@@ -102,9 +100,9 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
             <button
               type="submit"
               title="Revocar"
-              className="inline-flex items-center gap-1 rounded-full bg-portoBlue/10 px-2 py-0.5 text-xs font-medium text-portoDark dark:text-portoBlue hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
+              className="inline-flex items-center gap-1 rounded-full bg-portoBlue/10 px-2 py-0.5 text-xs font-medium text-portoDark transition-colors hover:bg-rose-100 hover:text-rose-700 dark:text-portoBlue dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
             >
-              {roleLabel(role)}
+              {formatRoleWithCampus(role)}
               <span className="opacity-60">x</span>
             </button>
           </form>
@@ -118,6 +116,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     const hasAssignableRoles =
       ALL_ROLES.some((role) => role.code !== "front_desk" && !existingKeys.has(`${role.code}:`)) ||
       (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`));
+
     if (!hasAssignableRoles) return null;
 
     return (
@@ -125,9 +124,11 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         <input type="hidden" name="user_id" value={userId} />
         <select
           name="role_code"
-          className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"
         >
-          {ALL_ROLES.filter((role) => role.code !== "front_desk" || (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`))).map((role) => (
+          {ALL_ROLES.filter(
+            (role) => role.code !== "front_desk" || (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`))
+          ).map((role) => (
             <option key={role.code} value={role.code}>
               {role.label}
             </option>
@@ -136,7 +137,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         <select
           name="campus_id"
           defaultValue=""
-          className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"
         >
           <option value="">Sin campus</option>
           {(campuses ?? []).map((campus) => (
@@ -156,33 +157,35 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   return (
     <PageShell title="Usuarios y Permisos" subtitle="Gestiona el acceso del personal">
       <div className="space-y-6">
-        {successMessage && (
+        {successMessage ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
             {successMessage}
           </div>
-        )}
-        {errorMessage && (
+        ) : null}
+
+        {errorMessage ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
             {errorMessage}
           </div>
-        )}
-        {usersError && (
+        ) : null}
+
+        {usersError ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Error al cargar usuarios: {usersError.message}
           </div>
-        )}
+        ) : null}
 
-        {pendingUsers.length > 0 && (
+        {pendingUsers.length > 0 ? (
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Esperando acceso
-              <span className="ml-2 rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
                 {pendingUsers.length}
               </span>
             </h2>
             <div className="overflow-x-auto rounded-md border border-amber-200 dark:border-amber-800">
-              <table className="min-w-full divide-y divide-amber-100 dark:divide-amber-900 text-sm">
-                <thead className="bg-amber-50 dark:bg-amber-950/40 text-left text-xs uppercase tracking-wide text-amber-700 dark:text-amber-400">
+              <table className="min-w-full divide-y divide-amber-100 text-sm dark:divide-amber-900">
+                <thead className="bg-amber-50 text-left text-xs uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
                   <tr>
                     <th className="px-4 py-2">Email</th>
                     <th className="px-4 py-2">Primer acceso</th>
@@ -190,24 +193,26 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-amber-50 dark:divide-amber-900/50">
-                  {pendingUsers.map((u) => (
-                    <tr key={u.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{u.email}</td>
-                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(u.created_at)}</td>
-                      <td className="px-4 py-3"><GrantForm userId={u.id} existingRoles={[]} /></td>
+                  {pendingUsers.map((authUser) => (
+                    <tr key={authUser.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{authUser.email}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(authUser.created_at)}</td>
+                      <td className="px-4 py-3">
+                        <GrantForm userId={authUser.id} existingRoles={[]} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </section>
-        )}
+        ) : null}
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Personal con acceso</h2>
           <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-2">Email</th>
                   <th className="px-4 py-2">Ultimo acceso</th>
@@ -217,21 +222,32 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {activeUsers.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-4 text-slate-400">Sin usuarios activos.</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-4 py-4 text-slate-400">
+                      Sin usuarios activos.
+                    </td>
+                  </tr>
                 ) : (
-                  activeUsers.map((u) => {
-                    const roles = rolesByUser[u.id] ?? [];
+                  activeUsers.map((authUser) => {
+                    const roles = rolesByUser[authUser.id] ?? [];
+
                     return (
-                      <tr key={u.id}>
+                      <tr key={authUser.id}>
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                          {u.email}
-                          {u.id === user.id ? (
-                            <span className="ml-2 rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">tu</span>
+                          {authUser.email}
+                          {authUser.id === user.id ? (
+                            <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                              tu
+                            </span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(u.last_sign_in_at)}</td>
-                        <td className="px-4 py-3"><RoleBadges userId={u.id} roles={roles} /></td>
-                        <td className="px-4 py-3"><GrantForm userId={u.id} existingRoles={roles} /></td>
+                        <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(authUser.last_sign_in_at)}</td>
+                        <td className="px-4 py-3">
+                          <RoleBadges userId={authUser.id} roles={roles} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <GrantForm userId={authUser.id} existingRoles={roles} />
+                        </td>
                       </tr>
                     );
                   })
