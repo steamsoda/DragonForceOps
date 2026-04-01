@@ -116,3 +116,23 @@ export function parseDateOnlyInput(value: string | null | undefined) {
 
   return `${displayMatch[3]}-${displayMatch[2]}-${displayMatch[1]}`;
 }
+
+export function parseMonterreyDateTimeLocalInput(value: string | null | undefined) {
+  const raw = value?.trim() ?? "";
+  if (!raw) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6] ?? "00");
+
+  if (!isValidDateOnlyParts(year, month, day)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null;
+
+  return new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${String(second).padStart(2, "0")}-06:00`).toISOString();
+}

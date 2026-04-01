@@ -27,6 +27,7 @@ const FRONT_DESK_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
     { href: "/reports/corte-diario", label: "Corte Diario" },
+    { href: "/reports/external-payments", label: "Conciliacion" },
     { href: "/receipts", label: "Recibos" }
   ]
 };
@@ -38,6 +39,7 @@ const DIRECTOR_REPORTES_SECTION: NavSection = {
     { href: "/reports/corte-semanal", label: "Corte Semanal" },
     { href: "/reports/resumen-mensual", label: "Res. Mensual" },
     { href: "/reports/porto-mensual", label: "Reporte Porto" },
+    { href: "/reports/external-payments", label: "Conciliacion" },
     { href: "/receipts", label: "Recibos" }
   ]
 };

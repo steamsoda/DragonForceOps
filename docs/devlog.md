@@ -1,5 +1,39 @@
 # Devlog
 
+## 2026-04-01 (session 31)
+
+### External Payment Reconciliation v1
+
+- Implemented issue `#33` as a manual reconciliation workflow for `360Player / Stripe` payments.
+- Added `external_payment_events` with RLS for `front_desk` and `director_admin` so external payments can be staged safely before they touch the player ledger.
+- Added the new operator page at `/reports/external-payments` with four working sections:
+  - register external payment
+  - unmatched queue
+  - matched history
+  - ignored history
+- Matching is tuition-first and ledger-safe:
+  - only pending `monthly_tuition` charges are eligible in v1
+  - invoice descriptions like `MENSUALIDAD FEBRERO 2026` are parsed into a suggested tuition month
+  - player matching is suggested from 360Player-assigned player names, but never auto-posted
+  - a payment is only posted when staff confirms a target pending monthly tuition charge
+- Matched external payments now:
+  - create a normal internal `payments` row with `method = stripe_360player`
+  - create the allocation
+  - generate folio / receipt through the normal flow
+  - affect balances and existing finance reports as gross payments
+  - stay out of cash sessions because they are non-cash
+- Fee tracking is separated from the player ledger:
+  - gross amount drives account payment state
+  - Stripe fee, Stripe fee tax, and optional 360Player/platform fee are stored on the external event
+  - the reconciliation page shows separate gross / fee / net estimated payout totals
+- Duplicate protection:
+  - one external reference only once
+  - one external event can only link to one internal payment
+- Webhook/import automation remains a later phase; the new external-events table is the landing zone for that future work.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 30)
 
 ### Roadmap Refresh After Final Testing
