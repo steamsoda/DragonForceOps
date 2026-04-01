@@ -1,5 +1,38 @@
 # Devlog
 
+## 2026-03-31 (session 28)
+
+### One-Page Enrollment Intake
+
+- Replaced the front-desk `/players/new` flow with one composite intake form that captures:
+  - player data
+  - one primary guardian
+  - enrollment setup
+  - pricing preview
+  - `Regreso` mode
+- The new intake now submits once and reuses the existing server-side enrollment logic instead of chaining multiple UI screens.
+- Added a dedicated intake server action that:
+  - creates guardian
+  - creates player
+  - links them
+  - creates the enrollment
+  - creates the initial inscription + tuition charges
+  - auto-assigns B2 when applicable
+  - redirects directly into Caja
+- Added a lightweight duplicate/return warning on the intake screen:
+  - checks likely player matches by name + birth year
+  - links staff to the possible existing player record
+  - does not block continuing with the new record
+- Preserved the existing front-desk UX improvements inside the single-page flow:
+  - masked `DD/MM/YYYY` date inputs
+  - calendar buttons
+  - campus buttons
+  - `Regreso` inscription options
+  - automatic tuition preview and carryover rules
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 27)
 
 ### Caja Advance Tuition Checkout Hotfix

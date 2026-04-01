@@ -303,6 +303,37 @@ export type EnrollmentCreateFormContext = {
   defaultStartDate: string;
 };
 
+export type EnrollmentIntakeContext = {
+  campuses: Array<{ id: string; code: string; name: string }>;
+  planCode: string;
+  pricingVersions: PricingPlanVersionSnapshot[];
+  defaultStartDate: string;
+};
+
+export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
+  const supabase = await createClient();
+  const defaultStartDate = getDefaultEnrollmentStartDate();
+
+  const [campusResult, pricingVersions] = await Promise.all([
+    supabase
+      .from("campuses")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .order("name")
+      .returns<CampusRow[]>(),
+    fetchPricingPlanVersionsByCode(supabase, "standard"),
+  ]);
+
+  const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
+
+  return {
+    campuses: campusResult.data ?? [],
+    planCode: defaultQuote?.plan.planCode ?? "standard",
+    pricingVersions,
+    defaultStartDate,
+  };
+}
+
 export async function getEnrollmentCreateFormContext(
   playerId: string
 ): Promise<EnrollmentCreateFormContext | null> {
