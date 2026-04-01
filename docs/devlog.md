@@ -374,7 +374,7 @@
 - `src/app/(protected)/receipts/page.tsx`: added `Reimprimir` button per receipt row.
 - Reprint uses stored transaction data rather than creating a new payment or synthetic folio.
 
-**Caja â€” multi-month tuition selection in one payment**
+**Caja — multi-month tuition selection in one payment**
 - Previous behavior: creating an advance tuition charge immediately redirected the cashier into a targeted payment flow for that one new charge.
 - New behavior in `src/components/caja/caja-client.tsx`: creating an advance tuition charge reloads the enrollment panel, auto-selects the newly created charge, and leaves the cashier in selection mode.
 - Staff can now add another mensualidad, keep multiple tuition charges selected, and use `Cobrar selección` once.
