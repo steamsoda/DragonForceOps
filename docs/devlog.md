@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-01 (session 29)
+
+### April 11 Tuition Repricing Safety Patch
+
+- Audited the live April 1 monthly-tuition cron run in prod after midnight:
+  - `generate-monthly-charges` succeeded at `2026-04-01 00:00` Monterrey
+  - April `monthly_tuition` charges reached the expected total and all generated at `$600`
+  - no live `early_bird_discount` charges reappeared
+- Found a real future risk for the April 11 repricing job:
+  - some April tuition rows were already allocated but still had `status = pending`
+  - the installed repricing function would have repriced those allocated charges too
+- Added a DB migration that patches `reprice_pending_monthly_tuition()` so it now skips any tuition charge that already has a row in `payment_allocations`.
+- Result:
+  - April 11 repricing will only affect truly unpaid/unallocated pending tuition
+  - paid history and partially/fully allocated tuition rows stay untouched
+
 ## 2026-03-31 (session 28)
 
 ### One-Page Enrollment Intake
