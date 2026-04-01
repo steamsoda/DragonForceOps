@@ -53,7 +53,11 @@ export function PaymentPostForm({ currentBalance, currency, action, printerName 
             Sin sesión de caja abierta. El pago se registró correctamente pero no quedó vinculado a una sesión.
           </div>
         )}
-        <PrintReceiptButton data={state.receipt} printerName={printerName} autoPrint />
+        <PrintReceiptButton
+          data={state.receipt}
+          printerName={printerName}
+          autoPrint={state.receipt.method !== "stripe_360player"}
+        />
       </div>
     );
   }
@@ -96,7 +100,7 @@ export function PaymentPostForm({ currentBalance, currency, action, printerName 
             <option value="cash">Efectivo</option>
             <option value="transfer">Transferencia</option>
             <option value="card">Tarjeta</option>
-            <option value="stripe_360player">Stripe 360Player</option>
+            <option value="stripe_360player">360Player</option>
             <option value="other">Otro</option>
           </select>
         </label>

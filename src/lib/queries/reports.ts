@@ -11,7 +11,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
   transfer: "Transferencia",
   card: "Tarjeta",
-  stripe_360player: "360Player/Stripe",
+  stripe_360player: "360Player",
   other: "Otro"
 };
 
@@ -61,6 +61,7 @@ export type CortePaymentRow = {
   methodLabel: string;
   paidAt: string;
   notes: string | null;
+  excludedFromCorte: boolean;
 };
 
 export type CorteByMethod = {
@@ -80,6 +81,8 @@ export type CorteDiarioData = {
   date: string;
   sessionOpenedAt: string | null; // set when an open session's start time was used
   totalCobrado: number;
+  countedPaymentsCount: number;
+  excludedPaymentsCount: number;
   byMethod: CorteByMethod[];
   byChargeType: CorteByChargeType[];
   payments: CortePaymentRow[];
@@ -125,9 +128,11 @@ export async function getCorteDiarioData(filters: {
 
   const { data } = await query.returns<PaymentWithPlayer[]>();
   const payments = data ?? [];
+  const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
+  const countedPaymentIds = countedPayments.map((payment) => payment.id);
 
   const byMethodMap = new Map<string, { count: number; total: number }>();
-  payments.forEach((p) => {
+  countedPayments.forEach((p) => {
     const prev = byMethodMap.get(p.method) ?? { count: 0, total: 0 };
     byMethodMap.set(p.method, { count: prev.count + 1, total: prev.total + p.amount });
   });
@@ -142,13 +147,12 @@ export async function getCorteDiarioData(filters: {
     .sort((a, b) => b.total - a.total);
 
   // Charge-type breakdown via payment_allocations
-  const paymentIds = payments.map((p) => p.id);
   let byChargeType: CorteByChargeType[] = [];
-  if (paymentIds.length > 0) {
+  if (countedPaymentIds.length > 0) {
     const { data: allocData } = await supabase
       .from("payment_allocations")
       .select("amount, charges(charge_types(code, name))")
-      .in("payment_id", paymentIds)
+      .in("payment_id", countedPaymentIds)
       .returns<{ amount: number; charges: { charge_types: { code: string | null; name: string | null } | null } | null }[]>();
 
     const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
@@ -167,7 +171,9 @@ export async function getCorteDiarioData(filters: {
   return {
     date: dateStr,
     sessionOpenedAt,
-    totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
+    totalCobrado: countedPayments.reduce((sum, p) => sum + p.amount, 0),
+    countedPaymentsCount: countedPayments.length,
+    excludedPaymentsCount: payments.length - countedPayments.length,
     byMethod,
     byChargeType,
     payments: payments.map((p) => ({
@@ -179,7 +185,8 @@ export async function getCorteDiarioData(filters: {
       method: p.method,
       methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method,
       paidAt: p.paid_at,
-      notes: p.notes
+      notes: p.notes,
+      excludedFromCorte: p.method === "stripe_360player"
     }))
   };
 }

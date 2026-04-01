@@ -141,7 +141,12 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             currency: "MXN",
             byMethod: data.byMethod.map((m) => ({ methodLabel: m.methodLabel, count: m.count, total: m.total })),
             byChargeType: data.byChargeType.map((t) => ({ typeName: t.typeName, total: t.total })),
-            payments: data.payments.map((p) => ({ playerName: p.playerName, amount: p.amount, methodLabel: p.methodLabel, paidAt: p.paidAt })),
+            payments: data.payments.map((p) => ({
+              playerName: p.playerName,
+              amount: p.amount,
+              methodLabel: p.excludedFromCorte ? `${p.methodLabel} (externo)` : p.methodLabel,
+              paidAt: p.paidAt
+            })),
           }}
         />
 
@@ -245,7 +250,14 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
             <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total cobrado</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.payments.length} pago{data.payments.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {data.countedPaymentsCount} pago{data.countedPaymentsCount !== 1 ? "s" : ""} contado{data.countedPaymentsCount !== 1 ? "s" : ""}
+            </p>
+            {data.excludedPaymentsCount > 0 && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {data.excludedPaymentsCount} pago{data.excludedPaymentsCount !== 1 ? "s" : ""} 360Player visible{data.excludedPaymentsCount !== 1 ? "s" : ""} pero fuera del corte
+              </p>
+            )}
           </div>
           {data.byMethod.map((m) => (
             <div key={m.method} className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
@@ -255,6 +267,12 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             </div>
           ))}
         </div>
+
+        {data.excludedPaymentsCount > 0 && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+            Los pagos registrados con metodo <span className="font-semibold">360Player</span> aparecen en la bitacora diaria, pero no suman al total del corte ni a sus desgloses.
+          </div>
+        )}
 
         {/* Charge-type breakdown */}
         {data.byChargeType.length > 0 && (
@@ -297,7 +315,16 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                       </Link>
                     </td>
                     <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.birthYear ?? "-"}</td>
-                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{p.methodLabel}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <span>{p.methodLabel}</span>
+                        {p.excludedFromCorte && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            Externo
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right font-medium">{fmt(p.amount)}</td>
                     <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-xs">{p.notes ?? "-"}</td>
                   </tr>
@@ -342,9 +369,12 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
           </div>
           <div className="border-t border-black my-1" />
           <div className="flex justify-between font-bold text-[12px]">
-            <span>TOTAL ({data.payments.length} pagos)</span>
+            <span>TOTAL ({data.countedPaymentsCount} pagos)</span>
             <span>{fmt(data.totalCobrado)}</span>
           </div>
+          {data.excludedPaymentsCount > 0 && (
+            <p className="mt-1 text-[10px]">Nota: pagos 360Player visibles en detalle, fuera del total del corte.</p>
+          )}
 
           {/* By charge type */}
           {data.byChargeType.length > 0 && (
@@ -370,7 +400,9 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
               <div className="space-y-0.5">
                 {data.payments.map((p) => (
                   <div key={p.id} className="flex justify-between text-[10px]">
-                    <span className="mr-1">{fmtTime(p.paidAt)} {p.playerName.split(" ")[0]}</span>
+                    <span className="mr-1">
+                      {fmtTime(p.paidAt)} {p.playerName.split(" ")[0]}{p.excludedFromCorte ? " [360]" : ""}
+                    </span>
                     <span className="shrink-0">{fmt(p.amount)}</span>
                   </div>
                 ))}

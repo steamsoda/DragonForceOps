@@ -21,7 +21,7 @@ const METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
   card: "Tarjeta",
   transfer: "Transferencia",
-  stripe_360player: "360Player/Stripe",
+  stripe_360player: "360Player",
   other: "Otro",
 };
 

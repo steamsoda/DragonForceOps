@@ -903,3 +903,17 @@
   - filters by campus/team/balance bucket/overdue status
   - quick `tel:` call action and direct link to enrollment ledger
 - Added preview sample data seed script for realistic QA in preview database.
+## 2026-04-01
+
+### Caja / 360Player Recording
+- Added `360Player` as a standard payment method in Caja and kept the normal posted-payment ledger flow intact.
+- `360Player` payments now generate normal internal payments, allocations, folios, and remain searchable in `Recibos`.
+- Disabled automatic receipt printing for `360Player` payments in Caja and the enrollment-ledger payment form; receipts remain available for manual reprint.
+
+### Corte Diario
+- `360Player` payments now remain visible in the Corte Diario transaction list, but are excluded from:
+  - `totalCobrado`
+  - method summary totals
+  - charge-type totals
+  - printed Corte Diario total output
+- Added a visible external-payment tag/note so staff can distinguish recorded external payments from cash-session income.

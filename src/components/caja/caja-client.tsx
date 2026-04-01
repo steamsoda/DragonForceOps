@@ -40,7 +40,7 @@ function methodLabel(method: string) {
     cash: "Efectivo",
     transfer: "Transferencia",
     card: "Tarjeta",
-    stripe_360player: "Stripe 360Player",
+    stripe_360player: "360Player",
     other: "Otro"
   };
   return labels[method] ?? method;
@@ -1222,6 +1222,7 @@ function PosEnrollmentPanel({
                   <option value="cash">Efectivo</option>
                   <option value="transfer">Transferencia</option>
                   <option value="card">Tarjeta</option>
+                  <option value="stripe_360player">360Player</option>
                   <option value="other">Otro</option>
                 </select>
               </label>
@@ -1273,6 +1274,7 @@ function PosEnrollmentPanel({
                       <option value="cash">Efectivo</option>
                       <option value="transfer">Transferencia</option>
                       <option value="card">Tarjeta</option>
+                      <option value="stripe_360player">360Player</option>
                       <option value="other">Otro</option>
                     </select>
                   </label>
@@ -1821,6 +1823,9 @@ function ReceiptPanel({
       ? { amount: receipt.splitPayment.amount, method: methodLabel(receipt.splitPayment.method) }
       : undefined,
   };
+  const shouldAutoPrint =
+    receipt.method !== "stripe_360player" &&
+    receipt.splitPayment?.method !== "stripe_360player";
 
   return (
     <div className="space-y-4">
@@ -1846,8 +1851,14 @@ function ReceiptPanel({
         </div>
       )}
 
+      {!shouldAutoPrint && (
+        <div className="rounded-lg border border-sky-300 bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+          Pago registrado como <span className="font-medium">360Player</span>. El recibo no se imprimio automaticamente, pero queda guardado y disponible en <a href="/receipts" className="font-medium underline hover:no-underline">Recibos</a>.
+        </div>
+      )}
+
       <div className="flex gap-3">
-        <PrintReceiptButton data={receiptData} printerName={printerName} autoPrint />
+        <PrintReceiptButton data={receiptData} printerName={printerName} autoPrint={shouldAutoPrint} />
         <button
           onClick={onBack}
           className="flex-1 rounded-xl border border-portoBlue py-2.5 text-sm font-semibold text-portoBlue hover:bg-blue-50"

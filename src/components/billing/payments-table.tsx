@@ -33,7 +33,7 @@ function getPaymentMethodLabel(method: string) {
     case "card":
       return "Tarjeta";
     case "stripe_360player":
-      return "Stripe 360Player";
+      return "360Player";
     case "other":
       return "Otro";
     default:
