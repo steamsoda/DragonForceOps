@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { listCampuses } from "@/lib/queries/players";
 import { getCorteSemanallData } from "@/lib/queries/reports";
 import { WeeklyBar } from "@/components/dashboard/charts";
@@ -15,6 +16,7 @@ function fmt(value: number) {
 type SearchParams = Promise<{ month?: string; campus?: string }>;
 
 export default async function CorteSemanalPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const selectedMonth = params.month ?? "";

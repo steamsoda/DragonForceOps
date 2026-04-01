@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function mergePlayersAction(formData: FormData): Promise<void> {
@@ -11,12 +12,7 @@ export async function mergePlayersAction(formData: FormData): Promise<void> {
   if (!masterId || !duplicateId) redirect("/admin/merge-players?err=missing_ids");
 
   const supabase = await createClient();
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect("/admin/merge-players?err=unauthenticated");
-
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect("/admin/merge-players?err=unauthorized");
+  const { user } = await requireDirectorContext("/admin/merge-players?err=unauthorized");
 
   const { error } = await supabase.rpc("merge_players", {
     p_master_id:    masterId,

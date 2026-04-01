@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { listTeams } from "@/lib/queries/teams";
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -11,11 +11,8 @@ const LEVEL_COLORS: Record<string, string> = {
 const GENDER_LABELS: Record<string, string> = { male: "Varonil", female: "Femenil" };
 
 export default async function TeamsPage() {
-  const supabase = await createClient();
-  const [teams, { data: isAdmin }] = await Promise.all([
-    listTeams(),
-    supabase.rpc("is_director_admin"),
-  ]);
+  await requireDirectorContext("/unauthorized");
+  const teams = await listTeams();
 
   // Group: campus → birth_year (desc) → teams
   const byCampus = new Map<string, { campusName: string; byYear: Map<string, typeof teams> }>();
@@ -54,13 +51,11 @@ export default async function TeamsPage() {
         </div>
 
         {/* Actions */}
-        {isAdmin && (
-          <div className="flex justify-end">
-            <Link href="/teams/new" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-              + Nuevo equipo
-            </Link>
-          </div>
-        )}
+        <div className="flex justify-end">
+          <Link href="/teams/new" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+            + Nuevo equipo
+          </Link>
+        </div>
 
         {/* Teams grouped by campus + year */}
         {Array.from(byCampus.entries()).map(([campusId, { campusName, byYear }]) => (

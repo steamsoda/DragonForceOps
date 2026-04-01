@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { listTeamsWithCampus, listBulkChargeTypes } from "@/lib/queries/teams";
 import { bulkChargeTeamAction } from "@/server/actions/billing";
 
@@ -13,6 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 type SearchParams = Promise<{ ok?: string; created?: string; err?: string }>;
 
 export default async function CargosEquipoPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const ok = params.ok === "1";
   const created = parseInt(params.created ?? "0", 10);

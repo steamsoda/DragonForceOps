@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,6 +53,8 @@ export type ProductSale = {
 // ── Catalog query (all products incl. inactive, grouped for admin view) ───────
 
 export async function getProductCatalog(): Promise<ProductGroup[]> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return [];
   const supabase = await createClient();
 
   type Row = {
@@ -110,6 +113,8 @@ export type ProductDetail = {
 };
 
 export async function getProductDetail(productId: string): Promise<ProductDetail | null> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return null;
   const supabase = await createClient();
 
   type Row = {
@@ -146,6 +151,10 @@ export async function getProductDetail(productId: string): Promise<ProductDetail
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
 export async function getProductKpis(productId: string, currency: string): Promise<ProductKpis> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) {
+    return { unitsSold: 0, totalRevenue: 0, unitsThisMonth: 0, revenueThisMonth: 0, currency };
+  }
   const supabase = await createClient();
 
   const now = new Date();
@@ -187,6 +196,8 @@ export async function getProductKpis(productId: string, currency: string): Promi
 // ── Size breakdown ────────────────────────────────────────────────────────────
 
 export async function getProductSizeStats(productId: string): Promise<ProductSizeStat[]> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return [];
   const supabase = await createClient();
 
   type Row = { size: string | null; is_goalkeeper: boolean | null; amount: number };
@@ -222,6 +233,8 @@ export async function getProductSizeStats(productId: string): Promise<ProductSiz
 // ── Recent sales ──────────────────────────────────────────────────────────────
 
 export async function getProductRecentSales(productId: string): Promise<ProductSale[]> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return [];
   const supabase = await createClient();
 
   type Row = {

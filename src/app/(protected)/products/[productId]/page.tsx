@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import {
   getProductDetail,
   getProductKpis,
@@ -37,6 +38,8 @@ export default async function ProductDetailPage({
 }) {
   const { productId } = await params;
   const query = await searchParams;
+
+  await requireDirectorContext("/unauthorized");
 
   const [product, sizeStats, recentSales] = await Promise.all([
     getProductDetail(productId),

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -26,8 +27,9 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect("/admin/mensualidades?err=unauthenticated");
+  const directorContext = await requireDirectorContext("/admin/mensualidades?err=unauthorized");
 
-  const { data: result } = await supabase.rpc("generate_monthly_charges", {
+  const { data: result } = await directorContext.supabase.rpc("generate_monthly_charges", {
     p_period_month: periodMonth
   });
 
@@ -59,9 +61,7 @@ export async function voidPaymentAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-
-  const { data: hasAccess } = await supabase.rpc("has_operational_access");
-  if (!hasAccess) redirect(`${BASE}?err=unauthorized`);
+  await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Verify payment belongs to this enrollment and is posted
   const { data: payment } = await supabase
@@ -121,10 +121,7 @@ export async function voidChargeAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-
-  // Only director_admin may void charges
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+  await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Verify charge belongs to this enrollment and is pending
   const { data: charge } = await supabase
@@ -174,9 +171,7 @@ export async function batchVoidBajaChargesAction(formData: FormData): Promise<vo
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect(`${BASE}?err=unauthorized`);
+  await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Only target ended/cancelled enrollments — safety check
   const { data: validEnrollments } = await supabase
@@ -252,6 +247,7 @@ export async function bulkChargeTeamAction(formData: FormData) {
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+  await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Get active enrollments on this team (open assignment + active enrollment)
   const { data: assignments } = await supabase

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { getPortoDatosGenerales, getPortoTeamsData } from "@/lib/queries/porto-report";
 import type { PortoTeamRow } from "@/lib/queries/porto-report";
 import { listEventsForMonthAction } from "@/server/actions/events";
@@ -156,6 +157,7 @@ function TeamsTable({ rows, showCoach }: { rows: PortoTeamRow[]; showCoach?: boo
 type SearchParams = Promise<{ month?: string; rate?: string }>;
 
 export default async function PortoMensualPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const selectedMonth = params.month ?? prevMonthParam();
   const exchangeRate = parseFloat(params.rate ?? "18") || 18;

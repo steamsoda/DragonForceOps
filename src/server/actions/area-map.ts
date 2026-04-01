@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type AreaMapEntry = {
@@ -73,9 +74,7 @@ export async function listAreaMapEntriesAction(month: string): Promise<{
 export async function createAreaMapEntryAction(
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) return { ok: false, error: "unauthenticated" };
+  const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const entryDate  = formData.get("entry_date") as string;
   const typeCode   = (formData.get("type_code") as string)?.trim();
@@ -112,7 +111,7 @@ export async function closeAreaMapEntryAction(
   effectiveness: string,
   closureDate: string
 ): Promise<{ ok: boolean }> {
-  const supabase = await createClient();
+  const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase
     .from("area_map_entries")
     .update({
@@ -127,7 +126,7 @@ export async function closeAreaMapEntryAction(
 }
 
 export async function deleteAreaMapEntryAction(entryId: string): Promise<{ ok: boolean }> {
-  const supabase = await createClient();
+  const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase.from("area_map_entries").delete().eq("id", entryId);
   revalidatePath("/reports/porto-mensual");
   return { ok: !error };

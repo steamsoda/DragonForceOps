@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { getTeamDetail, listTeams } from "@/lib/queries/teams";
 import { TeamRosterClient } from "@/components/teams/team-roster-client";
 
@@ -28,16 +28,16 @@ export default async function TeamDetailPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  const supabase = await createClient();
-  const [team, allTeams, { data: isAdmin }] = await Promise.all([
+  await requireDirectorContext("/unauthorized");
+
+  const [team, allTeams] = await Promise.all([
     getTeamDetail(teamId),
     listTeams(),
-    supabase.rpc("is_director_admin"),
   ]);
 
   if (!team) notFound();
 
-  const isDirector = !!isAdmin;
+  const isDirector = true;
 
   return (
     <PageShell

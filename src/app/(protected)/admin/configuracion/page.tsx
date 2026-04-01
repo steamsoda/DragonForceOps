@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { getAllSettings } from "@/lib/queries/settings";
 import { updateTagSettingsAction, updatePrinterSettingsAction } from "@/server/actions/settings";
 
@@ -12,9 +11,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
 };
 
 export default async function ConfiguracionPage() {
-  const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  if (!isAdmin) redirect("/dashboard");
+  await requireDirectorContext("/unauthorized");
 
   const { tags, printerName } = await getAllSettings();
 

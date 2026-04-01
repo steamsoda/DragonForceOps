@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export type AcademyEvent = {
@@ -53,12 +54,7 @@ export async function createAcademyEventAction(
   month: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) return { ok: false, error: "unauthenticated" };
+  const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const title = (formData.get("title") as string)?.trim();
   const proposedDate = formData.get("proposed_date") as string;
@@ -96,7 +92,7 @@ export async function toggleEventDoneAction(
   isDone: boolean,
   actualDate: string | null
 ): Promise<{ ok: boolean }> {
-  const supabase = await createClient();
+  const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase
     .from("academy_events")
     .update({
@@ -111,7 +107,7 @@ export async function toggleEventDoneAction(
 }
 
 export async function deleteAcademyEventAction(eventId: string): Promise<{ ok: boolean }> {
-  const supabase = await createClient();
+  const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase.from("academy_events").delete().eq("id", eventId);
   revalidatePath("/reports/porto-mensual");
   return { ok: !error };

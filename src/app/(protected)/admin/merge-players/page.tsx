@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { createClient } from "@/lib/supabase/server";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { mergePlayersAction } from "@/server/actions/merge-players";
 
 type SearchParams = Promise<{
@@ -80,10 +81,8 @@ function PlayerSearchResult({ player, paramKey, currentParams }: {
 }
 
 export default async function MergePlayersPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const supabase = await createClient();
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect("/players?err=unauthorized");
-
   const sp = await searchParams;
   const { q1 = "", q2 = "", masterId, duplicateId, err } = sp;
 

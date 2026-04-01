@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { generateTeamName } from "@/lib/queries/teams";
@@ -9,11 +10,13 @@ import { generateTeamName } from "@/lib/queries/teams";
 // ── Guards ────────────────────────────────────────────────────────────────────
 
 async function requireDirector() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { supabase, user: null, isDirector: false } as const;
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  return { supabase, user, isDirector: !!isAdmin } as const;
+  try {
+    const { supabase, user } = await requireDirectorContext("/unauthorized");
+    return { supabase, user, isDirector: true } as const;
+  } catch {
+    const supabase = await createClient();
+    return { supabase, user: null, isDirector: false } as const;
+  }
 }
 
 // ── Create team ───────────────────────────────────────────────────────────────

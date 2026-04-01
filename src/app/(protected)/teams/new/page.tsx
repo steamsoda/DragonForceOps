@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { listCoaches } from "@/lib/queries/teams";
 import { createTeamAction } from "@/server/actions/teams";
 import { listCampuses } from "@/lib/queries/players";
@@ -12,9 +11,7 @@ const BIRTH_YEARS = Array.from({ length: 15 }, (_, i) => CURRENT_YEAR - 6 - i);
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-900";
 
 export default async function NewTeamPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
-  const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  if (!isAdmin) redirect("/teams");
+  await requireDirectorContext("/unauthorized");
 
   const sp = await searchParams;
   const [campuses, coaches] = await Promise.all([listCampuses(), listCoaches()]);

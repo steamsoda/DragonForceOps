@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { canAccessGuardianRecord, canAccessPlayerRecord } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
 import { parseDateOnlyInput } from "@/lib/time";
@@ -96,9 +97,7 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-
-  const { data: hasAccess } = await supabase.rpc("has_operational_access");
-  if (!hasAccess) redirect(`${BASE}?err=unauthorized`);
+  if (!(await canAccessPlayerRecord(playerId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase
     .from("players")
@@ -143,16 +142,7 @@ export async function updateGuardianAction(
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-
-  // Verify this guardian belongs to this player
-  const { data: link } = await supabase
-    .from("player_guardians")
-    .select("id")
-    .eq("player_id", playerId)
-    .eq("guardian_id", guardianId)
-    .maybeSingle();
-
-  if (!link) redirect(`${BASE}?err=unauthorized`);
+  if (!(await canAccessGuardianRecord(playerId, guardianId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase
     .from("guardians")

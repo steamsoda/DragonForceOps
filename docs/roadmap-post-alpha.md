@@ -122,7 +122,7 @@ Follow after the operational tracks above:
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 17 | **Uniformes tab** | 🔴 Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page. Fold in small front-desk asks like repeated uniform quantity and clear sold / ordered / delivered / pending states. |
-| 18 | **Server-side route blocking** | 🔴 Open | Next permissions-op priority. The first campus-scoped `front_desk` pass now exists through issue `#34`, but every `(protected)/` route still needs explicit server-side role enforcement and broader surface review beyond the main operational flows. |
+| 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |

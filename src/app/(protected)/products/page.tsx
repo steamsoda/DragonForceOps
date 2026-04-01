@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { getProductCatalog } from "@/lib/queries/products";
 import { getAdHocChargeTypesAction } from "@/server/actions/products";
 import { createProductAction } from "@/server/actions/products";
@@ -30,6 +31,8 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ err?: string; ok?: string }>;
 }) {
+  await requireDirectorContext("/unauthorized");
+
   const [groups, chargeTypes, query] = await Promise.all([
     getProductCatalog(),
     getAdHocChargeTypesAction(),

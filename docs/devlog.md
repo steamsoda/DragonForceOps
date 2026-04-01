@@ -1016,6 +1016,32 @@
 - Added preview sample data seed script for realistic QA in preview database.
 ## 2026-04-01
 
+### Permissions Hardening
+- Added a shared permission helper layer for route/action gating:
+  - director-only page enforcement via `requireDirectorContext()`
+  - operational/campus-scoped record checks for players, guardians, and enrollments
+- Hardened direct-URL access on director-only surfaces:
+  - teams
+  - products
+  - configuracion
+  - merge players
+  - mensualidades
+  - cargo por equipo
+  - weekly/monthly/Porto reports
+- Expanded app-layer campus checks for front desk record editing:
+  - player edit
+  - guardian edit
+  - enrollment-linked actions
+- Added campus-aware RLS helper functions and replaced broad `is_front_desk()` policies on core operational tables:
+  - players / guardians / player_guardians
+  - enrollments
+  - teams / team_assignments
+  - charges
+  - payments / payment_allocations
+  - cash sessions / cash session entries
+  - corte checkpoints
+- Tightened payment and billing actions so manual monthly generation, team bulk charges, and payment voiding remain director-only at the app layer.
+
 ### Caja / 360Player Recording
 - Added `360Player` as a standard payment method in Caja and kept the normal posted-payment ledger flow intact.
 - `360Player` payments now generate normal internal payments, allocations, folios, and remain searchable in `Recibos`.

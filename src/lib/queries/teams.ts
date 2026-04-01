@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -170,11 +172,14 @@ const EXCLUDED_CODES = new Set(["monthly_tuition", "inscription", "early_bird_di
 
 export async function listTeams(): Promise<TeamListItem[]> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
 
   const [{ data: teams }, { data: counts }] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, birth_year, gender, level, type, campus_id, is_active, season_label, campuses(name, code), coaches(id, first_name, last_name)")
+      .in("campus_id", campusAccess.campusIds)
       .order("campus_id", { ascending: true })
       .order("birth_year", { ascending: false })
       .order("name", { ascending: true })
@@ -208,6 +213,8 @@ export async function listTeams(): Promise<TeamListItem[]> {
 
 export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
 
   const [{ data: team }, { data: rosterRows }, { data: historyRows }] = await Promise.all([
     supabase
@@ -235,6 +242,7 @@ export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> 
   ]);
 
   if (!team) return null;
+  if (!canAccessCampus(campusAccess, team.campus_id)) return null;
 
   const today = new Date();
 
@@ -308,10 +316,13 @@ export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> 
 
 export async function listCoaches(): Promise<CoachOption[]> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
   const { data } = await supabase
     .from("coaches")
     .select("id, first_name, last_name, campus_id")
     .eq("is_active", true)
+    .in("campus_id", campusAccess.campusIds)
     .order("last_name", { ascending: true })
     .returns<CoachRow[]>();
 
@@ -350,10 +361,13 @@ export async function findB2TeamForAutoAssign(
 
 export async function listTeamsWithCampus(): Promise<TeamOption[]> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
   const { data } = await supabase
     .from("teams")
     .select("id, name, birth_year, gender, level, campus_id, campuses(name)")
     .eq("is_active", true)
+    .in("campus_id", campusAccess.campusIds)
     .order("campus_id", { ascending: true })
     .order("birth_year", { ascending: true })
     .order("name", { ascending: true })

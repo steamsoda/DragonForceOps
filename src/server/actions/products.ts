@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -11,12 +12,11 @@ const AD_HOC_CODES = ["uniform_training", "uniform_game", "tournament", "cup", "
 // ── Auth guard ─────────────────────────────────────────────────────────────────
 
 async function assertDirectorAdmin() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  const { data } = await supabase.rpc("is_director_admin");
-  if (!data) return null;
-  return { supabase, user };
+  try {
+    return await requireDirectorContext("/unauthorized");
+  } catch {
+    return null;
+  }
 }
 
 // ── Create product ────────────────────────────────────────────────────────────
@@ -155,9 +155,9 @@ export async function deleteProductAction(productId: string): Promise<void> {
 export type AdHocChargeType = { id: string; code: string; name: string };
 
 export async function getAdHocChargeTypesAction(): Promise<AdHocChargeType[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const auth = await assertDirectorAdmin();
+  if (!auth) return [];
+  const { supabase } = auth;
 
   const { data } = await supabase
     .from("charge_types")

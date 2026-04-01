@@ -1,15 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateTagSettingsAction(formData: FormData): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  if (!isAdmin) return;
+  const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const keys = ["tag_payment", "tag_team_type", "tag_goalkeeper", "tag_uniform"];
   const updates = keys.map((key) => ({
@@ -31,12 +27,7 @@ export async function updateTagSettingsAction(formData: FormData): Promise<void>
 }
 
 export async function updatePrinterSettingsAction(formData: FormData): Promise<void> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  if (!isAdmin) return;
+  const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const printerName = formData.get("printer_name")?.toString().trim() || "EPSON TM-T20IV";
 

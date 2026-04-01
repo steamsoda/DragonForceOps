@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 // ── Equipos + Clases ───────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ type AssignmentRow = {
 };
 
 export async function getPortoTeamsData(): Promise<PortoTeamsData> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return { competicion: [], clases: [] };
   const supabase = await createClient();
 
   const [teamsResult, assignmentsResult] = await Promise.all([
@@ -98,6 +101,8 @@ export type PortoDatosGenerales = {
 export async function getPortoDatosGenerales(
   month: string // "YYYY-MM"
 ): Promise<PortoDatosGenerales | null> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return null;
   const supabase = await createClient();
   const firstDay = `${month}-01`;
 

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { canAccessGuardianRecord } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { GuardianForm } from "@/components/players/guardian-form";
 import { updateGuardianAction } from "@/server/actions/players";
@@ -30,15 +31,7 @@ export default async function EditGuardianPage({ params, searchParams }: PagePro
 
   const supabase = await createClient();
 
-  // Verify guardian belongs to player
-  const { data: link } = await supabase
-    .from("player_guardians")
-    .select("guardian_id")
-    .eq("player_id", playerId)
-    .eq("guardian_id", guardianId)
-    .maybeSingle();
-
-  if (!link) notFound();
+  if (!(await canAccessGuardianRecord(playerId, guardianId))) notFound();
 
   const { data: guardian } = await supabase
     .from("guardians")

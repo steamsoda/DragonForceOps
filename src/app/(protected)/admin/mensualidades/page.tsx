@@ -1,4 +1,5 @@
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { generateMonthlyTuitionAction } from "@/server/actions/billing";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -24,6 +25,7 @@ function getCurrentMonthValue() {
 }
 
 export default async function MensualidadesPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const ok = params.ok === "1";
   const created = parseInt(params.created ?? "0", 10);

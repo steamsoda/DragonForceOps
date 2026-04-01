@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { listCampuses } from "@/lib/queries/players";
 import { getResumenMensualData } from "@/lib/queries/reports";
 import { MONTH_NAMES_ES } from "@/lib/billing/generate-monthly-charges";
@@ -21,6 +22,7 @@ function monthLabel(month: string) {
 type SearchParams = Promise<{ month?: string; campus?: string }>;
 
 export default async function ResumenMensualPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const selectedMonth = params.month ?? "";
   const selectedCampusId = params.campus ?? "";

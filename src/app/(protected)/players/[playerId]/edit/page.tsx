@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { DateInputWithPicker } from "@/components/ui/date-input-with-picker";
+import { canAccessPlayerRecord } from "@/lib/auth/permissions";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { updatePlayerAction } from "@/server/actions/players";
-import { createClient } from "@/lib/supabase/server";
 
 const SIZES = ["XCH JR", "CH JR", "M JR", "G JR", "XL JR", "CH", "M", "G", "XL"];
 
@@ -19,10 +19,9 @@ export default async function PlayerEditPage({
   const { playerId } = await params;
   const sp = await searchParams;
 
-  // Director-only page
-  const supabase = await createClient();
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  if (!isDirector) redirect(`/players/${playerId}?err=unauthorized`);
+  if (!(await canAccessPlayerRecord(playerId))) {
+    redirect(`/players/${playerId}?err=unauthorized`);
+  }
 
   const player = await getPlayerDetail(playerId);
   if (!player) notFound();

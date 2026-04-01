@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { getTeamDetail, listCoaches } from "@/lib/queries/teams";
 import { editTeamAction } from "@/server/actions/teams";
 
@@ -16,9 +16,7 @@ export default async function EditTeamPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  const supabase = await createClient();
-  const { data: isAdmin } = await supabase.rpc("is_director_admin");
-  if (!isAdmin) redirect(`/teams/${teamId}`);
+  await requireDirectorContext("/unauthorized");
 
   const [team, coaches] = await Promise.all([
     getTeamDetail(teamId),
