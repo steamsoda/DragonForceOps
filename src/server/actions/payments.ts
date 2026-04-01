@@ -1,5 +1,6 @@
 "use server";
 
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +52,14 @@ export async function postEnrollmentPaymentAction(
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
 
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { ok: false, error: "unauthenticated" };
+
+  const operatorCampusId = parsed.operatorCampusId ?? campusAccess.defaultCampusId;
+  if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
+    return { ok: false, error: "invalid_form" };
+  }
+
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -78,6 +87,7 @@ export async function postEnrollmentPaymentAction(
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
       status: "posted",
+      operator_campus_id: operatorCampusId,
       provider_ref: providerRef,
       external_source: "manual",
       notes: parsed.notes,
@@ -107,7 +117,7 @@ export async function postEnrollmentPaymentAction(
 
   const sessionWarning = await linkCashPaymentsToOpenSession(
     supabase,
-    enrollmentId,
+    operatorCampusId,
     [{ id: paymentRow.id, amount: parsed.amount, method: parsed.method }],
     user.id
   );

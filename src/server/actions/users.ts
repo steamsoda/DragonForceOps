@@ -28,6 +28,7 @@ export async function grantRoleAction(formData: FormData) {
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
+  const campusIdRaw = formData.get("campus_id")?.toString().trim() ?? "";
   if (!targetUserId || !roleCode) redirect(`${BASE}?err=invalid_form`);
 
   const { data: role } = await supabase
@@ -38,11 +39,24 @@ export async function grantRoleAction(formData: FormData) {
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
+  let campusId: string | null = null;
+  if (roleCode === "front_desk") {
+    if (!campusIdRaw) redirect(`${BASE}?err=invalid_form`);
+    const { data: campus } = await supabase
+      .from("campuses")
+      .select("id")
+      .eq("id", campusIdRaw)
+      .eq("is_active", true)
+      .maybeSingle<{ id: string }>();
+    if (!campus) redirect(`${BASE}?err=invalid_form`);
+    campusId = campus.id;
+  }
+
   const { error } = await supabase
     .from("user_roles")
-    .insert({ user_id: targetUserId, role_id: role.id });
+    .insert({ user_id: targetUserId, role_id: role.id, campus_id: campusId });
 
-  if (error && !error.message.includes("duplicate")) {
+  if (error && error.code !== "23505" && !error.message.toLowerCase().includes("duplicate")) {
     redirect(`${BASE}?err=grant_failed`);
   }
 
@@ -55,6 +69,7 @@ export async function revokeRoleAction(formData: FormData) {
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
+  const campusIdRaw = formData.get("campus_id")?.toString().trim() ?? "";
   if (!targetUserId || !roleCode) redirect(`${BASE}?err=invalid_form`);
 
   const { data: role } = await supabase
@@ -65,11 +80,17 @@ export async function revokeRoleAction(formData: FormData) {
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
-  const { error } = await supabase
+  let revokeQuery = supabase
     .from("user_roles")
     .delete()
     .eq("user_id", targetUserId)
     .eq("role_id", role.id);
+
+  revokeQuery = campusIdRaw
+    ? revokeQuery.eq("campus_id", campusIdRaw)
+    : revokeQuery.is("campus_id", null);
+
+  const { error } = await revokeQuery;
 
   if (error) redirect(`${BASE}?err=revoke_failed`);
 

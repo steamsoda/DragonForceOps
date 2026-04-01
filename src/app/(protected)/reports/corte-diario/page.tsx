@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrintButton } from "./print-button";
+import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { listCampuses } from "@/lib/queries/players";
 import { getCorteDiarioData } from "@/lib/queries/reports";
 import { getCampusSessionStatuses, getSessionForDate } from "@/lib/queries/cash-sessions";
 import { closeCashSessionAction } from "@/server/actions/cash-sessions";
-import { createClient } from "@/lib/supabase/server";
 import { getPrinterName } from "@/lib/queries/settings";
 import { formatDateTimeMonterrey, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
 
@@ -28,7 +28,7 @@ function fmtDateTime(iso: string) {
 const CLOSE_ERROR_LABELS: Record<string, string> = {
   invalid_form: "Formulario inválido.",
   invalid_amount: "El monto debe ser 0 o mayor.",
-  unauthorized: "Solo el director puede gestionar sesiones.",
+  unauthorized: "No tienes permiso para gestionar ese campus.",
   session_not_found: "Sesión no encontrada.",
   close_failed: "Error al cerrar la sesión."
 };
@@ -40,11 +40,10 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
   const selectedDate = params.date ?? "";
   const selectedCampusId = params.campus ?? "";
 
-  const supabase = await createClient();
-  const [campuses, sessionStatuses, isDirectorResult, printerName] = await Promise.all([
+  const [campuses, sessionStatuses, campusAccess, printerName] = await Promise.all([
     listCampuses(),
     getCampusSessionStatuses(),
-    supabase.rpc("is_director_admin"),
+    getOperationalCampusAccess(),
     getPrinterName(),
   ]);
 
@@ -61,7 +60,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
     sessionOpenedAt: sessionForDate?.openedAt ?? undefined,
     sessionClosedAt: sessionForDate?.closedAt ?? undefined,
   });
-  const isDirector = isDirectorResult.data ?? false;
+  const canManageSessions = Boolean(campusAccess?.isDirector || campusAccess?.isFrontDesk);
 
   // Filter sessions to selected campus (or all if none selected)
   const relevantStatuses = selectedCampusId
@@ -144,7 +143,11 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             payments: data.payments.map((p) => ({
               playerName: p.playerName,
               amount: p.amount,
-              methodLabel: p.excludedFromCorte ? `${p.methodLabel} (externo)` : p.methodLabel,
+              methodLabel: p.excludedFromCorte
+                ? `${p.methodLabel} (externo)`
+                : p.isCrossCampus
+                ? `${p.methodLabel} (cruzado)`
+                : p.methodLabel,
               paidAt: p.paidAt
             })),
           }}
@@ -197,7 +200,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                           <p className="font-semibold text-slate-800 dark:text-slate-200">{fmt(session.openingCash + session.cashIn)}</p>
                         </div>
                       </div>
-                      {isDirector && (
+                      {canManageSessions && (
                         <details className="mt-3 group">
                           <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
                             Cerrar sesión
@@ -299,6 +302,8 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   <th className="px-3 py-2">Hora</th>
                   <th className="px-3 py-2">Jugador</th>
+                  <th className="px-3 py-2">Campus jugador</th>
+                  <th className="px-3 py-2">Campus que recibe</th>
                   <th className="px-3 py-2">Cat.</th>
                   <th className="px-3 py-2">Método</th>
                   <th className="px-3 py-2 text-right">Monto</th>
@@ -313,6 +318,17 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                       <Link href={`/enrollments/${p.enrollmentId}/charges`} className="text-portoBlue hover:underline">
                         {p.playerName}
                       </Link>
+                    </td>
+                    <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.playerCampusName}</td>
+                    <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <span>{p.operatorCampusName}</span>
+                        {p.isCrossCampus && (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                            Cruzado
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{p.birthYear ?? "-"}</td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
@@ -332,7 +348,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
-                  <td className="px-3 py-2" colSpan={4}>Total</td>
+                  <td className="px-3 py-2" colSpan={6}>Total</td>
                   <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
                   <td />
                 </tr>
@@ -401,7 +417,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                 {data.payments.map((p) => (
                   <div key={p.id} className="flex justify-between text-[10px]">
                     <span className="mr-1">
-                      {fmtTime(p.paidAt)} {p.playerName.split(" ")[0]}{p.excludedFromCorte ? " [360]" : ""}
+                      {fmtTime(p.paidAt)} {p.playerName.split(" ")[0]}{p.excludedFromCorte ? " [360]" : p.isCrossCampus ? " [X]" : ""}
                     </span>
                     <span className="shrink-0">{fmt(p.amount)}</span>
                   </div>

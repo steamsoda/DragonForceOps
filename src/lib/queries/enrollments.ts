@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
   fetchPricingPlanVersionsByCode,
   getDefaultEnrollmentStartDate,
@@ -32,13 +33,17 @@ type TeamOptionRow = {
 
 export async function listTeamsForPending(campusId?: string) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
   let query = supabase
     .from("teams")
     .select("id, name")
     .eq("is_active", true)
+    .in("campus_id", campusAccess.campusIds)
     .order("name", { ascending: true });
 
   if (campusId) {
+    if (!canAccessCampus(campusAccess, campusId)) return [];
     query = query.eq("campus_id", campusId);
   }
 
@@ -172,6 +177,8 @@ type PendingChargeRow = {
 
 export async function listBajaEnrollmentsWithBalance(): Promise<BajaEnrollmentRow[]> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
 
   const [{ data: balanceRows }, { data: enrollmentRows }, { data: chargeRows }] = await Promise.all([
     supabase
@@ -183,6 +190,7 @@ export async function listBajaEnrollmentsWithBalance(): Promise<BajaEnrollmentRo
       .from("enrollments")
       .select("id, player_id, status, end_date, dropout_reason, players(first_name, last_name), campuses(name)")
       .in("status", ["ended", "cancelled"])
+      .in("campus_id", campusAccess.campusIds)
       .order("end_date", { ascending: false })
       .returns<BajaEnrollmentDbRow[]>(),
     supabase
@@ -252,6 +260,8 @@ export type EnrollmentEditContext = {
 
 export async function getEnrollmentEditContext(enrollmentId: string): Promise<EnrollmentEditContext | null> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
 
   const [enrollmentResult, campusResult] = await Promise.all([
     supabase
@@ -269,6 +279,7 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
   ]);
 
   if (!enrollmentResult.data) return null;
+  if (!canAccessCampus(campusAccess, enrollmentResult.data.campus_id)) return null;
 
   const e = enrollmentResult.data;
   return {
@@ -284,7 +295,7 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
       dropoutReason: e.dropout_reason,
       dropoutNotes: e.dropout_notes
     },
-    campuses: campusResult.data ?? []
+    campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id))
   };
 }
 
@@ -312,6 +323,15 @@ export type EnrollmentIntakeContext = {
 
 export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) {
+    return {
+      campuses: [],
+      planCode: "standard",
+      pricingVersions: [],
+      defaultStartDate: getDefaultEnrollmentStartDate(),
+    };
+  }
   const defaultStartDate = getDefaultEnrollmentStartDate();
 
   const [campusResult, pricingVersions] = await Promise.all([
@@ -327,7 +347,7 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
 
   return {
-    campuses: campusResult.data ?? [],
+    campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id)),
     planCode: defaultQuote?.plan.planCode ?? "standard",
     pricingVersions,
     defaultStartDate,
@@ -338,6 +358,8 @@ export async function getEnrollmentCreateFormContext(
   playerId: string
 ): Promise<EnrollmentCreateFormContext | null> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
   const defaultStartDate = getDefaultEnrollmentStartDate();
 
   const [playerResult, campusResult, pricingVersions, activeEnrollmentResult] = await Promise.all([
@@ -370,7 +392,7 @@ export async function getEnrollmentCreateFormContext(
   return {
     player: { id: p.id, fullName: `${p.first_name} ${p.last_name}`.trim() },
     hasActiveEnrollment: !!activeEnrollmentResult.data,
-    campuses: campusResult.data ?? [],
+    campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id)),
     planCode: defaultQuote?.plan.planCode ?? "standard",
     pricingVersions,
     defaultStartDate

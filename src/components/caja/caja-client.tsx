@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { PrintReceiptButton } from "./print-receipt-button";
 import { type ReceiptData } from "@/lib/printer";
+import type { AccessibleCampus } from "@/lib/auth/campuses";
 import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
@@ -68,7 +69,17 @@ type View =
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function CajaClient({ printerName, initialEnrollmentId }: { printerName: string; initialEnrollmentId?: string }) {
+export function CajaClient({
+  printerName,
+  initialEnrollmentId,
+  allowedCampuses,
+  defaultCampusId,
+}: {
+  printerName: string;
+  initialEnrollmentId?: string;
+  allowedCampuses: AccessibleCampus[];
+  defaultCampusId: string | null;
+}) {
   const [view, setView] = useState<View>({ tag: "idle" });
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -305,6 +316,8 @@ export function CajaClient({ printerName, initialEnrollmentId }: { printerName: 
         <PosEnrollmentPanel
           player={view.player}
           data={view.data}
+          allowedCampuses={allowedCampuses}
+          defaultCampusId={defaultCampusId}
           products={preloadedProducts ?? []}
           productsLoading={preloadedProducts === null}
           onCancel={reset}
@@ -573,6 +586,8 @@ function makeCartItemId() {
 function PosEnrollmentPanel({
   player,
   data,
+  allowedCampuses,
+  defaultCampusId,
   products,
   productsLoading,
   onCancel,
@@ -581,6 +596,8 @@ function PosEnrollmentPanel({
 }: {
   player: CajaPlayerResult;
   data: CajaEnrollmentData;
+  allowedCampuses: AccessibleCampus[];
+  defaultCampusId: string | null;
   products: CajaProductCategory[];
   productsLoading: boolean;
   onCancel: () => void;
@@ -603,6 +620,9 @@ function PosEnrollmentPanel({
   const [paymentAmount2, setPaymentAmount2] = useState("");
   const [paymentMethod2, setPaymentMethod2] = useState("transfer");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [operatorCampusId, setOperatorCampusId] = useState(
+    defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId
+  );
   const [panelError, setPanelError] = useState<string | null>(null);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
 
@@ -643,10 +663,18 @@ function PosEnrollmentPanel({
     stagedItems.reduce((sum, item) => sum + item.amount, 0);
   const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
   const payableNow = checkoutTotal > 0;
+  const selectedOperatorCampus = allowedCampuses.find((campus) => campus.id === operatorCampusId) ?? null;
+  const isCrossCampus = operatorCampusId !== data.campusId;
 
   useEffect(() => {
     setPaymentAmount(checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "");
   }, [checkoutTotal]);
+
+  useEffect(() => {
+    if (!allowedCampuses.some((campus) => campus.id === operatorCampusId)) {
+      setOperatorCampusId(defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId);
+    }
+  }, [allowedCampuses, data.campusId, defaultCampusId, operatorCampusId]);
 
   function resetConfigurator(nextProduct?: CajaProduct | null) {
     setSelectedProduct(nextProduct ?? null);
@@ -757,6 +785,7 @@ function PosEnrollmentPanel({
       const formData = new FormData();
       formData.set("amount", paymentAmount);
       formData.set("method", paymentMethod);
+      formData.set("operatorCampusId", operatorCampusId);
       if (paymentNotes.trim()) formData.set("notes", paymentNotes.trim());
       if (splitMode) {
         formData.set("amount2", paymentAmount2);
@@ -1227,6 +1256,29 @@ function PosEnrollmentPanel({
                 </select>
               </label>
             </div>
+
+            {allowedCampuses.length > 1 ? (
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Campus que recibe</span>
+                <select
+                  value={operatorCampusId}
+                  onChange={(e) => setOperatorCampusId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                >
+                  {allowedCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>
+                      {campus.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {isCrossCampus ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                El jugador pertenece a {data.campusName}, pero este cobro se registrara operativamente para {selectedOperatorCampus?.name ?? "otro campus"}.
+              </div>
+            ) : null}
 
             {!splitMode ? (
               <button

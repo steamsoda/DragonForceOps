@@ -1,6 +1,7 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
@@ -44,6 +45,7 @@ export default async function ChargesPage({
     supabase.rpc("is_director_admin"),
     getPrinterName(),
   ]);
+  const campusAccess = await getOperationalCampusAccess();
 
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
@@ -112,6 +114,10 @@ export default async function ChargesPage({
             currency={ledger.enrollment.currency}
             action={postPayment}
             printerName={printerName}
+            playerCampusId={ledger.enrollment.campusId}
+            playerCampusName={ledger.enrollment.campusName}
+            allowedCampuses={campusAccess?.campuses ?? []}
+            defaultCampusId={campusAccess?.defaultCampusId ?? ledger.enrollment.campusId}
           />
           <PaymentsTable rows={ledger.payments} voidPaymentAction={voidPayment} />
         </section>

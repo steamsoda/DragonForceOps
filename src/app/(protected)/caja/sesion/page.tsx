@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
 import { openCashSessionAction, closeCashSessionAction } from "@/server/actions/cash-sessions";
-import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Sesión de Caja — Dragon Force Ops" };
+export const metadata = { title: "Sesion de Caja - Dragon Force Ops" };
 
 function fmt(v: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v);
@@ -12,33 +12,35 @@ function fmt(v: number) {
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Monterrey"
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey"
   });
 }
 
 const ERROR_LABELS: Record<string, string> = {
-  invalid_form: "Formulario inválido.",
+  invalid_form: "Formulario invalido.",
   invalid_amount: "El monto debe ser 0 o mayor.",
-  unauthorized: "Solo el director puede gestionar sesiones.",
-  session_already_open: "Ya hay una sesión abierta para este campus.",
-  session_not_found: "Sesión no encontrada.",
-  open_failed: "Error al abrir la sesión.",
-  close_failed: "Error al cerrar la sesión."
+  unauthorized: "No tienes permiso para gestionar ese campus.",
+  session_already_open: "Ya hay una sesion abierta para este campus.",
+  session_not_found: "Sesion no encontrada.",
+  open_failed: "Error al abrir la sesion.",
+  close_failed: "Error al cerrar la sesion."
 };
 
 type SearchParams = Promise<{ ok?: string; err?: string }>;
 
 export default async function CajaSessionPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-
-  const supabase = await createClient();
-  const { data: isDirector } = await supabase.rpc("is_director_admin");
-  const statuses = await getCampusSessionStatuses();
+  const [campusAccess, statuses] = await Promise.all([getOperationalCampusAccess(), getCampusSessionStatuses()]);
+  const canManageSessions = Boolean(campusAccess?.isDirector || campusAccess?.isFrontDesk);
 
   const banner = params.ok === "opened"
-    ? { type: "success", msg: "Sesión abierta correctamente." }
+    ? { type: "success", msg: "Sesion abierta correctamente." }
     : params.ok === "closed"
-    ? { type: "success", msg: "Sesión cerrada correctamente." }
+    ? { type: "success", msg: "Sesion cerrada correctamente." }
     : params.err
     ? { type: "error", msg: ERROR_LABELS[params.err] ?? `Error: ${params.err}` }
     : null;
@@ -50,7 +52,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
       breadcrumbs={[{ label: "Caja", href: "/caja" }, { label: "Sesiones" }]}
     >
       <div className="space-y-6">
-        {banner && (
+        {banner ? (
           <div className={`rounded-md border px-4 py-3 text-sm ${
             banner.type === "success"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -58,9 +60,8 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
           }`}>
             {banner.msg}
           </div>
-        )}
+        ) : null}
 
-        {/* Campus session cards */}
         <div className="grid gap-4 sm:grid-cols-2">
           {statuses.map(({ campusId, campusName, session }) => (
             <div
@@ -77,7 +78,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                   {session ? (
                     <>
                       <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                        Sesión abierta
+                        Sesion abierta
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Apertura: {fmtTime(session.openedAt)}
@@ -88,7 +89,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Cobrado en sesión</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Cobrado en sesion</p>
                           <p className="font-semibold text-emerald-700 dark:text-emerald-400">{fmt(session.cashIn)}</p>
                         </div>
                         <div>
@@ -98,19 +99,17 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                       </div>
                     </>
                   ) : (
-                    <p className="mt-1 text-xs text-slate-400">Sin sesión activa</p>
+                    <p className="mt-1 text-xs text-slate-400">Sin sesion activa</p>
                   )}
                 </div>
               </div>
 
-              {/* Director actions */}
-              {isDirector && (
+              {canManageSessions ? (
                 <div className="mt-4">
                   {session ? (
-                    /* Close session form */
                     <details className="group">
                       <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
-                        Cerrar sesión
+                        Cerrar sesion
                       </summary>
                       <form action={closeCashSessionAction} className="mt-3 space-y-3">
                         <input type="hidden" name="session_id" value={session.id} />
@@ -126,16 +125,14 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                             placeholder="0.00"
                             className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                           />
-                          <p className="text-xs text-slate-400">
-                            Esperado: {fmt(session.openingCash + session.cashIn)}
-                          </p>
+                          <p className="text-xs text-slate-400">Esperado: {fmt(session.openingCash + session.cashIn)}</p>
                         </label>
                         <label className="block space-y-1 text-sm">
                           <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
                           <input
                             type="text"
                             name="notes"
-                            placeholder="Ej: variación de $50 por cambio"
+                            placeholder="Ej: variacion por cambio"
                             className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                           />
                         </label>
@@ -148,17 +145,14 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                       </form>
                     </details>
                   ) : (
-                    /* Open session form */
                     <details className="group">
                       <summary className="cursor-pointer list-none rounded-md border border-emerald-500 bg-emerald-500 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600">
-                        Abrir sesión
+                        Abrir sesion
                       </summary>
                       <form action={openCashSessionAction} className="mt-3 space-y-3">
                         <input type="hidden" name="campus_id" value={campusId} />
                         <label className="block space-y-1 text-sm">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">
-                            Efectivo inicial en caja
-                          </span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">Efectivo inicial en caja</span>
                           <input
                             type="number"
                             name="opening_cash"
@@ -179,28 +173,25 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                     </details>
                   )}
                 </div>
-              )}
-
-              {/* Read-only note for non-directors */}
-              {!isDirector && !session && (
-                <p className="mt-3 text-xs text-slate-400">El director debe abrir la sesión antes de recibir pagos en efectivo.</p>
-              )}
+              ) : !session ? (
+                <p className="mt-3 text-xs text-slate-400">El personal autorizado debe abrir la sesion antes de recibir pagos en efectivo.</p>
+              ) : null}
             </div>
           ))}
         </div>
 
         <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-          <p className="font-medium text-slate-700 dark:text-slate-300">Cómo funciona</p>
+          <p className="font-medium text-slate-700 dark:text-slate-300">Como funciona</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>Abre la sesión al inicio del turno con el efectivo disponible en caja.</li>
-            <li>Los pagos en efectivo registrados en Caja se vinculan automáticamente a la sesión abierta.</li>
-            <li>Al cierre, cuenta el efectivo físico y registra el total. El sistema muestra la variación.</li>
-            <li>Solo el director puede abrir y cerrar sesiones.</li>
+            <li>Abre la sesion al inicio del turno con el efectivo disponible en caja.</li>
+            <li>Los pagos en efectivo registrados en Caja se vinculan automaticamente a la sesion abierta.</li>
+            <li>Al cierre, cuenta el efectivo fisico y registra el total. El sistema muestra la variacion.</li>
+            <li>El personal autorizado solo puede operar los campus que tenga asignados.</li>
           </ul>
         </div>
 
         <Link href="/caja" className="inline-block text-sm text-portoBlue hover:underline">
-          ← Volver a Caja
+          Volver a Caja
         </Link>
       </div>
     </PageShell>

@@ -1,15 +1,20 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PrintReceiptButton } from "@/components/caja/print-receipt-button";
 import type { EnrollmentPaymentResult } from "@/server/actions/payments";
+import type { AccessibleCampus } from "@/lib/auth/campuses";
 
 type PaymentPostFormProps = {
   currentBalance: number;
   currency: string;
   action: (formData: FormData) => Promise<EnrollmentPaymentResult>;
   printerName: string;
+  playerCampusId: string;
+  playerCampusName: string;
+  allowedCampuses: AccessibleCampus[];
+  defaultCampusId: string;
 };
 
 const ERROR_LABELS: Record<string, string> = {
@@ -25,10 +30,23 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
-export function PaymentPostForm({ currentBalance, currency, action, printerName }: PaymentPostFormProps) {
+export function PaymentPostForm({
+  currentBalance,
+  currency,
+  action,
+  printerName,
+  playerCampusId,
+  playerCampusName,
+  allowedCampuses,
+  defaultCampusId,
+}: PaymentPostFormProps) {
   const defaultAmount = currentBalance > 0 ? currentBalance.toFixed(2) : "";
   const router = useRouter();
   const refreshed = useRef(false);
+  const resolvedDefaultCampusId = defaultCampusId || allowedCampuses[0]?.id || playerCampusId;
+  const [operatorCampusId, setOperatorCampusId] = useState(resolvedDefaultCampusId);
+  const selectedCampus = allowedCampuses.find((campus) => campus.id === operatorCampusId) ?? null;
+  const isCrossCampus = !!operatorCampusId && operatorCampusId !== playerCampusId;
 
   const [state, formAction, isPending] = useActionState(
     async (_prev: EnrollmentPaymentResult | null, formData: FormData) => action(formData),
@@ -56,7 +74,7 @@ export function PaymentPostForm({ currentBalance, currency, action, printerName 
         <PrintReceiptButton
           data={state.receipt}
           printerName={printerName}
-          autoPrint={state.receipt.method !== "stripe_360player"}
+          autoPrint={state.receipt.method !== "360Player"}
         />
       </div>
     );
@@ -114,6 +132,30 @@ export function PaymentPostForm({ currentBalance, currency, action, printerName 
           />
         </label>
       </div>
+      {allowedCampuses.length > 1 ? (
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Campus que recibe</span>
+          <select
+            name="operatorCampusId"
+            value={operatorCampusId}
+            onChange={(event) => setOperatorCampusId(event.target.value)}
+            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
+          >
+            {allowedCampuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>
+                {campus.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <input type="hidden" name="operatorCampusId" value={operatorCampusId} />
+      )}
+      {allowedCampuses.length > 1 && isCrossCampus ? (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Este pago pertenece al jugador de {playerCampusName}, pero operativamente lo recibira {selectedCampus?.name ?? "otro campus"}.
+        </div>
+      ) : null}
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Los cargos pendientes se cubren automaticamente del mas antiguo al mas reciente.
       </p>

@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-04-01 (session 32)
+
+### Cross-Campus Payment Ownership + Campus-Scoped Front Desk
+
+- Added `operator_campus_id` to `payments` and backfilled historical rows from the enrollment campus so legacy reporting keeps working safely.
+- Caja and enrollment-ledger payment posting now record the campus that physically received the payment, while the player ledger and allocations stay attached to the player's enrollment campus.
+- Cross-campus handling is now explicit in operational views:
+  - Corte Diario filters by receiving campus (`operator_campus_id`)
+  - payment rows expose both player campus and receiving campus
+  - cross-campus payments are visibly tagged instead of being hidden as normal same-campus activity
+- Preserved the existing money-handling split:
+  - `cash` still links into cash sessions
+  - `card` now follows receiving-campus ownership in Corte Diario but does not enter cash-session expected-cash math
+  - `360Player` still shows in transaction rows but stays excluded from corte totals
+- Introduced campus-aware operational access helpers and applied them across the main front-desk surfaces:
+  - Caja
+  - player lists/details used operationally
+  - pending views
+  - receipts search
+  - cash-session pages
+  - Corte Diario
+- Superadmin can now grant `front_desk` roles with explicit campus assignment, including multiple campus rows for Linda Vista hub staff.
+- Resulting model:
+  - Contry staff can stay scoped to Contry
+  - Linda Vista power front desk can operate Linda Vista and Contry without needing `director_admin`
+  - broader permissions hardening still remains tracked separately under issue `#18`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 31)
 
 ### Issue 33 Rollback for Replan

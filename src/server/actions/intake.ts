@@ -1,5 +1,6 @@
 "use server";
 
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +26,7 @@ type IntakeMatchEnrollmentRow = {
   status: string;
   start_date: string;
   end_date: string | null;
-  campuses: { name: string | null } | null;
+  campuses: { id: string | null; name: string | null } | null;
 };
 
 export type IntakeMatch = {
@@ -91,6 +92,8 @@ export async function searchLikelyPlayersForIntakeAction(input: {
   if (!/^\d{4}$/.test(year)) return [];
 
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return [];
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -119,7 +122,7 @@ export async function searchLikelyPlayersForIntakeAction(input: {
   const playerIds = filteredPlayers.map((player) => player.id);
   const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("player_id, status, start_date, end_date, campuses(name)")
+    .select("player_id, status, start_date, end_date, campuses(id, name)")
     .in("player_id", playerIds)
     .order("start_date", { ascending: false })
     .returns<IntakeMatchEnrollmentRow[]>();
@@ -131,21 +134,28 @@ export async function searchLikelyPlayersForIntakeAction(input: {
     enrollmentsByPlayer.set(enrollment.player_id, current);
   }
 
-  return filteredPlayers.map((player) => {
-    const playerEnrollments = enrollmentsByPlayer.get(player.id) ?? [];
-    const activeEnrollment = playerEnrollments.find((enrollment) => enrollment.status === "active");
-    const latestEnrollment = playerEnrollments[0] ?? null;
+  return filteredPlayers
+    .map((player): IntakeMatch | null => {
+      const playerEnrollments = enrollmentsByPlayer.get(player.id) ?? [];
+      const visibleEnrollments = playerEnrollments.filter(
+        (enrollment) => !!enrollment.campuses?.id && canAccessCampus(campusAccess, enrollment.campuses.id)
+      );
+      if (visibleEnrollments.length === 0) return null;
 
-    return {
-      playerId: player.id,
-      fullName: `${player.first_name} ${player.last_name}`.trim(),
-      birthDate: player.birth_date,
-      status: player.status,
-      hasActiveEnrollment: !!activeEnrollment,
-      campusLabel: activeEnrollment?.campuses?.name ?? latestEnrollment?.campuses?.name ?? null,
-      lastEnrollmentDate: activeEnrollment?.start_date ?? latestEnrollment?.start_date ?? null,
-    };
-  });
+      const activeEnrollment = visibleEnrollments.find((enrollment) => enrollment.status === "active");
+      const latestEnrollment = visibleEnrollments[0] ?? null;
+
+      return {
+        playerId: player.id,
+        fullName: `${player.first_name} ${player.last_name}`.trim(),
+        birthDate: player.birth_date,
+        status: player.status,
+        hasActiveEnrollment: !!activeEnrollment,
+        campusLabel: activeEnrollment?.campuses?.name ?? latestEnrollment?.campuses?.name ?? null,
+        lastEnrollmentDate: activeEnrollment?.start_date ?? latestEnrollment?.start_date ?? null,
+      };
+    })
+    .filter((match): match is IntakeMatch => match !== null);
 }
 
 export async function createEnrollmentIntakeAction(formData: FormData) {
@@ -165,6 +175,13 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   } = await supabase.auth.getUser();
   if (userError || !user) {
     return redirectWithError("unauthenticated", {
+      isReturning: enrollment.isReturning,
+      returnMode: enrollment.returnInscriptionMode,
+    });
+  }
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || !canAccessCampus(campusAccess, enrollment.campusId)) {
+    return redirectWithError("invalid_form", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
     });

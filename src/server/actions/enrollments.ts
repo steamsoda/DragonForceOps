@@ -1,5 +1,6 @@
 "use server";
 
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +38,13 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   } = await supabase.auth.getUser();
   if (userError || !user) {
     return redirectWithError(playerId, "unauthenticated", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || !canAccessCampus(campusAccess, parsed.campusId)) {
+    return redirectWithError(playerId, "invalid_form", {
       isReturning: parsed.isReturning,
       returnMode: parsed.returnInscriptionMode,
     });
@@ -205,15 +213,22 @@ export async function updateEnrollmentAction(
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return redirectWithEditError(enrollmentId, playerId, "unauthenticated");
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || !canAccessCampus(campusAccess, parsed.campusId)) {
+    return redirectWithEditError(enrollmentId, playerId, "invalid_form");
+  }
 
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id")
+    .select("id, campus_id")
     .eq("id", enrollmentId)
     .eq("player_id", playerId)
-    .maybeSingle();
+    .maybeSingle<{ id: string; campus_id: string }>();
 
   if (!enrollment) return redirectWithEditError(enrollmentId, playerId, "not_found");
+  if (!canAccessCampus(campusAccess, enrollment.campus_id)) {
+    return redirectWithEditError(enrollmentId, playerId, "not_found");
+  }
 
   let endDate: string | null = parsed.endDate;
   if ((parsed.status === "ended" || parsed.status === "cancelled") && !endDate) {
@@ -273,6 +288,17 @@ export async function updateContactadoAction(
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { ok: false, error: "unauthenticated" };
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("campus_id")
+    .eq("id", enrollmentId)
+    .maybeSingle<{ campus_id: string }>();
+  if (!enrollment || !canAccessCampus(campusAccess, enrollment.campus_id)) {
+    return { ok: false, error: "update_failed" };
+  }
 
   const { error } = await supabase
     .from("enrollments")

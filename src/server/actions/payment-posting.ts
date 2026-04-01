@@ -26,23 +26,14 @@ export async function fetchPaymentFolio(
 
 export async function linkCashPaymentsToOpenSession(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  enrollmentId: string,
+  operatorCampusId: string,
   paymentsToLink: PostedPaymentLink[],
   userId: string
 ): Promise<boolean> {
   const cashPayments = paymentsToLink.filter((p) => p.method === "cash");
   if (cashPayments.length === 0) return false;
 
-  const { data: campusRow } = await supabase
-    .from("enrollments")
-    .select("campus_id")
-    .eq("id", enrollmentId)
-    .maybeSingle<{ campus_id: string }>();
-
-  const campusId = campusRow?.campus_id ?? null;
-  if (!campusId) return false;
-
-  const openSession = await getOpenSessionForCampus(campusId);
+  const openSession = await getOpenSessionForCampus(operatorCampusId);
   if (!openSession) return true;
 
   await supabase.from("cash_session_entries").insert(

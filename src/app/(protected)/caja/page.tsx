@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
+import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
 import { getPrinterName } from "@/lib/queries/settings";
 import { createClient } from "@/lib/supabase/server";
@@ -12,11 +13,12 @@ export default async function CajaPage({
   searchParams: Promise<{ enrollmentId?: string }>;
 }) {
   const supabase = await createClient();
-  const [statuses, printerName, sp, isDirectorResult] = await Promise.all([
+  const [statuses, printerName, sp, isDirectorResult, campusAccess] = await Promise.all([
     getCampusSessionStatuses(),
     getPrinterName(),
     searchParams,
     supabase.rpc("is_director_admin"),
+    getOperationalCampusAccess(),
   ]);
   const isDirector = isDirectorResult.data ?? false;
   const initialEnrollmentId = sp.enrollmentId;
@@ -90,7 +92,12 @@ export default async function CajaPage({
           </div>
         )}
 
-        <CajaClient printerName={printerName} initialEnrollmentId={initialEnrollmentId} />
+        <CajaClient
+          printerName={printerName}
+          initialEnrollmentId={initialEnrollmentId}
+          allowedCampuses={campusAccess?.campuses ?? []}
+          defaultCampusId={campusAccess?.defaultCampusId ?? null}
+        />
       </div>
     </main>
   );

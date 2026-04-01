@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 export type OpenSession = {
   id: string;
@@ -27,17 +28,19 @@ type SessionRow = {
 // Returns session status for every active campus (used on management page and Caja header)
 export async function getCampusSessionStatuses(): Promise<CampusSessionStatus[]> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return [];
 
-  const [campusesResult, sessionsResult] = await Promise.all([
-    supabase.from("campuses").select("id, name").eq("is_active", true).order("name"),
+  const [sessionsResult] = await Promise.all([
     supabase
       .from("cash_sessions")
       .select("id, campus_id, opened_at, opening_cash, campuses(name), cash_session_entries(entry_type, amount)")
       .eq("status", "open")
+      .in("campus_id", campusAccess.campusIds)
       .returns<SessionRow[]>()
   ]);
 
-  const campuses = campusesResult.data ?? [];
+  const campuses = campusAccess.campuses;
   const openSessions = sessionsResult.data ?? [];
 
   // Index open sessions by campus_id
@@ -74,6 +77,8 @@ export async function getSessionForDate(
   dateStr: string
 ): Promise<{ openedAt: string; closedAt: string | null } | null> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!canAccessCampus(campusAccess, campusId)) return null;
   const dayStart = new Date(`${dateStr}T06:00:00.000Z`); // MTY midnight = UTC 06:00
   const dayEnd   = new Date(dayStart.getTime() + 86_400_000);
   const { data } = await supabase

@@ -6,7 +6,7 @@ import { grantRoleAction, revokeRoleAction } from "@/server/actions/users";
 const ALL_ROLES = [
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
-  { code: "front_desk", label: "Recepción / Caja" },
+  { code: "front_desk", label: "Recepcion / Caja" },
   { code: "coach", label: "Coach" }
 ] as const;
 
@@ -18,11 +18,31 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 type AuthUserRow = { id: string; email: string | null; last_sign_in_at: string | null; created_at: string | null };
+type CampusRow = { id: string; name: string; code: string };
+type UserRoleRow = {
+  user_id: string;
+  campus_id: string | null;
+  campuses: { name: string | null; code: string | null } | null;
+  app_roles: { code: string } | null;
+};
+type RoleAssignment = {
+  code: string;
+  campusId: string | null;
+  campusName: string | null;
+};
 type SearchParams = Promise<{ ok?: string; err?: string }>;
+
+function roleLabel(role: RoleAssignment) {
+  const base = ALL_ROLES.find((r) => r.code === role.code)?.label ?? role.code;
+  if (role.code !== "front_desk") return base;
+  return `${base} · ${role.campusName ?? "Todos"}`;
+}
 
 export default async function UsersAdminPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
   const { data: myRoles } = await supabase
@@ -34,19 +54,29 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   const myCodes = (myRoles ?? []).map((r) => r.app_roles?.code).filter(Boolean);
   if (!myCodes.includes("superadmin")) redirect("/unauthorized");
 
-  // Use DB function instead of admin client — no service role key needed
-  const { data: authUsersRaw, error: usersError } = await supabase.rpc("list_auth_users");
+  const [{ data: authUsersRaw, error: usersError }, { data: allRoleRows }, { data: campuses }] = await Promise.all([
+    supabase.rpc("list_auth_users"),
+    supabase
+      .from("user_roles")
+      .select("user_id, campus_id, campuses(name, code), app_roles(code)")
+      .returns<UserRoleRow[]>(),
+    supabase
+      .from("campuses")
+      .select("id, name, code")
+      .eq("is_active", true)
+      .order("name")
+      .returns<CampusRow[]>()
+  ]);
+
   const authUsers = (authUsersRaw ?? []) as AuthUserRow[];
-
-  const { data: allRoleRows } = await supabase
-    .from("user_roles")
-    .select("user_id, app_roles(code)")
-    .returns<{ user_id: string; app_roles: { code: string } | null }[]>();
-
-  const rolesByUser: Record<string, string[]> = {};
+  const rolesByUser: Record<string, RoleAssignment[]> = {};
   for (const row of allRoleRows ?? []) {
     if (!row.app_roles?.code) continue;
-    (rolesByUser[row.user_id] ??= []).push(row.app_roles.code);
+    (rolesByUser[row.user_id] ??= []).push({
+      code: row.app_roles.code,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? null
+    });
   }
 
   const pendingUsers = authUsers.filter((u) => !rolesByUser[u.id]?.length);
@@ -61,20 +91,21 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     return new Intl.DateTimeFormat("es-MX", { dateStyle: "short", timeStyle: "short" }).format(new Date(v));
   }
 
-  function RoleBadges({ userId, roles }: { userId: string; roles: string[] }) {
+  function RoleBadges({ userId, roles }: { userId: string; roles: RoleAssignment[] }) {
     return (
       <div className="flex flex-wrap gap-1">
-        {roles.map((code) => (
-          <form key={code} action={revokeRoleAction}>
+        {roles.map((role) => (
+          <form key={`${role.code}-${role.campusId ?? "all"}`} action={revokeRoleAction}>
             <input type="hidden" name="user_id" value={userId} />
-            <input type="hidden" name="role_code" value={code} />
+            <input type="hidden" name="role_code" value={role.code} />
+            {role.campusId ? <input type="hidden" name="campus_id" value={role.campusId} /> : null}
             <button
               type="submit"
               title="Revocar"
               className="inline-flex items-center gap-1 rounded-full bg-portoBlue/10 px-2 py-0.5 text-xs font-medium text-portoDark dark:text-portoBlue hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-colors"
             >
-              {ALL_ROLES.find((r) => r.code === code)?.label ?? code}
-              <span className="opacity-60">×</span>
+              {roleLabel(role)}
+              <span className="opacity-60">x</span>
             </button>
           </form>
         ))}
@@ -82,20 +113,42 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     );
   }
 
-  function GrantForm({ userId, existingRoles }: { userId: string; existingRoles: string[] }) {
-    const available = ALL_ROLES.filter((r) => !existingRoles.includes(r.code));
-    if (!available.length) return null;
+  function GrantForm({ userId, existingRoles }: { userId: string; existingRoles: RoleAssignment[] }) {
+    const existingKeys = new Set(existingRoles.map((role) => `${role.code}:${role.campusId ?? ""}`));
+    const hasAssignableRoles =
+      ALL_ROLES.some((role) => role.code !== "front_desk" && !existingKeys.has(`${role.code}:`)) ||
+      (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`));
+    if (!hasAssignableRoles) return null;
+
     return (
-      <form action={grantRoleAction} className="flex items-center gap-2">
+      <form action={grantRoleAction} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="user_id" value={userId} />
-        <select name="role_code" className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs">
-          {available.map((r) => (
-            <option key={r.code} value={r.code}>{r.label}</option>
+        <select
+          name="role_code"
+          className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs"
+        >
+          {ALL_ROLES.filter((role) => role.code !== "front_desk" || (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`))).map((role) => (
+            <option key={role.code} value={role.code}>
+              {role.label}
+            </option>
+          ))}
+        </select>
+        <select
+          name="campus_id"
+          defaultValue=""
+          className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs"
+        >
+          <option value="">Sin campus</option>
+          {(campuses ?? []).map((campus) => (
+            <option key={campus.id} value={campus.id}>
+              {campus.name}
+            </option>
           ))}
         </select>
         <button type="submit" className="rounded bg-portoBlue px-2 py-1 text-xs font-medium text-white hover:bg-portoDark">
           Asignar
         </button>
+        <p className="text-[11px] text-slate-400">Para Recepcion / Caja el campus es obligatorio.</p>
       </form>
     );
   }
@@ -119,7 +172,6 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           </div>
         )}
 
-        {/* Pending access */}
         {pendingUsers.length > 0 && (
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -151,7 +203,6 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           </section>
         )}
 
-        {/* Active users */}
         <section className="space-y-2">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Personal con acceso</h2>
           <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
@@ -174,9 +225,9 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                       <tr key={u.id}>
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                           {u.email}
-                          {u.id === user.id && (
-                            <span className="ml-2 rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">tú</span>
-                          )}
+                          {u.id === user.id ? (
+                            <span className="ml-2 rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">tu</span>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(u.last_sign_in_at)}</td>
                         <td className="px-4 py-3"><RoleBadges userId={u.id} roles={roles} /></td>

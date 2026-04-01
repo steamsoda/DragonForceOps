@@ -1,5 +1,6 @@
 "use server";
 
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import {
@@ -44,6 +45,7 @@ export type CajaPendingCharge = {
 export type CajaEnrollmentData = {
   enrollmentId: string;
   playerName: string;
+  campusId: string;
   campusName: string;
   balance: number;
   currency: string;
@@ -446,13 +448,14 @@ export async function getCajaDrilldownMetaAction(): Promise<CajaDrilldownMeta> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { campuses: [], birthYearsByCampus: {} };
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { campuses: [], birthYearsByCampus: {} };
 
-  const [{ data: campusRows }, { data: yearRows }] = await Promise.all([
-    supabase.from("campuses").select("id, name").eq("is_active", true).order("name"),
+  const [{ data: yearRows }] = await Promise.all([
     supabase.rpc("list_active_birth_years_by_campus")
   ]);
 
-  const campuses = (campusRows ?? []).map((r) => ({ id: r.id as string, name: r.name as string }));
+  const campuses = campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name }));
   const birthYearsByCampus: Record<string, number[]> = {};
   for (const row of (yearRows ?? []) as { campus_id: string; birth_year: number }[]) {
     if (!birthYearsByCampus[row.campus_id]) birthYearsByCampus[row.campus_id] = [];
@@ -607,6 +610,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
   return {
     enrollmentId,
     playerName: ledger.enrollment.playerName,
+    campusId: ledger.enrollment.campusId,
     campusName: ledger.enrollment.campusName,
     balance: ledger.totals.balance,
     currency: ledger.enrollment.currency,
@@ -684,6 +688,8 @@ export async function checkoutCajaCartAction(
   const paymentForm = new FormData();
   paymentForm.set("amount", amount);
   paymentForm.set("method", method);
+  const operatorCampusId = formData.get("operatorCampusId")?.toString().trim() ?? "";
+  if (operatorCampusId) paymentForm.set("operatorCampusId", operatorCampusId);
   if (notes) paymentForm.set("notes", notes);
   if (amount2) paymentForm.set("amount2", amount2);
   if (method2) paymentForm.set("method2", method2);
@@ -710,6 +716,8 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { ok: false, error: "unauthenticated" };
 
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
@@ -721,6 +729,10 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   const targetChargeIds = parsed.targetChargeIds;
   const targetSet = new Set(targetChargeIds);
+  const operatorCampusId = parsed.operatorCampusId ?? campusAccess.defaultCampusId;
+  if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
+    return { ok: false, error: "invalid_form" };
+  }
 
   // ── Sweep unallocated credit from prior payments (FIFO) ───────────────────
   // Any prior payment that was not fully allocated (e.g. from an overpayment)
@@ -788,6 +800,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
       status: "posted",
+      operator_campus_id: operatorCampusId,
       provider_ref: providerRef,
       external_source: "manual",
       notes: parsed.notes,
@@ -813,6 +826,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
         amount: parsed.split.amount,
         currency: ledger.enrollment.currency,
         status: "posted",
+        operator_campus_id: operatorCampusId,
         provider_ref: `${providerRef}-b`,
         external_source: "manual",
         notes: parsed.notes,
@@ -886,7 +900,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     { id: paymentRow.id, amount: parsed.amount, method: parsed.method },
     ...(paymentRow2Id && parsed.split ? [{ id: paymentRow2Id, amount: parsed.split.amount, method: parsed.split.method }] : [])
   ];
-  const sessionWarning = await linkCashPaymentsToOpenSession(supabase, enrollmentId, paymentsToLink, user.id);
+  const sessionWarning = await linkCashPaymentsToOpenSession(supabase, operatorCampusId, paymentsToLink, user.id);
 
   await writePostedPaymentAudit(supabase, {
     actorUserId: user.id,

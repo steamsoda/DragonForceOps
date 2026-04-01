@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
   getMonterreyDateParts,
   getMonterreyDateString,
@@ -31,8 +32,10 @@ type PaymentWithPlayer = {
   paid_at: string;
   notes: string | null;
   enrollment_id: string;
+  operator_campus_id: string;
   enrollments: {
     campus_id: string;
+    campuses: { name: string | null } | null;
     players: { first_name: string | null; last_name: string | null; birth_date: string | null } | null;
   } | null;
 };
@@ -56,6 +59,9 @@ export type CortePaymentRow = {
   enrollmentId: string;
   playerName: string;
   birthYear: number | null;
+  playerCampusName: string;
+  operatorCampusName: string;
+  isCrossCampus: boolean;
   amount: number;
   method: string;
   methodLabel: string;
@@ -95,6 +101,19 @@ export async function getCorteDiarioData(filters: {
   sessionClosedAt?: string; // ISO timestamp — session closed_at (null if still open)
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return {
+      date: /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : getMonterreyDateString(),
+      sessionOpenedAt: null,
+      totalCobrado: 0,
+      countedPaymentsCount: 0,
+      excludedPaymentsCount: 0,
+      byMethod: [],
+      byChargeType: [],
+      payments: [],
+    };
+  }
 
   const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : getMonterreyDateString();
   const { start: dateStart, end: dateEnd } = getMonterreyDayBounds(dateStr);
@@ -116,18 +135,40 @@ export async function getCorteDiarioData(filters: {
 
   let query = supabase
     .from("payments")
-    .select("id, amount, method, paid_at, notes, enrollment_id, enrollments!inner(campus_id, players(first_name, last_name, birth_date))")
+    .select("id, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))")
     .eq("status", "posted")
     .gte("paid_at", queryStart)
     .lt("paid_at", queryEnd)
+    .in("operator_campus_id", campusAccess.campusIds)
     .order("paid_at", { ascending: false });
 
   if (filters.campusId) {
-    query = query.eq("enrollments.campus_id", filters.campusId);
+    if (!canAccessCampus(campusAccess, filters.campusId)) {
+      return {
+        date: dateStr,
+        sessionOpenedAt,
+        totalCobrado: 0,
+        countedPaymentsCount: 0,
+        excludedPaymentsCount: 0,
+        byMethod: [],
+        byChargeType: [],
+        payments: [],
+      };
+    }
+    query = query.eq("operator_campus_id", filters.campusId);
   }
 
   const { data } = await query.returns<PaymentWithPlayer[]>();
   const payments = data ?? [];
+  const operatorCampusIds = [...new Set(payments.map((payment) => payment.operator_campus_id).filter(Boolean))];
+  const { data: operatorCampusRows } = operatorCampusIds.length
+    ? await supabase
+        .from("campuses")
+        .select("id, name")
+        .in("id", operatorCampusIds)
+        .returns<Array<{ id: string; name: string }>>()
+    : { data: [] };
+  const operatorCampusById = new Map((operatorCampusRows ?? []).map((campus) => [campus.id, campus.name]));
   const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
   const countedPaymentIds = countedPayments.map((payment) => payment.id);
 
@@ -181,6 +222,9 @@ export async function getCorteDiarioData(filters: {
       enrollmentId: p.enrollment_id,
       playerName: `${p.enrollments?.players?.first_name ?? ""} ${p.enrollments?.players?.last_name ?? ""}`.trim() || "-",
       birthYear: p.enrollments?.players?.birth_date ? parseInt(p.enrollments.players.birth_date.slice(0, 4), 10) : null,
+      playerCampusName: p.enrollments?.campuses?.name ?? "-",
+      operatorCampusName: operatorCampusById.get(p.operator_campus_id) ?? "-",
+      isCrossCampus: p.operator_campus_id !== p.enrollments?.campus_id,
       amount: p.amount,
       method: p.method,
       methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method,

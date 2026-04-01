@@ -1,11 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 type EnrollmentRow = {
   id: string;
   status: string;
   start_date: string;
   end_date: string | null;
+  campus_id: string;
   campuses: {
+    id: string | null;
     name: string | null;
     code: string | null;
   } | null;
@@ -52,6 +55,7 @@ type PaymentRow = {
   status: string;
   notes: string | null;
   created_at: string;
+  operator_campus_id: string;
 };
 
 type AllocationRow = {
@@ -74,6 +78,7 @@ export type EnrollmentLedger = {
     startDate: string;
     endDate: string | null;
     playerId: string | null;
+    campusId: string;
     campusName: string;
     campusCode: string;
     playerName: string;
@@ -110,16 +115,21 @@ export type EnrollmentLedger = {
     notes: string | null;
     createdAt: string;
     allocatedAmount: number;
+    operatorCampusId: string;
+    operatorCampusName: string;
+    isCrossCampus: boolean;
   }>;
 };
 
 export async function getEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
 
   const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, campuses(name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
+      .select("id, status, start_date, end_date, campus_id, campuses(id, name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentRow | null>(),
@@ -137,13 +147,25 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       .returns<ChargeRow[]>(),
     supabase
       .from("payments")
-      .select("id, paid_at, method, amount, currency, status, notes, created_at")
+      .select("id, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
       .eq("enrollment_id", enrollmentId)
       .order("paid_at", { ascending: false })
       .returns<PaymentRow[]>()
   ]);
 
   if (!enrollment) return null;
+  if (!canAccessCampus(campusAccess, enrollment.campus_id)) return null;
+
+  const operatorCampusIds = [...new Set((payments ?? []).map((row) => row.operator_campus_id).filter(Boolean))];
+  const campusIdsToLoad = [...new Set([enrollment.campus_id, ...operatorCampusIds])];
+  const { data: campusRows } = campusIdsToLoad.length
+    ? await supabase
+        .from("campuses")
+        .select("id, name, code")
+        .in("id", campusIdsToLoad)
+        .returns<Array<{ id: string; name: string; code: string }>>()
+    : { data: [] };
+  const campusById = new Map((campusRows ?? []).map((campus) => [campus.id, campus]));
 
   const chargeIds = (charges ?? []).map((row) => row.id);
   const paymentIds = (payments ?? []).map((row) => row.id);
@@ -181,6 +203,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       startDate: enrollment.start_date,
       endDate: enrollment.end_date,
       playerId: enrollment.players?.id ?? null,
+      campusId: enrollment.campus_id,
       campusName: enrollment.campuses?.name ?? "-",
       campusCode: enrollment.campuses?.code ?? "-",
       playerName: `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim(),
@@ -221,24 +244,30 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       status: row.status,
       notes: row.notes,
       createdAt: row.created_at,
-      allocatedAmount: allocatedByPayment.get(row.id) ?? 0
+      allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+      operatorCampusId: row.operator_campus_id,
+      operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",
+      isCrossCampus: row.operator_campus_id !== enrollment.campus_id,
     }))
   };
 }
 
 export async function getEnrollmentChargeFormContext(enrollmentId: string) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
 
   const [{ data: enrollment }, { data: chargeTypes }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, campuses(name, code), players(first_name, last_name), pricing_plans(currency)")
+      .select("id, status, campus_id, campuses(name, code), players(first_name, last_name), pricing_plans(currency)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<
         | {
             id: string;
             status: string;
+            campus_id: string;
             campuses: { name: string | null; code: string | null } | null;
             players: { first_name: string | null; last_name: string | null } | null;
             pricing_plans: { currency: string | null } | null;
@@ -254,6 +283,7 @@ export async function getEnrollmentChargeFormContext(enrollmentId: string) {
   ]);
 
   if (!enrollment) return null;
+  if (!canAccessCampus(campusAccess, enrollment.campus_id)) return null;
 
   return {
     enrollment: {

@@ -9,6 +9,8 @@ type PaymentItem = {
   status: string;
   notes: string | null;
   allocatedAmount: number;
+  operatorCampusName: string;
+  isCrossCampus: boolean;
 };
 
 type PaymentsTableProps = {
@@ -62,6 +64,7 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
           <tr>
             <th className="px-3 py-2">Fecha</th>
             <th className="px-3 py-2">Metodo</th>
+            <th className="px-3 py-2">Campus que recibe</th>
             <th className="px-3 py-2">Estatus</th>
             <th className="px-3 py-2">Monto</th>
             <th className="px-3 py-2">Aplicado</th>
@@ -72,7 +75,7 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={voidPaymentAction ? 7 : 6}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={voidPaymentAction ? 8 : 7}>
                 No hay pagos registrados.
               </td>
             </tr>
@@ -81,6 +84,16 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
               <tr key={row.id} className={row.status === "void" ? "opacity-50" : ""}>
                 <td className="px-3 py-2">{formatDate(row.paidAt)}</td>
                 <td className="px-3 py-2">{getPaymentMethodLabel(row.method)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span>{row.operatorCampusName}</span>
+                    {row.isCrossCampus ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                        Cruzado
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     row.status === "posted"

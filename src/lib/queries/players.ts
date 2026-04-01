@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 const PAGE_SIZE = 20;
 
@@ -160,6 +161,10 @@ type ListTeamRow = {
 
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
+  }
   const page = Math.max(1, filters.page ?? 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -180,11 +185,15 @@ export async function listPlayers(filters: PlayerListFilters) {
     .from("players")
     .select("id, first_name, last_name, birth_date, status, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
     .eq("enrollments.status", "active")
+    .in("enrollments.campus_id", campusAccess.campusIds)
     .order("first_name", { ascending: true })
     .order("last_name", { ascending: true })
     .range(from, to);
 
   if (filters.campusId) {
+    if (!canAccessCampus(campusAccess, filters.campusId)) {
+      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+    }
     playerQuery = playerQuery.eq("enrollments.campus_id", filters.campusId);
   }
   if (filters.q?.trim()) {
@@ -303,6 +312,10 @@ export type BajaListFilters = {
 
 export async function listBajas(filters: BajaListFilters) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
+  }
   const page = Math.max(1, filters.page ?? 1);
 
   // Exclude players that have an active enrollment
@@ -313,9 +326,13 @@ export async function listBajas(filters: BajaListFilters) {
     .from("enrollments")
     .select("player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name)")
     .in("status", ["ended", "cancelled"])
+    .in("campus_id", campusAccess.campusIds)
     .order("end_date", { ascending: false });
 
   if (filters.campusId) {
+    if (!canAccessCampus(campusAccess, filters.campusId)) {
+      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+    }
     query = query.eq("campus_id", filters.campusId);
   }
 
@@ -358,15 +375,9 @@ export async function listBajas(filters: BajaListFilters) {
 }
 
 export async function listCampuses() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("campuses")
-    .select("id, name, code")
-    .eq("is_active", true)
-    .order("name", { ascending: true })
-    .returns<CampusRow[]>();
-
-  return data ?? [];
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return [];
+  return campusAccess.campuses;
 }
 
 export async function listBirthYears(): Promise<number[]> {
@@ -378,6 +389,8 @@ export async function listBirthYears(): Promise<number[]> {
 
 export async function getPlayerDetail(playerId: string) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
 
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
@@ -404,6 +417,10 @@ export async function getPlayerDetail(playerId: string) {
   ]);
 
   if (!player) return null;
+  const visibleEnrollmentRows = (enrollmentRows ?? []).filter(
+    (row) => !!row.campuses?.id && canAccessCampus(campusAccess, row.campuses.id)
+  );
+  if (visibleEnrollmentRows.length === 0) return null;
 
   // Defensive: fetch jersey_number separately so a missing migration doesn't 404 the page
   const { data: jrData } = await supabase
@@ -414,8 +431,8 @@ export async function getPlayerDetail(playerId: string) {
     .returns<JerseyNumberRow | null>();
   const jerseyNumber = jrData?.jersey_number ?? null;
 
-  const enrollmentIds = (enrollmentRows ?? []).map((row) => row.id);
-  const activeEnrollmentRow = (enrollmentRows ?? []).find((row) => row.status === "active");
+  const enrollmentIds = visibleEnrollmentRows.map((row) => row.id);
+  const activeEnrollmentRow = visibleEnrollmentRows.find((row) => row.status === "active");
 
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
   let teamAssignment: TeamAssignmentDetailRow | null = null;
@@ -454,7 +471,7 @@ export async function getPlayerDetail(playerId: string) {
     }))
     .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
 
-  const enrollments = (enrollmentRows ?? []).map((row) => {
+  const enrollments = visibleEnrollmentRows.map((row) => {
     const balance = balancesByEnrollment.get(row.id);
     return {
       id: row.id,

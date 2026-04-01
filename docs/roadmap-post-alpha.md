@@ -11,8 +11,8 @@ Updated continuously. Last updated: 2026-04-01.
 
 Next implementation priority. Group these together as one operational wave:
 
-- `#33` Stripe / 360Player manual reconciliation first, with future import/webhook paths left open
-- `#34` cross-campus payment visibility, especially Linda Vista covering Contry workflows
+- `#33` lightweight 360Player recording is live in Caja; future automation/webhook work stays open separately
+- `#34` cross-campus payment ownership is now in phase-one implementation on preview, especially for Linda Vista covering Contry workflows
 - `#48` SQL-side finance/report aggregation hardening
 - `#56` refunds workflow
 - `#57` Corte Diario + cash session revamp, including printable report output and clearer UI
@@ -21,8 +21,8 @@ Next implementation priority. Group these together as one operational wave:
 
 Second priority after finance:
 
-- `#18` route and permission audit, with a concrete goal of expanding `front_desk` so staff do not need `director_admin` for normal work
-- `#34` cross-campus support remains tied here operationally as well
+- `#18` route and permission audit, now focused on hardening and extending the new campus-scoped `front_desk` model so staff do not need `director_admin` for normal work
+- `#34` cross-campus support remains tied here operationally because it now depends on campus-scoped front-desk access
 - `#64` campus workflow polish for Linda Vista acting as the central fallback hub
 
 ### 3. Sports Ops / Director Deportivo ⚽
@@ -106,7 +106,7 @@ Follow after the operational tracks above:
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury charge skip** | 🔴 Open | Staff flags an active enrollment to skip its next monthly charge for a specific month. Monthly charge generator respects flag (single-use, auto-clears after month passes). Schema: `enrollment_charge_skips (enrollment_id, period_month, reason, created_by)`. Show skip status on enrollment ledger page. |
 | 33 | **Stripe payment recording + reconciliation** | 🟡 In progress | Lightweight Phase A is now live: Caja can register `360Player` payments as normal posted ledger payments, receipts remain searchable, and Corte Diario shows them in the transaction list while excluding them from corte totals. Future work stays focused on true automation/webhook ingestion once a practical external-matching path exists. |
-| 34 | **Cross-campus payment flag** | 🔴 Open | Finance-op priority. Payment still lands in the open session's campus Corte Diario, but staff need an explicit inter-campus marker, especially when Linda Vista covers Contry operations. Show it in payment detail, session views, and Corte Diario. |
+| 34 | **Cross-campus payment ownership + campus-scoped front desk** | 🟡 In progress | Phase one is now implemented on preview: payments store `operator_campus_id`, Caja and enrollment-ledger posting can record the receiving campus, Corte Diario is operator-campus based with visible cross-campus markers, and `front_desk` access is now campus-scoped across the main operational surfaces. Keep issue `#18` open for broader permission hardening outside the first operational pass. |
 | 42 | **Reprint receipt from app** | ✅ Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
 | 43 | **Pricing change rollout (non-breaking)** | ✅ Done | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
 | 55 | **Replace free-number financial inputs with guided button choices** | ✅ Done | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja resolves automatically from the selected month/version, the POS checkout stages fixed-price product tiles with locked catalog amounts, uniform items now require `Talla` before they can be added, and only explicit special/manual charges keep open-amount entry. Date/campus entry for front desk also moved to guided controls (`DD/MM/YYYY` masked inputs, calendar access, direct campus buttons). |
@@ -120,7 +120,7 @@ Follow after the operational tracks above:
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 17 | **Uniformes tab** | 🔴 Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page. Fold in small front-desk asks like repeated uniform quantity and clear sold / ordered / delivered / pending states. |
-| 18 | **Server-side route blocking** | 🔴 Open | Next permissions-op priority. Every `(protected)/` route needs explicit role check server-side, not just nav hiding. Use this pass to expand `front_desk` so staff can complete daily work without needing `director_admin`. |
+| 18 | **Server-side route blocking** | 🔴 Open | Next permissions-op priority. The first campus-scoped `front_desk` pass now exists through issue `#34`, but every `(protected)/` route still needs explicit server-side role enforcement and broader surface review beyond the main operational flows. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |

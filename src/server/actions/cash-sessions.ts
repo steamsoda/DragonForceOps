@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -11,9 +12,9 @@ async function assertOperationalAccess() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
-  const { data } = await supabase.rpc("has_operational_access");
-  if (!data) return null;
-  return { supabase, user };
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || (!campusAccess.isDirector && !campusAccess.isFrontDesk)) return null;
+  return { supabase, user, campusAccess };
 }
 
 export async function openCashSessionAction(formData: FormData): Promise<void> {
@@ -26,7 +27,8 @@ export async function openCashSessionAction(formData: FormData): Promise<void> {
 
   const auth = await assertOperationalAccess();
   if (!auth) redirect(`${BASE}?err=unauthorized`);
-  const { supabase, user } = auth;
+  const { supabase, user, campusAccess } = auth;
+  if (!canAccessCampus(campusAccess, campusId)) redirect(`${BASE}?err=unauthorized`);
 
   // Block if already an open session for this campus
   const { data: existing } = await supabase
@@ -79,7 +81,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
 
   const auth = await assertOperationalAccess();
   if (!auth) redirect(`${redirectTo}?err=unauthorized`);
-  const { supabase, user } = auth;
+  const { supabase, user, campusAccess } = auth;
 
   const { data: session } = await supabase
     .from("cash_sessions")
@@ -89,6 +91,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
     .maybeSingle<{ id: string; campus_id: string; status: string }>();
 
   if (!session) redirect(`${redirectTo}?err=session_not_found`);
+  if (!canAccessCampus(campusAccess, session.campus_id)) redirect(`${redirectTo}?err=unauthorized`);
 
   const { error } = await supabase
     .from("cash_sessions")
