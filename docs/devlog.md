@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-03-31 (session 27)
+
+### Caja Advance Tuition Checkout Hotfix
+
+- Fixed a production checkout bug in the POS cart flow where staged advance tuition items could fail with `Producto no encontrado o inactivo`.
+- Root cause: the cart checkout path was trying to recreate staged tuition by looking for an active tuition product in the POS catalog, even though the dedicated advance-tuition card already stages tuition by period directly from the pricing engine.
+- The checkout path now creates staged tuition charges directly through the canonical monthly-tuition helper instead of depending on a catalog product row existing.
+- Result:
+  - mixed carts like `Mensualidad adelantada + Rosa Power Cup` now materialize correctly at checkout
+  - fixed-price products still use the product catalog path
+  - tuition keeps using the versioned pricing/arrears logic
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-03-31 (session 26)
 
 ### Regreso Enrollment Workflow

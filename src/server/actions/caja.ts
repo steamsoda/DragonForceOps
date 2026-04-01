@@ -638,26 +638,34 @@ export async function checkoutCajaCartAction(
 
   const createdChargeIds: string[] = [];
   const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
 
   for (const item of cartItems) {
-    const chargeForm = new FormData();
-
     if (item.kind === "tuition") {
-      const tuitionProducts = await getProductsForCajaAction();
-      const tuitionProduct = tuitionProducts
-        .flatMap((category) => category.products)
-        .find((product) => product.categorySlug === "tuition");
-
-      if (!tuitionProduct) return { ok: false, error: "product_not_found" };
-
-      chargeForm.set("productId", tuitionProduct.id);
-      chargeForm.set("period_month", item.periodMonth);
-    } else {
-      chargeForm.set("productId", item.productId);
-      if (item.amount) chargeForm.set("amount", item.amount.toFixed(2));
-      if (item.size) chargeForm.set("size", item.size);
-      if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
+      const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
+        enrollmentId,
+        periodMonth: item.periodMonth,
+        userId: user.id,
+      });
+      if (!tuitionResult.ok) {
+        if (createdChargeIds.length > 0) {
+          await supabase.from("charges").delete().in("id", createdChargeIds);
+        }
+        return tuitionResult;
+      }
+      createdChargeIds.push(tuitionResult.newChargeId);
+      continue;
     }
+
+    const chargeForm = new FormData();
+    chargeForm.set("productId", item.productId);
+    if (item.amount) chargeForm.set("amount", item.amount.toFixed(2));
+    if (item.size) chargeForm.set("size", item.size);
+    if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
     chargeForm.set("suppressAudit", "1");
 
     const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
