@@ -3,6 +3,8 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-01.
 
+Current preview release line: `v1.2.0`
+
 ---
 
 ## Current Operational Tracks

@@ -29,6 +29,8 @@
 - Verification:
   - `npm run typecheck` passed
   - `npm run build` passed
+- Versioning note:
+  - bumped from `1.1.24` planning target to `1.2.0` because the cross-campus ownership + campus-scoped front-desk pass is a larger operational release and a clearer rollback marker
 
 ## 2026-04-01 (session 31)
 
