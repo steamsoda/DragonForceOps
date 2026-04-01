@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-01.
 
-Current preview release line: `v1.2.0`
+Current preview release line: `v1.2.1`
 
 ---
 
@@ -136,8 +136,8 @@ Follow after the operational tracks above:
 | 59 | **Team-building / assign available players workflow** | 🔴 Open | Director Deportivo needs a way to build teams from available players, see readiness/payment-status indicators, and assign players without exposing money amounts. This must connect sports ops and finance status cleanly. |
 | 60 | **Filter players pending a specific tuition month** | 🔴 Open | Add a month-specific pending view/filter so staff and sports ops can quickly see which players still owe a given monthly tuition period. |
 | 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
-| 62 | **Excel/list export tools** | 🔴 Open | Add export paths for player lists and other operational views where spreadsheet output is useful. Keep separate from ticket/receipt printing. |
-| 63 | **Attendance-sheet export** | 🔴 Open | Provide printable/exportable attendance sheets, aligned with future attendance and sports-ops workflows. |
+| 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is now live on `/players`: a multi-sheet attendance workbook grouped by campus + category + gender with level sections. Keep this item open for broader list/export tooling beyond attendance rosters. |
+| 63 | **Attendance-sheet export** | ✅ Done | `/players` now exports a formatted `.xlsx` workbook for manual attendance use, with one sheet per campus + category + gender, level sections inside each sheet, alphabetical player rows, tutor phone, and 20 blank attendance columns. |
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🔴 Open | Make Linda Vista covering Contry workflows feel intentional instead of like a permissions workaround. Tied to cross-campus payment handling and the broader front-desk permissions audit. |
 
 ---

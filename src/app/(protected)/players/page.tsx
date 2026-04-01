@@ -194,12 +194,20 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               </button>
             </form>
             {view === "active" && (
-              <Link
-                href="/players/new"
-                className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-              >
-                + Nuevo jugador
-              </Link>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/api/exports/players-attendance"
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Exportar Excel
+                </a>
+                <Link
+                  href="/players/new"
+                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                >
+                  + Nuevo jugador
+                </Link>
+              </div>
             )}
           </div>
           {view === "active" && <PlayersDrilldown />}

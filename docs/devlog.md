@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-04-01 (session 33)
+
+### Attendance Export Workbook
+
+- Added a first operational Excel export for front desk on `/players` through a direct `Exportar Excel` download.
+- New export route generates a single `.xlsx` workbook with many sheets:
+  - one sheet per campus + category + gender
+  - level sections inside each sheet (`B2`, `B1`, `Selectivo`, `Sin nivel`)
+  - alphabetical player rows within each level section
+- Each row includes the attendance roster fields needed for tomorrow's manual use:
+  - number
+  - player name
+  - category
+  - level
+  - team
+  - tutor phone
+  - 20 blank attendance columns
+- Export respects the campus-scoped `front_desk` model:
+  - Contry-only users export only Contry sheets
+  - Linda Vista multi-campus users export all assigned campuses
+  - directors/superadmins export all accessible campuses
+- Added `exceljs` to generate formatted workbooks with:
+  - frozen title row
+  - sheet titles
+  - bordered attendance grid
+  - readable column widths
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 32)
 
 ### Cross-Campus Payment Ownership + Campus-Scoped Front Desk
