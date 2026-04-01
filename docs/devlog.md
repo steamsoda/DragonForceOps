@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-04-01 (session 30)
+
+### Roadmap Refresh After Final Testing
+
+- Consolidated the post-testing backlog into 3 operational tracks instead of treating every request as an isolated feature:
+  - **Finance Ops Stabilization**
+  - **Permissions + Campus Operations**
+  - **Sports Ops / Director Deportivo**
+- Locked the next execution focus as **Finance Ops**, based on the current risk profile of real usage.
+- Reframed Stripe / 360Player as:
+  - manual reconciliation first
+  - future import / webhook automation later
+- Locked the long-term permissions direction:
+  - expand `front_desk` to cover real daily work
+  - stop relying on `director_admin` as an operational workaround
+- Locked Director Deportivo as a **sports-only** track:
+  - payment-status/readiness visibility allowed
+  - no finance totals, cash sessions, or broad money modules
+- Added/clarified backlog items for:
+  - refunds
+  - Corte Diario / cash-session revamp
+  - campus workflow polish
+  - Director Deportivo dashboard
+  - team-building workflow
+  - pending-by-month filters
+  - specialist appointment products
+  - Excel/list exports
+  - attendance-sheet export
+- Folded front-desk notes like repeated uniform quantity into the existing Uniformes track instead of creating a disconnected feature.
+
 ## 2026-04-01 (session 29)
 
 ### April 11 Tuition Repricing Safety Patch

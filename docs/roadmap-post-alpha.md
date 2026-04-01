@@ -1,7 +1,51 @@
 ﻿# Post-Alpha Roadmap ? Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-03-31.
+Updated continuously. Last updated: 2026-04-01.
+
+---
+
+## Current Operational Tracks
+
+### 1. Finance Ops Stabilization
+
+Next implementation priority. Group these together as one operational wave:
+
+- `#33` Stripe / 360Player manual reconciliation first, with future import/webhook paths left open
+- `#34` cross-campus payment visibility, especially Linda Vista covering Contry workflows
+- `#48` SQL-side finance/report aggregation hardening
+- `#56` refunds workflow
+- `#57` Corte Diario + cash session revamp, including printable report output and clearer UI
+
+### 2. Permissions + Campus Operations
+
+Second priority after finance:
+
+- `#18` route and permission audit, with a concrete goal of expanding `front_desk` so staff do not need `director_admin` for normal work
+- `#34` cross-campus support remains tied here operationally as well
+- `#64` campus workflow polish for Linda Vista acting as the central fallback hub
+
+### 3. Sports Ops / Director Deportivo
+
+Dedicated non-financial product track:
+
+- `#38` tournament / league / cup management
+- `#58` Director Deportivo dashboard, sports-only
+- `#59` team-building and readiness workflow
+- `#60` pending-by-month player filter
+- `#63` attendance-sheet export, aligned with future attendance/coaching flows
+
+### 4. Player + Admin Utility Wave
+
+Follow after the operational tracks above:
+
+- `#17` Uniformes tab
+- `#35` player profile consolidation
+- `#36` player document uploads
+- `#37` bajas / dropout revamp
+- `#61` specialist appointments products/categories
+- `#62` general Excel/list exports
+- `#39` bounded inputs → button toggles UX pass
 
 ---
 
@@ -61,11 +105,13 @@ Updated continuously. Last updated: 2026-03-31.
 | 30 | **New-enrollment tuition tiers (3 tiers)** | DONE | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | ðŸ”´ Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury charge skip** | ðŸ”´ Open | Staff flags an active enrollment to skip its next monthly charge for a specific month. Monthly charge generator respects flag (single-use, auto-clears after month passes). Schema: `enrollment_charge_skips (enrollment_id, period_month, reason, created_by)`. Show skip status on enrollment ledger page. |
-| 33 | **Stripe payment recording + reconciliation** | ðŸ”´ Open | Phase A (manual, now): staff enters Stripe payments â€” amount, Stripe reference ID, enrollment. Method = `stripe`. Excluded from Corte Diario cash/card totals; shown in a separate "Pagos Stripe" reconciliation block below the main summary. Phase B (later): Stripe webhook auto-creates payment + matches to enrollment by reference. |
-| 34 | **Cross-campus payment flag** | ðŸ”´ Open | Payment goes to the open session's campus Corte Diario (intended behavior). Add "Pago Inter-Campus" flag on payment record + visible label in session view and Corte Diario so staff can spot cross-campus transactions easily. |
+| 33 | **Stripe payment recording + reconciliation** | ðŸ”´ Open | Next finance-op priority. Phase A: manual reconciliation for `stripe_360player` / 360Player payments with strong reference tracking, daily review workflow, and clean reporting separation from cash/card. Phase B later: import/webhook automation if external access becomes workable. |
+| 34 | **Cross-campus payment flag** | ðŸ”´ Open | Finance-op priority. Payment still lands in the open session's campus Corte Diario, but staff need an explicit inter-campus marker, especially when Linda Vista covers Contry operations. Show it in payment detail, session views, and Corte Diario. |
 | 42 | **Reprint receipt from app** | âœ… Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
 | 43 | **Pricing change rollout (non-breaking)** | DONE | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
 | 55 | **Replace free-number financial inputs with guided button choices** | DONE | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja resolves automatically from the selected month/version, the POS checkout stages fixed-price product tiles with locked catalog amounts, uniform items now require `Talla` before they can be added, and only explicit special/manual charges keep open-amount entry. Date/campus entry for front desk also moved to guided controls (`DD/MM/YYYY` masked inputs, calendar access, direct campus buttons). |
+| 56 | **Refund workflow** | ðŸ”´ Open | New finance-op item. Track refund reason, original payment linkage, who authorized it, and how it affects receipts, audit logs, and reporting totals. Must not silently mutate historical posted payment records without traceability. |
+| 57 | **Corte Diario + cash session revamp** | ðŸ”´ Open | High-priority finance polish. Clarify the difference between Corte Diario and cash sessions, reduce button overload, show product detail lines in ledger/report views, and add a printable full Corte Diario report distinct from receipt printing. |
 
 ---
 
@@ -73,17 +119,24 @@ Updated continuously. Last updated: 2026-03-31.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | ðŸ”´ Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page |
-| 18 | **Server-side route blocking** | ðŸ”´ Open | Every `(protected)/` route needs explicit role check server-side, not just nav hiding |
+| 17 | **Uniformes tab** | ðŸ”´ Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page. Fold in small front-desk asks like repeated uniform quantity and clear sold / ordered / delivered / pending states. |
+| 18 | **Server-side route blocking** | ðŸ”´ Open | Next permissions-op priority. Every `(protected)/` route needs explicit role check server-side, not just nav hiding. Use this pass to expand `front_desk` so staff can complete daily work without needing `director_admin`. |
 | 19 | **Dashboard KPI verification** | ðŸ”´ Open | Saldo Pendiente / Alumnos con Saldo may still show 0 â€” verify against live data |
 | 21 | **Caja pending charge detail** | ðŸ”´ Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio â†’ payment lookup in Actividad** | ðŸ”´ Open | Surface payment ID in audit log so staff can look up transactions by folio |
 | 35 | **Player profile consolidation** | ðŸ”´ Open | Show full account (enrollment, charges, payments, uniforms, guardians) directly on player profile page. "Cuenta Completa" accessible without navigating away â€” reduce clicks significantly. |
 | 36 | **Document uploads per player** | ðŸ”´ Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
-| 37 | **Player dropout historical record** | ðŸ”´ Open | Improve Bajas view: full enrollment history per player â€” start date, end date, dropout reason, amounts paid, charges outstanding at dropout. Useful for re-enrollment decision-making. |
-| 38 | **League/tournament tag + management tab** | ðŸ”´ Open | New player tag: has player paid current season league fee? New Director Deportivo section: tournament/league management â€” team entries, per-player payment status, % paid, amounts collected. Builds on existing `tournaments` table (schema exists, no UI yet). |
+| 37 | **Player dropout historical record / bajas revamp** | ðŸ”´ Open | Current bajas flow needs a fuller operational picture. Improve the Bajas view with enrollment history, reasons, balances, and decision support for future re-enrollment handling. |
+| 38 | **League/tournament tag + management tab** | ðŸ”´ Open | Sports-ops priority. Use the existing `tournaments` schema as the base for tournament/league/cup management, team entries, and player-level readiness. Keep Director Deportivo views focused on payment status, not money totals. |
 | 39 | **Input fields â†’ button toggles (UX pass)** | ðŸ”´ Open | Replace 2-option dropdowns with toggle buttons in Caja and elsewhere: payment method (Efectivo/Tarjeta), campus selector, gender, tuition tier selection. |
 | 40 | **Custom receipt tickets** | âš  Needs spec | Some products need a different ticket format. **Spec not provided â€” ask director which products and what the ticket should show before implementing.** |
+| 58 | **Director Deportivo dashboard** | ðŸ”´ Open | New sports-only dashboard. Show roster readiness, team-building signals, tournament participation status, and operational sports views without exposing finance totals, cash sessions, or report balances. |
+| 59 | **Team-building / assign available players workflow** | ðŸ”´ Open | Director Deportivo needs a way to build teams from available players, see readiness/payment-status indicators, and assign players without exposing money amounts. This must connect sports ops and finance status cleanly. |
+| 60 | **Filter players pending a specific tuition month** | ðŸ”´ Open | Add a month-specific pending view/filter so staff and sports ops can quickly see which players still owe a given monthly tuition period. |
+| 61 | **Specialist appointments products/categories** | ðŸ”´ Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
+| 62 | **Excel/list export tools** | ðŸ”´ Open | Add export paths for player lists and other operational views where spreadsheet output is useful. Keep separate from ticket/receipt printing. |
+| 63 | **Attendance-sheet export** | ðŸ”´ Open | Provide printable/exportable attendance sheets, aligned with future attendance and sports-ops workflows. |
+| 64 | **Campus workflow polish (Linda Vista as hub)** | ðŸ”´ Open | Make Linda Vista covering Contry workflows feel intentional instead of like a permissions workaround. Tied to cross-campus payment handling and the broader front-desk permissions audit. |
 
 ---
 
@@ -93,7 +146,7 @@ Updated continuously. Last updated: 2026-03-31.
 |------|-------|
 | Coach role + coach module | Coach logs in, takes attendance per training session |
 | Attendance tracking | Per-session records, attendance-based baja detection (3 consecutive missed months) |
-| Director Deportivo role + dashboard | Separate role with sports-ops focus |
+| Director Deportivo role + dashboard | Moved up into active backlog as #58, sports-ops focus only |
 | Campus-scoped access (Contry cashier role) | front_desk sees only their campus data |
 | Stripe webhook automation | Auto-ingest + match payments to enrollments |
 | Uniform stock control | Count-based inventory, dashboard widget |
