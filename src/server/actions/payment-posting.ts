@@ -76,7 +76,7 @@ export async function writePostedPaymentAudit(
     enrollmentId: string;
     amount: number;
     method: string;
-    source: "caja" | "ledger" | "external_reconciliation";
+    source: "caja" | "ledger";
     split: boolean;
   }
 ) {
