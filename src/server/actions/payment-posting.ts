@@ -60,6 +60,8 @@ export async function writePostedPaymentAudit(
     method,
     source,
     split,
+    paidAt,
+    recordedAt,
   }: {
     actorUserId: string;
     actorEmail: string | null;
@@ -69,6 +71,8 @@ export async function writePostedPaymentAudit(
     method: string;
     source: "caja" | "ledger";
     split: boolean;
+    paidAt: string;
+    recordedAt: string;
   }
 ) {
   await writeAuditLog(supabase, {
@@ -77,7 +81,16 @@ export async function writePostedPaymentAudit(
     action: "payment.posted",
     tableName: "payments",
     recordId,
-    afterData: { enrollment_id: enrollmentId, amount, method, source, split }
+    afterData: {
+      enrollment_id: enrollmentId,
+      amount,
+      method,
+      source,
+      split,
+      paid_at: paidAt,
+      recorded_at: recordedAt,
+      backdated: paidAt !== recordedAt,
+    }
   });
 }
 

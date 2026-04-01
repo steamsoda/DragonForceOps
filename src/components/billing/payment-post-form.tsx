@@ -18,9 +18,9 @@ type PaymentPostFormProps = {
 };
 
 const ERROR_LABELS: Record<string, string> = {
-  invalid_form: "Los datos del pago son inválidos.",
-  unauthenticated: "Tu sesión no es válida.",
-  enrollment_not_found: "Inscripción no encontrada.",
+  invalid_form: "Los datos del pago son invalidos.",
+  unauthenticated: "Tu sesion no es valida.",
+  enrollment_not_found: "Inscripcion no encontrada.",
   no_pending_charges: "No hay cargos pendientes.",
   payment_insert_failed: "No se pudo registrar el pago. Intenta de nuevo.",
   allocation_insert_failed: "No se pudieron guardar las asignaciones. Intenta de nuevo.",
@@ -62,15 +62,10 @@ export function PaymentPostForm({
 
   if (state?.ok) {
     return (
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 p-4 space-y-3">
+      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 space-y-3 dark:border-emerald-800 dark:bg-emerald-950/20">
         <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-          Pago registrado — {formatMoney(state.receipt.amount, state.receipt.currency)}
+          Pago registrado - {formatMoney(state.receipt.amount, state.receipt.currency)}
         </p>
-        {state.receipt.sessionWarning && (
-          <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Sin sesión de caja abierta. El pago se registró correctamente pero no quedó vinculado a una sesión.
-          </div>
-        )}
         <PrintReceiptButton
           data={state.receipt}
           printerName={printerName}
@@ -81,18 +76,17 @@ export function PaymentPostForm({
   }
 
   return (
-    <form action={formAction} className="space-y-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+    <form action={formAction} className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Registrar pago</p>
       {state?.ok === false && (
         <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-300">
-          {ERROR_LABELS[state.error] ?? "Ocurrió un error. Intenta de nuevo."}
+          {ERROR_LABELS[state.error] ?? "Ocurrio un error. Intenta de nuevo."}
         </div>
       )}
       {currentBalance > 0 ? (
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Saldo pendiente:{" "}
-          <span className="font-semibold text-rose-600">{formatMoney(currentBalance, currency)}</span>. El monto
-          esta pre-llenado; ajusta si es un pago parcial.
+          Saldo pendiente: <span className="font-semibold text-rose-600">{formatMoney(currentBalance, currency)}</span>. El monto
+          esta prellenado; ajusta si es un pago parcial.
         </p>
       ) : (
         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -109,12 +103,12 @@ export function PaymentPostForm({
             min="0.01"
             required
             defaultValue={defaultAmount}
-            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
           />
         </label>
         <label className="space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Metodo de pago</span>
-          <select name="method" required className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2">
+          <select name="method" required className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600">
             <option value="cash">Efectivo</option>
             <option value="transfer">Transferencia</option>
             <option value="card">Tarjeta</option>
@@ -128,10 +122,21 @@ export function PaymentPostForm({
             type="text"
             name="notes"
             placeholder="Referencia, folio, etc."
-            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
           />
         </label>
       </div>
+      <label className="block space-y-1 text-sm">
+        <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora real del pago (opcional)</span>
+        <input
+          type="datetime-local"
+          name="paidAt"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Dejalo vacio para usar la hora actual. Usalo solo si estas registrando un pago tarde.
+        </p>
+      </label>
       {allowedCampuses.length > 1 ? (
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Campus que recibe</span>
@@ -139,7 +144,7 @@ export function PaymentPostForm({
             name="operatorCampusId"
             value={operatorCampusId}
             onChange={(event) => setOperatorCampusId(event.target.value)}
-            className="w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
           >
             {allowedCampuses.map((campus) => (
               <option key={campus.id} value={campus.id}>
@@ -164,7 +169,7 @@ export function PaymentPostForm({
         disabled={isPending}
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-60"
       >
-        {isPending ? "Registrando…" : "Registrar pago"}
+        {isPending ? "Registrando..." : "Registrar pago"}
       </button>
     </form>
   );

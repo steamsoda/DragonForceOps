@@ -8,6 +8,7 @@ export type ParsedPaymentInput = {
   notes: string | null;
   targetChargeIds: string[];
   operatorCampusId: string | null;
+  paidAtRaw: string | null;
   split?: { amount: number; method: PaymentMethod };
 };
 
@@ -27,6 +28,7 @@ export function parsePaymentFormData(formData: FormData): ParsedPaymentInput | n
   const targetChargeIdsRaw = String(formData.get("targetChargeIds") ?? "").trim();
   const targetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
   const operatorCampusIdRaw = String(formData.get("operatorCampusId") ?? "").trim();
+  const paidAtRaw = String(formData.get("paidAt") ?? "").trim();
 
   if (!amount) return null;
   if (!PAYMENT_METHODS.includes(methodRaw)) return null;
@@ -48,6 +50,7 @@ export function parsePaymentFormData(formData: FormData): ParsedPaymentInput | n
     notes: notesRaw ? notesRaw : null,
     targetChargeIds,
     operatorCampusId: operatorCampusIdRaw || null,
+    paidAtRaw: paidAtRaw || null,
     split
   };
 }

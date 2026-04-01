@@ -13,7 +13,7 @@ async function assertOperationalAccess() {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   const campusAccess = await getOperationalCampusAccess();
-  if (!campusAccess || (!campusAccess.isDirector && !campusAccess.isFrontDesk)) return null;
+  if (!campusAccess || !campusAccess.isDirector) return null;
   return { supabase, user, campusAccess };
 }
 

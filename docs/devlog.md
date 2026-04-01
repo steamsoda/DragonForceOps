@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-04-01 (session 34)
+
+### Simplified Corte Diario + Automatic Campus Checkpoints
+
+- Replaced the front-desk-facing "cash session + daily corte" mental model with a checkpoint-based Corte flow.
+- Added persistent `corte_checkpoints` per campus:
+  - one open checkpoint per campus
+  - printing a corte now closes the current checkpoint and opens the next one automatically
+- Corte Diario is no longer anchored to calendar date filters or cash-session windows.
+- The page is now campus-first and shows:
+  - current open checkpoint start time
+  - counted totals for `cash`, `card`, `transfer`, and `other`
+  - visible-but-excluded `360Player` rows
+  - cross-campus markers based on `operator_campus_id`
+- Printing now runs through a server action instead of a client-only print:
+  - prepares the just-closed checkpoint payload
+  - rolls the next checkpoint automatically
+  - keeps retryable print state in the client if QZ fails after close
+- Simplified Caja for front desk:
+  - removed the session-status warning clutter from the main Caja page
+  - left `Sesion de Caja` as a director-only fallback/admin tool
+- Added optional backdated `paid_at` support in both payment entry paths:
+  - Caja checkout
+  - enrollment ledger payment form
+- Backdated posting now affects:
+  - receipt timestamp
+  - corte inclusion window
+  - downstream finance surfaces that already key off `payments.paid_at`
+- Audit logging for posted payments now records:
+  - `paid_at`
+  - `recorded_at`
+  - `backdated`
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 33)
 
 ### Attendance Export Workbook

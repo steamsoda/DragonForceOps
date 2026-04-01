@@ -4,7 +4,7 @@ import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
-import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
+import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import {
   fetchPaymentFolio,
@@ -59,6 +59,9 @@ export async function postEnrollmentPaymentAction(
   if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
     return { ok: false, error: "invalid_form" };
   }
+  const recordedAt = new Date().toISOString();
+  const paidAt = parsed.paidAtRaw ? parseMonterreyDateTimeInput(parsed.paidAtRaw) : recordedAt;
+  if (!paidAt) return { ok: false, error: "invalid_form" };
 
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
@@ -77,12 +80,11 @@ export async function postEnrollmentPaymentAction(
   }
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const now = new Date();
   const { data: paymentRow, error: paymentError } = await supabase
     .from("payments")
     .insert({
       enrollment_id: enrollmentId,
-      paid_at: now.toISOString(),
+      paid_at: paidAt,
       method: parsed.method,
       amount: parsed.amount,
       currency: ledger.enrollment.currency,
@@ -130,7 +132,9 @@ export async function postEnrollmentPaymentAction(
     amount: parsed.amount,
     method: parsed.method,
     source: "ledger",
-    split: false
+    split: false,
+    paidAt,
+    recordedAt,
   });
 
   await revalidatePaymentSurfaces(ledger);
@@ -154,8 +158,8 @@ export async function postEnrollmentPaymentAction(
       chargesPaid,
       paymentId: paymentRow.id,
       folio,
-      date: formatDateMonterrey(now),
-      time: formatTimeMonterrey(now),
+      date: formatDateMonterrey(paidAt),
+      time: formatTimeMonterrey(paidAt),
       sessionWarning,
     }
   };

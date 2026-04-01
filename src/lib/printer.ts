@@ -291,8 +291,9 @@ function buildReceipt(r: ReceiptData, logoESCPOS: string | null): QZDataItem[] {
 // ── Corte Diario builder ──────────────────────────────────────────────────────
 
 export type CorteData = {
-  date: string;
   campusLabel: string;
+  openedAt: string;
+  closedAt: string;
   totalCobrado: number;
   currency: string;
   byMethod: { methodLabel: string; count: number; total: number }[];
@@ -305,16 +306,41 @@ function buildCorte(c: CorteData, logoESCPOS: string | null): QZDataItem[] {
     new Intl.NumberFormat("es-MX", { style: "currency", currency: c.currency }).format(n);
 
   const now = new Date();
-  const printedAt = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  const printedAt = now.toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
+  const openedAt = new Date(c.openedAt).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
+  const closedAt = new Date(c.closedAt).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
 
   const items: QZDataItem[] = [
     ...buildReceiptHeader(c.campusLabel, logoESCPOS),
     t(divider() + "\n"),
-    t(`CORTE DIARIO: ${c.date}\n`),
+    t("CORTE DIARIO\n"),
+    t(`Desde: ${openedAt}\n`),
+    t(`Hasta: ${closedAt}\n`),
     t(`Impreso: ${printedAt}\n`),
     t(divider() + "\n"),
     t(`${ESC}E\x01`),
-    t(row("TOTAL COBRADO", fmt(c.totalCobrado)) + "\n"),
+    t(row("TOTAL CONTADO", fmt(c.totalCobrado)) + "\n"),
     t(`${ESC}E\x00`),
     t(divider() + "\n"),
   ];

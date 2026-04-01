@@ -81,6 +81,28 @@ export function getMonterreyDayBounds(dateStr: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+export function parseMonterreyDateTimeInput(value: string | null | undefined) {
+  const raw = value?.trim() ?? "";
+  if (!raw) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6] ?? "0");
+
+  if (!isValidDateOnlyParts(year, month, day)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    return null;
+  }
+
+  return new Date(Date.UTC(year, month - 1, day, hour + 6, minute, second, 0)).toISOString();
+}
+
 export function formatDateOnlyDdMmYyyy(value: string | null | undefined) {
   if (!value) return "";
 

@@ -19,6 +19,7 @@ import {
   revalidatePaymentSurfaces,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
+import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -54,7 +55,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }> }
+  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -733,6 +734,9 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
     return { ok: false, error: "invalid_form" };
   }
+  const recordedAt = new Date().toISOString();
+  const paidAt = parsed.paidAtRaw ? parseMonterreyDateTimeInput(parsed.paidAtRaw) : recordedAt;
+  if (!paidAt) return { ok: false, error: "invalid_form" };
 
   // ── Sweep unallocated credit from prior payments (FIFO) ───────────────────
   // Any prior payment that was not fully allocated (e.g. from an overpayment)
@@ -789,7 +793,6 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     ? allocatePass(parsed.split.amount, effectiveCharges, available, new Set())
     : [];
 
-  const paidAt = new Date().toISOString();
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase
     .from("payments")
@@ -910,7 +913,9 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     amount: parsed.amount,
     method: parsed.method,
     source: "caja",
-    split: !!parsed.split
+    split: !!parsed.split,
+    paidAt,
+    recordedAt,
   });
 
   await revalidatePaymentSurfaces(ledger);
@@ -943,7 +948,10 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     remainingBalance: newBalance,
     currency: ledger.enrollment.currency,
     sessionWarning,
-    chargesPaid
+    chargesPaid,
+    paidAt,
+    date: formatDateMonterrey(paidAt),
+    time: formatTimeMonterrey(paidAt)
   };
 }
 

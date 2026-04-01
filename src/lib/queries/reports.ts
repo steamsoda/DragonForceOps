@@ -2,8 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
   getMonterreyDateParts,
-  getMonterreyDateString,
-  getMonterreyDayBounds,
   getMonterreyMonthBounds,
   getMonterreyMonthString,
 } from "@/lib/time";
@@ -84,8 +82,11 @@ export type CorteByChargeType = {
 };
 
 export type CorteDiarioData = {
-  date: string;
-  sessionOpenedAt: string | null; // set when an open session's start time was used
+  campusId: string;
+  campusName: string;
+  openedAt: string;
+  closedAt: string | null;
+  isCurrentOpen: boolean;
   totalCobrado: number;
   countedPaymentsCount: number;
   excludedPaymentsCount: number;
@@ -95,17 +96,19 @@ export type CorteDiarioData = {
 };
 
 export async function getCorteDiarioData(filters: {
-  date?: string;            // YYYY-MM-DD
   campusId?: string;
-  sessionOpenedAt?: string; // ISO timestamp — session opened_at for this campus+date
-  sessionClosedAt?: string; // ISO timestamp — session closed_at (null if still open)
+  openedAt?: string;
+  closedAt?: string | null;
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
     return {
-      date: /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : getMonterreyDateString(),
-      sessionOpenedAt: null,
+      campusId: "",
+      campusName: "-",
+      openedAt: filters.openedAt ?? new Date().toISOString(),
+      closedAt: filters.closedAt ?? null,
+      isCurrentOpen: !filters.closedAt,
       totalCobrado: 0,
       countedPaymentsCount: 0,
       excludedPaymentsCount: 0,
@@ -115,23 +118,26 @@ export async function getCorteDiarioData(filters: {
     };
   }
 
-  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filters.date ?? "") ? (filters.date as string) : getMonterreyDateString();
-  const { start: dateStart, end: dateEnd } = getMonterreyDayBounds(dateStr);
+  const selectedCampusId = filters.campusId ?? campusAccess.defaultCampusId ?? campusAccess.campusIds[0];
+  if (!selectedCampusId || !canAccessCampus(campusAccess, selectedCampusId)) {
+    return {
+      campusId: selectedCampusId ?? "",
+      campusName: "-",
+      openedAt: filters.openedAt ?? new Date().toISOString(),
+      closedAt: filters.closedAt ?? null,
+      isCurrentOpen: !filters.closedAt,
+      totalCobrado: 0,
+      countedPaymentsCount: 0,
+      excludedPaymentsCount: 0,
+      byMethod: [],
+      byChargeType: [],
+      payments: [],
+    };
+  }
 
-  // Anchor start to when the session opened so payments before the calendar day
-  // boundary are included (e.g. session opened late on day N-1).
-  const queryStart = filters.sessionOpenedAt ?? dateStart;
-
-  // Extend end boundary if the session closed after the calendar day ended
-  // (e.g. session closed at 00:05 AM which is past midnight in UTC).
-  const queryEnd = filters.sessionClosedAt
-    ? new Date(Math.max(
-        new Date(filters.sessionClosedAt).getTime(),
-        new Date(dateEnd).getTime()
-      )).toISOString()
-    : dateEnd;
-
-  const sessionOpenedAt = filters.sessionOpenedAt ?? null;
+  const campusName = campusAccess.campuses.find((campus) => campus.id === selectedCampusId)?.name ?? "-";
+  const queryStart = filters.openedAt ?? new Date().toISOString();
+  const queryEnd = filters.closedAt ?? new Date().toISOString();
 
   let query = supabase
     .from("payments")
@@ -139,24 +145,8 @@ export async function getCorteDiarioData(filters: {
     .eq("status", "posted")
     .gte("paid_at", queryStart)
     .lt("paid_at", queryEnd)
-    .in("operator_campus_id", campusAccess.campusIds)
+    .eq("operator_campus_id", selectedCampusId)
     .order("paid_at", { ascending: false });
-
-  if (filters.campusId) {
-    if (!canAccessCampus(campusAccess, filters.campusId)) {
-      return {
-        date: dateStr,
-        sessionOpenedAt,
-        totalCobrado: 0,
-        countedPaymentsCount: 0,
-        excludedPaymentsCount: 0,
-        byMethod: [],
-        byChargeType: [],
-        payments: [],
-      };
-    }
-    query = query.eq("operator_campus_id", filters.campusId);
-  }
 
   const { data } = await query.returns<PaymentWithPlayer[]>();
   const payments = data ?? [];
@@ -210,8 +200,11 @@ export async function getCorteDiarioData(filters: {
   }
 
   return {
-    date: dateStr,
-    sessionOpenedAt,
+    campusId: selectedCampusId,
+    campusName,
+    openedAt: queryStart,
+    closedAt: filters.closedAt ?? null,
+    isCurrentOpen: !filters.closedAt,
     totalCobrado: countedPayments.reduce((sum, p) => sum + p.amount, 0),
     countedPaymentsCount: countedPayments.length,
     excludedPaymentsCount: payments.length - countedPayments.length,

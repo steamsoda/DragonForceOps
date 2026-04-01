@@ -620,6 +620,7 @@ function PosEnrollmentPanel({
   const [paymentAmount2, setPaymentAmount2] = useState("");
   const [paymentMethod2, setPaymentMethod2] = useState("transfer");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentPaidAt, setPaymentPaidAt] = useState("");
   const [operatorCampusId, setOperatorCampusId] = useState(
     defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId
   );
@@ -775,6 +776,7 @@ function PosEnrollmentPanel({
   function clearCart() {
     setSelectedIds(new Set());
     setStagedItems([]);
+    setPaymentPaidAt("");
     resetConfigurator(null);
   }
 
@@ -787,6 +789,7 @@ function PosEnrollmentPanel({
       formData.set("method", paymentMethod);
       formData.set("operatorCampusId", operatorCampusId);
       if (paymentNotes.trim()) formData.set("notes", paymentNotes.trim());
+      if (paymentPaidAt.trim()) formData.set("paidAt", paymentPaidAt.trim());
       if (splitMode) {
         formData.set("amount2", paymentAmount2);
         formData.set("method2", paymentMethod2);
@@ -1345,6 +1348,19 @@ function PosEnrollmentPanel({
               />
             </label>
 
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora real del pago (opcional)</span>
+              <input
+                type="datetime-local"
+                value={paymentPaidAt}
+                onChange={(e) => setPaymentPaidAt(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Si el pago se te quedo sin registrar, captura aqui la fecha y hora reales.
+              </p>
+            </label>
+
             <div className="flex gap-3">
               <button
                 type="submit"
@@ -1694,6 +1710,7 @@ function EnrollmentPanel({
                 <option value="cash">Efectivo</option>
                 <option value="transfer">Transferencia</option>
                 <option value="card">Tarjeta</option>
+                <option value="stripe_360player">360Player</option>
                 <option value="other">Otro</option>
               </select>
             </label>
@@ -1738,6 +1755,7 @@ function EnrollmentPanel({
                     <option value="cash">Efectivo</option>
                     <option value="transfer">Transferencia</option>
                     <option value="card">Tarjeta</option>
+                    <option value="stripe_360player">360Player</option>
                     <option value="other">Otro</option>
                   </select>
                 </label>
@@ -1753,6 +1771,16 @@ function EnrollmentPanel({
               placeholder="Referencia, folio, etc."
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
             />
+          </label>
+
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora real del pago (opcional)</span>
+            <input
+              type="datetime-local"
+              name="paidAt"
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">Dejalo vacio para usar la hora actual.</p>
           </label>
 
           <p className="text-xs text-slate-400">
@@ -1854,10 +1882,6 @@ function ReceiptPanel({
   onDone: () => void;
   onBack: () => void;
 }) {
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
-  const timeStr = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-
   const receiptData: ReceiptData = {
     playerName: receipt.playerName,
     campusName: receipt.campusName,
@@ -1869,8 +1893,8 @@ function ReceiptPanel({
     chargesPaid: receipt.chargesPaid,
     paymentId: receipt.paymentId,
     folio: receipt.folio,
-    date: dateStr,
-    time: timeStr,
+    date: receipt.date,
+    time: receipt.time,
     splitPayment: receipt.splitPayment
       ? { amount: receipt.splitPayment.amount, method: methodLabel(receipt.splitPayment.method) }
       : undefined,
@@ -1896,7 +1920,7 @@ function ReceiptPanel({
         )}
       </div>
 
-      {receipt.sessionWarning && (
+      {false && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           ⚠ Sin sesión de caja abierta. El pago se registró correctamente pero no está vinculado a ninguna sesión.{" "}
           <a href="/caja/sesion" className="font-medium underline hover:no-underline">Abrir sesión</a>
