@@ -23,7 +23,12 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
   const accessibleCampuses = campusAccess?.campuses ?? [];
 
   const historicalCheckpoint = params.checkpoint ? await getCorteCheckpointById(params.checkpoint) : null;
-  const selectedCampusId = historicalCheckpoint?.campusId ?? params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";
+  const selectedCampusId =
+    historicalCheckpoint?.campusId ??
+    params.campus ??
+    campusAccess?.defaultCampusId ??
+    accessibleCampuses[0]?.id ??
+    "";
 
   if (!selectedCampusId) {
     redirect("/reports/corte-diario");
@@ -48,14 +53,22 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
       subtitle={`${data.campusName} · ${formatDateTimeMonterrey(data.openedAt)} - ${periodEndLabel}`}
       breadcrumbs={[
         { label: "Reportes", href: "/reports/corte-diario" },
-        { label: "Corte Diario", href: isHistorical ? `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}&checkpoint=${encodeURIComponent(checkpoint.id)}` : `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}` },
+        {
+          label: "Corte Diario",
+          href: isHistorical
+            ? `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}&checkpoint=${encodeURIComponent(checkpoint.id)}`
+            : `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}`,
+        },
         { label: "Reporte detallado" },
       ]}
     >
       <div className="space-y-6 print:space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Reporte A4 informativo. {isHistorical ? "Corresponde a un corte historico ya cerrado." : "No cierra el corte actual ni modifica el checkpoint."}
+            Reporte A4 informativo.{" "}
+            {isHistorical
+              ? "Corresponde a un corte historico ya cerrado."
+              : "No cierra el corte actual ni modifica el checkpoint."}
           </p>
           <div className="flex items-center gap-2">
             <Link
@@ -79,7 +92,9 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
           </div>
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Periodo</p>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{formatDateTimeMonterrey(data.openedAt)}</p>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {formatDateTimeMonterrey(data.openedAt)}
+            </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">Hasta {periodEndLabel}</p>
           </div>
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -96,21 +111,52 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5">
           {["cash", "card", "transfer", "other"].map((method) => {
             const row = data.byMethod.find((item) => item.method === method);
-            const label = row?.methodLabel ?? ({ cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", other: "Otro" }[method] ?? method);
+            const label =
+              row?.methodLabel ??
+              ({ cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", other: "Otro" }[method] ?? method);
+
             return (
               <div key={method} className="rounded-md border border-slate-200 bg-white p-4 print:break-inside-avoid dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
                 <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{fmt(row?.total ?? 0)}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}
+                </p>
               </div>
             );
           })}
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 print:break-inside-avoid print:bg-white dark:border-amber-800 dark:bg-amber-950/20">
             <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">360Player excluido</p>
             <p className="mt-1 text-lg font-semibold text-amber-900 dark:text-amber-100">{fmt(data.excludedPaymentsTotal)}</p>
-            <p className="text-xs text-amber-700 dark:text-amber-300">{data.excludedPaymentsCount} pago{data.excludedPaymentsCount !== 1 ? "s" : ""} visible{data.excludedPaymentsCount !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              {data.excludedPaymentsCount} pago{data.excludedPaymentsCount !== 1 ? "s" : ""} visible
+              {data.excludedPaymentsCount !== 1 ? "s" : ""}
+            </p>
           </div>
         </div>
+
+        {data.byChargeType.length > 0 ? (
+          <div className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+              Por tipo de cargo
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-4">
+              {data.byChargeType.map((chargeType) => (
+                <div
+                  key={chargeType.typeCode}
+                  className="rounded-md border border-slate-200 bg-white p-4 print:break-inside-avoid dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {chargeType.typeName}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {fmt(chargeType.total)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="overflow-x-auto print:overflow-visible">
           <table className="min-w-full text-sm print:text-[10px]">
@@ -131,8 +177,12 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data.payments.map((payment) => (
                 <tr key={payment.id} className="print:break-inside-avoid">
-                  <td className="px-3 py-2 align-top text-xs text-slate-500 dark:text-slate-400">{formatDateTimeMonterrey(payment.paidAt)}</td>
-                  <td className="px-3 py-2 align-top font-medium text-slate-900 dark:text-slate-100">{payment.playerName}</td>
+                  <td className="px-3 py-2 align-top text-xs text-slate-500 dark:text-slate-400">
+                    {formatDateTimeMonterrey(payment.paidAt)}
+                  </td>
+                  <td className="px-3 py-2 align-top font-medium text-slate-900 dark:text-slate-100">
+                    {payment.playerName}
+                  </td>
                   <td className="px-3 py-2 align-top text-slate-600 dark:text-slate-400">{payment.playerCampusName}</td>
                   <td className="px-3 py-2 align-top text-slate-600 dark:text-slate-400">
                     <div className="flex flex-wrap items-center gap-2">
@@ -156,15 +206,21 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
                     </div>
                   </td>
                   <td className="px-3 py-2 align-top text-slate-600 dark:text-slate-400">{payment.folio ?? "-"}</td>
-                  <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">{payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}</td>
-                  <td className="px-3 py-2 align-top text-right font-medium text-slate-900 dark:text-slate-100">{fmt(payment.amount)}</td>
+                  <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">
+                    {payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}
+                  </td>
+                  <td className="px-3 py-2 align-top text-right font-medium text-slate-900 dark:text-slate-100">
+                    {fmt(payment.amount)}
+                  </td>
                   <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">{payment.notes ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
-                <td className="px-3 py-2" colSpan={8}>Total contado</td>
+                <td className="px-3 py-2" colSpan={8}>
+                  Total contado
+                </td>
                 <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
                 <td />
               </tr>

@@ -1163,3 +1163,14 @@
   - added historical summary access and historical `Reporte detallado`
   - expanded detailed-report KPIs with method totals plus clearly separated excluded `360Player` count/amount
   - added product-name detail lines for real product sales on the thermal Corte ticket while keeping the main category breakdown compact
+
+### Front Desk Polish Mini-Pass
+- Corrected the uniform terminology follow-up from plural to singular:
+  - `Uniformes de Juego` -> `Uniforme de Juego`
+  - added a tiny idempotent data migration so the DB-backed product and charge-type labels also resolve singular
+- Extended `Reporte detallado` again without changing its existing KPI cards:
+  - added a separate `Por tipo de cargo` summary block under the KPI area
+  - it reuses the same checkpoint charge-type totals already shown in Corte Diario, so rows like `Mensualidad`, `Liga`, `Copa`, `Torneo`, and `Uniforme de Juego` appear when present
+- Cleaned the remaining mojibake on the touched detailed Corte surface:
+  - fixed the subtitle separator
+  - fixed the `Conceptos pagados` join separator
