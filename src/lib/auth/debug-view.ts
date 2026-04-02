@@ -6,6 +6,8 @@ import type { RoleScope } from "@/lib/auth/role-display";
 
 const DEBUG_VIEW_USER_ID_COOKIE = "debug-view-user-id";
 const DEBUG_VIEW_USER_EMAIL_COOKIE = "debug-view-user-email";
+const DEBUG_VIEW_RECENT_COOKIE = "debug-view-recent-users";
+const DEBUG_RECENT_LIMIT = 5;
 
 type RoleRow = {
   campus_id: string | null;
@@ -37,6 +39,15 @@ export type DebugViewContext = {
   activeView: { userId: string; email: string | null } | null;
   isReadOnly: boolean;
 };
+
+function getCookieOptions() {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV !== "development",
+    path: "/",
+  };
+}
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -123,6 +134,13 @@ export async function getDebugViewContext(): Promise<DebugViewContext | null> {
   };
 }
 
+export async function requireDebugManagerContext(redirectTo = "/unauthorized") {
+  const context = await getDebugViewContext();
+  if (!context) redirect("/login");
+  if (!context.canManage) redirect(redirectTo);
+  return context;
+}
+
 function withErrorParam(path: string, errorCode: string) {
   const separator = path.includes("?") ? "&" : "?";
   return `${path}${separator}err=${encodeURIComponent(errorCode)}`;
@@ -148,19 +166,29 @@ export async function clearDebugViewCookies() {
 
 export async function setDebugViewCookies(userId: string, email: string | null) {
   const cookieStore = await cookies();
-  const secure = process.env.NODE_ENV !== "development";
-  cookieStore.set(DEBUG_VIEW_USER_ID_COOKIE, userId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-  });
-  cookieStore.set(DEBUG_VIEW_USER_EMAIL_COOKIE, email ?? "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-  });
+  const options = getCookieOptions();
+  cookieStore.set(DEBUG_VIEW_USER_ID_COOKIE, userId, options);
+  cookieStore.set(DEBUG_VIEW_USER_EMAIL_COOKIE, email ?? "", options);
+}
+
+export async function getDebugRecentUserIds(): Promise<string[]> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(DEBUG_VIEW_RECENT_COOKIE)?.value ?? "[]";
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is string => isNonEmptyString(typeof value === "string" ? value : null));
+  } catch {
+    return [];
+  }
+}
+
+export async function rememberDebugUser(userId: string) {
+  const cookieStore = await cookies();
+  const options = getCookieOptions();
+  const recent = await getDebugRecentUserIds();
+  const next = [userId, ...recent.filter((id) => id !== userId)].slice(0, DEBUG_RECENT_LIMIT);
+  cookieStore.set(DEBUG_VIEW_RECENT_COOKIE, JSON.stringify(next), options);
 }
 
 export async function getDebugRedirectTarget(fallback = "/dashboard") {

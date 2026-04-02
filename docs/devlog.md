@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-01 (session 37)
+
+### Debug Tool UX Pass
+
+- Reworked the preview-only debug tool so it is easier to use visually:
+  - replaced the free-text top-bar input with a real user dropdown
+  - added recent-user chips for quick switching
+  - added stronger `Solo lectura` badges in the header and debug banner
+  - added a dedicated superadmin page at `/admin/debug-view`
+- The new debug page shows:
+  - actor user vs active viewed user
+  - recent targets
+  - searchable user list with role/campus summary
+  - one-click `Ver como` and reset actions
+- Shared debug user summaries now come from one helper, reused by the top bar and debug page.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 36)
 
 ### Preview-Only View-As Debug Tool

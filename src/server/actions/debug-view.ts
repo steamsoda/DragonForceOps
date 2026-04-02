@@ -7,6 +7,7 @@ import {
   clearDebugViewCookies,
   getDebugRedirectTarget,
   isPreviewDebugEnabled,
+  rememberDebugUser,
   setDebugViewCookies,
 } from "@/lib/auth/debug-view";
 
@@ -35,10 +36,11 @@ async function assertDebugManager() {
 }
 
 export async function setDebugViewUserAction(formData: FormData): Promise<void> {
-  const lookup = formData.get("target_email")?.toString().trim().toLowerCase() ?? "";
+  const targetUserId = formData.get("target_user_id")?.toString().trim() ?? "";
+  const targetEmailLookup = formData.get("target_email")?.toString().trim().toLowerCase() ?? "";
   const redirectTo = (formData.get("redirect_to")?.toString().trim() || (await getDebugRedirectTarget(BASE)));
 
-  if (!lookup) {
+  if (!targetUserId && !targetEmailLookup) {
     await clearDebugViewCookies();
     revalidatePath("/");
     redirect(redirectTo);
@@ -47,13 +49,16 @@ export async function setDebugViewUserAction(formData: FormData): Promise<void> 
   const { supabase, user } = await assertDebugManager();
   const { data: authUsersRaw } = await supabase.rpc("list_auth_users");
   const authUsers = (authUsersRaw ?? []) as Array<{ id: string; email: string | null }>;
-  const target = authUsers.find((candidate) => candidate.email?.toLowerCase() === lookup);
+  const target = targetUserId
+    ? authUsers.find((candidate) => candidate.id === targetUserId)
+    : authUsers.find((candidate) => candidate.email?.toLowerCase() === targetEmailLookup);
 
   if (!target?.id) redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}err=debug_user_not_found`);
   if (target.id === user.id) {
     await clearDebugViewCookies();
   } else {
     await setDebugViewCookies(target.id, target.email ?? null);
+    await rememberDebugUser(target.id);
   }
 
   revalidatePath("/");
