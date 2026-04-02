@@ -25,6 +25,7 @@ function toNumber(value: number | string | null | undefined) {
 
 type PaymentWithPlayer = {
   id: string;
+  folio: string | null;
   amount: number;
   method: string;
   paid_at: string;
@@ -50,11 +51,23 @@ type PaymentForMonth = {
   method: string;
 };
 
+type PaymentAllocationWithCharge = {
+  payment_id: string;
+  amount: number;
+  charges:
+    | {
+        description: string | null;
+        charge_types: { code: string | null; name: string | null } | null;
+      }
+    | null;
+};
+
 // ── Corte Diario ──────────────────────────────────────────────────────────────
 
 export type CortePaymentRow = {
   id: string;
   enrollmentId: string;
+  folio: string | null;
   playerName: string;
   birthYear: number | null;
   playerCampusName: string;
@@ -65,6 +78,7 @@ export type CortePaymentRow = {
   methodLabel: string;
   paidAt: string;
   notes: string | null;
+  concepts: string[];
   excludedFromCorte: boolean;
 };
 
@@ -141,7 +155,7 @@ export async function getCorteDiarioData(filters: {
 
   let query = supabase
     .from("payments")
-    .select("id, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))")
+    .select("id, folio, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))")
     .eq("status", "posted")
     .gte("paid_at", queryStart)
     .lt("paid_at", queryEnd)
@@ -161,6 +175,7 @@ export async function getCorteDiarioData(filters: {
   const operatorCampusById = new Map((operatorCampusRows ?? []).map((campus) => [campus.id, campus.name]));
   const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
   const countedPaymentIds = countedPayments.map((payment) => payment.id);
+  const paymentIds = payments.map((payment) => payment.id);
 
   const byMethodMap = new Map<string, { count: number; total: number }>();
   countedPayments.forEach((p) => {
@@ -177,17 +192,31 @@ export async function getCorteDiarioData(filters: {
     }))
     .sort((a, b) => b.total - a.total);
 
+  const { data: allocationData } = paymentIds.length
+    ? await supabase
+        .from("payment_allocations")
+        .select("payment_id, amount, charges(description, charge_types(code, name))")
+        .in("payment_id", paymentIds)
+        .returns<PaymentAllocationWithCharge[]>()
+    : { data: [] };
+
+  const conceptsByPaymentId = new Map<string, string[]>();
+  for (const allocation of allocationData ?? []) {
+    const concept = allocation.charges?.description?.trim() || allocation.charges?.charge_types?.name?.trim() || "Cargo";
+    const current = conceptsByPaymentId.get(allocation.payment_id) ?? [];
+    if (!current.includes(concept)) {
+      current.push(concept);
+      conceptsByPaymentId.set(allocation.payment_id, current);
+    }
+  }
+
   // Charge-type breakdown via payment_allocations
   let byChargeType: CorteByChargeType[] = [];
   if (countedPaymentIds.length > 0) {
-    const { data: allocData } = await supabase
-      .from("payment_allocations")
-      .select("amount, charges(charge_types(code, name))")
-      .in("payment_id", countedPaymentIds)
-      .returns<{ amount: number; charges: { charge_types: { code: string | null; name: string | null } | null } | null }[]>();
-
     const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
-    (allocData ?? []).forEach((alloc) => {
+    (allocationData ?? [])
+      .filter((allocation) => countedPaymentIds.includes(allocation.payment_id))
+      .forEach((alloc) => {
       const code = alloc.charges?.charge_types?.code ?? "other";
       const name = alloc.charges?.charge_types?.name ?? "Otro";
       const prev = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
@@ -213,6 +242,7 @@ export async function getCorteDiarioData(filters: {
     payments: payments.map((p) => ({
       id: p.id,
       enrollmentId: p.enrollment_id,
+      folio: p.folio,
       playerName: `${p.enrollments?.players?.first_name ?? ""} ${p.enrollments?.players?.last_name ?? ""}`.trim() || "-",
       birthYear: p.enrollments?.players?.birth_date ? parseInt(p.enrollments.players.birth_date.slice(0, 4), 10) : null,
       playerCampusName: p.enrollments?.campuses?.name ?? "-",
@@ -223,6 +253,7 @@ export async function getCorteDiarioData(filters: {
       methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method,
       paidAt: p.paid_at,
       notes: p.notes,
+      concepts: conceptsByPaymentId.get(p.id) ?? [],
       excludedFromCorte: p.method === "stripe_360player"
     }))
   };

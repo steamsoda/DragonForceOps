@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import type { AttendanceExportRow } from "@/lib/queries/player-exports";
 
 const ATTENDANCE_COLUMN_COUNT = 20;
-const SECTION_LEVELS = ["B2", "B1", "Selectivo", "Sin nivel"] as const;
+const SECTION_LEVELS = ["B2", "B1", "B3", "Selectivo"] as const;
 const ATTENDANCE_HEADERS = Array.from({ length: ATTENDANCE_COLUMN_COUNT }, (_, index) => `A${index + 1}`);
 const TOTAL_COLUMNS = 6 + ATTENDANCE_COLUMN_COUNT;
 
@@ -21,6 +21,21 @@ function buildSheetName(row: AttendanceExportRow) {
 function levelRank(level: string) {
   const index = SECTION_LEVELS.indexOf(level as (typeof SECTION_LEVELS)[number]);
   return index === -1 ? SECTION_LEVELS.length : index;
+}
+
+function getOrderedLevels(rows: AttendanceExportRow[]) {
+  const uniqueLevels = Array.from(new Set(rows.map((row) => row.level)));
+  const withoutSinNivel = uniqueLevels.filter((level) => level !== "Sin nivel");
+  const prioritized = SECTION_LEVELS.filter((level) => withoutSinNivel.includes(level));
+  const extras = withoutSinNivel
+    .filter((level) => !SECTION_LEVELS.includes(level as (typeof SECTION_LEVELS)[number]))
+    .sort((a, b) => a.localeCompare(b, "es-MX"));
+
+  return [
+    ...prioritized,
+    ...extras,
+    ...(uniqueLevels.includes("Sin nivel") ? ["Sin nivel"] : []),
+  ];
 }
 
 function applyGridBorder(row: ExcelJS.Row, totalColumns: number) {
@@ -153,7 +168,7 @@ export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
       return a.playerName.localeCompare(b.playerName, "es-MX");
     });
 
-    for (const level of SECTION_LEVELS) {
+    for (const level of getOrderedLevels(orderedRows)) {
       addSection(
         worksheet,
         level,

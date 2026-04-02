@@ -9,6 +9,10 @@ export type PlayerListFilters = {
   campusId?: string;
   birthYear?: string;
   gender?: string;
+  missingGender?: boolean;
+  missingLevel?: boolean;
+  missingTeam?: boolean;
+  pendingMonth?: string;
   page?: number;
   enabledTags?: {
     payment: boolean;
@@ -135,6 +139,8 @@ type PlayerWithEnrollmentRow = {
   last_name: string;
   birth_date: string;
   status: string;
+  gender: string | null;
+  level: string | null;
   is_goalkeeper: boolean;
   enrollments: Array<{
     id: string;
@@ -156,8 +162,22 @@ type ListBalanceRow = {
 
 type ListTeamRow = {
   enrollment_id: string;
-  teams: { type: string; level: string | null } | null;
+  teams: { name: string | null; type: string; level: string | null } | null;
 };
+
+type PendingMonthChargeRow = {
+  enrollment_id: string;
+  amount: number;
+  charge_types?: { code: string | null } | null;
+  payment_allocations: Array<{ amount: number | null }> | null;
+};
+
+function normalizePendingMonth(value: string | undefined) {
+  const raw = value?.trim() ?? "";
+  const match = /^(\d{4})-(\d{2})$/.exec(raw);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-01`;
+}
 
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
@@ -165,11 +185,18 @@ export async function listPlayers(filters: PlayerListFilters) {
   if (!campusAccess || campusAccess.campusIds.length === 0) {
     return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
   }
-  const page = Math.max(1, filters.page ?? 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
 
-  // Phone filter: resolve matching player IDs first (small result set, safe to use .in())
+  const page = Math.max(1, filters.page ?? 1);
+  const selectedCampusIds = filters.campusId
+    ? canAccessCampus(campusAccess, filters.campusId)
+      ? [filters.campusId]
+      : []
+    : campusAccess.campusIds;
+
+  if (selectedCampusIds.length === 0) {
+    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+  }
+
   let phonePlayerIds: string[] | null = null;
   if (filters.phone?.trim()) {
     const { data: linksByPhone } = await supabase
@@ -177,79 +204,68 @@ export async function listPlayers(filters: PlayerListFilters) {
       .select("player_id, guardians!inner(phone_primary)")
       .ilike("guardians.phone_primary", `%${filters.phone.trim()}%`);
     phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
-    if (phonePlayerIds.length === 0) return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
-  }
-
-  // Use !inner on enrollments so PostgREST generates a JOIN — no large .in() needed
-  let playerQuery = supabase
-    .from("players")
-    .select("id, first_name, last_name, birth_date, status, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))", { count: "exact" })
-    .eq("enrollments.status", "active")
-    .in("enrollments.campus_id", campusAccess.campusIds)
-    .order("first_name", { ascending: true })
-    .order("last_name", { ascending: true })
-    .range(from, to);
-
-  if (filters.campusId) {
-    if (!canAccessCampus(campusAccess, filters.campusId)) {
+    if (phonePlayerIds.length === 0) {
       return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
     }
-    playerQuery = playerQuery.eq("enrollments.campus_id", filters.campusId);
-  }
-  if (filters.q?.trim()) {
-    const q = filters.q.trim();
-    playerQuery = playerQuery.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`);
-  }
-  if (filters.birthYear?.trim()) {
-    const y = filters.birthYear.trim();
-    playerQuery = playerQuery
-      .gte("birth_date", `${y}-01-01`)
-      .lte("birth_date", `${y}-12-31`);
-  }
-  if (filters.gender?.trim()) {
-    playerQuery = playerQuery.eq("gender", filters.gender.trim());
-  }
-  if (phonePlayerIds) {
-    playerQuery = playerQuery.in("id", phonePlayerIds);
   }
 
-  const { data: players, count } = await playerQuery.returns<PlayerWithEnrollmentRow[]>();
+  const pendingMonth = normalizePendingMonth(filters.pendingMonth);
 
-  const playerIds = (players ?? []).map((p) => p.id);
-  if (playerIds.length === 0) return { rows: [], total: count ?? 0, page, pageSize: PAGE_SIZE };
+  const { data: players } = await supabase
+    .from("players")
+    .select("id, first_name, last_name, birth_date, status, gender, level, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))")
+    .eq("enrollments.status", "active")
+    .in("enrollments.campus_id", selectedCampusIds)
+    .order("first_name", { ascending: true })
+    .order("last_name", { ascending: true })
+    .returns<PlayerWithEnrollmentRow[]>();
 
-  const enrollmentIds = (players ?? []).map((p) => p.enrollments[0]?.id).filter(Boolean) as string[];
+  const playerIds = (players ?? []).map((player) => player.id);
+  if (playerIds.length === 0) {
+    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+  }
 
+  const enrollmentIds = (players ?? []).map((player) => player.enrollments[0]?.id).filter(Boolean) as string[];
   const needsUniform = filters.enabledTags?.uniform === true;
 
-  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult] = await Promise.all([
-    supabase
-      .from("player_guardians")
-      .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
-      .in("player_id", playerIds)
-      .returns<GuardianLinkRow[]>(),
-    supabase
-      .from("v_enrollment_balances")
-      .select("enrollment_id, balance")
-      .in("enrollment_id", enrollmentIds)
-      .returns<ListBalanceRow[]>(),
-    supabase
-      .from("team_assignments")
-      .select("enrollment_id, teams(type, level)")
-      .in("enrollment_id", enrollmentIds)
-      .is("end_date", null)
-      .eq("is_primary", true)
-      .returns<ListTeamRow[]>(),
-    needsUniform
-      ? supabase
-          .from("uniform_orders")
-          .select("player_id, status")
-          .in("enrollment_id", enrollmentIds)
-          .returns<UniformOrderRow[]>()
-      : Promise.resolve({ data: null })
-  ]);
+  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult, pendingMonthResult] =
+    await Promise.all([
+      supabase
+        .from("player_guardians")
+        .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
+        .in("player_id", playerIds)
+        .returns<GuardianLinkRow[]>(),
+      supabase
+        .from("v_enrollment_balances")
+        .select("enrollment_id, balance")
+        .in("enrollment_id", enrollmentIds)
+        .returns<ListBalanceRow[]>(),
+      supabase
+        .from("team_assignments")
+        .select("enrollment_id, teams(name, type, level)")
+        .in("enrollment_id", enrollmentIds)
+        .is("end_date", null)
+        .eq("is_primary", true)
+        .returns<ListTeamRow[]>(),
+      needsUniform
+        ? supabase
+            .from("uniform_orders")
+            .select("player_id, status")
+            .in("enrollment_id", enrollmentIds)
+            .returns<UniformOrderRow[]>()
+        : Promise.resolve({ data: null }),
+      pendingMonth
+        ? supabase
+            .from("charges")
+            .select("enrollment_id, amount, charge_types!inner(code), payment_allocations(amount)")
+            .in("enrollment_id", enrollmentIds)
+            .eq("charge_types.code", "monthly_tuition")
+            .eq("period_month", pendingMonth)
+            .neq("status", "void")
+            .returns<PendingMonthChargeRow[]>()
+        : Promise.resolve({ data: null }),
+    ]);
 
-  // Aggregate uniform status per player: 'pending' if any ordered, 'delivered' if all delivered
   const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
   if (needsUniform && uniformResult.data) {
     const ordersByPlayer = new Map<string, string[]>();
@@ -259,7 +275,7 @@ export async function listPlayers(filters: PlayerListFilters) {
       ordersByPlayer.set(row.player_id, arr);
     }
     for (const [playerId, statuses] of ordersByPlayer) {
-      uniformStatusByPlayer.set(playerId, statuses.some((s) => s === "ordered") ? "pending" : "delivered");
+      uniformStatusByPlayer.set(playerId, statuses.some((status) => status === "ordered") ? "pending" : "delivered");
     }
   }
 
@@ -269,20 +285,32 @@ export async function listPlayers(filters: PlayerListFilters) {
     arr.push(link);
     guardiansByPlayer.set(link.player_id, arr);
   }
-  const balanceByEnrollment = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
-  const teamTypeByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.type ?? null]));
-  const levelByEnrollment = new Map((teamRows ?? []).map((r) => [r.enrollment_id, r.teams?.level ?? null]));
 
-  const rows = (players ?? []).map((player) => {
+  const balanceByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row.balance]));
+  const teamByEnrollment = new Map((teamRows ?? []).map((row) => [row.enrollment_id, row.teams ?? null]));
+
+  const pendingEnrollmentIds = new Set<string>();
+  for (const charge of pendingMonthResult.data ?? []) {
+    const allocated = (charge.payment_allocations ?? []).reduce((sum, allocation) => sum + (allocation.amount ?? 0), 0);
+    if (charge.amount - allocated > 0.009) {
+      pendingEnrollmentIds.add(charge.enrollment_id);
+    }
+  }
+
+  const queryText = filters.q?.trim().toLowerCase() ?? "";
+  const genderFilter = filters.gender?.trim() ?? "";
+  const phoneFilterSet = phonePlayerIds ? new Set(phonePlayerIds) : null;
+
+  const allRows = (players ?? []).map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
-    const primary =
-      guardians.find((g) => g.is_primary)?.guardians?.phone_primary ??
-      guardians.find((g) => !!g.guardians?.phone_primary)?.guardians?.phone_primary ??
+    const primaryPhone =
+      guardians.find((guardian) => guardian.is_primary)?.guardians?.phone_primary ??
+      guardians.find((guardian) => !!guardian.guardians?.phone_primary)?.guardians?.phone_primary ??
       null;
     const enrollment = player.enrollments[0];
     const enrollmentId = enrollment?.id ?? null;
-    const balance = enrollmentId ? (balanceByEnrollment.get(enrollmentId) ?? 0) : 0;
-    const teamType = enrollmentId ? (teamTypeByEnrollment.get(enrollmentId) ?? null) : null;
+    const team = enrollmentId ? (teamByEnrollment.get(enrollmentId) ?? null) : null;
+    const resolvedLevel = team?.level ?? player.level ?? null;
 
     return {
       id: player.id,
@@ -290,20 +318,39 @@ export async function listPlayers(filters: PlayerListFilters) {
       birthDate: player.birth_date,
       birthYear: parseInt(player.birth_date.slice(0, 4), 10),
       status: player.status,
+      gender: player.gender,
       isGoalkeeper: player.is_goalkeeper,
       campusName: enrollment?.campuses?.name ?? "-",
       campusCode: enrollment?.campuses?.code ?? null,
-      primaryPhone: primary,
-      balance,
-      teamType,
-      level: enrollmentId ? (levelByEnrollment.get(enrollmentId) ?? null) : null,
+      primaryPhone,
+      balance: enrollmentId ? (balanceByEnrollment.get(enrollmentId) ?? 0) : 0,
+      teamType: team?.type ?? null,
+      teamName: team?.name ?? null,
+      level: resolvedLevel,
       uniformStatus: uniformStatusByPlayer.get(player.id) ?? null,
+      enrollmentId,
+      hasPendingSelectedMonth: enrollmentId ? pendingEnrollmentIds.has(enrollmentId) : false,
     };
   });
 
-  return { rows, total: count ?? 0, page, pageSize: PAGE_SIZE };
-}
+  const filteredRows = allRows.filter((row) => {
+    if (phoneFilterSet && !phoneFilterSet.has(row.id)) return false;
+    if (queryText && !row.fullName.toLowerCase().includes(queryText)) return false;
+    if (filters.birthYear?.trim() && String(row.birthYear) !== filters.birthYear.trim()) return false;
+    if (genderFilter && row.gender !== genderFilter) return false;
+    if (filters.missingGender && !!row.gender) return false;
+    if (filters.missingLevel && !!row.level?.trim()) return false;
+    if (filters.missingTeam && !!row.teamName?.trim()) return false;
+    if (pendingMonth && !row.hasPendingSelectedMonth) return false;
+    return true;
+  });
 
+  const total = filteredRows.length;
+  const from = (page - 1) * PAGE_SIZE;
+  const rows = filteredRows.slice(from, from + PAGE_SIZE);
+
+  return { rows, total, page, pageSize: PAGE_SIZE };
+}
 export type BajaListFilters = {
   q?: string;
   campusId?: string;

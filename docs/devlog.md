@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-04-01 (session 38)
+
+### Attendance Export + Jugadores Filters + Corte Detail Polish
+
+- Fixed the attendance workbook so active players are no longer dropped just because their level is outside the original hardcoded section list.
+  - known sections still prioritize `B2`, `B1`, `B3`, and `Selectivo`
+  - any extra level values now render instead of disappearing silently
+- Attendance export now treats missing gender as a data-cleanup issue instead of exporting fallback `Sin genero` sheets.
+  - those players are excluded from the workbook
+  - `/players` now shows a visible warning count and campus/category breakdown for the excluded rows
+- Expanded the existing `Jugadores` page with the first advanced filter wave:
+  - `Sin genero`
+  - `Sin nivel`
+  - `Sin equipo`
+  - `Mensualidad pendiente por mes`
+- The month-specific pending filter is based on real pending `monthly_tuition` charges and remaining allocated amount, not just aggregate balance.
+- Corte Diario ledger now shows `Conceptos pagados` per payment by resolving `payment_allocations -> charges.description`.
+- Added a separate detailed Corte report page at `/reports/corte-diario/detalle`:
+  - browser/A4 print oriented
+  - uses the same current campus checkpoint window
+  - includes folio, notes, cross-campus markers, and paid item descriptions
+  - does **not** close or roll the checkpoint
+- Kept the existing thermal `Imprimir y cerrar corte` flow unchanged.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 37)
 
 ### Debug Tool UX Pass

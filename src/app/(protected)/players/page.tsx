@@ -3,6 +3,7 @@ import Link from "next/link";
 import { listCampuses, listBirthYears, listPlayers, listBajas } from "@/lib/queries/players";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
+import { getAttendanceExportData } from "@/lib/queries/player-exports";
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
@@ -61,6 +62,10 @@ type SearchParams = Promise<{
   campus?: string;
   year?: string;
   gender?: string;
+  missingGender?: string;
+  missingLevel?: string;
+  missingTeam?: string;
+  pendingMonth?: string;
   page?: string;
   view?: string;
   ok?: string;
@@ -73,10 +78,21 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const campusId = params.campus ?? "";
   const birthYear = params.year ?? "";
   const gender = params.gender ?? "";
+  const missingGender = params.missingGender === "1";
+  const missingLevel = params.missingLevel === "1";
+  const missingTeam = params.missingTeam === "1";
+  const pendingMonth = params.pendingMonth ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const view = params.view === "bajas" ? "bajas" : "active";
 
-  const [campuses, birthYears, tags] = await Promise.all([listCampuses(), listBirthYears(), getTagSettings()]);
+  const [campuses, birthYears, tags, attendanceExport] = await Promise.all([
+    listCampuses(),
+    listBirthYears(),
+    getTagSettings(),
+    view === "active"
+      ? getAttendanceExportData()
+      : Promise.resolve({ rows: [], excludedMissingGenderCount: 0, excludedMissingGender: [] }),
+  ]);
 
   let result: { rows: unknown[]; total: number; page: number; pageSize: number };
   let activeRows: Awaited<ReturnType<typeof listPlayers>>["rows"] = [];
@@ -87,7 +103,19 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     result = bajaResult;
     bajaRows = bajaResult.rows;
   } else {
-    const activeResult = await listPlayers({ q, phone, campusId: campusId || undefined, birthYear: birthYear || undefined, gender: gender || undefined, page, enabledTags: tags });
+    const activeResult = await listPlayers({
+      q,
+      phone,
+      campusId: campusId || undefined,
+      birthYear: birthYear || undefined,
+      gender: gender || undefined,
+      missingGender,
+      missingLevel,
+      missingTeam,
+      pendingMonth: pendingMonth || undefined,
+      page,
+      enabledTags: tags,
+    });
     result = activeResult;
     activeRows = activeResult.rows;
   }
@@ -95,7 +123,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const prevPage = page > 1 ? page - 1 : null;
   const nextPage = page < totalPages ? page + 1 : null;
-  const qsBase = `view=${view}&q=${encodeURIComponent(q)}&phone=${encodeURIComponent(phone)}&campus=${encodeURIComponent(campusId)}&year=${encodeURIComponent(birthYear)}&gender=${encodeURIComponent(gender)}`;
+  const qsBase = `view=${view}&q=${encodeURIComponent(q)}&phone=${encodeURIComponent(phone)}&campus=${encodeURIComponent(campusId)}&year=${encodeURIComponent(birthYear)}&gender=${encodeURIComponent(gender)}&missingGender=${missingGender ? "1" : "0"}&missingLevel=${missingLevel ? "1" : "0"}&missingTeam=${missingTeam ? "1" : "0"}&pendingMonth=${encodeURIComponent(pendingMonth)}`;
 
   return (
     <PageShell
@@ -186,6 +214,32 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
                 />
               )}
+              {view === "active" && (
+                <input
+                  type="month"
+                  name="pendingMonth"
+                  defaultValue={pendingMonth}
+                  className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+                />
+              )}
+              {view === "active" && (
+                <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+                  <input type="checkbox" name="missingGender" value="1" defaultChecked={missingGender} />
+                  Sin genero
+                </label>
+              )}
+              {view === "active" && (
+                <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+                  <input type="checkbox" name="missingLevel" value="1" defaultChecked={missingLevel} />
+                  Sin nivel
+                </label>
+              )}
+              {view === "active" && (
+                <label className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+                  <input type="checkbox" name="missingTeam" value="1" defaultChecked={missingTeam} />
+                  Sin equipo
+                </label>
+              )}
               <button
                 type="submit"
                 className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200"
@@ -212,6 +266,20 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </div>
           {view === "active" && <PlayersDrilldown />}
         </div>
+
+        {view === "active" && attendanceExport.excludedMissingGenderCount > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+            <p className="font-medium">
+              {attendanceExport.excludedMissingGenderCount} jugador{attendanceExport.excludedMissingGenderCount !== 1 ? "es" : ""} activo{attendanceExport.excludedMissingGenderCount !== 1 ? "s" : ""} no se exporta{attendanceExport.excludedMissingGenderCount !== 1 ? "n" : ""} por falta de genero.
+            </p>
+            <p className="mt-1 text-xs">
+              {attendanceExport.excludedMissingGender
+                .slice(0, 6)
+                .map((row) => `${row.campusName} Cat ${row.birthYear}: ${row.count}`)
+                .join(" · ")}
+            </p>
+          </div>
+        ) : null}
 
         <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
 

@@ -46,10 +46,23 @@ export type AttendanceExportRow = {
   guardianPhone: string;
 };
 
+export type AttendanceExportWarning = {
+  campusId: string;
+  campusName: string;
+  birthYear: number;
+  count: number;
+};
+
+export type AttendanceExportData = {
+  rows: AttendanceExportRow[];
+  excludedMissingGenderCount: number;
+  excludedMissingGender: AttendanceExportWarning[];
+};
+
 function normalizeGenderLabel(value: string | null | undefined) {
   if (value === "male") return "Varonil";
   if (value === "female") return "Femenil";
-  return "Sin genero";
+  return null;
 }
 
 function normalizeLevel(value: string | null | undefined) {
@@ -57,9 +70,15 @@ function normalizeLevel(value: string | null | undefined) {
   return trimmed && trimmed.length > 0 ? trimmed : "Sin nivel";
 }
 
-export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> {
+export async function getAttendanceExportData(): Promise<AttendanceExportData> {
   const campusAccess = await getOperationalCampusAccess();
-  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return {
+      rows: [],
+      excludedMissingGenderCount: 0,
+      excludedMissingGender: [],
+    };
+  }
 
   const supabase = await createClient();
   const { data: enrollments } = await supabase
@@ -71,7 +90,13 @@ export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> 
     .order("start_date", { ascending: false })
     .returns<ExportEnrollmentRow[]>();
 
-  if (!enrollments || enrollments.length === 0) return [];
+  if (!enrollments || enrollments.length === 0) {
+    return {
+      rows: [],
+      excludedMissingGenderCount: 0,
+      excludedMissingGender: [],
+    };
+  }
 
   const playerIds = enrollments.map((row) => row.players?.id).filter(Boolean) as string[];
   const enrollmentIds = enrollments.map((row) => row.id);
@@ -103,11 +128,28 @@ export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> 
     teamByEnrollment.set(row.enrollment_id, row.teams ?? null);
   }
 
-  return enrollments
+  const warningMap = new Map<string, AttendanceExportWarning>();
+
+  const rows = enrollments
     .filter((row) => !!row.players?.birth_date)
-    .map((row) => {
+    .flatMap((row) => {
       const player = row.players!;
       const birthYear = parseInt(player.birth_date.slice(0, 4), 10);
+      const genderLabel = normalizeGenderLabel(player.gender);
+
+      if (!genderLabel) {
+        const warningKey = `${row.campus_id}:${birthYear}`;
+        const current = warningMap.get(warningKey) ?? {
+          campusId: row.campus_id,
+          campusName: row.campuses?.name ?? "-",
+          birthYear,
+          count: 0,
+        };
+        current.count += 1;
+        warningMap.set(warningKey, current);
+        return [];
+      }
+
       const guardianLinks = guardiansByPlayer.get(player.id) ?? [];
       const guardianPhone =
         guardianLinks.find((link) => link.is_primary)?.guardians?.phone_primary ??
@@ -115,17 +157,17 @@ export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> 
         "-";
       const team = teamByEnrollment.get(row.id) ?? null;
 
-      return {
+      return [{
         campusId: row.campus_id,
         campusName: row.campuses?.name ?? "-",
         campusCode: row.campuses?.code ?? "",
         birthYear,
-        genderLabel: normalizeGenderLabel(player.gender),
+        genderLabel,
         level: normalizeLevel(team?.level ?? player.level),
         teamName: team?.name?.trim() || "-",
         playerName: `${player.first_name} ${player.last_name}`.replace(/\s+/g, " ").trim(),
         guardianPhone: guardianPhone || "-",
-      };
+      }];
     })
     .sort((a, b) => {
       const campusDiff = a.campusName.localeCompare(b.campusName, "es-MX");
@@ -137,4 +179,21 @@ export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> 
       if (levelDiff !== 0) return levelDiff;
       return a.playerName.localeCompare(b.playerName, "es-MX");
     });
+
+  const excludedMissingGender = [...warningMap.values()].sort((a, b) => {
+    const campusDiff = a.campusName.localeCompare(b.campusName, "es-MX");
+    if (campusDiff !== 0) return campusDiff;
+    return a.birthYear - b.birthYear;
+  });
+
+  return {
+    rows,
+    excludedMissingGenderCount: excludedMissingGender.reduce((sum, row) => sum + row.count, 0),
+    excludedMissingGender,
+  };
+}
+
+export async function getAttendanceExportRows(): Promise<AttendanceExportRow[]> {
+  const data = await getAttendanceExportData();
+  return data.rows;
 }

@@ -79,7 +79,15 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <PrintButton campusId={data.campusId} printerName={printerName} />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Link
+                      href={`/reports/corte-diario/detalle?campus=${encodeURIComponent(data.campusId)}`}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Reporte detallado
+                    </Link>
+                    <PrintButton campusId={data.campusId} printerName={printerName} />
+                  </div>
                   {canUseFallbackSessionPage ? (
                     <Link href="/caja/sesion" className="block text-right text-xs text-slate-500 hover:underline dark:text-slate-400">
                       Abrir herramienta avanzada de sesion
@@ -144,6 +152,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                       <th className="px-3 py-2">Campus que recibe</th>
                       <th className="px-3 py-2">Cat.</th>
                       <th className="px-3 py-2">Metodo</th>
+                      <th className="px-3 py-2">Conceptos pagados</th>
                       <th className="px-3 py-2 text-right">Monto</th>
                       <th className="px-3 py-2">Notas</th>
                     </tr>
@@ -179,6 +188,9 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                             ) : null}
                           </div>
                         </td>
+                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                          {payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}
+                        </td>
                         <td className="px-3 py-2 text-right font-medium">{fmt(payment.amount)}</td>
                         <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.notes ?? "-"}</td>
                       </tr>
@@ -186,7 +198,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
-                      <td className="px-3 py-2" colSpan={6}>Total</td>
+                      <td className="px-3 py-2" colSpan={7}>Total</td>
                       <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
                       <td />
                     </tr>

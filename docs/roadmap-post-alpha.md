@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-01.
 
-Current preview release line: `v1.3.0`
+Current preview release line: `v1.3.6`
 
 ---
 
@@ -34,7 +34,7 @@ Dedicated non-financial product track:
 - `#38` tournament / league / cup management
 - `#58` Director Deportivo dashboard, sports-only
 - `#59` team-building and readiness workflow
-- `#60` pending-by-month player filter
+- `#60` pending-by-month player filter, now partially implemented on `Jugadores` as an advanced filter
 - `#63` attendance-sheet export, aligned with future attendance/coaching flows
 
 ### 4. Player + Admin Utility Wave 🧩
@@ -46,7 +46,7 @@ Follow after the operational tracks above:
 - `#36` player document uploads
 - `#37` bajas / dropout revamp
 - `#61` specialist appointments products/categories
-- `#62` general Excel/list exports
+- `#62` general Excel/list exports, now in a correction/polish pass after the first attendance workbook rollout
 - `#39` bounded inputs → button toggles UX pass
 
 ---
@@ -113,7 +113,7 @@ Follow after the operational tracks above:
 | 43 | **Pricing change rollout (non-breaking)** | ✅ Done | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
 | 55 | **Replace free-number financial inputs with guided button choices** | ✅ Done | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja resolves automatically from the selected month/version, the POS checkout stages fixed-price product tiles with locked catalog amounts, uniform items now require `Talla` before they can be added, and only explicit special/manual charges keep open-amount entry. Date/campus entry for front desk also moved to guided controls (`DD/MM/YYYY` masked inputs, calendar access, direct campus buttons). |
 | 56 | **Refund workflow** | 🔴 Open | New finance-op item. Track refund reason, original payment linkage, who authorized it, and how it affects receipts, audit logs, and reporting totals. Must not silently mutate historical posted payment records without traceability. |
-| 57 | **Corte Diario + cash session revamp** | ✅ Done | Front desk now works against automatic campus corte checkpoints instead of manually opening/closing sessions. Corte Diario is campus-first, based on payments since the last printed corte for that campus, printing closes and rolls the next checkpoint automatically, `360Player` remains visible-but-excluded, and `paid_at` can now be backdated from Caja and the enrollment ledger when staff recovers a missed payment. |
+| 57 | **Corte Diario + cash session revamp** | ✅ Done | Front desk now works against automatic campus corte checkpoints instead of manually opening/closing sessions. Corte Diario is campus-first, based on payments since the last printed corte for that campus, printing closes and rolls the next checkpoint automatically, `360Player` remains visible-but-excluded, and `paid_at` can now be backdated from Caja and the enrollment ledger when staff recovers a missed payment. Follow-up polish now adds row-level `Conceptos pagados` in the ledger plus a separate detailed browser-print report without changing the thermal corte flow. |
 
 ---
 
@@ -134,10 +134,10 @@ Follow after the operational tracks above:
 | 40 | **Custom receipt tickets** | ⚠️ Needs spec | Some products need a different ticket format. **Spec not provided — ask director which products and what the ticket should show before implementing.** |
 | 58 | **Director Deportivo dashboard** | 🔴 Open | New sports-only dashboard. Show roster readiness, team-building signals, tournament participation status, and operational sports views without exposing finance totals, cash sessions, or report balances. |
 | 59 | **Team-building / assign available players workflow** | 🔴 Open | Director Deportivo needs a way to build teams from available players, see readiness/payment-status indicators, and assign players without exposing money amounts. This must connect sports ops and finance status cleanly. |
-| 60 | **Filter players pending a specific tuition month** | 🔴 Open | Add a month-specific pending view/filter so staff and sports ops can quickly see which players still owe a given monthly tuition period. |
+| 60 | **Filter players pending a specific tuition month** | 🟡 In progress | First pass now lives on `/players` as an advanced filter by tuition month, driven by real pending `monthly_tuition` charges rather than aggregate balance only. Keep open for any dedicated sports-ops or call-center views beyond the current Jugadores implementation. |
 | 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
-| 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is now live on `/players`: a multi-sheet attendance workbook grouped by campus + category + gender with level sections. Keep this item open for broader list/export tooling beyond attendance rosters. |
-| 63 | **Attendance-sheet export** | ✅ Done | `/players` now exports a formatted `.xlsx` workbook for manual attendance use, with one sheet per campus + category + gender, level sections inside each sheet, alphabetical player rows, tutor phone, and 20 blank attendance columns. |
+| 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, plus visible warning counts for active players excluded because they are missing gender. Keep this item open for broader list/export tooling beyond attendance rosters. |
+| 63 | **Attendance-sheet export** | ✅ Done | `/players` exports a formatted `.xlsx` workbook for manual attendance use, with one sheet per campus + category + gender, level sections inside each sheet, alphabetical player rows, tutor phone, and 20 blank attendance columns. Missing-gender players are now intentionally excluded instead of generating fallback `Sin genero` sheets. |
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🔴 Open | Make Linda Vista covering Contry workflows feel intentional instead of like a permissions workaround. Tied to cross-campus payment handling and the broader front-desk permissions audit. |
 
 ---

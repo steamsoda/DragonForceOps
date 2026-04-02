@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildAttendanceWorkbook } from "@/lib/exports/attendance-workbook";
-import { getAttendanceExportRows } from "@/lib/queries/player-exports";
+import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -25,8 +25,8 @@ export async function GET() {
     return NextResponse.json({ message: "No autenticado." }, { status: 401 });
   }
 
-  const rows = await getAttendanceExportRows();
-  const workbook = await buildAttendanceWorkbook(rows);
+  const exportData = await getAttendanceExportData();
+  const workbook = await buildAttendanceWorkbook(exportData.rows);
   const workbookBuffer = await workbook.xlsx.writeBuffer();
   const bytes = workbookBuffer instanceof Uint8Array ? workbookBuffer : new Uint8Array(workbookBuffer);
   const filename = `asistencia-jugadores-${formatDateForFilename(new Date())}.xlsx`;
