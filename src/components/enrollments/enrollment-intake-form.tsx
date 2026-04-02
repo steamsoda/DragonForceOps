@@ -190,7 +190,7 @@ export function EnrollmentIntakeForm({
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de alta</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Selecciona si este registro es un alta nueva o un regreso. El flujo termina en Caja para cobrar.
+            Selecciona si este registro es un alta nueva o un reingreso. El flujo termina en Caja para cobrar.
           </p>
         </div>
         <div className="grid gap-2 md:grid-cols-2">
@@ -217,7 +217,7 @@ export function EnrollmentIntakeForm({
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
-            <p className="font-semibold">Regreso</p>
+            <p className="font-semibold">Reingreso</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Activa las opciones especiales de inscripcion para reingreso.
             </p>
@@ -448,7 +448,7 @@ export function EnrollmentIntakeForm({
 
         {isReturning ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Modo Regreso</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Modo Reingreso</p>
             <p className="mt-1 text-sm text-slate-700">
               Selecciona la modalidad de inscripcion. La mensualidad usa las mismas reglas del alta normal.
             </p>
@@ -594,7 +594,7 @@ export function EnrollmentIntakeForm({
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
             <p className="font-semibold text-slate-800">Tipo de alta</p>
-            <p className="mt-1 text-slate-600">{isReturning ? "Regreso" : "Nuevo ingreso"}</p>
+            <p className="mt-1 text-slate-600">{isReturning ? "Reingreso" : "Nuevo ingreso"}</p>
             <p className="mt-1 text-xs text-slate-500">
               {isReturning ? selectedReturnOption.label : "Inscripcion estandar del plan"}
             </p>

@@ -71,7 +71,7 @@ export function EnrollmentCreateForm({
 
       {isReturning && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Regreso</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reingreso</p>
           <p className="mt-1 text-sm text-slate-700">
             Este flujo aplica opciones especiales de inscripcion para reingreso. La mensualidad se calcula con las
             mismas reglas automaticas del alta normal.
@@ -140,7 +140,7 @@ export function EnrollmentCreateForm({
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
-              {isReturning ? "Inscripcion regreso" : "Inscripcion"}
+              {isReturning ? "Inscripcion reingreso" : "Inscripcion"}
             </p>
             {isReturning ? (
               <div className="mt-3 space-y-2">
@@ -187,7 +187,7 @@ export function EnrollmentCreateForm({
             </p>
             {isReturning && (
               <p className="mt-2 text-xs text-slate-600">
-                Modalidad seleccionada de regreso:{" "}
+                Modalidad seleccionada de reingreso:{" "}
                 <span className="font-semibold text-slate-700">{selectedReturnOption.label}</span>
               </p>
             )}

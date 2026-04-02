@@ -125,3 +125,39 @@ export async function getOrCreateCurrentCorteCheckpoint(campusId: string): Promi
 
   return fallback.data ? mapCheckpoint(fallback.data) : null;
 }
+
+export async function listClosedCorteCheckpoints(
+  campusId: string,
+  limit = 12
+): Promise<CorteCheckpoint[]> {
+  const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!canAccessCampus(campusAccess, campusId)) return [];
+
+  const { data } = await supabase
+    .from("corte_checkpoints")
+    .select("id, campus_id, opened_at, closed_at, printed_at, status, campuses(name)")
+    .eq("campus_id", campusId)
+    .eq("status", "closed")
+    .order("closed_at", { ascending: false })
+    .limit(limit)
+    .returns<CheckpointRow[]>();
+
+  return (data ?? []).map(mapCheckpoint);
+}
+
+export async function getCorteCheckpointById(checkpointId: string): Promise<CorteCheckpoint | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("corte_checkpoints")
+    .select("id, campus_id, opened_at, closed_at, printed_at, status, campuses(name)")
+    .eq("id", checkpointId)
+    .maybeSingle<CheckpointRow>();
+
+  if (!data) return null;
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!canAccessCampus(campusAccess, data.campus_id)) return null;
+
+  return mapCheckpoint(data);
+}

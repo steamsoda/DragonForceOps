@@ -1144,3 +1144,22 @@
   - charge-type totals
   - printed Corte Diario total output
 - Added a visible external-payment tag/note so staff can distinguish recorded external payments from cash-session income.
+
+### Front Desk Polish Follow-Up
+- Cleaned up `/players` after first live usage:
+  - kept the main campus/category/gender/name/phone filters inline
+  - moved secondary data-quality + collections filters into `Filtros avanzados`
+- Added a direct player-profile shortcut in Caja:
+  - when a selected player has a real `playerId`, their name in the Caja header now links to `/players/[id]`
+- Updated front-desk terminology:
+  - `Regreso` -> `Reingreso`
+  - `Uniforme Partido` / `Uniforme de Partido` -> `Uniformes de Juego`
+- Reopened and fixed the live thermal-ticket accent bug properly:
+  - replaced the corrupted `printer.ts` literals with a clean file
+  - added shared printer-text normalization before CP1252 base64 encoding
+  - this now covers standard receipts, Caja receipt printing, receipt reprints, and thermal Corte output
+- Extended Corte Diario follow-up polish without changing the current close/print workflow:
+  - added checkpoint-history browsing on the main Corte page
+  - added historical summary access and historical `Reporte detallado`
+  - expanded detailed-report KPIs with method totals plus clearly separated excluded `360Player` count/amount
+  - added product-name detail lines for real product sales on the thermal Corte ticket while keeping the main category breakdown compact

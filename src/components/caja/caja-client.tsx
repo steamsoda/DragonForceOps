@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { PrintReceiptButton } from "./print-receipt-button";
 import { type ReceiptData } from "@/lib/printer";
@@ -45,6 +46,18 @@ function methodLabel(method: string) {
     other: "Otro"
   };
   return labels[method] ?? method;
+}
+
+function PlayerProfileLink({ playerId, playerName }: { playerId: string; playerName: string }) {
+  if (!playerId) {
+    return <p className="text-lg font-semibold text-portoDark">{playerName}</p>;
+  }
+
+  return (
+    <Link href={`/players/${playerId}`} className="text-lg font-semibold text-portoDark hover:underline">
+      {playerName}
+    </Link>
+  );
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -282,7 +295,7 @@ export function CajaClient({
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
             <div>
-              <p className="text-lg font-semibold text-portoDark">{view.player.playerName}</p>
+              <PlayerProfileLink playerId={view.player.playerId} playerName={view.player.playerName} />
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {view.player.campusName}{view.player.birthYear ? ` · ${view.player.birthYear}` : ""}
               </p>
@@ -812,7 +825,7 @@ function PosEnrollmentPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
+          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}
           </p>
@@ -1506,7 +1519,7 @@ function EnrollmentPanel({
       {/* Player header */}
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
+          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">
@@ -2008,7 +2021,7 @@ function ProductGridPanel({
       {/* Player header */}
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <p className="text-lg font-semibold text-portoDark">{data.playerName}</p>
+          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">
@@ -2156,11 +2169,11 @@ function errorMessage(code: string): string {
     allocation_insert_failed: "Error al aplicar el pago. Verifica con el administrador.",
     product_not_found: "Producto no encontrado o inactivo.",
     charge_insert_failed: "Error al crear el cargo del carrito. Intenta de nuevo.",
-    reload_failed: "Se cobrÃ³, pero no se pudo refrescar la vista. Busca al alumno de nuevo.",
-    duplicate_period: "Ya existe una mensualidad para ese perÃ­odo.",
+    reload_failed: "Se cobro, pero no se pudo refrescar la vista. Busca al alumno de nuevo.",
+    duplicate_period: "Ya existe una mensualidad para ese periodo.",
     tuition_rate_not_found: "No se pudo determinar la tarifa de mensualidad.",
     prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar.",
-    charge_type_not_found: "Error de configuraciÃ³n: tipo de cargo no encontrado."
+    charge_type_not_found: "Error de configuracion: tipo de cargo no encontrado."
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
 }

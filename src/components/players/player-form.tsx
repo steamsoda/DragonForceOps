@@ -21,7 +21,7 @@ export function PlayerCreateForm({ action, initialIsReturning = false }: PlayerC
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tipo de alta</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Marca <span className="font-medium text-slate-700 dark:text-slate-300">Regreso</span> cuando el jugador
+            Marca <span className="font-medium text-slate-700 dark:text-slate-300">Reingreso</span> cuando el jugador
             vuelve a la academia y necesitara opciones especiales de inscripcion.
           </p>
         </div>
@@ -49,7 +49,7 @@ export function PlayerCreateForm({ action, initialIsReturning = false }: PlayerC
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             }`}
           >
-            <p className="font-semibold">Regreso</p>
+            <p className="font-semibold">Reingreso</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Activa opciones especiales de inscripcion para reingreso.
             </p>
@@ -155,7 +155,7 @@ export function PlayerCreateForm({ action, initialIsReturning = false }: PlayerC
         type="submit"
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
       >
-        {isReturning ? "Registrar jugador y continuar con regreso" : "Registrar jugador"}
+        {isReturning ? "Registrar jugador y continuar con reingreso" : "Registrar jugador"}
       </button>
     </form>
   );

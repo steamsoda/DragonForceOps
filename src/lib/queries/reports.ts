@@ -56,6 +56,7 @@ type PaymentAllocationWithCharge = {
   amount: number;
   charges:
     | {
+        product_id: string | null;
         description: string | null;
         charge_types: { code: string | null; name: string | null } | null;
       }
@@ -95,6 +96,11 @@ export type CorteByChargeType = {
   total: number;
 };
 
+export type CorteProductDetail = {
+  description: string;
+  total: number;
+};
+
 export type CorteDiarioData = {
   campusId: string;
   campusName: string;
@@ -104,8 +110,10 @@ export type CorteDiarioData = {
   totalCobrado: number;
   countedPaymentsCount: number;
   excludedPaymentsCount: number;
+  excludedPaymentsTotal: number;
   byMethod: CorteByMethod[];
   byChargeType: CorteByChargeType[];
+  productDetails: CorteProductDetail[];
   payments: CortePaymentRow[];
 };
 
@@ -126,8 +134,10 @@ export async function getCorteDiarioData(filters: {
       totalCobrado: 0,
       countedPaymentsCount: 0,
       excludedPaymentsCount: 0,
+      excludedPaymentsTotal: 0,
       byMethod: [],
       byChargeType: [],
+      productDetails: [],
       payments: [],
     };
   }
@@ -143,8 +153,10 @@ export async function getCorteDiarioData(filters: {
       totalCobrado: 0,
       countedPaymentsCount: 0,
       excludedPaymentsCount: 0,
+      excludedPaymentsTotal: 0,
       byMethod: [],
       byChargeType: [],
+      productDetails: [],
       payments: [],
     };
   }
@@ -175,6 +187,9 @@ export async function getCorteDiarioData(filters: {
   const operatorCampusById = new Map((operatorCampusRows ?? []).map((campus) => [campus.id, campus.name]));
   const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
   const countedPaymentIds = countedPayments.map((payment) => payment.id);
+  const excludedPaymentsTotal = payments
+    .filter((payment) => payment.method === "stripe_360player")
+    .reduce((sum, payment) => sum + payment.amount, 0);
   const paymentIds = payments.map((payment) => payment.id);
 
   const byMethodMap = new Map<string, { count: number; total: number }>();
@@ -195,7 +210,7 @@ export async function getCorteDiarioData(filters: {
   const { data: allocationData } = paymentIds.length
     ? await supabase
         .from("payment_allocations")
-        .select("payment_id, amount, charges(description, charge_types(code, name))")
+        .select("payment_id, amount, charges(product_id, description, charge_types(code, name))")
         .in("payment_id", paymentIds)
         .returns<PaymentAllocationWithCharge[]>()
     : { data: [] };
@@ -212,20 +227,31 @@ export async function getCorteDiarioData(filters: {
 
   // Charge-type breakdown via payment_allocations
   let byChargeType: CorteByChargeType[] = [];
+  let productDetails: CorteProductDetail[] = [];
   if (countedPaymentIds.length > 0) {
     const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
+    const productDetailsMap = new Map<string, number>();
     (allocationData ?? [])
       .filter((allocation) => countedPaymentIds.includes(allocation.payment_id))
       .forEach((alloc) => {
-      const code = alloc.charges?.charge_types?.code ?? "other";
-      const name = alloc.charges?.charge_types?.name ?? "Otro";
-      const prev = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
-      byChargeTypeMap.set(code, { typeName: name, total: prev.total + alloc.amount });
-    });
+        const code = alloc.charges?.charge_types?.code ?? "other";
+        const name = alloc.charges?.charge_types?.name ?? "Otro";
+        const prev = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
+        byChargeTypeMap.set(code, { typeName: name, total: prev.total + alloc.amount });
+
+        if (alloc.charges?.product_id) {
+          const productName = alloc.charges.description?.trim() || alloc.charges.charge_types?.name?.trim() || "Producto";
+          productDetailsMap.set(productName, (productDetailsMap.get(productName) ?? 0) + alloc.amount);
+        }
+      });
 
     byChargeType = Array.from(byChargeTypeMap.entries())
       .map(([typeCode, { typeName, total }]) => ({ typeCode, typeName, total }))
       .sort((a, b) => b.total - a.total);
+
+    productDetails = Array.from(productDetailsMap.entries())
+      .map(([description, total]) => ({ description, total }))
+      .sort((a, b) => b.total - a.total || a.description.localeCompare(b.description, "es-MX"));
   }
 
   return {
@@ -237,8 +263,10 @@ export async function getCorteDiarioData(filters: {
     totalCobrado: countedPayments.reduce((sum, p) => sum + p.amount, 0),
     countedPaymentsCount: countedPayments.length,
     excludedPaymentsCount: payments.length - countedPayments.length,
+    excludedPaymentsTotal,
     byMethod,
     byChargeType,
+    productDetails,
     payments: payments.map((p) => ({
       id: p.id,
       enrollmentId: p.enrollment_id,

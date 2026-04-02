@@ -37,7 +37,7 @@ export default async function EnrollmentCreatePage({
   return (
     <PageShell
       title="Nueva inscripcion"
-      subtitle={isReturning ? `${context.player.fullName} - Regreso` : context.player.fullName}
+      subtitle={isReturning ? `${context.player.fullName} - Reingreso` : context.player.fullName}
       breadcrumbs={[
         { label: "Jugadores", href: "/players" },
         { label: context.player.fullName, href: `/players/${playerId}` },

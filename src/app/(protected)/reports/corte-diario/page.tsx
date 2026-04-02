@@ -2,7 +2,11 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrintButton } from "./print-button";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
-import { getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
+import {
+  getCorteCheckpointById,
+  getOrCreateCurrentCorteCheckpoint,
+  listClosedCorteCheckpoints,
+} from "@/lib/queries/corte-checkpoints";
 import { getCorteDiarioData } from "@/lib/queries/reports";
 import { getPrinterName } from "@/lib/queries/settings";
 import { formatDateTimeMonterrey, formatTimeMonterrey } from "@/lib/time";
@@ -11,41 +15,48 @@ function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
-type SearchParams = Promise<{ campus?: string }>;
+type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const [campusAccess, printerName] = await Promise.all([
-    getOperationalCampusAccess(),
-    getPrinterName(),
-  ]);
+  const [campusAccess, printerName] = await Promise.all([getOperationalCampusAccess(), getPrinterName()]);
 
   const accessibleCampuses = campusAccess?.campuses ?? [];
-  const defaultCampusId = params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";
-  const checkpoint = defaultCampusId ? await getOrCreateCurrentCorteCheckpoint(defaultCampusId) : null;
+  const selectedCampusId = params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";
+  const historicalCheckpoint = params.checkpoint ? await getCorteCheckpointById(params.checkpoint) : null;
+  const checkpoint = historicalCheckpoint ?? (selectedCampusId ? await getOrCreateCurrentCorteCheckpoint(selectedCampusId) : null);
   const data = checkpoint
     ? await getCorteDiarioData({
         campusId: checkpoint.campusId,
         openedAt: checkpoint.openedAt,
+        closedAt: checkpoint.status === "closed" ? checkpoint.closedAt : undefined,
       })
     : null;
-
+  const closedHistory = checkpoint ? await listClosedCorteCheckpoints(checkpoint.campusId, 12) : [];
   const canUseFallbackSessionPage = Boolean(campusAccess?.isDirector);
+  const isHistorical = checkpoint?.status === "closed";
 
   return (
     <PageShell
       title="Corte Diario"
-      subtitle={checkpoint ? `Corte abierto desde ${formatDateTimeMonterrey(checkpoint.openedAt)}` : "Selecciona un campus para ver su corte activo"}
+      subtitle={
+        checkpoint
+          ? isHistorical
+            ? `Corte historico: ${formatDateTimeMonterrey(checkpoint.openedAt)} - ${checkpoint.closedAt ? formatDateTimeMonterrey(checkpoint.closedAt) : "-"}`
+            : `Corte abierto desde ${formatDateTimeMonterrey(checkpoint.openedAt)}`
+          : "Selecciona un campus para ver su corte activo"
+      }
     >
       <div className="space-y-6">
         <form className="grid gap-3 rounded-md border border-slate-200 p-3 print:hidden md:grid-cols-[1fr_auto] dark:border-slate-700">
+          <input type="hidden" name="checkpoint" value="" />
           <select
             name="campus"
-            defaultValue={defaultCampusId}
+            defaultValue={checkpoint?.campusId ?? selectedCampusId}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
           >
             {accessibleCampuses.map((campus) => (
@@ -54,10 +65,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
-          >
+          <button type="submit" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
             Cambiar campus
           </button>
         </form>
@@ -68,27 +76,51 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{data.campusName}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Este corte incluye todos los pagos registrados desde la ultima impresion de {data.campusName}.
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Periodo actual: {formatDateTimeMonterrey(data.openedAt)} - ahora
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Al imprimir, este corte se cierra automaticamente y el siguiente empieza en ese mismo momento.
-                  </p>
+                  {isHistorical ? (
+                    <>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Resumen historico del checkpoint cerrado para {data.campusName}.
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Periodo: {formatDateTimeMonterrey(data.openedAt)} - {checkpoint.closedAt ? formatDateTimeMonterrey(checkpoint.closedAt) : "-"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Este corte incluye todos los pagos registrados desde la ultima impresion de {data.campusName}.
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Periodo actual: {formatDateTimeMonterrey(data.openedAt)} - ahora</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Al imprimir, este corte se cierra automaticamente y el siguiente empieza en ese mismo momento.
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <div className="flex flex-wrap justify-end gap-2">
                     <Link
-                      href={`/reports/corte-diario/detalle?campus=${encodeURIComponent(data.campusId)}`}
+                      href={
+                        isHistorical
+                          ? `/reports/corte-diario/detalle?checkpoint=${encodeURIComponent(checkpoint.id)}`
+                          : `/reports/corte-diario/detalle?campus=${encodeURIComponent(data.campusId)}`
+                      }
                       className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       Reporte detallado
                     </Link>
-                    <PrintButton campusId={data.campusId} printerName={printerName} />
+                    {isHistorical ? (
+                      <Link
+                        href={`/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}`}
+                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Volver al corte actual
+                      </Link>
+                    ) : (
+                      <PrintButton campusId={data.campusId} printerName={printerName} />
+                    )}
                   </div>
-                  {canUseFallbackSessionPage ? (
+                  {!isHistorical && canUseFallbackSessionPage ? (
                     <Link href="/caja/sesion" className="block text-right text-xs text-slate-500 hover:underline dark:text-slate-400">
                       Abrir herramienta avanzada de sesion
                     </Link>
@@ -188,9 +220,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                             ) : null}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
-                          {payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}
-                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}</td>
                         <td className="px-3 py-2 text-right font-medium">{fmt(payment.amount)}</td>
                         <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.notes ?? "-"}</td>
                       </tr>
@@ -206,6 +236,56 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                 </table>
               </div>
             )}
+
+            {closedHistory.length > 0 ? (
+              <div className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Historial de cortes</h2>
+                  {isHistorical ? (
+                    <Link href={`/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}`} className="text-xs text-portoBlue hover:underline">
+                      Ver corte actual
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        <th className="px-3 py-2">Abierto</th>
+                        <th className="px-3 py-2">Cerrado</th>
+                        <th className="px-3 py-2">Impreso</th>
+                        <th className="px-3 py-2 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {closedHistory.map((historyRow) => (
+                        <tr key={historyRow.id}>
+                          <td className="px-3 py-2">{formatDateTimeMonterrey(historyRow.openedAt)}</td>
+                          <td className="px-3 py-2">{historyRow.closedAt ? formatDateTimeMonterrey(historyRow.closedAt) : "-"}</td>
+                          <td className="px-3 py-2">{historyRow.printedAt ? formatDateTimeMonterrey(historyRow.printedAt) : "-"}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex justify-end gap-2">
+                              <Link
+                                href={`/reports/corte-diario?campus=${encodeURIComponent(historyRow.campusId)}&checkpoint=${encodeURIComponent(historyRow.id)}`}
+                                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                              >
+                                Ver resumen
+                              </Link>
+                              <Link
+                                href={`/reports/corte-diario/detalle?checkpoint=${encodeURIComponent(historyRow.id)}`}
+                                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                              >
+                                Reporte detallado
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
           </>
         ) : (
           <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">

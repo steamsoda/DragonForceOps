@@ -98,6 +98,10 @@ export async function closeAndPrepareCortePrintAction(campusId: string): Promise
         typeName: row.typeName,
         total: row.total,
       })),
+      productDetails: corteData.productDetails.map((row) => ({
+        description: row.description,
+        total: row.total,
+      })),
       payments: corteData.payments.map((payment) => ({
         playerName: payment.playerName,
         amount: payment.amount,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
-import { getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
+import { getCorteCheckpointById, getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
 import { getCorteDiarioData } from "@/lib/queries/reports";
 import { formatDateTimeMonterrey } from "@/lib/time";
 import { DetailPrintButton } from "./detail-print-button";
@@ -15,19 +15,21 @@ function fmt(value: number) {
   }).format(value);
 }
 
-type SearchParams = Promise<{ campus?: string }>;
+type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioDetallePage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const campusAccess = await getOperationalCampusAccess();
   const accessibleCampuses = campusAccess?.campuses ?? [];
-  const selectedCampusId = params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";
+
+  const historicalCheckpoint = params.checkpoint ? await getCorteCheckpointById(params.checkpoint) : null;
+  const selectedCampusId = historicalCheckpoint?.campusId ?? params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";
 
   if (!selectedCampusId) {
     redirect("/reports/corte-diario");
   }
 
-  const checkpoint = await getOrCreateCurrentCorteCheckpoint(selectedCampusId);
+  const checkpoint = historicalCheckpoint ?? (await getOrCreateCurrentCorteCheckpoint(selectedCampusId));
   if (!checkpoint) {
     redirect("/reports/corte-diario");
   }
@@ -35,26 +37,33 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
   const data = await getCorteDiarioData({
     campusId: checkpoint.campusId,
     openedAt: checkpoint.openedAt,
+    closedAt: checkpoint.status === "closed" ? checkpoint.closedAt : undefined,
   });
+  const isHistorical = checkpoint.status === "closed";
+  const periodEndLabel = checkpoint.closedAt ? formatDateTimeMonterrey(checkpoint.closedAt) : "ahora";
 
   return (
     <PageShell
       title="Reporte detallado de corte"
-      subtitle={`${data.campusName} · ${formatDateTimeMonterrey(data.openedAt)} - ahora`}
+      subtitle={`${data.campusName} · ${formatDateTimeMonterrey(data.openedAt)} - ${periodEndLabel}`}
       breadcrumbs={[
         { label: "Reportes", href: "/reports/corte-diario" },
-        { label: "Corte Diario", href: `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}` },
+        { label: "Corte Diario", href: isHistorical ? `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}&checkpoint=${encodeURIComponent(checkpoint.id)}` : `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}` },
         { label: "Reporte detallado" },
       ]}
     >
       <div className="space-y-6 print:space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Reporte A4 informativo. No cierra el corte actual ni modifica el checkpoint.
+            Reporte A4 informativo. {isHistorical ? "Corresponde a un corte historico ya cerrado." : "No cierra el corte actual ni modifica el checkpoint."}
           </p>
           <div className="flex items-center gap-2">
             <Link
-              href={`/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}`}
+              href={
+                isHistorical
+                  ? `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}&checkpoint=${encodeURIComponent(checkpoint.id)}`
+                  : `/reports/corte-diario?campus=${encodeURIComponent(data.campusId)}`
+              }
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Volver al corte
@@ -64,23 +73,42 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         </div>
 
         <div className="grid gap-3 md:grid-cols-4 print:grid-cols-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Campus</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{data.campusName}</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Periodo</p>
             <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{formatDateTimeMonterrey(data.openedAt)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Hasta ahora</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Hasta {periodEndLabel}</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total contado</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
-            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pagos visibles</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{data.payments.length}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{data.excludedPaymentsCount} externos fuera del total</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 print:break-inside-avoid print:bg-white dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pagos</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{data.countedPaymentsCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Contados dentro del corte</p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 print:grid-cols-5">
+          {["cash", "card", "transfer", "other"].map((method) => {
+            const row = data.byMethod.find((item) => item.method === method);
+            const label = row?.methodLabel ?? ({ cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", other: "Otro" }[method] ?? method);
+            return (
+              <div key={method} className="rounded-md border border-slate-200 bg-white p-4 print:break-inside-avoid dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{fmt(row?.total ?? 0)}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}</p>
+              </div>
+            );
+          })}
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 print:break-inside-avoid print:bg-white dark:border-amber-800 dark:bg-amber-950/20">
+            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">360Player excluido</p>
+            <p className="mt-1 text-lg font-semibold text-amber-900 dark:text-amber-100">{fmt(data.excludedPaymentsTotal)}</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">{data.excludedPaymentsCount} pago{data.excludedPaymentsCount !== 1 ? "s" : ""} visible{data.excludedPaymentsCount !== 1 ? "s" : ""}</p>
           </div>
         </div>
 
@@ -128,9 +156,7 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
                     </div>
                   </td>
                   <td className="px-3 py-2 align-top text-slate-600 dark:text-slate-400">{payment.folio ?? "-"}</td>
-                  <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">
-                    {payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}
-                  </td>
+                  <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">{payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}</td>
                   <td className="px-3 py-2 align-top text-right font-medium text-slate-900 dark:text-slate-100">{fmt(payment.amount)}</td>
                   <td className="px-3 py-2 align-top text-xs text-slate-600 dark:text-slate-400">{payment.notes ?? "-"}</td>
                 </tr>

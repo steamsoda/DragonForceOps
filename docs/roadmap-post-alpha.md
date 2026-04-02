@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-01.
 
-Current preview release line: `v1.3.6`
+Current preview release line: `v1.3.7`
 
 ---
 
@@ -17,7 +17,7 @@ Next implementation priority. Group these together as one operational wave:
 - `#34` cross-campus payment ownership is now in phase-one implementation on preview, especially for Linda Vista covering Contry workflows
 - `#48` SQL-side finance/report aggregation hardening
 - `#56` refunds workflow
-- `#57` Corte Diario + cash session revamp, including printable report output and clearer UI
+- `#57` Corte Diario checkpoint history, detailed report KPIs, and compact thermal-product detail follow-up
 
 ### 2. Permissions + Campus Operations 🔐
 
@@ -57,7 +57,7 @@ Follow after the operational tracks above:
 |---|------|--------|-------|
 | 1 | **No receipt on enrollment ledger page** | ✅ Done | `postEnrollmentPaymentAction` now returns receipt data; `PaymentPostForm` is a client component using `useActionState` + `PrintReceiptButton` with `autoPrint` |
 | 2 | **No receipt from player profile payment** | ✅ Done | Player profile links to Caja (`/caja?enrollmentId=...`) which already auto-prints |
-| 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Switched from `format: "plain"` to CP1252 base64 encoding in `printer.ts` |
+| 3 | **Garbled ñ / accents on printed receipts** | ✅ Done | Reworked the thermal printing path again after live front-desk feedback: ticket payloads now go through a shared printer-text normalization pass before CP1252 base64 encoding, covering standard receipts, Caja prints, reprints, and thermal Corte output. |
 | 4 | **Corte Diario UTC offset** | ✅ Done | Date queries now use Monterrey midnight (UTC+6h); display uses `timeZone: "America/Monterrey"` |
 | 5 | **Date format MM/DD/YYYY → DD/MM/YYYY** | ✅ Done | Manual `DD/MM/YYYY` formatting applied across date displays, and both player birth-date and enrollment start-date entry now use guided `DD/MM/YYYY` inputs instead of locale-dependent browser date widgets. |
 | 23 | **Charge status stuck on "Pendiente" when fully paid** | ✅ Done | `getEffectiveStatus(status, pendingAmount)` in `charges-ledger-table.tsx` — shows "Pagado" when `pendingAmount ≤ 0` |
@@ -113,7 +113,7 @@ Follow after the operational tracks above:
 | 43 | **Pricing change rollout (non-breaking)** | ✅ Done | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
 | 55 | **Replace free-number financial inputs with guided button choices** | ✅ Done | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja resolves automatically from the selected month/version, the POS checkout stages fixed-price product tiles with locked catalog amounts, uniform items now require `Talla` before they can be added, and only explicit special/manual charges keep open-amount entry. Date/campus entry for front desk also moved to guided controls (`DD/MM/YYYY` masked inputs, calendar access, direct campus buttons). |
 | 56 | **Refund workflow** | 🔴 Open | New finance-op item. Track refund reason, original payment linkage, who authorized it, and how it affects receipts, audit logs, and reporting totals. Must not silently mutate historical posted payment records without traceability. |
-| 57 | **Corte Diario + cash session revamp** | ✅ Done | Front desk now works against automatic campus corte checkpoints instead of manually opening/closing sessions. Corte Diario is campus-first, based on payments since the last printed corte for that campus, printing closes and rolls the next checkpoint automatically, `360Player` remains visible-but-excluded, and `paid_at` can now be backdated from Caja and the enrollment ledger when staff recovers a missed payment. Follow-up polish now adds row-level `Conceptos pagados` in the ledger plus a separate detailed browser-print report without changing the thermal corte flow. |
+| 57 | **Corte Diario + cash session revamp** | ✅ Done | Front desk now works against automatic campus corte checkpoints instead of manually opening/closing sessions. Corte Diario is campus-first, based on payments since the last printed corte for that campus, printing closes and rolls the next checkpoint automatically, `360Player` remains visible-but-excluded, and `paid_at` can now be backdated from Caja and the enrollment ledger when staff recovers a missed payment. Follow-up polish now adds row-level `Conceptos pagados`, historical checkpoint browsing, historical detailed reports, richer detailed-report KPIs, and thermal Corte product-name detail for real product sales without changing the close/print flow. |
 
 ---
 
@@ -121,7 +121,7 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | 🔴 Open | Weekly uniform sales + delivery marking. `uniform_orders` table exists, needs dedicated page. Fold in small front-desk asks like repeated uniform quantity and clear sold / ordered / delivered / pending states. |
+| 17 | **Uniformes tab** | 🔴 Open | Promoted as the next larger operational build after the current front-desk polish wave. `uniform_orders` table exists; the page still needs the real workflow for sold / ordered / delivered / pending states, repeated quantity handling, and the final day-to-day front-desk UX. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
@@ -136,7 +136,7 @@ Follow after the operational tracks above:
 | 59 | **Team-building / assign available players workflow** | 🔴 Open | Director Deportivo needs a way to build teams from available players, see readiness/payment-status indicators, and assign players without exposing money amounts. This must connect sports ops and finance status cleanly. |
 | 60 | **Filter players pending a specific tuition month** | 🟡 In progress | First pass now lives on `/players` as an advanced filter by tuition month, driven by real pending `monthly_tuition` charges rather than aggregate balance only. Keep open for any dedicated sports-ops or call-center views beyond the current Jugadores implementation. |
 | 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
-| 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, plus visible warning counts for active players excluded because they are missing gender. Keep this item open for broader list/export tooling beyond attendance rosters. |
+| 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, visible warning counts for active players excluded because they are missing gender, and the surrounding Jugadores filter bar has been cleaned up with a dedicated advanced-filters section. Keep this item open for broader list/export tooling beyond attendance rosters. |
 | 63 | **Attendance-sheet export** | ✅ Done | `/players` exports a formatted `.xlsx` workbook for manual attendance use, with one sheet per campus + category + gender, level sections inside each sheet, alphabetical player rows, tutor phone, and 20 blank attendance columns. Missing-gender players are now intentionally excluded instead of generating fallback `Sin genero` sheets. |
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🔴 Open | Make Linda Vista covering Contry workflows feel intentional instead of like a permissions workaround. Tied to cross-campus payment handling and the broader front-desk permissions audit. |
 
