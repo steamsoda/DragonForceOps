@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -167,6 +168,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   if (!player || !enrollment) {
     return redirectWithError("invalid_form", { isReturning, returnMode });
   }
+  await assertDebugWritesAllowed(`/players/new${isReturning ? "?returning=1" : ""}`);
 
   const supabase = await createClient();
   const {

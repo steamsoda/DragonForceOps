@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
@@ -66,14 +66,8 @@ export default async function PlayerDetailPage({
   const { playerId } = await params;
   const sp = await searchParams;
   const player = await getPlayerDetail(playerId);
-
-  // Check superadmin for nuke button
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: myRoles } = user
-    ? await supabase.from("user_roles").select("app_roles(code)").eq("user_id", user.id).returns<{ app_roles: { code: string } | null }[]>()
-    : { data: null };
-  const isSuperAdmin = (myRoles ?? []).some((r) => r.app_roles?.code === "superadmin");
+  const permissionContext = await getPermissionContext();
+  const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
 
   if (!player) {
     notFound();

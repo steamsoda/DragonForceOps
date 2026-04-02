@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nukePlayerAction } from "@/server/actions/admin";
 
@@ -27,17 +28,10 @@ export default async function NukePlayerPage({
   const { playerId } = await params;
   const { err } = await searchParams;
 
+  await requireSuperAdminContext("/unauthorized");
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-
-  const { data: myRoles } = await supabase
-    .from("user_roles")
-    .select("app_roles(code)")
-    .eq("user_id", user.id)
-    .returns<{ app_roles: { code: string } | null }[]>();
-  const myCodes = (myRoles ?? []).map((r) => r.app_roles?.code).filter(Boolean);
-  if (!myCodes.includes("superadmin")) redirect("/unauthorized");
 
   const { data: player } = await supabase
     .from("players")

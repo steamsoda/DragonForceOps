@@ -1,5 +1,30 @@
 # Devlog
 
+## 2026-04-01 (session 36)
+
+### Preview-Only View-As Debug Tool
+
+- Added a preview-only `Ver como` tool for superadmin so role and campus scope can be tested against a real target user without swapping Supabase sessions.
+- The protected layout now resolves:
+  - actor user = the real logged-in superadmin
+  - effective user = the selected target user when debug mode is active
+- While view-as mode is active:
+  - nav visibility, role checks, and campus-scoped app access follow the effective user
+  - the app shows a persistent amber banner with the target user, role/campus summary, quick links, and reset
+  - write actions are blocked across the main operational/admin server actions with a shared read-only guard
+- Tightened emulator fidelity on key operational reads so preview behaves closer to the target user:
+  - players and birth-year filters
+  - pending list
+  - receipts search
+  - Caja drilldown/search access checks
+- Safety:
+  - hard-disabled in production
+  - enabled only in preview or local development
+  - no DB schema changes or auth-session impersonation
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 35)
 
 ### Roles + Campus Scope Hotfix

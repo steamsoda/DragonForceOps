@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { canAccessGuardianRecord, canAccessPlayerRecord } from "@/lib/auth/permissions";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
 import { parseDateOnlyInput } from "@/lib/time";
@@ -17,6 +18,7 @@ export async function createPlayerAction(formData: FormData) {
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const parsed = parsePlayerFormData(formData);
   if (!parsed) return redirectWithError("invalid_form", isReturning);
+  await assertDebugWritesAllowed(`/players/new${isReturning ? "?returning=1" : ""}`);
 
   const supabase = await createClient();
   const {
@@ -81,6 +83,7 @@ export async function createPlayerAction(formData: FormData) {
 
 export async function updatePlayerAction(playerId: string, formData: FormData): Promise<void> {
   const BASE = `/players/${playerId}`;
+  await assertDebugWritesAllowed(`${BASE}/edit`);
 
   const firstName = formData.get("firstName")?.toString().trim();
   const lastName = formData.get("lastName")?.toString().trim();
@@ -127,6 +130,7 @@ export async function updateGuardianAction(
   formData: FormData
 ): Promise<void> {
   const BASE = `/players/${playerId}`;
+  await assertDebugWritesAllowed(`${BASE}/guardians/${guardianId}/edit`);
 
   const firstName = formData.get("firstName")?.toString().trim();
   const lastName = formData.get("lastName")?.toString().trim();

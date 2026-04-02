@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -24,6 +25,7 @@ export async function openCashSessionAction(formData: FormData): Promise<void> {
 
   if (!campusId) redirect(`${BASE}?err=invalid_form`);
   if (isNaN(openingCash) || openingCash < 0) redirect(`${BASE}?err=invalid_amount`);
+  await assertDebugWritesAllowed(BASE);
 
   const auth = await assertOperationalAccess();
   if (!auth) redirect(`${BASE}?err=unauthorized`);
@@ -78,6 +80,7 @@ export async function closeCashSessionAction(formData: FormData): Promise<void> 
   if (closingCash !== null && (isNaN(closingCash) || closingCash < 0)) {
     redirect(`${redirectTo}?err=invalid_amount`);
   }
+  await assertDebugWritesAllowed(redirectTo);
 
   const auth = await assertOperationalAccess();
   if (!auth) redirect(`${redirectTo}?err=unauthorized`);

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPrinterName } from "@/lib/queries/settings";
-import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Caja - Dragon Force Ops" };
 
@@ -11,14 +11,13 @@ export default async function CajaPage({
 }: {
   searchParams: Promise<{ enrollmentId?: string }>;
 }) {
-  const supabase = await createClient();
-  const [printerName, sp, isDirectorResult, campusAccess] = await Promise.all([
+  const permissionContext = await getPermissionContext();
+  const [printerName, sp, campusAccess] = await Promise.all([
     getPrinterName(),
     searchParams,
-    supabase.rpc("is_director_admin"),
     getOperationalCampusAccess(),
   ]);
-  const isDirector = isDirectorResult.data ?? false;
+  const isDirector = permissionContext?.isDirector ?? false;
   const initialEnrollmentId = sp.enrollmentId;
 
   return (

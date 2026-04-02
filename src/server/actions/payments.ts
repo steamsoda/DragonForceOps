@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +39,7 @@ export async function postEnrollmentPaymentAction(
   enrollmentId: string,
   formData: FormData
 ): Promise<EnrollmentPaymentResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parsePaymentFormData(formData);
   if (!parsed) return { ok: false, error: "invalid_form" };
 

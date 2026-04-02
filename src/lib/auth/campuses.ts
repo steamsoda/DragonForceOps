@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDebugViewContext } from "@/lib/auth/debug-view";
 
 export type AccessibleCampus = {
   id: string;
@@ -38,19 +39,11 @@ export type OperationalCampusAccess = {
 };
 
 export async function getOperationalCampusAccess(): Promise<OperationalCampusAccess | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (error || !user) return null;
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) return null;
 
-  const [{ data: roleRows }, { data: allCampuses }] = await Promise.all([
-    supabase
-      .from("user_roles")
-      .select("campus_id, app_roles(code), campuses(id, code, name)")
-      .eq("user_id", user.id)
-      .returns<RoleCampusRow[]>(),
+  const supabase = await createClient();
+  const [{ data: allCampuses }] = await Promise.all([
     supabase
       .from("campuses")
       .select("id, code, name")
@@ -59,7 +52,7 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
       .returns<AccessibleCampus[]>(),
   ]);
 
-  const rows = roleRows ?? [];
+  const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
   const isDirector = roleCodes.some((code) => code === "director_admin" || code === "superadmin");
   const frontDeskRows = rows.filter((row) => row.app_roles?.code === "front_desk");
@@ -85,7 +78,7 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   const defaultCampus = chooseDefaultCampus(campuses);
 
   return {
-    userId: user.id,
+    userId: debugContext.effective.id,
     isDirector,
     isFrontDesk,
     isLegacyGlobalFrontDesk,

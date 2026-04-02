@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -74,6 +75,7 @@ export async function listAreaMapEntriesAction(month: string): Promise<{
 export async function createAreaMapEntryAction(
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const entryDate  = formData.get("entry_date") as string;
@@ -111,6 +113,7 @@ export async function closeAreaMapEntryAction(
   effectiveness: string,
   closureDate: string
 ): Promise<{ ok: boolean }> {
+  if (await isDebugWriteBlocked()) return { ok: false };
   const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase
     .from("area_map_entries")
@@ -126,6 +129,7 @@ export async function closeAreaMapEntryAction(
 }
 
 export async function deleteAreaMapEntryAction(entryId: string): Promise<{ ok: boolean }> {
+  if (await isDebugWriteBlocked()) return { ok: false };
   const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase.from("area_map_entries").delete().eq("id", entryId);
   revalidatePath("/reports/porto-mensual");

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { writeAuditLog } from "@/lib/audit";
 import { getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
 import { getCorteDiarioData } from "@/lib/queries/reports";
@@ -13,6 +14,7 @@ type CheckpointCloseResult =
   | { ok: false; error: string };
 
 export async function closeAndPrepareCortePrintAction(campusId: string): Promise<CheckpointCloseResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const supabase = await createClient();
   const {
     data: { user },

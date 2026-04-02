@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,6 +55,7 @@ export async function createAcademyEventAction(
   month: string,
   formData: FormData
 ): Promise<{ ok: boolean; error?: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { supabase, user } = await requireDirectorContext("/unauthorized");
 
   const title = (formData.get("title") as string)?.trim();
@@ -92,6 +94,7 @@ export async function toggleEventDoneAction(
   isDone: boolean,
   actualDate: string | null
 ): Promise<{ ok: boolean }> {
+  if (await isDebugWriteBlocked()) return { ok: false };
   const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase
     .from("academy_events")
@@ -107,6 +110,7 @@ export async function toggleEventDoneAction(
 }
 
 export async function deleteAcademyEventAction(eventId: string): Promise<{ ok: boolean }> {
+  if (await isDebugWriteBlocked()) return { ok: false };
   const { supabase } = await requireDirectorContext("/unauthorized");
   const { error } = await supabase.from("academy_events").delete().eq("id", eventId);
   revalidatePath("/reports/porto-mensual");

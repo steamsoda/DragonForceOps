@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -30,6 +31,7 @@ async function assertSuperadmin(
 export async function reverseAuditLogEntryAction(formData: FormData): Promise<void> {
   const logId = formData.get("log_id")?.toString().trim() ?? "";
   if (!logId) redirect("/admin/actividad?err=invalid_form");
+  await assertDebugWritesAllowed("/admin/actividad");
 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -95,6 +97,7 @@ export async function nukePlayerAction(formData: FormData): Promise<void> {
   const expectedName = formData.get("expected_name")?.toString().trim() ?? "";
 
   if (!playerId) redirect("/players?err=invalid");
+  await assertDebugWritesAllowed(`/players/${playerId}/nuke`);
 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertDebugWritesAllowed, isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
@@ -22,6 +23,7 @@ async function requireDirector() {
 // ── Create team ───────────────────────────────────────────────────────────────
 
 export async function createTeamAction(formData: FormData): Promise<void> {
+  await assertDebugWritesAllowed("/teams/new");
   const { supabase, user, isDirector } = await requireDirector();
   if (!user || !isDirector) redirect("/teams?err=unauthorized");
 
@@ -82,6 +84,7 @@ export async function createTeamAction(formData: FormData): Promise<void> {
 // ── Edit team ─────────────────────────────────────────────────────────────────
 
 export async function editTeamAction(teamId: string, formData: FormData): Promise<void> {
+  await assertDebugWritesAllowed(`/teams/${teamId}/edit`);
   const { supabase, user, isDirector } = await requireDirector();
   if (!user || !isDirector) redirect(`/teams/${teamId}?err=unauthorized`);
 
@@ -110,6 +113,7 @@ export async function assignPlayerToTeamAction(
   teamId: string,
   isNewArrival = false
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { supabase, user, isDirector } = await requireDirector();
   if (!user || !isDirector) return { ok: false, error: "unauthorized" };
 
@@ -168,6 +172,7 @@ export async function assignPlayerToTeamAction(
 export async function transferPlayerAction(
   formData: FormData
 ): Promise<void> {
+  await assertDebugWritesAllowed("/teams");
   const enrollmentId = formData.get("enrollmentId")?.toString().trim();
   const playerId     = formData.get("playerId")?.toString().trim();
   const newTeamId    = formData.get("newTeamId")?.toString().trim();
@@ -231,6 +236,7 @@ export async function transferPlayerAction(
 export async function addRefuerzoAction(
   formData: FormData
 ): Promise<void> {
+  await assertDebugWritesAllowed("/teams");
   const enrollmentId = formData.get("enrollmentId")?.toString().trim();
   const playerId     = formData.get("playerId")?.toString().trim();
   const teamId       = formData.get("teamId")?.toString().trim();
@@ -291,6 +297,7 @@ export async function removeRefuerzoAction(
   playerId: string,
   teamId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { supabase, user, isDirector } = await requireDirector();
   if (!user || !isDirector) return { ok: false, error: "unauthorized" };
 
@@ -314,6 +321,7 @@ export async function clearNewArrivalAction(
   playerId: string,
   teamId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { supabase, user, isDirector } = await requireDirector();
   if (!user || !isDirector) return { ok: false, error: "unauthorized" };
 

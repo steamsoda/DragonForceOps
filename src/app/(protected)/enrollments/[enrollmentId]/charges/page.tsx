@@ -2,6 +2,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
@@ -9,7 +10,6 @@ import { PaymentsTable } from "@/components/billing/payments-table";
 import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
 import { voidChargeAction, voidPaymentAction } from "@/server/actions/billing";
-import { createClient } from "@/lib/supabase/server";
 import { getPrinterName } from "@/lib/queries/settings";
 
 const errorMessages: Record<string, string> = {
@@ -39,13 +39,10 @@ export default async function ChargesPage({
 
   if (!ledger) notFound();
 
-  // Check if current user is director_admin to show void controls
-  const supabase = await createClient();
-  const [{ data: isDirector }, printerName] = await Promise.all([
-    supabase.rpc("is_director_admin"),
-    getPrinterName(),
-  ]);
+  const permissionContext = await getPermissionContext();
+  const printerName = await getPrinterName();
   const campusAccess = await getOperationalCampusAccess();
+  const isDirector = permissionContext?.isDirector ?? false;
 
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 

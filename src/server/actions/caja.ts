@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import {
@@ -301,6 +302,7 @@ export async function postCajaChargeAction(
   enrollmentId: string,
   formData: FormData
 ): Promise<CajaChargeResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const productId = formData.get("productId")?.toString().trim() ?? "";
   const suppressAudit = formData.get("suppressAudit") === "1";
   const amountRaw = formData.get("amount")?.toString() ?? "";
@@ -459,6 +461,7 @@ export async function getCajaDrilldownMetaAction(): Promise<CajaDrilldownMeta> {
   const campuses = campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name }));
   const birthYearsByCampus: Record<string, number[]> = {};
   for (const row of (yearRows ?? []) as { campus_id: string; birth_year: number }[]) {
+    if (!canAccessCampus(campusAccess, row.campus_id)) continue;
     if (!birthYearsByCampus[row.campus_id]) birthYearsByCampus[row.campus_id] = [];
     birthYearsByCampus[row.campus_id].push(row.birth_year);
   }
@@ -472,6 +475,8 @@ export async function listCajaPlayersByCampusYearAction(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+  const campusAccess = await getOperationalCampusAccess();
+  if (!canAccessCampus(campusAccess, campusId)) return [];
 
   const { data, error } = await supabase.rpc("list_caja_players_by_campus_year", {
     p_campus_id: campusId,
@@ -513,22 +518,27 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) return [];
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
+  const allowedCampusNames = new Set(campusAccess.campuses.map((campus) => campus.name));
 
   const { data, error } = await supabase
     .rpc("search_players_for_caja", { search_query: q.trim() });
 
   if (error || !data) return [];
 
-  return (data as CajaSearchRow[]).map((row) => ({
-    playerId: row.player_id,
-    playerName: row.player_name,
-    birthYear: row.birth_year,
-    enrollmentId: row.enrollment_id,
-    campusName: row.campus_name,
-    balance: row.balance,
-    teamName: row.team_name ?? null,
-    coachName: row.coach_name ?? null
-  }));
+  return (data as CajaSearchRow[])
+    .filter((row) => allowedCampusNames.has(row.campus_name))
+    .map((row) => ({
+      playerId: row.player_id,
+      playerName: row.player_name,
+      birthYear: row.birth_year,
+      enrollmentId: row.enrollment_id,
+      campusName: row.campus_name,
+      balance: row.balance,
+      teamName: row.team_name ?? null,
+      coachName: row.coach_name ?? null
+    }));
 }
 
 // ── Advance tuition charge (inline from Caja panel) ───────────────────────────
@@ -537,6 +547,7 @@ export async function createAdvanceTuitionAction(
   enrollmentId: string,
   periodMonth: string // "YYYY-MM"
 ): Promise<CajaAdvanceTuitionResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   if (!periodMonth) {
     return { ok: false, error: "invalid_form" };
   }
@@ -630,6 +641,7 @@ export async function checkoutCajaCartAction(
   enrollmentId: string,
   formData: FormData
 ): Promise<CajaPaymentResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const amount = formData.get("amount")?.toString() ?? "";
   const method = formData.get("method")?.toString() ?? "";
   const notes = formData.get("notes")?.toString() ?? "";
@@ -705,6 +717,7 @@ export async function checkoutCajaCartAction(
 }
 
 export async function postCajaPaymentAction(enrollmentId: string, formData: FormData): Promise<CajaPaymentResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parsePaymentFormData(formData);
   if (!parsed) return { ok: false, error: "invalid_form" };
 

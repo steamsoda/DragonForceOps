@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { formatRoleWithCampus } from "@/lib/auth/role-display";
 import { createClient } from "@/lib/supabase/server";
 import { grantRoleAction, revokeRoleAction } from "@/server/actions/users";
@@ -34,21 +35,13 @@ type RoleAssignment = {
 type SearchParams = Promise<{ ok?: string; err?: string }>;
 
 export default async function UsersAdminPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireSuperAdminContext("/unauthorized");
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/");
-
-  const { data: myRoles } = await supabase
-    .from("user_roles")
-    .select("app_roles(code)")
-    .eq("user_id", user.id)
-    .returns<{ app_roles: { code: string } | null }[]>();
-
-  const myCodes = (myRoles ?? []).map((role) => role.app_roles?.code).filter(Boolean);
-  if (!myCodes.includes("superadmin")) redirect("/unauthorized");
 
   const [{ data: authUsersRaw, error: usersError }, { data: allRoleRows }, { data: campuses }] = await Promise.all([
     supabase.rpc("list_auth_users"),

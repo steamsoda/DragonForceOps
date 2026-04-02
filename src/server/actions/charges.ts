@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { getEnrollmentChargeFormContext } from "@/lib/queries/billing";
 import { parseChargeFormData } from "@/lib/validations/charge";
@@ -14,6 +15,7 @@ function redirectWithError(enrollmentId: string, code: string): never {
 export async function createChargeAction(enrollmentId: string, formData: FormData) {
   const parsed = parseChargeFormData(formData);
   if (!parsed) return redirectWithError(enrollmentId, "invalid_form");
+  await assertDebugWritesAllowed(`/enrollments/${enrollmentId}/charges/new`);
 
   const supabase = await createClient();
   const {

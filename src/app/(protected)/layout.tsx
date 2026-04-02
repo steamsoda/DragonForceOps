@@ -1,12 +1,15 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
+import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { version } from "../../../package.json";
 import { AppSidebar, type NavSection } from "@/components/ui/app-sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PrinterTestButton } from "@/components/ui/printer-test-button";
 import { getPrinterName } from "@/lib/queries/settings";
-import { summarizeRoleScopes, type RoleScope } from "@/lib/auth/role-display";
+import { summarizeRoleScopes } from "@/lib/auth/role-display";
+import { clearDebugViewAction, setDebugViewUserAction } from "@/server/actions/debug-view";
 
 const STAFF_SECTION: NavSection = {
   label: "Diario",
@@ -56,18 +59,10 @@ const ADMIN_SECTION: NavSection = {
   ]
 };
 
-type RoleRow = {
-  campus_id: string | null;
-  campuses: {
-    name: string | null;
-    code: string | null;
-  } | null;
-  app_roles: {
-    code: string;
-  } | null;
-};
-
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) redirect("/login");
+
   let supabase: Awaited<ReturnType<typeof createClient>>;
   try {
     supabase = await createClient();
@@ -75,34 +70,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/login?error=supabase_config");
   }
 
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    redirect("/login");
-  }
-
-  const { data: roleRows, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("campus_id, campuses(name, code), app_roles(code)")
-    .eq("user_id", user.id)
-    .returns<RoleRow[]>();
-
-  if (rolesError) {
-    redirect("/unauthorized");
-  }
-
-  const roleCodes = (roleRows ?? []).map((row) => row.app_roles?.code).filter(Boolean);
-  const roleScopes: RoleScope[] = (roleRows ?? [])
-    .filter((row): row is RoleRow & { app_roles: { code: string } } => Boolean(row.app_roles?.code))
-    .map((row) => ({
-      code: row.app_roles.code,
-      campusId: row.campus_id,
-      campusName: row.campuses?.name ?? null
-    }));
-  const roleSummary = summarizeRoleScopes(roleScopes).join(" | ");
+  const actorRoleSummary = summarizeRoleScopes(debugContext.actor.roleScopes).join(" | ");
+  const effectiveRoleSummary = summarizeRoleScopes(debugContext.effective.roleScopes).join(" | ");
+  const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((r) => roleCodes.includes(r));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
@@ -127,7 +97,13 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isSuperAdmin ? [superAdminSection] : [])
   ];
 
-  const printerName = await getPrinterName();
+  const [printerName, debugUsersRaw] = await Promise.all([
+    getPrinterName(),
+    debugContext.canManage ? supabase.rpc("list_auth_users") : Promise.resolve({ data: null, error: null }),
+  ]);
+  const debugUsers = ((debugUsersRaw.data ?? []) as Array<{ id: string; email: string | null }>)
+    .filter((candidate) => candidate.email)
+    .sort((a, b) => (a.email ?? "").localeCompare(b.email ?? "", "es-MX"));
 
   async function signOut() {
     "use server";
@@ -145,10 +121,53 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           <span className="text-xs text-slate-400 dark:text-slate-500">v{version}</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="max-w-[420px] text-right">
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</p>
-            <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{roleSummary}</p>
+          <div className="max-w-[460px] text-right">
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              {debugContext.actor.email}
+              {debugContext.isReadOnly ? " · actor" : null}
+            </p>
+            <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{debugContext.isReadOnly ? actorRoleSummary : effectiveRoleSummary}</p>
+            {debugContext.isReadOnly ? (
+              <p className="truncate text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                Vista: {debugContext.effective.email ?? debugContext.activeView?.userId}
+              </p>
+            ) : null}
           </div>
+          {debugContext.canManage ? (
+            <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 dark:border-amber-800 dark:bg-amber-950/40">
+              <form action={setDebugViewUserAction} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  name="target_email"
+                  list="debug-view-users"
+                  defaultValue={debugContext.activeView?.email ?? ""}
+                  placeholder="Ver como..."
+                  className="w-44 rounded border border-amber-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-amber-700 dark:bg-slate-900 dark:text-slate-200"
+                />
+                <datalist id="debug-view-users">
+                  {debugUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.email ?? ""} />
+                  ))}
+                </datalist>
+                <button
+                  type="submit"
+                  className="rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600"
+                >
+                  Ver como
+                </button>
+              </form>
+              {debugContext.isReadOnly ? (
+                <form action={clearDebugViewAction}>
+                  <button
+                    type="submit"
+                    className="rounded border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                  >
+                    Reset
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
           <ThemeToggle />
           <PrinterTestButton printerName={printerName} />
           <form action={signOut}>
@@ -167,6 +186,32 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
       {/* Main content — offset for fixed header + sidebar */}
       <div className="ml-48 pt-14">
+        {debugContext.isReadOnly ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  Viendo como: {debugContext.effective.email ?? debugContext.activeView?.userId}
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  {effectiveRoleSummary} · Modo solo lectura en preview
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
+                <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
+                <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
+                <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
+                <Link href="/receipts" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Recibos</Link>
+                <form action={clearDebugViewAction}>
+                  <button type="submit" className="rounded-md bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600">
+                    Salir de vista
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {children}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 export type ReceiptSearchRow = {
   paymentId: string;
@@ -46,12 +47,22 @@ export async function searchReceipts({
   page?: number;
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
+  }
+
+  if (campusId && !canAccessCampus(campusAccess, campusId)) {
+    return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
+  }
+
+  const resolvedCampusId = campusId || (campusAccess.campusIds.length === 1 ? campusAccess.campusIds[0] : null);
   const safePage = Math.max(page, 1);
   const offset = (safePage - 1) * PAGE_SIZE;
 
   const { data, error } = await supabase.rpc("search_receipts", {
     p_query: q?.trim() || null,
-    p_campus_id: campusId || null,
+    p_campus_id: resolvedCampusId,
     p_payment_id: paymentId || null,
     p_limit: PAGE_SIZE,
     p_offset: offset,
@@ -71,17 +82,19 @@ export async function searchReceipts({
     };
   }
 
-  const rows = ((data ?? []) as ReceiptRpcRow[]).map((row) => ({
-    paymentId: row.payment_id,
-    folio: row.folio,
-    paidAt: row.paid_at,
-    playerName: row.player_name,
-    campusId: row.campus_id,
-    campusName: row.campus_name,
-    amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
-    method: row.method,
-    enrollmentId: row.enrollment_id,
-  }));
+  const rows = ((data ?? []) as ReceiptRpcRow[])
+    .filter((row) => canAccessCampus(campusAccess, row.campus_id))
+    .map((row) => ({
+      paymentId: row.payment_id,
+      folio: row.folio,
+      paidAt: row.paid_at,
+      playerName: row.player_name,
+      campusId: row.campus_id,
+      campusName: row.campus_name,
+      amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
+      method: row.method,
+      enrollmentId: row.enrollment_id,
+    }));
 
   return {
     rows,

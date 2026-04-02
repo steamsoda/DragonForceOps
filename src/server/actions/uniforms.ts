@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 
 export type UniformOrder = {
@@ -37,6 +38,7 @@ export async function createUniformOrderAction(
   enrollmentId: string,
   formData: FormData
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "unauthenticated" };
@@ -68,6 +70,7 @@ export async function markUniformDeliveredAction(
   orderId: string,
   playerId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "unauthenticated" };

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 
 const BASE = "/admin/users";
@@ -24,6 +25,7 @@ async function assertSuperAdmin() {
 }
 
 export async function grantRoleAction(formData: FormData) {
+  await assertDebugWritesAllowed(BASE);
   const { supabase } = await assertSuperAdmin();
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
@@ -65,6 +67,7 @@ export async function grantRoleAction(formData: FormData) {
 }
 
 export async function revokeRoleAction(formData: FormData) {
+  await assertDebugWritesAllowed(BASE);
   const { supabase } = await assertSuperAdmin();
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";

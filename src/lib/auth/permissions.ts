@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess, type OperationalCampusAccess } from "@/lib/auth/campuses";
+import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { APP_ROLES } from "@/lib/auth/roles";
-
-type RoleCodeRow = {
-  app_roles: { code: string } | null;
-};
 
 type EnrollmentCampusRow = {
   campus_id: string;
@@ -23,33 +20,19 @@ export type PermissionContext = {
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) return null;
+
   const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) return null;
-
-  const [{ data: roleRows }, campusAccess] = await Promise.all([
-    supabase
-      .from("user_roles")
-      .select("app_roles(code)")
-      .eq("user_id", user.id)
-      .returns<RoleCodeRow[]>(),
-    getOperationalCampusAccess(),
-  ]);
-
-  const roleCodes = (roleRows ?? [])
-    .map((row) => row.app_roles?.code)
-    .filter((code): code is string => typeof code === "string" && code.length > 0);
+  const campusAccess = await getOperationalCampusAccess();
+  const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
 
   return {
     supabase,
-    user: { id: user.id, email: user.email ?? null },
+    user: { id: debugContext.effective.id, email: debugContext.effective.email ?? null },
     roleCodes,
     campusAccess,
     isSuperAdmin,

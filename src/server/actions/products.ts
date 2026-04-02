@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
@@ -22,6 +23,7 @@ async function assertDirectorAdmin() {
 // ── Create product ────────────────────────────────────────────────────────────
 
 export async function createProductAction(formData: FormData): Promise<void> {
+  await assertDebugWritesAllowed("/products");
   const auth = await assertDirectorAdmin();
   if (!auth) redirect("/products?err=unauthenticated");
 
@@ -73,6 +75,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
 // ── Update product ────────────────────────────────────────────────────────────
 
 export async function updateProductAction(productId: string, formData: FormData): Promise<void> {
+  await assertDebugWritesAllowed(`/products/${productId}`);
   const auth = await assertDirectorAdmin();
   if (!auth) redirect(`/products/${productId}?err=unauthenticated`);
 
@@ -113,6 +116,7 @@ export async function updateProductAction(productId: string, formData: FormData)
 // ── Delete product ────────────────────────────────────────────────────────────
 
 export async function deleteProductAction(productId: string): Promise<void> {
+  await assertDebugWritesAllowed(`/products/${productId}`);
   const auth = await assertDirectorAdmin();
   if (!auth) redirect(`/products/${productId}?err=unauthenticated`);
 

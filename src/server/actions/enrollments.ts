@@ -1,6 +1,7 @@
 "use server";
 
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { assertDebugWritesAllowed, isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +31,9 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   if (!parsed) {
     return redirectWithError(playerId, "invalid_form", { isReturning, returnMode });
   }
+  await assertDebugWritesAllowed(
+    `/players/${playerId}/enrollments/new${isReturning ? "?returning=1" : ""}`
+  );
 
   const supabase = await createClient();
   const {
@@ -204,6 +208,7 @@ export async function updateEnrollmentAction(
   playerId: string,
   formData: FormData
 ) {
+  await assertDebugWritesAllowed(`/players/${playerId}/enrollments/${enrollmentId}/edit`);
   const parsed = parseEnrollmentEditData(formData);
   if (!parsed) return redirectWithEditError(enrollmentId, playerId, "invalid_form");
 
@@ -282,6 +287,7 @@ export async function updateContactadoAction(
   contacted: boolean,
   notes: string
 ): Promise<UpdateContactadoResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const supabase = await createClient();
   const {
     data: { user },

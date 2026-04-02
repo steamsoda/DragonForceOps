@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
@@ -20,6 +21,7 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
 
   const [yearStr, monthStr] = periodMonthRaw.split("-");
   const periodMonth = `${yearStr}-${monthStr}-01`;
+  await assertDebugWritesAllowed("/admin/mensualidades");
 
   const supabase = await createClient();
   const {
@@ -51,6 +53,7 @@ export async function voidPaymentAction(
   formData: FormData
 ): Promise<void> {
   const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
 
   const reason = formData.get("reason")?.toString().trim() ?? "";
   if (!reason) redirect(`${BASE}?err=void_reason_required`);
@@ -111,6 +114,7 @@ export async function voidChargeAction(
   formData: FormData
 ): Promise<void> {
   const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
 
   const reason = formData.get("reason")?.toString().trim() ?? "";
   if (!reason) redirect(`${BASE}?err=void_reason_required`);
@@ -158,6 +162,7 @@ export async function voidChargeAction(
 
 export async function batchVoidBajaChargesAction(formData: FormData): Promise<void> {
   const BASE = "/pending/bajas";
+  await assertDebugWritesAllowed(BASE);
 
   const reason = formData.get("reason")?.toString().trim() ?? "";
   if (!reason) redirect(`${BASE}?err=reason_required`);
@@ -230,6 +235,7 @@ export async function batchVoidBajaChargesAction(formData: FormData): Promise<vo
 
 export async function bulkChargeTeamAction(formData: FormData) {
   const BASE = "/admin/cargos-equipo";
+  await assertDebugWritesAllowed(BASE);
 
   const teamId = String(formData.get("team_id") ?? "").trim();
   const chargeTypeId = String(formData.get("charge_type_id") ?? "").trim();

@@ -96,10 +96,17 @@ type PendingRpcRow = {
 
 export async function listPendingEnrollments(filters: PendingEnrollmentsFilters) {
   const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
+  }
   const page = Math.max(1, filters.page ?? 1);
   const balanceBucket = filters.balanceBucket ?? "all";
   const overdueFilter = filters.overdue ?? "all";
   const textQuery = (filters.q ?? "").trim().toLowerCase();
+  if (filters.campusId && !canAccessCampus(campusAccess, filters.campusId)) {
+    return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+  }
 
   const { data: rpcData } = await supabase
     .rpc("list_pending_enrollments_full", { p_campus_id: filters.campusId ?? null });
@@ -128,6 +135,9 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
       };
     })
     .filter((row) => {
+      if (!canAccessCampus(campusAccess, rpcRows.find((rpcRow) => rpcRow.enrollment_id === row.enrollmentId)?.campus_id)) {
+        return false;
+      }
       if (filters.teamId && row.teamId !== filters.teamId) return false;
       if (!balanceBucketMatches(row.balance, balanceBucket)) return false;
       if (!overdueMatches(row.overdueDays, overdueFilter)) return false;

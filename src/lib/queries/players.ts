@@ -382,9 +382,17 @@ export async function listCampuses() {
 
 export async function listBirthYears(): Promise<number[]> {
   const supabase = await createClient();
-  // Use DB-level distinct via rpc to avoid fetching all rows
-  const { data } = await supabase.rpc("list_active_birth_years");
-  return (data ?? []).map((row: { birth_year: number }) => row.birth_year);
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("players")
+    .select("birth_date, enrollments!inner(campus_id, status)")
+    .eq("enrollments.status", "active")
+    .in("enrollments.campus_id", campusAccess.campusIds)
+    .returns<Array<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>>();
+
+  return [...new Set((data ?? []).map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort((a, b) => a - b);
 }
 
 export async function getPlayerDetail(playerId: string) {
