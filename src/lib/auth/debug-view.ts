@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { APP_ROLES } from "@/lib/auth/roles";
 import type { RoleScope } from "@/lib/auth/role-display";
+import { resolveDebugPersona } from "@/lib/auth/debug-personas";
 
 const DEBUG_VIEW_USER_ID_COOKIE = "debug-view-user-id";
 const DEBUG_VIEW_USER_EMAIL_COOKIE = "debug-view-user-email";
 const DEBUG_VIEW_RECENT_COOKIE = "debug-view-recent-users";
 const DEBUG_RECENT_LIMIT = 5;
 
-type RoleRow = {
+export type DebugRoleRow = {
   campus_id: string | null;
   campuses: {
     name: string | null;
@@ -23,7 +24,7 @@ type RoleRow = {
 export type DebugResolvedUser = {
   id: string;
   email: string | null;
-  roleRows: RoleRow[];
+  roleRows: DebugRoleRow[];
   roleCodes: string[];
   roleScopes: RoleScope[];
   isSuperAdmin: boolean;
@@ -60,22 +61,26 @@ export function isPreviewDebugEnabled() {
 async function loadRoleRows(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
-): Promise<RoleRow[]> {
+): Promise<DebugRoleRow[]> {
   const { data } = await supabase
     .from("user_roles")
     .select("campus_id, campuses(name, code), app_roles(code)")
     .eq("user_id", userId)
-    .returns<RoleRow[]>();
+    .returns<DebugRoleRow[]>();
 
   return data ?? [];
 }
 
-function buildResolvedUser(userId: string, email: string | null, roleRows: RoleRow[]): DebugResolvedUser {
+function buildResolvedUser(
+  userId: string,
+  email: string | null,
+  roleRows: DebugRoleRow[]
+): DebugResolvedUser {
   const roleCodes = roleRows
     .map((row) => row.app_roles?.code)
     .filter((code): code is string => isNonEmptyString(code));
   const roleScopes: RoleScope[] = roleRows
-    .filter((row): row is RoleRow & { app_roles: { code: string } } => Boolean(row.app_roles?.code))
+    .filter((row): row is DebugRoleRow & { app_roles: { code: string } } => Boolean(row.app_roles?.code))
     .map((row) => ({
       code: row.app_roles.code,
       campusId: row.campus_id,
@@ -118,9 +123,15 @@ export async function getDebugViewContext(): Promise<DebugViewContext | null> {
     const targetUserEmail = cookieStore.get(DEBUG_VIEW_USER_EMAIL_COOKIE)?.value ?? null;
 
     if (isNonEmptyString(targetUserId) && targetUserId !== actor.id) {
-      const targetRoleRows = await loadRoleRows(supabase, targetUserId);
-      activeView = { userId: targetUserId, email: targetUserEmail };
-      effective = buildResolvedUser(targetUserId, targetUserEmail, targetRoleRows);
+      const targetPersona = await resolveDebugPersona(targetUserId, supabase);
+      if (targetPersona) {
+        activeView = { userId: targetPersona.id, email: targetPersona.email };
+        effective = buildResolvedUser(targetPersona.id, targetPersona.email, targetPersona.roleRows);
+      } else {
+        const targetRoleRows = await loadRoleRows(supabase, targetUserId);
+        activeView = { userId: targetUserId, email: targetUserEmail };
+        effective = buildResolvedUser(targetUserId, targetUserEmail, targetRoleRows);
+      }
     }
   }
 

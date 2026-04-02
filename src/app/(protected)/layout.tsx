@@ -151,6 +151,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                   <option value="">Selecciona usuario...</option>
                   {debugUsers.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
+                      {candidate.source === "persona" ? "[Debug] " : ""}
                       {candidate.email} | {candidate.roleSummary}
                     </option>
                   ))}
@@ -180,7 +181,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                         title={`Ver como ${candidate.email}`}
                         className="rounded-full border border-amber-300 px-2 py-1 text-[10px] font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
                       >
-                        {candidate.email.split("@")[0]}
+                        {candidate.source === "persona" ? `Debug: ${candidate.email.split("@")[0]}` : candidate.email.split("@")[0]}
                       </button>
                     </form>
                   ))}

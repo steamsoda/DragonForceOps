@@ -127,7 +127,7 @@ export default async function DebugViewAdminPage({ searchParams }: { searchParam
                       <div className="space-y-1">
                         <p className="font-medium text-slate-900 dark:text-slate-100">{user.email}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Alta: {formatDate(user.createdAt)}
+                          {user.source === "persona" ? "Persona debug de preview" : `Alta: ${formatDate(user.createdAt)}`}
                         </p>
                       </div>
                     </td>
@@ -138,6 +138,11 @@ export default async function DebugViewAdminPage({ searchParams }: { searchParam
                         {isActor ? (
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             Tu usuario
+                          </span>
+                        ) : null}
+                        {user.source === "persona" ? (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+                            Persona debug
                           </span>
                         ) : null}
                         {isActiveView ? (

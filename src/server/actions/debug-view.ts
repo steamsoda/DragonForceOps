@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { listDebuggableUsers } from "@/lib/auth/debug-users";
 import {
   clearDebugViewCookies,
   getDebugRedirectTarget,
@@ -47,11 +48,10 @@ export async function setDebugViewUserAction(formData: FormData): Promise<void> 
   }
 
   const { supabase, user } = await assertDebugManager();
-  const { data: authUsersRaw } = await supabase.rpc("list_auth_users");
-  const authUsers = (authUsersRaw ?? []) as Array<{ id: string; email: string | null }>;
+  const candidates = await listDebuggableUsers(supabase);
   const target = targetUserId
-    ? authUsers.find((candidate) => candidate.id === targetUserId)
-    : authUsers.find((candidate) => candidate.email?.toLowerCase() === targetEmailLookup);
+    ? candidates.find((candidate) => candidate.id === targetUserId)
+    : candidates.find((candidate) => candidate.email.toLowerCase() === targetEmailLookup);
 
   if (!target?.id) redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}err=debug_user_not_found`);
   if (target.id === user.id) {

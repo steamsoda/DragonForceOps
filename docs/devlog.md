@@ -1060,6 +1060,25 @@
 - Added preview sample data seed script for realistic QA in preview database.
 ## 2026-04-01
 
+### Preview Debug Personas
+- Extended the preview-only `Ver como` tool with built-in debug personas so permission testing no longer depends on real Azure/Supabase users existing in preview.
+- Added preset personas for:
+  - Contry front desk
+  - Linda Vista front desk
+  - multi-campus hub front desk
+  - director admin
+- Wired personas into:
+  - top-bar debug dropdown
+  - recent debug chips
+  - `/admin/debug-view`
+- Kept the tool actor-safe:
+  - the real superadmin actor still owns the controls
+  - switching into a restricted persona does not hide `Ver como`
+  - debug mode remains read-only
+- Kept environment safety:
+  - available only in preview/local
+  - hard-disabled in production
+
 ### Permissions Hardening
 - Added a shared permission helper layer for route/action gating:
   - director-only page enforcement via `requireDirectorContext()`

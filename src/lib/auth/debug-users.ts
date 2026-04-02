@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { listDebugPersonas } from "@/lib/auth/debug-personas";
 import { summarizeRoleScopes, type RoleScope } from "@/lib/auth/role-display";
 
 type AuthUserRow = {
@@ -22,6 +23,8 @@ export type DebugUserSummary = {
   createdAt: string | null;
   roleScopes: RoleScope[];
   roleSummary: string;
+  source: "auth" | "persona";
+  personaKey?: string;
 };
 
 export async function listDebuggableUsers(
@@ -35,6 +38,7 @@ export async function listDebuggableUsers(
       .select("user_id, campus_id, campuses(name), app_roles(code)")
       .returns<UserRoleRow[]>(),
   ]);
+  const debugPersonas = await listDebugPersonas(supabase);
 
   const rolesByUser = new Map<string, RoleScope[]>();
   for (const row of roleRows ?? []) {
@@ -48,7 +52,7 @@ export async function listDebuggableUsers(
     rolesByUser.set(row.user_id, scopes);
   }
 
-  return ((authUsersRaw ?? []) as AuthUserRow[])
+  const authUsers: DebugUserSummary[] = ((authUsersRaw ?? []) as AuthUserRow[])
     .filter((user): user is AuthUserRow & { email: string } => Boolean(user.email))
     .map((user) => {
       const roleScopes = rolesByUser.get(user.id) ?? [];
@@ -59,7 +63,23 @@ export async function listDebuggableUsers(
         createdAt: user.created_at ?? null,
         roleScopes,
         roleSummary: summarizeRoleScopes(roleScopes).join(" | ") || "Sin roles",
+        source: "auth" as const,
       };
-    })
-    .sort((a, b) => a.email.localeCompare(b.email, "es-MX"));
+    });
+
+  const personaUsers: DebugUserSummary[] = debugPersonas.map((persona) => ({
+    id: persona.id,
+    email: persona.email,
+    lastSignInAt: null,
+    createdAt: null,
+    roleScopes: persona.roleScopes,
+    roleSummary: persona.roleSummary,
+    source: "persona" as const,
+    personaKey: persona.personaKey,
+  }));
+
+  return [...personaUsers, ...authUsers].sort((a, b) => {
+      if (a.source !== b.source) return a.source === "persona" ? -1 : 1;
+      return a.email.localeCompare(b.email, "es-MX");
+    });
 }
