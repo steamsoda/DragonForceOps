@@ -112,8 +112,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900">
+    <div className="min-h-screen print:min-h-0">
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-5 dark:border-slate-700 dark:bg-slate-900 print:hidden">
         <div className="flex items-baseline gap-2">
           <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
           <span className="text-xs text-slate-400 dark:text-slate-500">v{version}</span>
@@ -214,11 +214,13 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         </div>
       </header>
 
-      <AppSidebar sections={sections} />
+      <div className="print:hidden">
+        <AppSidebar sections={sections} />
+      </div>
 
-      <div className="ml-48 pt-14">
+      <div className="ml-48 pt-14 print:ml-0 print:pt-0">
         {debugContext.isReadOnly ? (
-          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="border-b border-amber-200 bg-amber-50 px-6 py-3 dark:border-amber-800 dark:bg-amber-950/30 print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">

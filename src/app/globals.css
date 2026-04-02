@@ -50,3 +50,16 @@ a {
   background-color: #1e293b;
   color: #f1f5f9;
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+}

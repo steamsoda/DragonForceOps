@@ -47,7 +47,7 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         { label: "Reporte detallado" },
       ]}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 print:space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Reporte A4 informativo. No cierra el corte actual ni modifica el checkpoint.
@@ -64,28 +64,28 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         </div>
 
         <div className="grid gap-3 md:grid-cols-4 print:grid-cols-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Campus</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{data.campusName}</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Periodo</p>
             <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{formatDateTimeMonterrey(data.openedAt)}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">Hasta ahora</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total contado</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800 print:break-inside-avoid print:bg-white">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pagos visibles</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{data.payments.length}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">{data.excludedPaymentsCount} externos fuera del total</p>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="min-w-full text-sm print:text-[10px]">
             <thead>
               <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
                 <th className="px-3 py-2">Hora</th>
@@ -102,7 +102,7 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data.payments.map((payment) => (
-                <tr key={payment.id}>
+                <tr key={payment.id} className="print:break-inside-avoid">
                   <td className="px-3 py-2 align-top text-xs text-slate-500 dark:text-slate-400">{formatDateTimeMonterrey(payment.paidAt)}</td>
                   <td className="px-3 py-2 align-top font-medium text-slate-900 dark:text-slate-100">{payment.playerName}</td>
                   <td className="px-3 py-2 align-top text-slate-600 dark:text-slate-400">{payment.playerCampusName}</td>
