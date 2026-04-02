@@ -13,6 +13,7 @@ const DEBUG_RECENT_LIMIT = 5;
 export type DebugRoleRow = {
   campus_id: string | null;
   campuses: {
+    id: string | null;
     name: string | null;
     code: string | null;
   } | null;
@@ -64,7 +65,7 @@ async function loadRoleRows(
 ): Promise<DebugRoleRow[]> {
   const { data } = await supabase
     .from("user_roles")
-    .select("campus_id, campuses(name, code), app_roles(code)")
+    .select("campus_id, campuses(id, name, code), app_roles(code)")
     .eq("user_id", userId)
     .returns<DebugRoleRow[]>();
 

@@ -20,6 +20,7 @@ type DebugPersonaSpec = {
 type DebugRoleRow = {
   campus_id: string | null;
   campuses: {
+    id: string | null;
     name: string | null;
     code: string | null;
   } | null;
@@ -102,6 +103,7 @@ function buildRoleRows(spec: DebugPersonaSpec, campuses: CampusRow[]): DebugRole
   return resolvePersonaCampuses(spec.campusTarget, campuses).map((campus) => ({
     campus_id: campus.id,
     campuses: {
+      id: campus.id,
       name: campus.name,
       code: campus.code,
     },
