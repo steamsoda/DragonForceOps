@@ -86,46 +86,46 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         </div>
 
         <div className="hidden rounded-md border border-slate-300 print:block">
-          <table className="w-full text-[11px]">
+          <table className="w-full border-collapse text-[11px]">
             <tbody>
-              <tr className="border-b border-slate-200">
-                <td className="px-2 py-1 font-semibold">Campus</td>
-                <td className="px-2 py-1">{data.campusName}</td>
-                <td className="px-2 py-1 font-semibold">Periodo</td>
-                <td className="px-2 py-1">
+              <tr>
+                <td className="border border-slate-300 px-2 py-1 font-semibold">Campus</td>
+                <td className="border border-slate-300 px-2 py-1">{data.campusName}</td>
+                <td className="border border-slate-300 px-2 py-1 font-semibold">Periodo</td>
+                <td className="border border-slate-300 px-2 py-1">
                   {formatDateTimeMonterrey(data.openedAt)} - {periodEndLabel}
                 </td>
-                <td className="px-2 py-1 font-semibold">Total contado</td>
-                <td className="px-2 py-1">{fmt(data.totalCobrado)}</td>
-                <td className="px-2 py-1 font-semibold">Pagos</td>
-                <td className="px-2 py-1">{data.countedPaymentsCount}</td>
+                <td className="border border-slate-300 px-2 py-1 font-semibold">Total contado</td>
+                <td className="border border-slate-300 px-2 py-1">{fmt(data.totalCobrado)}</td>
+                <td className="border border-slate-300 px-2 py-1 font-semibold">Pagos</td>
+                <td className="border border-slate-300 px-2 py-1">{data.countedPaymentsCount}</td>
               </tr>
-              <tr className="border-b border-slate-200">
+              <tr>
                 {["cash", "card", "transfer", "other"].map((method) => {
                   const row = data.byMethod.find((item) => item.method === method);
                   const label =
                     row?.methodLabel ??
                     ({ cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", other: "Otro" }[method] ?? method);
                   return (
-                    <td key={`${method}-label`} className="px-2 py-1 font-semibold">
+                    <td key={`${method}-label`} className="border border-slate-300 px-2 py-1 font-semibold" colSpan={2}>
                       {label}
                     </td>
                   );
                 })}
               </tr>
-              <tr className="border-b border-slate-200">
+              <tr>
                 {["cash", "card", "transfer", "other"].map((method) => {
                   const row = data.byMethod.find((item) => item.method === method);
                   return (
-                    <td key={`${method}-value`} className="px-2 py-1" colSpan={2}>
+                    <td key={`${method}-value`} className="border border-slate-300 px-2 py-1" colSpan={2}>
                       {fmt(row?.total ?? 0)} · {row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}
                     </td>
                   );
                 })}
               </tr>
               <tr>
-                <td className="px-2 py-1 font-semibold">360Player excluido</td>
-                <td className="px-2 py-1" colSpan={7}>
+                <td className="border border-slate-300 px-2 py-1 font-semibold">360Player excluido</td>
+                <td className="border border-slate-300 px-2 py-1" colSpan={7}>
                   {fmt(data.excludedPaymentsTotal)} · {data.excludedPaymentsCount} pago
                   {data.excludedPaymentsCount !== 1 ? "s" : ""} visible
                   {data.excludedPaymentsCount !== 1 ? "s" : ""}
@@ -186,25 +186,47 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
         </div>
 
         {data.byChargeType.length > 0 ? (
-          <div className="rounded-md border border-slate-200 p-4 print:p-2 dark:border-slate-700">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 print:mb-2 print:text-xs">
+          <div className="rounded-md border border-slate-200 p-4 print:p-0 dark:border-slate-700">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300 print:mb-1 print:px-2 print:pt-2 print:text-xs">
               Por tipo de cargo
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:grid-cols-4 print:gap-2">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden">
               {data.byChargeType.map((chargeType) => (
                 <div
                   key={chargeType.typeCode}
-                  className="rounded-md border border-slate-200 bg-white p-4 print:p-2 dark:border-slate-700 dark:bg-slate-900"
+                  className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
                 >
-                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 print:text-[10px]">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     {chargeType.typeName}
                   </p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100 print:mt-0.5 print:text-sm">
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
                     {fmt(chargeType.total)}
                   </p>
                 </div>
               ))}
             </div>
+            <table className="hidden w-full border-collapse print:table print:text-[11px]">
+              <tbody>
+                {Array.from({ length: Math.ceil(data.byChargeType.length / 4) }).map((_, rowIndex) => {
+                  const rowItems = data.byChargeType.slice(rowIndex * 4, rowIndex * 4 + 4);
+                  return (
+                    <tr key={rowIndex}>
+                      {rowItems.map((chargeType) => (
+                        <td key={chargeType.typeCode} className="border border-slate-300 px-2 py-1.5 align-top">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {chargeType.typeName}
+                          </div>
+                          <div className="text-sm font-semibold text-slate-900">{fmt(chargeType.total)}</div>
+                        </td>
+                      ))}
+                      {Array.from({ length: Math.max(0, 4 - rowItems.length) }).map((_, fillerIndex) => (
+                        <td key={`filler-${fillerIndex}`} className="border border-slate-300 px-2 py-1.5" />
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : null}
 
