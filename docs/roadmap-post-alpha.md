@@ -1,13 +1,25 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-01.
+Updated continuously. Last updated: 2026-04-02.
 
-Current preview release line: `v1.3.8`
+Current preview release line: `v1.4.0`
 
 ---
 
 ## Current Operational Tracks
+
+### Immediate Sequence
+
+1. Final front-desk polish sweep
+2. `#17` Uniformes tab as the next major operational build
+3. then return to smaller/reporting follow-up items such as `#48`, `#32`, and `#16`
+
+Notes:
+
+- keep the current sweep bounded to mobile/front-desk polish only
+- do not mix tournaments or broader sports-management work into this pass
+- treat `#17` as the next major build immediately after the sweep, not after another general polish round
 
 ### 1. Finance Ops Stabilization 💳
 

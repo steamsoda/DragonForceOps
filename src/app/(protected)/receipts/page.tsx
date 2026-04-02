@@ -48,13 +48,13 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
   return (
     <PageShell title="Buscar recibos" subtitle="Recibos recientes y busqueda por folio o jugador">
       <div className="space-y-4">
-        <form method="GET" className="flex flex-wrap gap-3">
+        <form method="GET" className="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Folio (LV-202603-...) o nombre de jugador"
-            className="min-w-[220px] flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+            className="min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 xl:min-w-[220px] xl:flex-1"
           />
           <select
             name="campus"
@@ -100,7 +100,47 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           </p>
         )}
 
-        <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+        <div className="space-y-3 md:hidden">
+          {result.rows.length === 0 ? (
+            <div className="rounded-md border border-slate-200 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              {hasError
+                ? "La busqueda de recibos no pudo cargarse en esta base de datos."
+                : hasFilters
+                ? "No se encontraron recibos con esos filtros."
+                : "No hay recibos publicados todavia."}
+            </div>
+          ) : (
+            result.rows.map((row) => (
+              <div key={row.paymentId} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+                <div className="space-y-1">
+                  <p className="font-mono text-xs text-slate-500 dark:text-slate-400">{row.folio ?? "-"}</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{row.playerName}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {row.campusName} | {formatDateTimeMonterrey(row.paidAt)}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Monto</p>
+                    <p className="font-medium">{formatMoney(row.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Metodo</p>
+                    <p>{METHOD_LABELS[row.method] ?? row.method}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <ReprintReceiptButton paymentId={row.paymentId} printerName={printerName} />
+                  <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
+                    Ver cuenta
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
           <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
               <tr>
@@ -155,7 +195,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
         </div>
 
         {!hasError && result.total > result.pageSize && (
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>
               Pagina {page} de {totalPages}
             </p>

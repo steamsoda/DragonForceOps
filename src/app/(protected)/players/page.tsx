@@ -22,6 +22,7 @@ const DROPOUT_LABELS: Record<string, string> = {
 };
 
 type PlayerRow = Awaited<ReturnType<typeof listPlayers>>["rows"][number];
+type BajaRow = Awaited<ReturnType<typeof listBajas>>["rows"][number];
 
 function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   const pills: React.ReactNode[] = [];
@@ -83,6 +84,65 @@ function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   }
 
   return <div className="flex flex-wrap gap-1">{pills}</div>;
+}
+
+function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSettings }) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        No se encontraron jugadores con esos filtros.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 md:hidden">
+      {rows.map((row) => (
+        <div key={row.id} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+          <div className="space-y-1">
+            <Link href={`/players/${row.id}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+              {row.fullName}
+            </Link>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Cat. {new Date(row.birthDate).getFullYear()} | {row.level ?? "Sin nivel"} | {row.campusName}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Tutor: {row.primaryPhone ?? "-"}</p>
+          </div>
+          <PlayerTags row={row} tags={tags} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BajaCards({ rows }: { rows: BajaRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        No se encontraron jugadores dados de baja con esos filtros.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 md:hidden">
+      {rows.map((row) => (
+        <div key={row.playerId} className="space-y-2 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+          <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+            {row.fullName}
+          </Link>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Inscripcion: {fmtDate(row.startDate)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Baja: {fmtDate(row.endDate)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Dias inscrito: {row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Motivo: {row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 type SearchParams = Promise<{
@@ -178,7 +238,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </div>
         ) : null}
 
-        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
           <Link
             href="/players?view=active"
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
@@ -202,10 +262,10 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <form className="flex-1 space-y-3">
               <input type="hidden" name="view" value={view} />
-              <div className="flex flex-wrap gap-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
                 <select name="year" defaultValue={birthYear} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
                   <option value="">Todas las categorias</option>
                   {birthYears.map((year) => (
@@ -259,7 +319,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   <summary className="cursor-pointer list-none text-sm font-medium text-slate-700 dark:text-slate-300">
                     Filtros avanzados
                   </summary>
-                  <div className="mt-3 flex flex-wrap gap-3">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
                     <input
                       type="month"
                       name="pendingMonth"
@@ -284,14 +344,14 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             </form>
 
             {view === "active" ? (
-              <div className="flex items-center gap-2">
+              <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-center">
                 <a
                   href="/api/exports/players-attendance"
-                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Exportar Excel
                 </a>
-                <Link href="/players/new" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                <Link href="/players/new" className="rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-medium text-white hover:bg-portoDark">
                   + Nuevo jugador
                 </Link>
               </div>
@@ -312,7 +372,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
               {attendanceExport.excludedMissingGender
                 .slice(0, 6)
                 .map((row) => `${row.campusName} Cat ${row.birthYear}: ${row.count}`)
-                .join(" · ")}
+                .join(" | ")}
             </p>
           </div>
         ) : null}
@@ -320,86 +380,92 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
 
         {view === "active" ? (
-          <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                <tr>
-                  <th className="px-3 py-2">Jugador</th>
-                  <th className="px-3 py-2">Categoria</th>
-                  <th className="px-3 py-2">Nivel</th>
-                  <th className="px-3 py-2">Campus</th>
-                  <th className="px-3 py-2">Telefono</th>
-                  <th className="px-3 py-2">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {activeRows.length === 0 ? (
+          <>
+            <ActivePlayerCards rows={activeRows} tags={tags} />
+            <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
-                      No se encontraron jugadores con esos filtros.
-                    </td>
+                    <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">Categoria</th>
+                    <th className="px-3 py-2">Nivel</th>
+                    <th className="px-3 py-2">Campus</th>
+                    <th className="px-3 py-2">Telefono</th>
+                    <th className="px-3 py-2">Estado</th>
                   </tr>
-                ) : (
-                  activeRows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="px-3 py-2">
-                        <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
-                          {row.fullName}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
-                      <td className="px-3 py-2">
-                        <PlayerTags row={row} tags={tags} />
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {activeRows.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
+                        No se encontraron jugadores con esos filtros.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    activeRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="px-3 py-2">
+                          <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                            {row.fullName}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          <PlayerTags row={row} tags={tags} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                <tr>
-                  <th className="px-3 py-2">Jugador</th>
-                  <th className="px-3 py-2">Fecha inscripcion</th>
-                  <th className="px-3 py-2">Fecha baja</th>
-                  <th className="px-3 py-2">Dias inscrito</th>
-                  <th className="px-3 py-2">Motivo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {bajaRows.length === 0 ? (
+          <>
+            <BajaCards rows={bajaRows} />
+            <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
-                      No se encontraron jugadores dados de baja con esos filtros.
-                    </td>
+                    <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">Fecha inscripcion</th>
+                    <th className="px-3 py-2">Fecha baja</th>
+                    <th className="px-3 py-2">Dias inscrito</th>
+                    <th className="px-3 py-2">Motivo</th>
                   </tr>
-                ) : (
-                  bajaRows.map((row) => (
-                    <tr key={row.playerId}>
-                      <td className="px-3 py-2">
-                        <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
-                          {row.fullName}
-                        </Link>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {bajaRows.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                        No se encontraron jugadores dados de baja con esos filtros.
                       </td>
-                      <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
-                      <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
-                      <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>
-                      <td className="px-3 py-2">{row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    bajaRows.map((row) => (
+                      <tr key={row.playerId}>
+                        <td className="px-3 py-2">
+                          <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                            {row.fullName}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
+                        <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
+                        <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>
+                        <td className="px-3 py-2">{row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>
             Pagina {page} de {totalPages}
           </p>

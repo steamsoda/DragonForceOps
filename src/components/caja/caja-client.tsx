@@ -48,6 +48,14 @@ function methodLabel(method: string) {
   return labels[method] ?? method;
 }
 
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "cash", label: "Efectivo" },
+  { value: "card", label: "Tarjeta" },
+  { value: "transfer", label: "Transferencia" },
+  { value: "stripe_360player", label: "360Player" },
+  { value: "other", label: "Otro" },
+] as const;
+
 function PlayerProfileLink({ playerId, playerName }: { playerId: string; playerName: string }) {
   if (!playerId) {
     return <p className="text-lg font-semibold text-portoDark">{playerName}</p>;
@@ -57,6 +65,92 @@ function PlayerProfileLink({ playerId, playerName }: { playerId: string; playerN
     <Link href={`/players/${playerId}`} className="text-lg font-semibold text-portoDark hover:underline">
       {playerName}
     </Link>
+  );
+}
+
+function MethodToggleGroup({
+  value,
+  onChange,
+  name,
+}: {
+  value: string;
+  onChange?: (value: string) => void;
+  name?: string;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {PAYMENT_METHOD_OPTIONS.map((option) => {
+        const active = value === option.value;
+        return (
+          <label
+            key={option.value}
+            className={`cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors ${
+              active
+                ? "border-portoBlue bg-portoBlue text-white"
+                : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
+            }`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={active}
+              onChange={() => onChange?.(option.value)}
+              className="sr-only"
+            />
+            {option.label}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function CampusChoiceGroup({
+  campuses,
+  value,
+  onChange,
+}: {
+  campuses: AccessibleCampus[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (campuses.length <= 3) {
+    return (
+      <div className="grid gap-2 sm:grid-cols-2">
+        {campuses.map((campus) => {
+          const active = campus.id === value;
+          return (
+            <button
+              key={campus.id}
+              type="button"
+              onClick={() => onChange(campus.id)}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                active
+                  ? "border-portoBlue bg-portoBlue text-white"
+                  : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
+              }`}
+            >
+              {campus.name}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-portoBlue focus:outline-none dark:border-slate-600"
+    >
+      {campuses.map((campus) => (
+        <option key={campus.id} value={campus.id}>
+          {campus.name}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -263,7 +357,7 @@ export function CajaClient({
   const showSearchArea = view.tag === "idle" || view.tag === "searching" || view.tag === "results";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 lg:px-6 xl:px-8">
+    <div className="mx-auto max-w-6xl space-y-6 px-0 py-2 sm:space-y-8 sm:px-2 sm:py-4 lg:px-6 xl:px-8">
       {/* Search box — always visible unless in a later state */}
       {showSearchArea && (
         <SearchPanel
@@ -1180,21 +1274,26 @@ function PosEnrollmentPanel({
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {selectedCharges.map((charge) => (
-                  <li key={charge.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                  <li key={charge.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-slate-800 dark:text-slate-200">{charge.description}</p>
-                      <p className="text-xs text-slate-400">Cargo pendiente existente</p>
+                      <p className="text-xs text-slate-400">
+                        {charge.periodMonth ? formatPeriodMonth(charge.periodMonth) : charge.typeName}
+                        {charge.dueDate ? ` | Vence ${(() => { const [y, m, d] = charge.dueDate!.split("-"); return `${d}/${m}/${y}`; })()}` : ""}
+                      </p>
                     </div>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">
-                      {formatMoney(charge.pendingAmount, data.currency)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleCharge(charge.id)}
-                      className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                    >
-                      Quitar
-                    </button>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {formatMoney(charge.pendingAmount, data.currency)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleCharge(charge.id)}
+                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                      >
+                        Quitar
+                      </button>
+                    </div>
                   </li>
                 ))}
                 {stagedItems.map((item) => (

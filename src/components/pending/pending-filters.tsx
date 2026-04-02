@@ -28,15 +28,15 @@ export function PendingFilters({
   teams
 }: PendingFiltersProps) {
   return (
-    <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-6">
+    <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-6">
       <input
         type="text"
         name="q"
         defaultValue={q}
         placeholder="Jugador, telefono o equipo"
-        className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm md:col-span-2"
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 md:col-span-2"
       />
-      <select name="campus" defaultValue={campusId} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
+      <select name="campus" defaultValue={campusId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
         <option value="">Todos los campus</option>
         {campuses.map((campus) => (
           <option key={campus.id} value={campus.id}>
@@ -44,7 +44,7 @@ export function PendingFilters({
           </option>
         ))}
       </select>
-      <select name="team" defaultValue={teamId} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
+      <select name="team" defaultValue={teamId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
         <option value="">Todos los equipos</option>
         {teams.map((team) => (
           <option key={team.id} value={team.id}>
@@ -55,14 +55,14 @@ export function PendingFilters({
       <select
         name="bucket"
         defaultValue={balanceBucket}
-        className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
       >
         <option value="all">Todos los saldos</option>
         <option value="small">Hasta $1,000</option>
         <option value="medium">$1,001 a $3,000</option>
         <option value="high">Mas de $3,000</option>
       </select>
-      <select name="overdue" defaultValue={overdue} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm">
+      <select name="overdue" defaultValue={overdue} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
         <option value="all">Cualquier vencimiento</option>
         <option value="overdue">Solo vencidos</option>
         <option value="7plus">Vencidos +7 dias</option>

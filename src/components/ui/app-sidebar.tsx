@@ -12,7 +12,7 @@ export function AppSidebar({ sections }: { sections: NavSection[] }) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-14 bottom-0 z-20 w-48 overflow-y-auto border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+    <aside className="fixed bottom-0 left-0 top-14 z-20 hidden w-48 overflow-y-auto border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 md:block">
       <nav className="space-y-5 px-3 py-4">
         {sections.map((section) => (
           <div key={section.label}>

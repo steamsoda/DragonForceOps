@@ -56,7 +56,7 @@ export default async function PendingPaymentsPage({ searchParams }: { searchPara
         <p className="text-sm text-slate-600 dark:text-slate-400">Total de resultados: {result.total}</p>
         <PendingTable rows={result.rows} />
 
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>
             Pagina {page} de {totalPages}
           </p>

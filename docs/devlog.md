@@ -1,5 +1,36 @@
 # Devlog
 
+## 2026-04-02 (session 39)
+
+### Final Front Desk Polish Sweep Before Uniformes
+
+- Reworked the protected app shell for mobile-first use:
+  - mobile now uses a collapsible menu instead of the fixed desktop sidebar
+  - the top bar no longer assumes one desktop row for identity, debug tools, printer tools, and logout
+  - content no longer depends on the desktop sidebar offset on small screens
+- Applied a bounded responsive pass to the main daily-use pages:
+  - `/caja`
+  - `/players`
+  - `/pending`
+  - `/reports/corte-diario`
+  - `/receipts`
+- High-density tables on those pages now fall back to mobile cards or stacked layouts where needed instead of forcing awkward phone overflow.
+- Caja polish:
+  - `Cobro actual` now shows more useful pending-charge context for selected existing charges, including their tuition month / type and due date when present
+  - mobile header/actions were tightened so the front-desk entry flow is usable on smaller screens
+- Actividad polish:
+  - `/activity` now shows clearer payment lookup actions so payment-related log rows can jump directly to the receipt or enrollment account
+  - payment-post audit rows now persist folio in `after_data` for newer entries
+- Small shared UI cleanup:
+  - tighter page-shell spacing on mobile
+  - responsive pagination/action bars on touched pages
+- Roadmap update:
+  - this is the last bounded polish sweep before the next major operational build
+  - `#17 Uniformes tab` is now the explicit next major implementation target
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-01 (session 38)
 
 ### Attendance Export + Jugadores Filters + Corte Detail Polish

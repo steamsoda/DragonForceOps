@@ -98,7 +98,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                   )}
                 </div>
                 <div className="space-y-2">
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="flex flex-wrap gap-2 md:justify-end">
                     <Link
                       href={
                         isHistorical
@@ -121,7 +121,7 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                     )}
                   </div>
                   {!isHistorical && canUseFallbackSessionPage ? (
-                    <Link href="/caja/sesion" className="block text-right text-xs text-slate-500 hover:underline dark:text-slate-400">
+                    <Link href="/caja/sesion" className="block text-left text-xs text-slate-500 hover:underline dark:text-slate-400 md:text-right">
                       Abrir herramienta avanzada de sesion
                     </Link>
                   ) : null}
@@ -174,67 +174,117 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
             {data.payments.length === 0 ? (
               <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">Sin pagos registrados en este corte.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                      <th className="px-3 py-2">Hora</th>
-                      <th className="px-3 py-2">Jugador</th>
-                      <th className="px-3 py-2">Campus jugador</th>
-                      <th className="px-3 py-2">Campus que recibe</th>
-                      <th className="px-3 py-2">Cat.</th>
-                      <th className="px-3 py-2">Metodo</th>
-                      <th className="px-3 py-2">Conceptos pagados</th>
-                      <th className="px-3 py-2 text-right">Monto</th>
-                      <th className="px-3 py-2">Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {data.payments.map((payment) => (
-                      <tr key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{formatTimeMonterrey(payment.paidAt)}</td>
-                        <td className="px-3 py-2">
-                          <Link href={`/enrollments/${payment.enrollmentId}/charges`} className="text-portoBlue hover:underline">
-                            {payment.playerName}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{payment.playerCampusName}</td>
-                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
-                          <div className="flex items-center gap-2">
-                            <span>{payment.operatorCampusName}</span>
-                            {payment.isCrossCampus ? (
-                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
-                                Cruzado
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{payment.birthYear ?? "-"}</td>
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
-                          <div className="flex items-center gap-2">
-                            <span>{payment.methodLabel}</span>
-                            {payment.excludedFromCorte ? (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                                Externo
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.concepts.length > 0 ? payment.concepts.join(" · ") : "-"}</td>
-                        <td className="px-3 py-2 text-right font-medium">{fmt(payment.amount)}</td>
-                        <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.notes ?? "-"}</td>
+              <>
+                <div className="space-y-3 md:hidden">
+                  {data.payments.map((payment) => (
+                    <div key={payment.id} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+                      <div className="space-y-1">
+                        <Link href={`/enrollments/${payment.enrollmentId}/charges`} className="text-base font-semibold text-portoBlue hover:underline">
+                          {payment.playerName}
+                        </Link>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {formatTimeMonterrey(payment.paidAt)} | Cat. {payment.birthYear ?? "-"} | {payment.methodLabel}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-400">Campus jugador</p>
+                          <p>{payment.playerCampusName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-400">Campus que recibe</p>
+                          <p>{payment.operatorCampusName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-400">Conceptos</p>
+                          <p>{payment.concepts.length > 0 ? payment.concepts.join(" | ") : "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-400">Monto</p>
+                          <p className="font-medium">{fmt(payment.amount)}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {payment.isCrossCampus ? (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                            Cruzado
+                          </span>
+                        ) : null}
+                        {payment.excludedFromCorte ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            Externo
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Notas: {payment.notes ?? "-"}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        <th className="px-3 py-2">Hora</th>
+                        <th className="px-3 py-2">Jugador</th>
+                        <th className="px-3 py-2">Campus jugador</th>
+                        <th className="px-3 py-2">Campus que recibe</th>
+                        <th className="px-3 py-2">Cat.</th>
+                        <th className="px-3 py-2">Metodo</th>
+                        <th className="px-3 py-2">Conceptos pagados</th>
+                        <th className="px-3 py-2 text-right">Monto</th>
+                        <th className="px-3 py-2">Notas</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
-                      <td className="px-3 py-2" colSpan={7}>Total</td>
-                      <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {data.payments.map((payment) => (
+                        <tr key={payment.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{formatTimeMonterrey(payment.paidAt)}</td>
+                          <td className="px-3 py-2">
+                            <Link href={`/enrollments/${payment.enrollmentId}/charges`} className="text-portoBlue hover:underline">
+                              {payment.playerName}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{payment.playerCampusName}</td>
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span>{payment.operatorCampusName}</span>
+                              {payment.isCrossCampus ? (
+                                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                                  Cruzado
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{payment.birthYear ?? "-"}</td>
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span>{payment.methodLabel}</span>
+                              {payment.excludedFromCorte ? (
+                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                  Externo
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                            {payment.concepts.length > 0 ? payment.concepts.join(" | ") : "-"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">{fmt(payment.amount)}</td>
+                          <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{payment.notes ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
+                        <td className="px-3 py-2" colSpan={7}>Total</td>
+                        <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
             )}
 
             {closedHistory.length > 0 ? (
@@ -247,7 +297,34 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                     </Link>
                   ) : null}
                 </div>
-                <div className="overflow-x-auto">
+
+                <div className="space-y-3 md:hidden">
+                  {closedHistory.map((historyRow) => (
+                    <div key={historyRow.id} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+                      <div className="grid gap-2 text-sm">
+                        <p><span className="font-medium">Abierto:</span> {formatDateTimeMonterrey(historyRow.openedAt)}</p>
+                        <p><span className="font-medium">Cerrado:</span> {historyRow.closedAt ? formatDateTimeMonterrey(historyRow.closedAt) : "-"}</p>
+                        <p><span className="font-medium">Impreso:</span> {historyRow.printedAt ? formatDateTimeMonterrey(historyRow.printedAt) : "-"}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={`/reports/corte-diario?campus=${encodeURIComponent(historyRow.campusId)}&checkpoint=${encodeURIComponent(historyRow.id)}`}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          Ver resumen
+                        </Link>
+                        <Link
+                          href={`/reports/corte-diario/detalle?checkpoint=${encodeURIComponent(historyRow.id)}`}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          Reporte detallado
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">

@@ -137,6 +137,7 @@ export async function postEnrollmentPaymentAction(
     split: false,
     paidAt,
     recordedAt,
+    folio,
   });
 
   await revalidatePaymentSurfaces(ledger);

@@ -11,10 +11,10 @@ type PageShellProps = {
 
 export function PageShell({ title, subtitle, children, breadcrumbs }: PageShellProps) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-6 py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0">
+    <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6 md:min-h-screen md:gap-5 md:py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0">
       <header className="space-y-1 print:mb-4">
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 print:hidden">
+          <nav className="flex flex-wrap items-center gap-1 text-xs text-slate-500 dark:text-slate-400 print:hidden">
             {breadcrumbs.map((crumb, i) => (
               <span key={i} className="flex items-center gap-1">
                 {i > 0 && <span>/</span>}
@@ -32,7 +32,7 @@ export function PageShell({ title, subtitle, children, breadcrumbs }: PageShellP
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
         {subtitle ? <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p> : null}
       </header>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-4 print:overflow-visible print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none">
         {children}
       </section>
     </main>

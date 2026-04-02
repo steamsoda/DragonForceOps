@@ -917,6 +917,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     ...(paymentRow2Id && parsed.split ? [{ id: paymentRow2Id, amount: parsed.split.amount, method: parsed.split.method }] : [])
   ];
   const sessionWarning = await linkCashPaymentsToOpenSession(supabase, operatorCampusId, paymentsToLink, user.id);
+  const folio = await fetchPaymentFolio(supabase, paymentRow.id);
 
   await writePostedPaymentAudit(supabase, {
     actorUserId: user.id,
@@ -929,12 +930,11 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     split: !!parsed.split,
     paidAt,
     recordedAt,
+    folio,
   });
 
   await revalidatePaymentSurfaces(ledger);
   const refreshedLedger = await getEnrollmentLedger(enrollmentId);
-
-  const folio = await fetchPaymentFolio(supabase, paymentRow.id);
 
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
   const newBalance = refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - totalPaid, 0);

@@ -62,6 +62,7 @@ export async function writePostedPaymentAudit(
     split,
     paidAt,
     recordedAt,
+    folio,
   }: {
     actorUserId: string;
     actorEmail: string | null;
@@ -73,6 +74,7 @@ export async function writePostedPaymentAudit(
     split: boolean;
     paidAt: string;
     recordedAt: string;
+    folio: string | null;
   }
 ) {
   await writeAuditLog(supabase, {
@@ -87,6 +89,7 @@ export async function writePostedPaymentAudit(
       method,
       source,
       split,
+      folio,
       paid_at: paidAt,
       recorded_at: recordedAt,
       backdated: paidAt !== recordedAt,
