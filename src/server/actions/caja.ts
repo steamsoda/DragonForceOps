@@ -82,7 +82,7 @@ export type CajaProductCategory = {
 };
 
 export type CajaChargeResult =
-  | { ok: true; updatedData: CajaEnrollmentData; newChargeId?: string }
+  | { ok: true; updatedData?: CajaEnrollmentData; newChargeId?: string }
   | { ok: false; error: string };
 
 export type CajaAdvanceTuitionResult =
@@ -312,6 +312,7 @@ export async function postCajaChargeAction(
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const productId = formData.get("productId")?.toString().trim() ?? "";
   const suppressAudit = formData.get("suppressAudit") === "1";
+  const skipReload = formData.get("skipReload") === "1";
   const amountRaw = formData.get("amount")?.toString() ?? "";
   const amount = parseFloat(amountRaw);
   const size = formData.get("size")?.toString().trim() || null;
@@ -442,10 +443,18 @@ export async function postCajaChargeAction(
         });
       }
 
+      if (skipReload) {
+        return { ok: true, newChargeId: newCharge.id };
+      }
+
       const updatedData = await getEnrollmentForCajaAction(enrollmentId);
       if (!updatedData) return { ok: false, error: "reload_failed" };
 
     return { ok: true, updatedData, newChargeId: newCharge.id };
+  }
+
+  if (skipReload) {
+    return { ok: true, newChargeId: createdChargeId };
   }
 
   const updatedData = await getEnrollmentForCajaAction(enrollmentId);
@@ -699,6 +708,7 @@ export async function checkoutCajaCartAction(
     if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
     if (item.uniformFulfillmentMode) chargeForm.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
     chargeForm.set("suppressAudit", "1");
+    chargeForm.set("skipReload", "1");
 
     const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
     if (!chargeResult.ok) {
@@ -950,8 +960,20 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     folio,
   });
 
+  const pendingAmountByCharge = new Map(pendingCharges.map((charge) => [charge.id, charge.pendingAmount]));
+  const allocatedByCharge = new Map<string, number>();
+  for (const allocation of allAllocatedCharges) {
+    allocatedByCharge.set(
+      allocation.chargeId,
+      Math.round(((allocatedByCharge.get(allocation.chargeId) ?? 0) + allocation.amount) * 100) / 100
+    );
+  }
+  const settledChargeIds = Array.from(allocatedByCharge.entries())
+    .filter(([chargeId, allocated]) => allocated + 0.009 >= (pendingAmountByCharge.get(chargeId) ?? Number.POSITIVE_INFINITY))
+    .map(([chargeId]) => chargeId);
+
   await syncPaidUniformOrders(supabase, {
-    chargeIds: Array.from(new Set(allAllocatedCharges.map((allocation) => allocation.chargeId))),
+    settledChargeIds,
     actorUserId: user.id,
     soldAt: paidAt,
   });

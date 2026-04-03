@@ -7,11 +7,16 @@ type PageShellProps = {
   subtitle?: string;
   children?: React.ReactNode;
   breadcrumbs?: Breadcrumb[];
+  wide?: boolean;
 };
 
-export function PageShell({ title, subtitle, children, breadcrumbs }: PageShellProps) {
+export function PageShell({ title, subtitle, children, breadcrumbs, wide = false }: PageShellProps) {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6 md:min-h-screen md:gap-5 md:py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0">
+    <main
+      className={`mx-auto flex min-h-[calc(100vh-4rem)] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6 md:min-h-screen md:gap-5 md:py-8 print:min-h-0 print:max-w-none print:px-0 print:py-0 ${
+        wide ? "max-w-[96rem]" : "max-w-6xl"
+      }`}
+    >
       <header className="space-y-1 print:mb-4">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav className="flex flex-wrap items-center gap-1 text-xs text-slate-500 dark:text-slate-400 print:hidden">

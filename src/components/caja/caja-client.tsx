@@ -350,6 +350,10 @@ export function CajaClient({
         setError(chargeErrorMessage(result.error));
         return;
       }
+      if (!result.updatedData) {
+        setError(chargeErrorMessage("reload_failed"));
+        return;
+      }
       setView({ tag: "enrollment", player, data: result.updatedData });
     });
   }

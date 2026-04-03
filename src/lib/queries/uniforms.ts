@@ -21,6 +21,7 @@ type UniformOrderRecord = {
 type ChargePaymentRecord = {
   id: string;
   description: string;
+  is_goalkeeper: boolean | null;
   payment_allocations:
     | Array<{
         amount: number | null;
@@ -56,6 +57,7 @@ export type UniformDashboardRow = {
   uniformType: "training" | "game";
   uniformTypeLabel: string;
   size: string | null;
+  isGoalkeeper: boolean;
   status: "pending_order" | "ordered" | "delivered";
   statusLabel: string;
   soldAt: string | null;
@@ -73,6 +75,16 @@ export type UniformDashboardSection = {
   rows: UniformDashboardRow[];
 };
 
+export type UniformPendingSummaryCampus = {
+  campusId: string;
+  campusName: string;
+  items: Array<{
+    key: string;
+    label: string;
+    count: number;
+  }>;
+};
+
 export type UniformDashboardData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string;
@@ -86,6 +98,7 @@ export type UniformDashboardData = {
     pendingDelivery: number;
     deliveredWeek: number;
   };
+  pendingOrderSummary: UniformPendingSummaryCampus[];
   sections: UniformDashboardSection[];
 };
 
@@ -107,21 +120,25 @@ function inRange(value: string | null, start: string, end: string) {
 export async function getUniformDashboardData(filters: UniformDashboardFilters = {}): Promise<UniformDashboardData> {
   const campusAccess = await getOperationalCampusAccess();
   const campuses = campusAccess?.campuses ?? [];
+  const requestedCampusId = filters.campusId?.trim() ?? "";
   const selectedCampusId =
-    filters.campusId && canAccessCampus(campusAccess, filters.campusId)
-      ? filters.campusId
-      : campusAccess?.defaultCampusId ?? campuses[0]?.id ?? "";
+    requestedCampusId === "all" || requestedCampusId === ""
+      ? "all"
+      : canAccessCampus(campusAccess, requestedCampusId)
+      ? requestedCampusId
+      : "all";
   const selectedType = filters.type === "training" || filters.type === "game" ? filters.type : "";
   const selectedQueue = filters.queue ?? "all";
 
   if (!campusAccess || campuses.length === 0) {
     return {
       campuses: [],
-      selectedCampusId: "",
+      selectedCampusId: "all",
       selectedType,
       selectedQueue,
       week: { start: "", end: "" },
       counts: { soldWeek: 0, pendingOrder: 0, ordered: 0, pendingDelivery: 0, deliveredWeek: 0 },
+      pendingOrderSummary: [],
       sections: [],
     };
   }
@@ -137,16 +154,19 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
 
   const filteredOrders = (orderRows ?? [])
     .filter((row) => row.enrollments?.campus_id && canAccessCampus(campusAccess, row.enrollments.campus_id))
-    .filter((row) => !selectedCampusId || row.enrollments?.campus_id === selectedCampusId)
+    .filter((row) => selectedCampusId === "all" || row.enrollments?.campus_id === selectedCampusId)
     .filter((row) => !selectedType || row.uniform_type === selectedType);
 
   const chargeIds = Array.from(new Set(filteredOrders.map((row) => row.charge_id).filter(Boolean))) as string[];
-  const chargeMap = new Map<string, { description: string; paymentId: string | null; folio: string | null }>();
+  const chargeMap = new Map<
+    string,
+    { description: string; isGoalkeeper: boolean; paymentId: string | null; folio: string | null }
+  >();
 
   if (chargeIds.length > 0) {
     const { data: chargeRows } = await supabase
       .from("charges")
-      .select("id, description, payment_allocations(amount, payments(id, folio, status, paid_at))")
+      .select("id, description, is_goalkeeper, payment_allocations(amount, payments(id, folio, status, paid_at))")
       .in("id", chargeIds)
       .returns<ChargePaymentRecord[]>();
 
@@ -167,6 +187,7 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
 
       chargeMap.set(charge.id, {
         description: charge.description,
+        isGoalkeeper: charge.is_goalkeeper === true,
         paymentId: latestPostedPayment?.id ?? null,
         folio: latestPostedPayment?.folio ?? null,
       });
@@ -189,6 +210,8 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
       uniformType: row.uniform_type,
       uniformTypeLabel: getUniformTypeLabel(row.uniform_type),
       size: row.size,
+      isGoalkeeper:
+        charge?.isGoalkeeper === true || (charge?.description?.toLowerCase().includes("portero") ?? false),
       status: row.status,
       statusLabel: getStatusLabel(row.status),
       soldAt: row.sold_at,
@@ -221,6 +244,33 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
     .filter((row) => inRange(row.deliveredAt, weekBounds.start, weekBounds.end))
     .sort((a, b) => (b.deliveredAt ?? "").localeCompare(a.deliveredAt ?? ""));
 
+  const pendingOrderSummary = campuses
+    .map((campus) => {
+      const itemMap = new Map<string, { label: string; count: number }>();
+      for (const row of pendingOrder.filter((item) => item.campusId === campus.id)) {
+        const sizeLabel = row.size?.trim() || "Sin talla";
+        const label = row.isGoalkeeper
+          ? `${row.uniformTypeLabel} Portero ${sizeLabel}`
+          : `${row.uniformTypeLabel} ${sizeLabel}`;
+        const key = `${row.uniformType}|${row.isGoalkeeper ? "portero" : "normal"}|${sizeLabel}`;
+        const current = itemMap.get(key);
+        if (current) {
+          current.count += 1;
+        } else {
+          itemMap.set(key, { label, count: 1 });
+        }
+      }
+
+      return {
+        campusId: campus.id,
+        campusName: campus.name,
+        items: Array.from(itemMap.entries())
+          .map(([key, value]) => ({ key, label: value.label, count: value.count }))
+          .sort((a, b) => a.label.localeCompare(b.label, "es-MX")),
+      };
+    })
+    .filter((campus) => campus.items.length > 0);
+
   const sectionMap: UniformDashboardSection[] = [
     { key: "sold_week", title: "Vendidos esta semana", rows: soldWeek },
     { key: "pending_order", title: "Pendientes por pedir", rows: pendingOrder },
@@ -247,6 +297,7 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
       pendingDelivery: pendingDelivery.length,
       deliveredWeek: deliveredWeek.length,
     },
+    pendingOrderSummary,
     sections,
   };
 }

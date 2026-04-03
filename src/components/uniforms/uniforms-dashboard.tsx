@@ -21,6 +21,7 @@ type UniformDashboardRow = {
   birthYear: number | null;
   uniformTypeLabel: string;
   size: string | null;
+  isGoalkeeper: boolean;
   status: UniformOrderStatus;
   statusLabel: string;
   soldAt: string | null;
@@ -36,6 +37,16 @@ type UniformDashboardSection = {
   key: "sold_week" | "pending_order" | "ordered" | "pending_delivery" | "delivered_week";
   title: string;
   rows: UniformDashboardRow[];
+};
+
+type UniformPendingSummaryCampus = {
+  campusId: string;
+  campusName: string;
+  items: Array<{
+    key: string;
+    label: string;
+    count: number;
+  }>;
 };
 
 function formatDateTime(value: string | null) {
@@ -59,15 +70,17 @@ function statusPillClass(status: UniformOrderStatus) {
 
 export function UniformsDashboard({
   counts,
+  pendingOrderSummary,
   sections,
 }: {
   counts: {
     soldWeek: number;
     pendingOrder: number;
-    ordered: number;
-    pendingDelivery: number;
-    deliveredWeek: number;
+      ordered: number;
+      pendingDelivery: number;
+      deliveredWeek: number;
   };
+  pendingOrderSummary: UniformPendingSummaryCampus[];
   sections: UniformDashboardSection[];
 }) {
   const router = useRouter();
@@ -137,6 +150,42 @@ export function UniformsDashboard({
         <MetricCard label="Entregados esta semana" value={counts.deliveredWeek} tone="emerald" />
       </div>
 
+      <section className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Resumen por pedir</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Lista operativa de uniformes pendientes por pedir al proveedor.
+          </p>
+        </div>
+        {pendingOrderSummary.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            No hay uniformes pendientes por pedir con los filtros actuales.
+          </div>
+        ) : (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {pendingOrderSummary.map((campus) => (
+              <div key={campus.campusId} className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{campus.campusName}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {campus.items.map((item) => (
+                    <span
+                      key={item.key}
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${
+                        item.label.includes("Portero")
+                          ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                      }`}
+                    >
+                      {item.label} x{item.count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {sections.map((section) => (
         <section key={section.key} className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -182,7 +231,12 @@ export function UniformsDashboard({
             <>
               <div className="space-y-3 md:hidden">
                 {section.rows.map((row) => (
-                  <div key={row.id} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
+                  <div
+                    key={row.id}
+                    className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${
+                      row.isGoalkeeper ? "border-violet-300 bg-violet-50/50 dark:bg-violet-950/10" : "border-slate-200"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <Link href={row.playerHref} className="text-base font-semibold text-portoBlue hover:underline">
@@ -191,6 +245,10 @@ export function UniformsDashboard({
                         <p className="text-sm text-slate-500 dark:text-slate-400">
                           {row.campusName} | Cat. {row.birthYear ?? "-"} | {row.uniformTypeLabel}
                         </p>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <DescriptorPill label={`Talla ${row.size ?? "Sin talla"}`} />
+                          {row.isGoalkeeper ? <DescriptorPill label="Portero" tone="violet" /> : null}
+                        </div>
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusPillClass(row.status)}`}>
                         {row.statusLabel}
@@ -255,8 +313,8 @@ export function UniformsDashboard({
                 ))}
               </div>
 
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-sm">
+                  <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[1120px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
                       {section.key === "pending_order" ? <th className="px-3 py-2">Sel.</th> : null}
@@ -276,7 +334,10 @@ export function UniformsDashboard({
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {section.rows.map((row) => (
-                      <tr key={row.id}>
+                      <tr
+                        key={row.id}
+                        className={row.isGoalkeeper ? "bg-violet-50/60 dark:bg-violet-950/10" : undefined}
+                      >
                         {section.key === "pending_order" ? (
                           <td className="px-3 py-2">
                             <input
@@ -287,10 +348,14 @@ export function UniformsDashboard({
                           </td>
                         ) : null}
                         <td className="px-3 py-2">
-                          <div className="space-y-0.5">
+                          <div className="space-y-1">
                             <Link href={row.playerHref} className="font-medium text-portoBlue hover:underline">
                               {row.playerName}
                             </Link>
+                            <div className="flex flex-wrap gap-1.5">
+                              <DescriptorPill label={`Talla ${row.size ?? "Sin talla"}`} />
+                              {row.isGoalkeeper ? <DescriptorPill label="Portero" tone="violet" /> : null}
+                            </div>
                             <p className="text-xs text-slate-400">{row.chargeDescription ?? "-"}</p>
                           </div>
                         </td>
@@ -354,6 +419,26 @@ export function UniformsDashboard({
         </section>
       ))}
     </div>
+  );
+}
+
+function DescriptorPill({
+  label,
+  tone = "slate",
+}: {
+  label: string;
+  tone?: "slate" | "violet";
+}) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+        tone === "violet"
+          ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+      }`}
+    >
+      {label}
+    </span>
   );
 }
 

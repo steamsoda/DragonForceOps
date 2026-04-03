@@ -141,8 +141,20 @@ export async function postEnrollmentPaymentAction(
     folio,
   });
 
+  const pendingAmountByCharge = new Map(pendingCharges.map((charge) => [charge.id, charge.pendingAmount]));
+  const allocatedByCharge = new Map<string, number>();
+  for (const allocation of allocations) {
+    allocatedByCharge.set(
+      allocation.chargeId,
+      Math.round(((allocatedByCharge.get(allocation.chargeId) ?? 0) + allocation.amount) * 100) / 100
+    );
+  }
+  const settledChargeIds = Array.from(allocatedByCharge.entries())
+    .filter(([chargeId, allocated]) => allocated + 0.009 >= (pendingAmountByCharge.get(chargeId) ?? Number.POSITIVE_INFINITY))
+    .map(([chargeId]) => chargeId);
+
   await syncPaidUniformOrders(supabase, {
-    chargeIds: allocations.map((allocation) => allocation.chargeId),
+    settledChargeIds,
     actorUserId: user.id,
     soldAt: paidAt,
   });

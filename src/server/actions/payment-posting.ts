@@ -15,14 +15,11 @@ export type PostedPaymentLink = {
 type UniformChargeSyncRow = {
   id: string;
   enrollment_id: string;
-  charge_id: string | null;
   size: string | null;
   uniform_fulfillment_mode: "deliver_now" | "pending_order" | null;
   charge_types: { code: string } | null;
   enrollments: { player_id: string | null } | null;
-  payment_allocations: Array<{ amount: number | null }> | null;
   uniform_orders: Array<{ id: string }> | null;
-  amount: number;
 };
 
 export async function fetchPaymentFolio(
@@ -113,22 +110,22 @@ export async function writePostedPaymentAudit(
 export async function syncPaidUniformOrders(
   supabase: Awaited<ReturnType<typeof createClient>>,
   {
-    chargeIds,
+    settledChargeIds,
     actorUserId,
     soldAt,
   }: {
-    chargeIds: string[];
+    settledChargeIds: string[];
     actorUserId: string;
     soldAt: string;
   }
 ) {
-  const uniqueChargeIds = Array.from(new Set(chargeIds.filter(Boolean)));
+  const uniqueChargeIds = Array.from(new Set(settledChargeIds.filter(Boolean)));
   if (uniqueChargeIds.length === 0) return;
 
   const { data } = await supabase
     .from("charges")
     .select(
-      "id, enrollment_id, size, uniform_fulfillment_mode, amount, charge_types(code), enrollments(player_id), payment_allocations(amount), uniform_orders(id)"
+      "id, enrollment_id, size, uniform_fulfillment_mode, charge_types(code), enrollments(player_id), uniform_orders(id)"
     )
     .in("id", uniqueChargeIds)
     .returns<UniformChargeSyncRow[]>();
@@ -137,10 +134,6 @@ export async function syncPaidUniformOrders(
   const ordersToInsert = rows
     .filter((row) => row.charge_types?.code === "uniform_training" || row.charge_types?.code === "uniform_game")
     .filter((row) => !row.uniform_orders || row.uniform_orders.length === 0)
-    .filter((row) => {
-      const allocated = (row.payment_allocations ?? []).reduce((sum, allocation) => sum + (allocation.amount ?? 0), 0);
-      return row.amount - allocated <= 0.009;
-    })
     .flatMap((row) => {
       if (!row.enrollments?.player_id) return [];
       return [
