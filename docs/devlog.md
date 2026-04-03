@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-04-02 (session 40)
+
+### Uniformes Dashboard v1
+
+- Promoted uniforms from a scattered player-profile helper into a real campus-scoped operational page at `/uniforms`.
+- Reworked the underlying lifecycle so `uniform_orders` now behaves like a fulfillment queue:
+  - `pending_order`
+  - `ordered`
+  - `delivered`
+- Added `sold_at` to `uniform_orders`, made `ordered_at` represent supplier ordering specifically, and now use `charge_id` as the real financial link to the uniform sale.
+- Added a charge-level fulfillment preference for Caja uniform sales so the explicit front-desk choice survives until the charge is fully paid:
+  - `Entregar ahora`
+  - `Dejar pendiente`
+- Uniform fulfillment rows are now auto-created only when the related uniform charge becomes fully paid:
+  - immediate in-stock handoff creates a delivered row
+  - deferred fulfillment creates a `pending_order` row
+  - older unpaid uniform charges that are settled later also enter the queue automatically
+- The new `/uniforms` dashboard is queue-first and campus-scoped:
+  - `Vendidos esta semana`
+  - `Pendientes por pedir`
+  - `Pedidos al proveedor`
+  - `Pendientes por entregar`
+  - `Entregados esta semana`
+- Added direct workflow actions from the new dashboard:
+  - one-click `Marcar como pedido`
+  - one-click `Marcar como entregado`
+  - bulk mark-as-ordered for the weekly supplier pass
+- Caja now captures fulfillment intent on uniform items before checkout, without changing the rest of the payment flow.
+- Player profile uniforms section was simplified into a secondary fulfillment view:
+  - it no longer manually creates new rows
+  - it now reflects the same paid-sale-driven lifecycle as the main dashboard
+- Player-list uniform tags now treat any non-delivered uniform row as pending, while delivered-only history remains `OK`.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-02 (session 39)
 
 ### Final Front Desk Polish Sweep Before Uniformes

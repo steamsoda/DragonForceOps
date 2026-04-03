@@ -716,6 +716,7 @@ function PosEnrollmentPanel({
   const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
   const [size, setSize] = useState("");
   const [goalkeeper, setGoalkeeper] = useState(false);
+  const [uniformFulfillmentMode, setUniformFulfillmentMode] = useState<"deliver_now" | "pending_order">("pending_order");
   const [manualAmount, setManualAmount] = useState("");
   const [tuitionPeriod, setTuitionPeriod] = useState(
     data.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? getDefaultNextMonthCaja()
@@ -788,6 +789,7 @@ function PosEnrollmentPanel({
     setSelectedProduct(nextProduct ?? null);
     setSize("");
     setGoalkeeper(false);
+    setUniformFulfillmentMode("pending_order");
     setManualAmount(nextProduct?.defaultAmount != null ? nextProduct.defaultAmount.toFixed(2) : "");
     setPanelError(null);
   }
@@ -859,6 +861,9 @@ function PosEnrollmentPanel({
     const detailParts: string[] = [];
     if (size) detailParts.push(`Talla ${size}`);
     if (goalkeeper) detailParts.push("Portero");
+    if (selectedProduct.categorySlug === "uniforms") {
+      detailParts.push(uniformFulfillmentMode === "deliver_now" ? "Entregar ahora" : "Dejar pendiente");
+    }
 
     addStagedItem({
       id: makeCartItemId(),
@@ -870,7 +875,8 @@ function PosEnrollmentPanel({
         productId: selectedProduct.id,
         amount: selectedProduct.defaultAmount == null ? resolvedAmount : undefined,
         size: size || null,
-        goalkeeper
+        goalkeeper,
+        uniformFulfillmentMode: selectedProduct.categorySlug === "uniforms" ? uniformFulfillmentMode : null,
       }
     });
   }
@@ -1200,6 +1206,38 @@ function PosEnrollmentPanel({
                         >
                           Portero {goalkeeper ? "✓" : ""}
                         </button>
+                        {selectedProduct.categorySlug === "uniforms" ? (
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Fulfillment</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => setUniformFulfillmentMode("pending_order")}
+                                className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                                  uniformFulfillmentMode === "pending_order"
+                                    ? "border-portoBlue bg-portoBlue text-white"
+                                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                Dejar pendiente
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setUniformFulfillmentMode("deliver_now")}
+                                className={`rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                                  uniformFulfillmentMode === "deliver_now"
+                                    ? "border-emerald-600 bg-emerald-600 text-white"
+                                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                Entregar ahora
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Si ya tienes la pieza en stock, entrégala ahora. Si no, quedará en la cola de uniformes por pedir.
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
                     )}
 

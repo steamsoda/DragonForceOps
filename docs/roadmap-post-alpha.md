@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-02.
 
-Current preview release line: `v1.4.0`
+Current preview release line: `v1.5.0`
 
 ---
 
@@ -11,15 +11,15 @@ Current preview release line: `v1.4.0`
 
 ### Immediate Sequence
 
-1. Final front-desk polish sweep
-2. `#17` Uniformes tab as the next major operational build
-3. then return to smaller/reporting follow-up items such as `#48`, `#32`, and `#16`
+1. `#17` Uniformes dashboard validation / rollout follow-up
+2. then return to smaller/reporting follow-up items such as `#48`, `#32`, and `#16`
+3. after that, resume larger sports-management planning like `#38`
 
 Notes:
 
-- keep the current sweep bounded to mobile/front-desk polish only
-- do not mix tournaments or broader sports-management work into this pass
-- treat `#17` as the next major build immediately after the sweep, not after another general polish round
+- `#17` is now in active implementation on preview as the next major front-desk workflow
+- stock control and supplier batch entities remain intentionally out of v1
+- do not mix tournaments or broader sports-management work into the uniforms rollout pass
 
 ### 1. Finance Ops Stabilization 💳
 
@@ -133,7 +133,7 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | 🔴 Open | Promoted as the next larger operational build after the current front-desk polish wave. `uniform_orders` table exists; the page still needs the real workflow for sold / ordered / delivered / pending states, repeated quantity handling, and the final day-to-day front-desk UX. |
+| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. Keep future stock control and supplier batch management separate from this issue. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |

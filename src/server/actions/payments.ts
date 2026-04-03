@@ -11,6 +11,7 @@ import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
   revalidatePaymentSurfaces,
+  syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
 
@@ -138,6 +139,12 @@ export async function postEnrollmentPaymentAction(
     paidAt,
     recordedAt,
     folio,
+  });
+
+  await syncPaidUniformOrders(supabase, {
+    chargeIds: allocations.map((allocation) => allocation.chargeId),
+    actorUserId: user.id,
+    soldAt: paidAt,
   });
 
   await revalidatePaymentSurfaces(ledger);

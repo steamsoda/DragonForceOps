@@ -17,6 +17,7 @@ const STAFF_SECTION: NavSection = {
   items: [
     { href: "/caja", label: "Caja" },
     { href: "/players", label: "Jugadores" },
+    { href: "/uniforms", label: "Uniformes" },
   ],
 };
 

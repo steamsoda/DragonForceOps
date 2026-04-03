@@ -275,7 +275,10 @@ export async function listPlayers(filters: PlayerListFilters) {
       ordersByPlayer.set(row.player_id, arr);
     }
     for (const [playerId, statuses] of ordersByPlayer) {
-      uniformStatusByPlayer.set(playerId, statuses.some((status) => status === "ordered") ? "pending" : "delivered");
+      uniformStatusByPlayer.set(
+        playerId,
+        statuses.some((status) => status === "pending_order" || status === "ordered") ? "pending" : "delivered"
+      );
     }
   }
 

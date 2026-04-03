@@ -70,7 +70,7 @@ function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   if (tags.uniform && row.uniformStatus === "pending") {
     pills.push(
       <span key="uni" className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-        Uniforme pedido
+        Uniforme pendiente
       </span>
     );
   }

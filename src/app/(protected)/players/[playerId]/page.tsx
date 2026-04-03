@@ -245,7 +245,6 @@ export default async function PlayerDetailPage({
         {/* Uniform orders — only shown when player has active enrollment */}
         {activeEnrollmentId && (
           <UniformOrdersSection
-            playerId={player.id}
             enrollmentId={activeEnrollmentId}
             initialOrders={uniformOrders}
           />

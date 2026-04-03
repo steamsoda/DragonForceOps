@@ -18,6 +18,7 @@ import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
   revalidatePaymentSurfaces,
+  syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
@@ -95,6 +96,7 @@ export type CajaCartItemInput =
       amount?: number;
       size?: string | null;
       goalkeeper?: boolean;
+      uniformFulfillmentMode?: "deliver_now" | "pending_order" | null;
     }
   | {
       kind: "tuition";
@@ -156,6 +158,11 @@ function parseCheckoutCartItems(raw: string): CajaCartItemInput[] | null {
             ? (item as { size: string }).size.trim() || null
             : null,
         goalkeeper: (item as { goalkeeper?: unknown }).goalkeeper === true,
+        uniformFulfillmentMode:
+          (item as { uniformFulfillmentMode?: unknown }).uniformFulfillmentMode === "deliver_now" ||
+          (item as { uniformFulfillmentMode?: unknown }).uniformFulfillmentMode === "pending_order"
+            ? ((item as { uniformFulfillmentMode: "deliver_now" | "pending_order" }).uniformFulfillmentMode)
+            : null,
       });
       continue;
     }
@@ -309,6 +316,11 @@ export async function postCajaChargeAction(
   const amount = parseFloat(amountRaw);
   const size = formData.get("size")?.toString().trim() || null;
   const goalkeeper = formData.get("goalkeeper") === "1";
+  const uniformFulfillmentModeRaw = formData.get("uniformFulfillmentMode")?.toString().trim() ?? "";
+  const uniformFulfillmentMode =
+    uniformFulfillmentModeRaw === "deliver_now" || uniformFulfillmentModeRaw === "pending_order"
+      ? uniformFulfillmentModeRaw
+      : null;
   const periodMonthRaw = formData.get("period_month")?.toString().trim() || null;
 
   if (!productId) {
@@ -341,6 +353,7 @@ export async function postCajaChargeAction(
   if (!product) return { ok: false, error: "product_not_found" };
 
   const isTuition = product.charge_types?.code === "monthly_tuition";
+  const isUniform = product.charge_types?.code === "uniform_training" || product.charge_types?.code === "uniform_game";
   let createdChargeId: string | undefined;
   if (isTuition) {
     if (!periodMonthRaw) return { ok: false, error: "invalid_form" };
@@ -400,6 +413,7 @@ export async function postCajaChargeAction(
           product_id: productId,
           size,
           is_goalkeeper: product.has_sizes ? goalkeeper : null,
+          uniform_fulfillment_mode: isUniform ? (uniformFulfillmentMode ?? "pending_order") : null,
           description,
           amount: resolvedAmount,
           currency,
@@ -683,6 +697,7 @@ export async function checkoutCajaCartAction(
     if (item.amount) chargeForm.set("amount", item.amount.toFixed(2));
     if (item.size) chargeForm.set("size", item.size);
     if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
+    if (item.uniformFulfillmentMode) chargeForm.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
     chargeForm.set("suppressAudit", "1");
 
     const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
@@ -706,6 +721,8 @@ export async function checkoutCajaCartAction(
   if (notes) paymentForm.set("notes", notes);
   if (amount2) paymentForm.set("amount2", amount2);
   if (method2) paymentForm.set("method2", method2);
+  const paidAt = formData.get("paidAt")?.toString().trim() ?? "";
+  if (paidAt) paymentForm.set("paidAt", paidAt);
   paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...createdChargeIds].join(","));
 
   const paymentResult = await postCajaPaymentAction(enrollmentId, paymentForm);
@@ -931,6 +948,12 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     paidAt,
     recordedAt,
     folio,
+  });
+
+  await syncPaidUniformOrders(supabase, {
+    chargeIds: Array.from(new Set(allAllocatedCharges.map((allocation) => allocation.chargeId))),
+    actorUserId: user.id,
+    soldAt: paidAt,
   });
 
   await revalidatePaymentSurfaces(ledger);

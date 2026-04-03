@@ -81,6 +81,26 @@ export function getMonterreyDayBounds(dateStr: string) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+export function getMonterreyWeekBounds(value: string | Date = new Date()) {
+  const { year, month, day } = getMonterreyDateParts(value);
+  const anchor = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0));
+  const weekday = anchor.getUTCDay();
+  const diffToMonday = weekday === 0 ? 6 : weekday - 1;
+  const monday = new Date(anchor);
+  monday.setUTCDate(anchor.getUTCDate() - diffToMonday);
+
+  const mondayDate = `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, "0")}-${String(monday.getUTCDate()).padStart(2, "0")}`;
+  const startBounds = getMonterreyDayBounds(mondayDate);
+  const end = new Date(startBounds.start);
+  end.setUTCDate(end.getUTCDate() + 7);
+
+  return {
+    start: startBounds.start,
+    end: end.toISOString(),
+    startDate: mondayDate,
+  };
+}
+
 export function parseMonterreyDateTimeInput(value: string | null | undefined) {
   const raw = value?.trim() ?? "";
   if (!raw) return null;
