@@ -18,6 +18,28 @@ export type UniformOrder = {
   notes: string | null;
 };
 
+export type UniformOrderMutationResult =
+  | {
+      ok: true;
+      orderId: string;
+      nextStatus: UniformOrderStatus;
+      orderedAt: string | null;
+      deliveredAt: string | null;
+    }
+  | { ok: false; error: string };
+
+export type BulkUniformOrderMutationResult =
+  | {
+      ok: true;
+      updates: Array<{
+        orderId: string;
+        nextStatus: UniformOrderStatus;
+        orderedAt: string | null;
+        deliveredAt: string | null;
+      }>;
+    }
+  | { ok: false; error: string };
+
 type UniformOrderRow = {
   id: string;
   enrollment_id: string;
@@ -80,7 +102,7 @@ export async function getUniformOrdersAction(enrollmentId: string): Promise<Unif
   }));
 }
 
-export async function markUniformOrderedAction(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function markUniformOrderedAction(orderId: string): Promise<UniformOrderMutationResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { context, row } = await getManageableUniformOrder(orderId);
   if (!row) return { ok: false, error: "not_found" };
@@ -95,14 +117,22 @@ export async function markUniformOrderedAction(orderId: string): Promise<{ ok: t
   if (error) return { ok: false, error: "update_failed" };
 
   revalidateUniformSurfaces(row.player_id, row.enrollment_id);
-  return { ok: true };
+  return { ok: true, orderId: row.id, nextStatus: "ordered", orderedAt, deliveredAt: null };
 }
 
-export async function markUniformDeliveredAction(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function markUniformDeliveredAction(orderId: string): Promise<UniformOrderMutationResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const { context, row } = await getManageableUniformOrder(orderId);
   if (!row) return { ok: false, error: "not_found" };
-  if (row.status === "delivered") return { ok: true };
+  if (row.status === "delivered") {
+    return {
+      ok: true,
+      orderId: row.id,
+      nextStatus: "delivered",
+      orderedAt: row.ordered_at,
+      deliveredAt: row.delivered_at,
+    };
+  }
 
   const deliveredAt = new Date().toISOString();
   const { error } = await context.supabase
@@ -113,12 +143,18 @@ export async function markUniformDeliveredAction(orderId: string): Promise<{ ok:
   if (error) return { ok: false, error: "update_failed" };
 
   revalidateUniformSurfaces(row.player_id, row.enrollment_id);
-  return { ok: true };
+  return {
+    ok: true,
+    orderId: row.id,
+    nextStatus: "delivered",
+    orderedAt: row.ordered_at,
+    deliveredAt,
+  };
 }
 
 export async function bulkMarkUniformOrderedAction(
   orderIds: string[]
-): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
+): Promise<BulkUniformOrderMutationResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const context = await requireOperationalContext();
   const uniqueIds = Array.from(new Set(orderIds.filter(Boolean)));
@@ -136,7 +172,7 @@ export async function bulkMarkUniformOrderedAction(
     if (await canAccessEnrollmentRecord(row.enrollment_id, context)) manageable.push(row);
   }
 
-  if (manageable.length === 0) return { ok: true, updated: 0 };
+  if (manageable.length === 0) return { ok: true, updates: [] };
 
   const orderedAt = new Date().toISOString();
   const { error } = await context.supabase
@@ -156,5 +192,13 @@ export async function bulkMarkUniformOrderedAction(
     }
   }
 
-  return { ok: true, updated: manageable.length };
+  return {
+    ok: true,
+    updates: manageable.map((row) => ({
+      orderId: row.id,
+      nextStatus: "ordered",
+      orderedAt,
+      deliveredAt: null,
+    })),
+  };
 }

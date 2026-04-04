@@ -69,37 +69,13 @@ export type UniformDashboardRow = {
   folio: string | null;
 };
 
-export type UniformDashboardSection = {
-  key: "sold_week" | "pending_order" | "ordered" | "pending_delivery" | "delivered_week";
-  title: string;
-  rows: UniformDashboardRow[];
-};
-
-export type UniformPendingSummaryCampus = {
-  campusId: string;
-  campusName: string;
-  items: Array<{
-    key: string;
-    label: string;
-    count: number;
-  }>;
-};
-
 export type UniformDashboardData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string;
   selectedType: "" | "training" | "game";
   selectedQueue: UniformDashboardFilters["queue"];
   week: { start: string; end: string };
-  counts: {
-    soldWeek: number;
-    pendingOrder: number;
-    ordered: number;
-    pendingDelivery: number;
-    deliveredWeek: number;
-  };
-  pendingOrderSummary: UniformPendingSummaryCampus[];
-  sections: UniformDashboardSection[];
+  rows: UniformDashboardRow[];
 };
 
 function getUniformTypeLabel(uniformType: "training" | "game") {
@@ -110,11 +86,6 @@ function getStatusLabel(status: "pending_order" | "ordered" | "delivered") {
   if (status === "pending_order") return "Pendiente por pedir";
   if (status === "ordered") return "Pedido al proveedor";
   return "Entregado";
-}
-
-function inRange(value: string | null, start: string, end: string) {
-  if (!value) return false;
-  return value >= start && value < end;
 }
 
 export async function getUniformDashboardData(filters: UniformDashboardFilters = {}): Promise<UniformDashboardData> {
@@ -137,9 +108,7 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
       selectedType,
       selectedQueue,
       week: { start: "", end: "" },
-      counts: { soldWeek: 0, pendingOrder: 0, ordered: 0, pendingDelivery: 0, deliveredWeek: 0 },
-      pendingOrderSummary: [],
-      sections: [],
+      rows: [],
     };
   }
 
@@ -152,10 +121,9 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
     )
     .returns<UniformOrderRecord[]>();
 
-  const filteredOrders = (orderRows ?? [])
-    .filter((row) => row.enrollments?.campus_id && canAccessCampus(campusAccess, row.enrollments.campus_id))
-    .filter((row) => selectedCampusId === "all" || row.enrollments?.campus_id === selectedCampusId)
-    .filter((row) => !selectedType || row.uniform_type === selectedType);
+  const filteredOrders = (orderRows ?? []).filter(
+    (row) => row.enrollments?.campus_id && canAccessCampus(campusAccess, row.enrollments.campus_id)
+  );
 
   const chargeIds = Array.from(new Set(filteredOrders.map((row) => row.charge_id).filter(Boolean))) as string[];
   const chargeMap = new Map<
@@ -224,80 +192,12 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
     };
   });
 
-  const soldWeek = rows
-    .filter((row) => inRange(row.soldAt, weekBounds.start, weekBounds.end))
-    .sort((a, b) => (b.soldAt ?? "").localeCompare(a.soldAt ?? ""));
-  const pendingOrder = rows
-    .filter((row) => row.status === "pending_order")
-    .sort((a, b) => (a.soldAt ?? "").localeCompare(b.soldAt ?? ""));
-  const ordered = rows
-    .filter((row) => row.status === "ordered")
-    .sort((a, b) => (a.orderedAt ?? a.soldAt ?? "").localeCompare(b.orderedAt ?? b.soldAt ?? ""));
-  const pendingDelivery = rows
-    .filter((row) => row.status !== "delivered")
-    .sort((a, b) => {
-      const aDate = a.orderedAt ?? a.soldAt ?? "";
-      const bDate = b.orderedAt ?? b.soldAt ?? "";
-      return aDate.localeCompare(bDate);
-    });
-  const deliveredWeek = rows
-    .filter((row) => inRange(row.deliveredAt, weekBounds.start, weekBounds.end))
-    .sort((a, b) => (b.deliveredAt ?? "").localeCompare(a.deliveredAt ?? ""));
-
-  const pendingOrderSummary = campuses
-    .map((campus) => {
-      const itemMap = new Map<string, { label: string; count: number }>();
-      for (const row of pendingOrder.filter((item) => item.campusId === campus.id)) {
-        const sizeLabel = row.size?.trim() || "Sin talla";
-        const label = row.isGoalkeeper
-          ? `${row.uniformTypeLabel} Portero ${sizeLabel}`
-          : `${row.uniformTypeLabel} ${sizeLabel}`;
-        const key = `${row.uniformType}|${row.isGoalkeeper ? "portero" : "normal"}|${sizeLabel}`;
-        const current = itemMap.get(key);
-        if (current) {
-          current.count += 1;
-        } else {
-          itemMap.set(key, { label, count: 1 });
-        }
-      }
-
-      return {
-        campusId: campus.id,
-        campusName: campus.name,
-        items: Array.from(itemMap.entries())
-          .map(([key, value]) => ({ key, label: value.label, count: value.count }))
-          .sort((a, b) => a.label.localeCompare(b.label, "es-MX")),
-      };
-    })
-    .filter((campus) => campus.items.length > 0);
-
-  const sectionMap: UniformDashboardSection[] = [
-    { key: "sold_week", title: "Vendidos esta semana", rows: soldWeek },
-    { key: "pending_order", title: "Pendientes por pedir", rows: pendingOrder },
-    { key: "ordered", title: "Pedidos al proveedor", rows: ordered },
-    { key: "pending_delivery", title: "Pendientes por entregar", rows: pendingDelivery },
-    { key: "delivered_week", title: "Entregados esta semana", rows: deliveredWeek },
-  ];
-
-  const sections =
-    selectedQueue && selectedQueue !== "all"
-      ? sectionMap.filter((section) => section.key === selectedQueue)
-      : sectionMap;
-
   return {
     campuses: campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     selectedCampusId,
     selectedType,
     selectedQueue,
     week: { start: weekBounds.start, end: weekBounds.end },
-    counts: {
-      soldWeek: soldWeek.length,
-      pendingOrder: pendingOrder.length,
-      ordered: ordered.length,
-      pendingDelivery: pendingDelivery.length,
-      deliveredWeek: deliveredWeek.length,
-    },
-    pendingOrderSummary,
-    sections,
+    rows,
   };
 }
