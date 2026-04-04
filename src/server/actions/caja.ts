@@ -954,6 +954,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     amount: parsed.amount,
     method: parsed.method,
     source: "caja",
+    externalSource: "manual",
     split: !!parsed.split,
     paidAt,
     recordedAt,

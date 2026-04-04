@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-02.
+Updated continuously. Last updated: 2026-04-04.
 
-Current preview release line: `v1.5.0`
+Current preview release line: `v1.6.0`
 
 ---
 
@@ -20,6 +20,10 @@ Notes:
 - `#17` is now in active implementation on preview as the next major front-desk workflow
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
+- Release policy:
+  - every repo-tracked implementation change bumps `package.json`
+  - every push updates `docs/devlog.md`
+  - patch = fixes/polish/perf, minor = meaningful feature/workflow additions
 
 ### 1. Finance Ops Stabilization 💳
 
@@ -150,7 +154,7 @@ Follow after the operational tracks above:
 | 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
 | 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, visible warning counts for active players excluded because they are missing gender, and the surrounding Jugadores filter bar has been cleaned up with a dedicated advanced-filters section. Keep this item open for broader list/export tooling beyond attendance rosters. |
 | 63 | **Attendance-sheet export** | ✅ Done | `/players` exports a formatted `.xlsx` workbook for manual attendance use, with one sheet per campus + category + gender, level sections inside each sheet, alphabetical player rows, tutor phone, and 20 blank attendance columns. Missing-gender players are now intentionally excluded instead of generating fallback `Sin genero` sheets. |
-| 64 | **Campus workflow polish (Linda Vista as hub)** | 🔴 Open | Make Linda Vista covering Contry workflows feel intentional instead of like a permissions workaround. Tied to cross-campus payment handling and the broader front-desk permissions audit. |
+| 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
 
 ---
 

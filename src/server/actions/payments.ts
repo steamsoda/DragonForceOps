@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
@@ -7,6 +8,7 @@ import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
+import { redirect } from "next/navigation";
 import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
@@ -15,31 +17,64 @@ import {
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
 
+export type PostedPaymentReceipt = {
+  playerName: string;
+  campusName: string;
+  birthYear: number | null;
+  method: string;
+  amount: number;
+  currency: string;
+  remainingBalance: number;
+  chargesPaid: { description: string; amount: number }[];
+  paymentId: string;
+  folio: string | null;
+  date: string;
+  time: string;
+  sessionWarning?: boolean;
+};
+
 export type EnrollmentPaymentResult =
   | {
       ok: true;
-      receipt: {
-        playerName: string;
-        campusName: string;
-        birthYear: number | null;
-        method: string;
-        amount: number;
-        currency: string;
-        remainingBalance: number;
-        chargesPaid: { description: string; amount: number }[];
-        paymentId: string;
-        folio: string | null;
-        date: string;
-        time: string;
-        sessionWarning?: boolean;
-      };
+      receipt: PostedPaymentReceipt;
     }
   | { ok: false; error: string };
 
-export async function postEnrollmentPaymentAction(
+export type HistoricalRegularizationPaymentResult =
+  | {
+      ok: true;
+      paymentId: string;
+      folio: string | null;
+      amount: number;
+      currency: string;
+      paidAt: string;
+      playerName: string;
+      enrollmentId: string;
+    }
+  | { ok: false; error: string };
+
+type SharedPostedPayment = {
+  receipt: PostedPaymentReceipt;
+  paymentId: string;
+  folio: string | null;
+  paidAt: string;
+};
+
+type PostEnrollmentPaymentMode = {
+  auditSource: "ledger" | "historical_regularization_contry";
+  externalSource: string;
+  requirePaidAt: boolean;
+  forceOperatorCampusId?: string;
+  requireEnrollmentCampusId?: string;
+  linkCashToSession: boolean;
+  extraRevalidatePaths?: string[];
+};
+
+async function postEnrollmentPaymentInternal(
   enrollmentId: string,
-  formData: FormData
-): Promise<EnrollmentPaymentResult> {
+  formData: FormData,
+  mode: PostEnrollmentPaymentMode
+): Promise<{ ok: true; posted: SharedPostedPayment } | { ok: false; error: string }> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parsePaymentFormData(formData);
   if (!parsed) return { ok: false, error: "invalid_form" };
@@ -58,11 +93,16 @@ export async function postEnrollmentPaymentAction(
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return { ok: false, error: "unauthenticated" };
 
-  const operatorCampusId = parsed.operatorCampusId ?? campusAccess.defaultCampusId;
+  if (mode.requireEnrollmentCampusId && ledger.enrollment.campusId !== mode.requireEnrollmentCampusId) {
+    return { ok: false, error: "enrollment_not_found" };
+  }
+
+  const operatorCampusId = mode.forceOperatorCampusId ?? parsed.operatorCampusId ?? campusAccess.defaultCampusId;
   if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
     return { ok: false, error: "invalid_form" };
   }
   const recordedAt = new Date().toISOString();
+  if (mode.requirePaidAt && !parsed.paidAtRaw) return { ok: false, error: "paid_at_required" };
   const paidAt = parsed.paidAtRaw ? parseMonterreyDateTimeInput(parsed.paidAtRaw) : recordedAt;
   if (!paidAt) return { ok: false, error: "invalid_form" };
 
@@ -94,7 +134,7 @@ export async function postEnrollmentPaymentAction(
       status: "posted",
       operator_campus_id: operatorCampusId,
       provider_ref: providerRef,
-      external_source: "manual",
+      external_source: mode.externalSource,
       notes: parsed.notes,
       created_by: user.id
     })
@@ -120,12 +160,14 @@ export async function postEnrollmentPaymentAction(
     }
   }
 
-  const sessionWarning = await linkCashPaymentsToOpenSession(
-    supabase,
-    operatorCampusId,
-    [{ id: paymentRow.id, amount: parsed.amount, method: parsed.method }],
-    user.id
-  );
+  const sessionWarning = mode.linkCashToSession
+    ? await linkCashPaymentsToOpenSession(
+        supabase,
+        operatorCampusId,
+        [{ id: paymentRow.id, amount: parsed.amount, method: parsed.method }],
+        user.id
+      )
+    : false;
 
   await writePostedPaymentAudit(supabase, {
     actorUserId: user.id,
@@ -134,7 +176,8 @@ export async function postEnrollmentPaymentAction(
     enrollmentId,
     amount: parsed.amount,
     method: parsed.method,
-    source: "ledger",
+    source: mode.auditSource,
+    externalSource: mode.externalSource,
     split: false,
     paidAt,
     recordedAt,
@@ -160,6 +203,7 @@ export async function postEnrollmentPaymentAction(
   });
 
   await revalidatePaymentSurfaces(ledger);
+  for (const path of mode.extraRevalidatePaths ?? []) revalidatePath(path);
   const refreshedLedger = await getEnrollmentLedger(enrollmentId);
 
   const chargesPaid = allocations.map((a) => {
@@ -169,22 +213,93 @@ export async function postEnrollmentPaymentAction(
 
   return {
     ok: true,
-    receipt: {
-      playerName: ledger.enrollment.playerName,
-      campusName: ledger.enrollment.campusName,
-      birthYear: ledger.enrollment.birthYear,
-      method: PAYMENT_METHOD_LABELS[parsed.method] ?? parsed.method,
-      amount: parsed.amount,
-      currency: ledger.enrollment.currency,
-      remainingBalance: refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - parsed.amount, 0),
-      chargesPaid,
+    posted: {
       paymentId: paymentRow.id,
       folio,
-      date: formatDateMonterrey(paidAt),
-      time: formatTimeMonterrey(paidAt),
-      sessionWarning,
+      paidAt,
+      receipt: {
+        playerName: ledger.enrollment.playerName,
+        campusName: ledger.enrollment.campusName,
+        birthYear: ledger.enrollment.birthYear,
+        method: PAYMENT_METHOD_LABELS[parsed.method] ?? parsed.method,
+        amount: parsed.amount,
+        currency: ledger.enrollment.currency,
+        remainingBalance: refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - parsed.amount, 0),
+        chargesPaid,
+        paymentId: paymentRow.id,
+        folio,
+        date: formatDateMonterrey(paidAt),
+        time: formatTimeMonterrey(paidAt),
+        sessionWarning,
+      }
     }
   };
+}
+
+export async function postEnrollmentPaymentAction(
+  enrollmentId: string,
+  formData: FormData
+): Promise<EnrollmentPaymentResult> {
+  const result = await postEnrollmentPaymentInternal(enrollmentId, formData, {
+    auditSource: "ledger",
+    externalSource: "manual",
+    requirePaidAt: false,
+    linkCashToSession: true,
+  });
+
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    receipt: result.posted.receipt,
+  };
+}
+
+export async function postContryHistoricalPaymentAction(
+  enrollmentId: string,
+  contryCampusId: string,
+  formData: FormData
+): Promise<HistoricalRegularizationPaymentResult> {
+  const result = await postEnrollmentPaymentInternal(enrollmentId, formData, {
+    auditSource: "historical_regularization_contry",
+    externalSource: "historical_catchup_contry",
+    requirePaidAt: true,
+    forceOperatorCampusId: contryCampusId,
+    requireEnrollmentCampusId: contryCampusId,
+    linkCashToSession: false,
+    extraRevalidatePaths: ["/regularizacion/contry"],
+  });
+
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    paymentId: result.posted.paymentId,
+    folio: result.posted.folio,
+    amount: result.posted.receipt.amount,
+    currency: result.posted.receipt.currency,
+    paidAt: result.posted.paidAt,
+    playerName: result.posted.receipt.playerName,
+    enrollmentId,
+  };
+}
+
+export async function postContryHistoricalPaymentRedirectAction(
+  enrollmentId: string,
+  contryCampusId: string,
+  returnTo: string,
+  formData: FormData
+): Promise<void> {
+  const result = await postContryHistoricalPaymentAction(enrollmentId, contryCampusId, formData);
+  const joiner = returnTo.includes("?") ? "&" : "?";
+
+  if (!result.ok) {
+    redirect(`${returnTo}${joiner}err=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect(
+    `${returnTo}${joiner}ok=historical_payment_posted&payment=${encodeURIComponent(result.paymentId)}`
+  );
 }
 
 export async function applyEarlyBirdDiscountIfEligible(..._args: unknown[]) {

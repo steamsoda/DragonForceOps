@@ -11,6 +11,7 @@ export type ReceiptSearchRow = {
   amount: number;
   method: string;
   enrollmentId: string;
+  externalSource: string;
 };
 
 export type ReceiptSearchResult = {
@@ -32,6 +33,7 @@ type ReceiptRpcRow = {
   amount: number | string;
   method: string;
   enrollment_id: string;
+  external_source: string;
   total_count: number;
 };
 
@@ -94,6 +96,7 @@ export async function searchReceipts({
       amount: typeof row.amount === "number" ? row.amount : Number(row.amount),
       method: row.method,
       enrollmentId: row.enrollment_id,
+      externalSource: row.external_source,
     }));
 
   return {

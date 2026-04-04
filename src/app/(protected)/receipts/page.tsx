@@ -25,6 +25,10 @@ const METHOD_LABELS: Record<string, string> = {
   other: "Otro",
 };
 
+function isHistoricalCatchup(row: { externalSource: string }) {
+  return row.externalSource === "historical_catchup_contry";
+}
+
 export default async function ReceiptsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const q = params.q ?? "";
@@ -118,6 +122,9 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     {row.campusName} | {formatDateTimeMonterrey(row.paidAt)}
                   </p>
+                  {isHistoricalCatchup(row) ? (
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Regularización histórica Contry</p>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
@@ -175,7 +182,16 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                     <td className="px-3 py-2">{row.playerName}</td>
                     <td className="px-3 py-2">{row.campusName}</td>
                     <td className="px-3 py-2 font-medium">{formatMoney(row.amount)}</td>
-                    <td className="px-3 py-2">{METHOD_LABELS[row.method] ?? row.method}</td>
+                    <td className="px-3 py-2">
+                      <div className="space-y-1">
+                        <p>{METHOD_LABELS[row.method] ?? row.method}</p>
+                        {isHistoricalCatchup(row) ? (
+                          <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            Hist. Contry
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       <ReprintReceiptButton paymentId={row.paymentId} printerName={printerName} />
                     </td>

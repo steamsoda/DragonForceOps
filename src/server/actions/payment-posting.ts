@@ -69,6 +69,7 @@ export async function writePostedPaymentAudit(
     amount,
     method,
     source,
+    externalSource,
     split,
     paidAt,
     recordedAt,
@@ -79,11 +80,12 @@ export async function writePostedPaymentAudit(
     recordId: string;
     enrollmentId: string;
     amount: number;
-    method: string;
-    source: "caja" | "ledger";
-    split: boolean;
-    paidAt: string;
-    recordedAt: string;
+      method: string;
+      source: "caja" | "ledger" | "historical_regularization_contry";
+      externalSource: string;
+      split: boolean;
+      paidAt: string;
+      recordedAt: string;
     folio: string | null;
   }
 ) {
@@ -98,6 +100,7 @@ export async function writePostedPaymentAudit(
       amount,
       method,
       source,
+      external_source: externalSource,
       split,
       folio,
       paid_at: paidAt,

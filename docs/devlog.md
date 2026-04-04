@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-04 (session 41)
+
+### Release + Versioning Policy
+
+- Locked a standing release rule for all ongoing work:
+  - every repo-tracked implementation change must bump the app version in `package.json`
+  - every pushed change must also update `docs/devlog.md`
+- Versioning default:
+  - patch bump for hotfixes, polish, performance work, and small operational follow-ups
+  - minor bump for meaningful feature/workflow additions
+- This session applies that rule immediately by advancing the app version to `v1.5.1`, even though the repo change is documentation/process only, so version movement stays consistent and visible.
+
 ## 2026-04-02 (session 40)
 
 ### Uniformes Dashboard v1
@@ -1241,3 +1253,22 @@
 - Cleaned the remaining mojibake on the touched detailed Corte surface:
   - fixed the subtitle separator
   - fixed the `Conceptos pagados` join separator
+
+### Contry Historical Regularization v1
+- Added a dedicated `/regularizacion/contry` workflow so Linda Vista hub staff can regularize missing paper-era Contry payments inside the app without manual DB edits.
+- The new flow is intentionally Contry-only and account-first:
+  - search Contry players
+  - open one enrollment/account at a time
+  - review charges, balance, and existing payments
+  - post a historical payment with required real `paid_at`
+- Historical regularization entries are real posted payments, but with dedicated guardrails:
+  - `operator_campus_id` is forced to Contry
+  - `external_source` is tagged as `historical_catchup_contry`
+  - cash regularization entries do not attach to the current open cash session
+  - no thermal auto-print is triggered from the regularization screen
+- Reused the existing payment/allocation engine instead of creating a fake migration record type, so balances, folios, receipts, and reporting continue to work off real payments and real historical dates.
+- Extended `search_receipts(...)` and the app lookup surfaces so these historical Contry entries can be identified later in:
+  - `Recibos`
+  - `Actividad`
+  - superadmin `Auditoría`
+- Added a navigation entry for users who can operate Contry, so the hub workflow feels intentional rather than like a DB-side cleanup trick.

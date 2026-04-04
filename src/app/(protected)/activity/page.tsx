@@ -54,7 +54,9 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
     const amount = data.amount as number | undefined;
     const method = data.method as string | undefined;
     const folio = getFolio(data);
-    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, folio].filter(Boolean).join(" | ");
+    const source =
+      data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
+    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, folio, source].filter(Boolean).join(" | ");
   }
   if (action === "charge.created") {
     const amount = data.amount as number | undefined;

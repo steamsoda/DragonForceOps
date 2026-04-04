@@ -69,7 +69,9 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
   if (action === "payment.posted" || action === "payment.voided") {
     const amount = data.amount as number | undefined;
     const method = data.method as string | undefined;
-    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method].filter(Boolean).join(" · ");
+    const source =
+      data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
+    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, source].filter(Boolean).join(" · ");
   }
   if (action === "charge.created" || action === "charge.voided") {
     const desc = data.description as string | undefined;
