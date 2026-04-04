@@ -1,3 +1,5 @@
+drop function if exists public.search_receipts(text, uuid, uuid, int, int);
+
 create or replace function public.search_receipts(
   p_query text default null,
   p_campus_id uuid default null,

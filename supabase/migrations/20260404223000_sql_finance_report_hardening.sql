@@ -165,7 +165,7 @@ stable
 security definer
 set search_path = public
 as $$
-  with window as (
+  with bounds as (
     select * from public.finance_month_window(p_month)
   )
   select
@@ -178,7 +178,7 @@ as $$
   from public.charges ch
   join public.enrollments e on e.id = ch.enrollment_id
   left join public.charge_types ct on ct.id = ch.charge_type_id
-  cross join window w
+  cross join bounds w
   where ch.status <> 'void'
     and e.campus_id in (select campus_id from public.current_user_allowed_campuses())
     and (p_campus_id is null or e.campus_id = p_campus_id)
@@ -223,7 +223,7 @@ stable
 security definer
 set search_path = public
 as $$
-  with window as (
+  with bounds as (
     select * from public.finance_month_window(p_month)
   ),
   today_window as (
@@ -265,22 +265,22 @@ as $$
   ),
   current_payments as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_payment_facts(w.month_start_ts, w.next_month_start_ts, p_campus_id) pf
   ),
   previous_payments as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_payment_facts(w.previous_month_start_ts, w.month_start_ts, p_campus_id) pf
   ),
   current_charges as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_charge_facts(w.month_key, p_campus_id) cf
   ),
   previous_charges as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_charge_facts(w.previous_month_key, p_campus_id) cf
   ),
   payments_by_method as (
@@ -311,7 +311,7 @@ as $$
   new_enrollments as (
     select count(*)::bigint as total
     from public.enrollments e
-    cross join window w
+    cross join bounds w
     where e.created_at >= w.month_start_ts
       and e.created_at < w.next_month_start_ts
       and e.campus_id in (select campus_id from public.current_user_allowed_campuses())
@@ -321,7 +321,7 @@ as $$
   bajas as (
     select count(*)::bigint as total
     from public.enrollments e
-    cross join window w
+    cross join bounds w
     where e.status in ('ended', 'cancelled')
       and e.end_date >= w.month_start_date
       and e.end_date < w.next_month_start_date
@@ -347,7 +347,7 @@ as $$
     coalesce((select count(*) from current_payments where is_360player), 0)::bigint as player_360_count,
     coalesce((select sum(amount) from current_payments where is_historical_catchup_contry), 0)::numeric as historical_catchup_amount,
     coalesce((select count(*) from current_payments where is_historical_catchup_contry), 0)::bigint as historical_catchup_count
-  from window w
+  from bounds w
   cross join active a
   cross join balance b
   cross join payments_today pt
@@ -381,7 +381,7 @@ stable
 security definer
 set search_path = public
 as $$
-  with window as (
+  with bounds as (
     select * from public.finance_month_window(p_month)
   ),
   active as (
@@ -397,12 +397,12 @@ as $$
   ),
   charge_rows as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_charge_facts(w.month_key, p_campus_id) cf
   ),
   payment_rows as (
     select *
-    from window w
+    from bounds w
     cross join lateral public.finance_payment_facts(w.month_start_ts, w.next_month_start_ts, p_campus_id) pf
   ),
   charges_by_type as (
@@ -470,7 +470,7 @@ as $$
     coalesce((select count(*) from payment_rows where is_360player), 0)::bigint as player_360_count,
     coalesce((select sum(amount) from payment_rows where is_historical_catchup_contry), 0)::numeric as historical_catchup_amount,
     coalesce((select count(*) from payment_rows where is_historical_catchup_contry), 0)::bigint as historical_catchup_count
-  from window w
+  from bounds w
   cross join active a
   cross join balance b
   cross join charges_by_type cbt
@@ -499,7 +499,7 @@ stable
 security definer
 set search_path = public
 as $$
-  with window as (
+  with bounds as (
     select * from public.finance_month_window(p_month)
   ),
   payment_rows as (
@@ -507,7 +507,7 @@ as $$
       pf.*,
       extract(day from pf.paid_date_local)::int as paid_day,
       ceil(extract(day from pf.paid_date_local) / 7.0)::int as week_num
-    from window w
+    from bounds w
     cross join lateral public.finance_payment_facts(w.month_start_ts, w.next_month_start_ts, p_campus_id) pf
   ),
   week_series as (
@@ -516,11 +516,11 @@ as $$
       ((gs - 1) * 7 + 1) as start_day,
       least(
         gs * 7,
-        extract(day from ((select next_month_start_date from window) - interval '1 day'))::int
+        extract(day from ((select next_month_start_date from bounds) - interval '1 day'))::int
       ) as end_day
     from generate_series(
       1,
-      ceil(extract(day from ((select next_month_start_date from window) - interval '1 day')) / 7.0)::int
+      ceil(extract(day from ((select next_month_start_date from bounds) - interval '1 day')) / 7.0)::int
     ) gs
   ),
   week_rollups as (
@@ -539,7 +539,7 @@ as $$
       jsonb_agg(
         jsonb_build_object(
           'weekNum', wr.week_num,
-          'label', format('%s-%s %s', wr.start_day, wr.end_day, (array['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'])[extract(month from (select month_date from window))::int]),
+          'label', format('%s-%s %s', wr.start_day, wr.end_day, (array['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'])[extract(month from (select month_date from bounds))::int]),
           'startDay', wr.start_day,
           'endDay', wr.end_day,
           'totalCobrado', wr.total_cobrado,
@@ -584,7 +584,7 @@ as $$
     coalesce((select sum(amount) from payment_rows where is_historical_catchup_contry), 0)::numeric as historical_catchup_amount,
     coalesce((select count(*) from payment_rows where is_historical_catchup_contry), 0)::bigint as historical_catchup_count,
     wp.payload as weeks
-  from window w
+  from bounds w
   cross join weeks_payload wp;
 $$;
 

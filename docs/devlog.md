@@ -1294,3 +1294,13 @@
   - SQL-backed
   - access-aware
   - thin TypeScript adapter only
+
+### Preview Migration Chain Hotfix
+- Fixed the preview migration chain for the Contry historical regularization release:
+  - `20260404183000_contry_historical_regularization_v1.sql` now drops `search_receipts(...)` before recreating it with the added `external_source` column
+- Reason:
+  - Postgres does not allow `create or replace function` to change the returned OUT-column shape in place
+  - preview `db push` was blocking on that older migration, which in turn blocked the new SQL finance hardening migration from applying
+- Follow-up SQL hotfix:
+  - renamed reserved-word CTEs inside `20260404223000_sql_finance_report_hardening.sql`
+  - preview remote push was failing on `with window as (...)`, so the migration now uses safe names and can apply cleanly
