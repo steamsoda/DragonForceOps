@@ -9,7 +9,7 @@ function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -29,7 +29,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
 
   const [campuses, data] = await Promise.all([
     listCampuses(),
-    getResumenMensualData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined })
+    getResumenMensualData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
   ]);
 
   const balanceNet = data.totalCobrado - data.totalCargosEmitidos;
@@ -37,17 +37,16 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
   return (
     <PageShell title="Resumen Mensual" subtitle="Resumen financiero operativo por mes">
       <div className="space-y-6">
-        {/* Filters */}
-        <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto_auto]">
+        <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_auto_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
           >
             <option value="">Todos los campus</option>
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {campuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>
+                {campus.name}
               </option>
             ))}
           </select>
@@ -55,74 +54,78 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
             type="month"
             name="month"
             defaultValue={data.month}
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
           />
-          <button
-            type="submit"
-            className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark"
-          >
+          <button type="submit" className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark">
             Aplicar
           </button>
           <Link
             href="/reports/resumen-mensual"
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-center"
+            className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
           >
             Este mes
           </Link>
         </form>
 
-        {/* KPI tiles */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Inscripciones activas</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Inscripciones activas</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{data.activeEnrollments.toLocaleString("es-MX")}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Al momento de la consulta</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Al momento de la consulta</p>
           </div>
-          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Cargos emitidos</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Cargos emitidos</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCargosEmitidos)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Mensualidades por periodo y cargos operativos del mes</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Mensualidades por periodo y cargos operativos del mes</p>
           </div>
-          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total cobrado</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total cobrado</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Pagos registrados en el mes</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {data.paymentCount} pago{data.paymentCount !== 1 ? "s" : ""} registrados en el mes
+            </p>
           </div>
-          <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Saldo pendiente</p>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Saldo pendiente</p>
             <p className={`mt-1 text-2xl font-semibold ${data.pendingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
               {fmt(data.pendingBalance)}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Inscripciones activas con saldo positivo</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Inscripciones activas con saldo positivo</p>
           </div>
         </div>
 
-        {/* Net balance note */}
-        <div className="rounded-md border border-slate-200 dark:border-slate-700 p-3 flex items-center gap-3">
-          <span className="text-sm text-slate-600 dark:text-slate-400">
-            Diferencia cobrado – cargos ({monthLabel(data.month)}):
-          </span>
-          <span className={`text-sm font-semibold ${balanceNet >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            {fmt(balanceNet)}
-          </span>
-          {balanceNet < 0 && (
-            <span className="text-xs text-slate-400">
-              (saldo sin cobrar del periodo)
-            </span>
-          )}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">360Player</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.player360Amount)}</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+              {data.player360Count} pago{data.player360Count !== 1 ? "s" : ""} incluidos dentro del total cobrado del mes
+            </p>
+          </div>
+          <div className="rounded-md border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
+            <p className="text-xs uppercase tracking-wide text-sky-700 dark:text-sky-300">Regularización histórica Contry</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.historicalCatchupAmount)}</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+              {data.historicalCatchupCount} pago{data.historicalCatchupCount !== 1 ? "s" : ""} contados por su fecha real de pago
+            </p>
+          </div>
         </div>
 
-        {/* Two tables side by side */}
+        <div className="flex items-center gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+          <span className="text-sm text-slate-600 dark:text-slate-400">Diferencia cobrado - cargos ({monthLabel(data.month)}):</span>
+          <span className={`text-sm font-semibold ${balanceNet >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(balanceNet)}</span>
+          {balanceNet < 0 && <span className="text-xs text-slate-400">(saldo sin cobrar del periodo)</span>}
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Charges by type */}
           <div>
-            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cargos por tipo</h3>
+            <h3 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Cargos por tipo</h3>
             {data.chargesByType.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400">Sin cargos en el periodo.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
                     <th className="px-3 py-2">Tipo</th>
                     <th className="px-3 py-2 text-right">Cant.</th>
                     <th className="px-3 py-2 text-right">Total</th>
@@ -138,11 +141,9 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
+                  <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
                     <td className="px-3 py-2">Total</td>
-                    <td className="px-3 py-2 text-right">
-                      {data.chargesByType.reduce((s, r) => s + r.count, 0)}
-                    </td>
+                    <td className="px-3 py-2 text-right">{data.chargesByType.reduce((sum, row) => sum + row.count, 0)}</td>
                     <td className="px-3 py-2 text-right">{fmt(data.totalCargosEmitidos)}</td>
                   </tr>
                 </tfoot>
@@ -150,15 +151,14 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
             )}
           </div>
 
-          {/* Payments by method */}
           <div>
-            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cobros por método</h3>
+            <h3 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">Cobros por método</h3>
             {data.paymentsByMethod.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400">Sin cobros en el periodo.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
                     <th className="px-3 py-2">Método</th>
                     <th className="px-3 py-2 text-right">Cant.</th>
                     <th className="px-3 py-2 text-right">Total</th>
@@ -174,11 +174,9 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
+                  <tr className="border-t-2 border-slate-300 font-semibold dark:border-slate-600">
                     <td className="px-3 py-2">Total</td>
-                    <td className="px-3 py-2 text-right">
-                      {data.paymentsByMethod.reduce((s, r) => s + r.count, 0)}
-                    </td>
+                    <td className="px-3 py-2 text-right">{data.paymentsByMethod.reduce((sum, row) => sum + row.count, 0)}</td>
                     <td className="px-3 py-2 text-right">{fmt(data.totalCobrado)}</td>
                   </tr>
                 </tfoot>

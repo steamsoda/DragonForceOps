@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-04.
 
-Current preview release line: `v1.6.0`
+Current preview release line: `v1.7.0`
 
 ---
 
@@ -12,7 +12,7 @@ Current preview release line: `v1.6.0`
 ### Immediate Sequence
 
 1. `#17` Uniformes dashboard validation / rollout follow-up
-2. then return to smaller/reporting follow-up items such as `#48`, `#32`, and `#16`
+2. then return to smaller operational follow-up items such as `#32`, `#16`, and `#56`
 3. after that, resume larger sports-management planning like `#38`
 
 Notes:
@@ -31,7 +31,7 @@ Next implementation priority. Group these together as one operational wave:
 
 - `#33` lightweight 360Player recording is live in Caja; future automation/webhook work stays open separately
 - `#34` cross-campus payment ownership is now in phase-one implementation on preview, especially for Linda Vista covering Contry workflows
-- `#48` SQL-side finance/report aggregation hardening
+- `#48` SQL-side finance/report aggregation hardening is now complete on preview for dashboard, Resumen Mensual, and Corte Semanal
 - `#56` refunds workflow
 - `#57` Corte Diario checkpoint history, detailed report KPIs, and compact thermal-product detail follow-up
 
@@ -83,7 +83,7 @@ Follow after the operational tracks above:
 | 45 | **Canonical financial definitions (`paid_at` vs `period_month`)** | ✅ Done | Collections remain tied to `payments.paid_at`; tuition-period reporting uses `charges.period_month` where present. |
 | 46 | **Monterrey-local finance/reporting time standardization** | ✅ Done | Shared Monterrey time helpers are now used on key finance/reporting surfaces with `DD/MM/YYYY` display. The regular `/activity` page now also renders/filter bounds in Monterrey time instead of UTC. |
 | 47 | **Scalable receipts search / recent receipts default** | ✅ Done | New SQL `search_receipts(...)` RPC + finance indexes; `/receipts` now defaults to recent posted receipts and paginates/filter in SQL. |
-| 48 | **SQL-side aggregation hardening for financial reports** | 🔴 Open | Receipts search is SQL-backed; remaining report aggregation should keep moving from app memory into DB-side summary functions/views. |
+| 48 | **SQL-side aggregation hardening for financial reports** | ✅ Done | Dashboard, `Resumen Mensual`, and `Corte Semanal` now read from SQL-backed finance summary RPCs built on canonical payment/charge facts. These summaries use `operator_campus_id` for payment ownership, keep `paid_at` as the collection date source of truth, and surface `360Player` plus Contry historical regularization as visible separated summaries instead of hiding them in app-side reductions. |
 | 53 | **Upcoming tuition pricing/versioning rollout for advance payments** | ✅ Done | Added effective-date pricing-plan versioning for standard tuition, seeded a May 2026 plan version (700/900 active-player tuition, 700/350/next-month carryover for new enrollments), and repriced only pending future tuition charges with `period_month >= 2026-05-01` when they had no payment allocations. Historical posted payments/receipts stay untouched. Session 29 follow-up: patched the April 11 repricing function so it also skips any monthly tuition charge that already has payment allocations, protecting allocated April rows from being rewritten mid-month. |
 | 49 | **Preview DB schema drift visibility for receipts/RPC features** | ✅ Done | `/receipts` now shows an explicit operational error when `search_receipts(...)` is missing instead of fake zero results. Preview policy: deploy validation must include confirming preview DB migrations/functions exist. Session 18 found preview DB had stopped at `20260321000000`; missing March 24-26 migrations were applied manually in preview to restore parity. |
 | 50 | **Prod post-merge receipts/activity follow-up** | ✅ Done | Fixed the `Actividad` server-component `onClick` crash and corrected folio-search classification for underscore campus codes in `search_receipts(...)`. |

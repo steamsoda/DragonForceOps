@@ -1272,3 +1272,25 @@
   - `Actividad`
   - superadmin `Auditoría`
 - Added a navigation entry for users who can operate Contry, so the hub workflow feels intentional rather than like a DB-side cleanup trick.
+
+### SQL-Side Finance Report Hardening v1
+- Moved the remaining finance aggregation for the main summary/reporting surfaces out of app-memory reducers and into SQL RPCs backed by reusable finance facts helpers.
+- Added a canonical SQL finance layer for:
+  - payment facts by `paid_at` + `operator_campus_id`
+  - charge facts by enrollment campus for monthly emitted-charge summaries
+  - access-aware month-window helpers so all touched reports use the same Monterrey-local buckets
+- Hardened finance ownership semantics so the affected reports now agree on:
+  - payment reporting by `operator_campus_id`
+  - collection timing by real `paid_at`
+  - Contry historical regularization entries counted in their real historical period
+- Replaced the app-side aggregation paths behind:
+  - `/dashboard`
+  - `/reports/resumen-mensual`
+  - `/reports/corte-semanal`
+- Added visible finance separation on all three touched surfaces:
+  - `360Player` amount/count shown separately while still included in broader finance reporting
+  - `Regularización histórica Contry` amount/count shown separately while still counted by real `paid_at`
+- Left `Recibos` unchanged because it was already the intended model:
+  - SQL-backed
+  - access-aware
+  - thin TypeScript adapter only

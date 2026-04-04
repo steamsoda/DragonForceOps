@@ -1,17 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
-import {
-  getMonterreyDateParts,
-  getMonterreyMonthBounds,
-  getMonterreyMonthString,
-} from "@/lib/time";
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
   transfer: "Transferencia",
   card: "Tarjeta",
   stripe_360player: "360Player",
-  other: "Otro"
+  other: "Otro",
 };
 
 function toNumber(value: number | string | null | undefined) {
@@ -20,8 +15,18 @@ function toNumber(value: number | string | null | undefined) {
   return 0;
 }
 
-// Monterrey midnight = UTC 06:00, so a local day spans T06:00Z → T06:00Z next day.
-// ── Types ─────────────────────────────────────────────────────────────────────
+function parseJsonArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 type PaymentWithPlayer = {
   id: string;
@@ -39,18 +44,6 @@ type PaymentWithPlayer = {
   } | null;
 };
 
-type ChargeWithType = {
-  amount: number;
-  period_month: string | null;
-  created_at: string;
-  charge_types: { code: string | null; name: string | null } | null;
-};
-
-type PaymentForMonth = {
-  amount: number;
-  method: string;
-};
-
 type PaymentAllocationWithCharge = {
   payment_id: string;
   amount: number;
@@ -62,8 +55,6 @@ type PaymentAllocationWithCharge = {
       }
     | null;
 };
-
-// ── Corte Diario ──────────────────────────────────────────────────────────────
 
 export type CortePaymentRow = {
   id: string;
@@ -165,16 +156,18 @@ export async function getCorteDiarioData(filters: {
   const queryStart = filters.openedAt ?? new Date().toISOString();
   const queryEnd = filters.closedAt ?? new Date().toISOString();
 
-  let query = supabase
+  const { data } = await supabase
     .from("payments")
-    .select("id, folio, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))")
+    .select(
+      "id, folio, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))"
+    )
     .eq("status", "posted")
     .gte("paid_at", queryStart)
     .lt("paid_at", queryEnd)
     .eq("operator_campus_id", selectedCampusId)
-    .order("paid_at", { ascending: false });
+    .order("paid_at", { ascending: false })
+    .returns<PaymentWithPlayer[]>();
 
-  const { data } = await query.returns<PaymentWithPlayer[]>();
   const payments = data ?? [];
   const operatorCampusIds = [...new Set(payments.map((payment) => payment.operator_campus_id).filter(Boolean))];
   const { data: operatorCampusRows } = operatorCampusIds.length
@@ -185,6 +178,7 @@ export async function getCorteDiarioData(filters: {
         .returns<Array<{ id: string; name: string }>>()
     : { data: [] };
   const operatorCampusById = new Map((operatorCampusRows ?? []).map((campus) => [campus.id, campus.name]));
+
   const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
   const countedPaymentIds = countedPayments.map((payment) => payment.id);
   const excludedPaymentsTotal = payments
@@ -193,17 +187,20 @@ export async function getCorteDiarioData(filters: {
   const paymentIds = payments.map((payment) => payment.id);
 
   const byMethodMap = new Map<string, { count: number; total: number }>();
-  countedPayments.forEach((p) => {
-    const prev = byMethodMap.get(p.method) ?? { count: 0, total: 0 };
-    byMethodMap.set(p.method, { count: prev.count + 1, total: prev.total + p.amount });
+  countedPayments.forEach((payment) => {
+    const previous = byMethodMap.get(payment.method) ?? { count: 0, total: 0 };
+    byMethodMap.set(payment.method, {
+      count: previous.count + 1,
+      total: previous.total + payment.amount,
+    });
   });
 
   const byMethod: CorteByMethod[] = Array.from(byMethodMap.entries())
-    .map(([method, { count, total }]) => ({
+    .map(([method, values]) => ({
       method,
       methodLabel: PAYMENT_METHOD_LABELS[method] ?? method,
-      count,
-      total
+      count: values.count,
+      total: values.total,
     }))
     .sort((a, b) => b.total - a.total);
 
@@ -225,28 +222,33 @@ export async function getCorteDiarioData(filters: {
     }
   }
 
-  // Charge-type breakdown via payment_allocations
   let byChargeType: CorteByChargeType[] = [];
   let productDetails: CorteProductDetail[] = [];
   if (countedPaymentIds.length > 0) {
     const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
     const productDetailsMap = new Map<string, number>();
+
     (allocationData ?? [])
       .filter((allocation) => countedPaymentIds.includes(allocation.payment_id))
-      .forEach((alloc) => {
-        const code = alloc.charges?.charge_types?.code ?? "other";
-        const name = alloc.charges?.charge_types?.name ?? "Otro";
-        const prev = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
-        byChargeTypeMap.set(code, { typeName: name, total: prev.total + alloc.amount });
+      .forEach((allocation) => {
+        const code = allocation.charges?.charge_types?.code ?? "other";
+        const name = allocation.charges?.charge_types?.name ?? "Otro";
+        const previous = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
+        byChargeTypeMap.set(code, { typeName: name, total: previous.total + allocation.amount });
 
-        if (alloc.charges?.product_id) {
-          const productName = alloc.charges.description?.trim() || alloc.charges.charge_types?.name?.trim() || "Producto";
-          productDetailsMap.set(productName, (productDetailsMap.get(productName) ?? 0) + alloc.amount);
+        if (allocation.charges?.product_id) {
+          const productName =
+            allocation.charges.description?.trim() || allocation.charges.charge_types?.name?.trim() || "Producto";
+          productDetailsMap.set(productName, (productDetailsMap.get(productName) ?? 0) + allocation.amount);
         }
       });
 
     byChargeType = Array.from(byChargeTypeMap.entries())
-      .map(([typeCode, { typeName, total }]) => ({ typeCode, typeName, total }))
+      .map(([typeCode, values]) => ({
+        typeCode,
+        typeName: values.typeName,
+        total: values.total,
+      }))
       .sort((a, b) => b.total - a.total);
 
     productDetails = Array.from(productDetailsMap.entries())
@@ -260,34 +262,35 @@ export async function getCorteDiarioData(filters: {
     openedAt: queryStart,
     closedAt: filters.closedAt ?? null,
     isCurrentOpen: !filters.closedAt,
-    totalCobrado: countedPayments.reduce((sum, p) => sum + p.amount, 0),
+    totalCobrado: countedPayments.reduce((sum, payment) => sum + payment.amount, 0),
     countedPaymentsCount: countedPayments.length,
     excludedPaymentsCount: payments.length - countedPayments.length,
     excludedPaymentsTotal,
     byMethod,
     byChargeType,
     productDetails,
-    payments: payments.map((p) => ({
-      id: p.id,
-      enrollmentId: p.enrollment_id,
-      folio: p.folio,
-      playerName: `${p.enrollments?.players?.first_name ?? ""} ${p.enrollments?.players?.last_name ?? ""}`.trim() || "-",
-      birthYear: p.enrollments?.players?.birth_date ? parseInt(p.enrollments.players.birth_date.slice(0, 4), 10) : null,
-      playerCampusName: p.enrollments?.campuses?.name ?? "-",
-      operatorCampusName: operatorCampusById.get(p.operator_campus_id) ?? "-",
-      isCrossCampus: p.operator_campus_id !== p.enrollments?.campus_id,
-      amount: p.amount,
-      method: p.method,
-      methodLabel: PAYMENT_METHOD_LABELS[p.method] ?? p.method,
-      paidAt: p.paid_at,
-      notes: p.notes,
-      concepts: conceptsByPaymentId.get(p.id) ?? [],
-      excludedFromCorte: p.method === "stripe_360player"
-    }))
+    payments: payments.map((payment) => ({
+      id: payment.id,
+      enrollmentId: payment.enrollment_id,
+      folio: payment.folio,
+      playerName:
+        `${payment.enrollments?.players?.first_name ?? ""} ${payment.enrollments?.players?.last_name ?? ""}`.trim() || "-",
+      birthYear: payment.enrollments?.players?.birth_date
+        ? parseInt(payment.enrollments.players.birth_date.slice(0, 4), 10)
+        : null,
+      playerCampusName: payment.enrollments?.campuses?.name ?? "-",
+      operatorCampusName: operatorCampusById.get(payment.operator_campus_id) ?? "-",
+      isCrossCampus: payment.operator_campus_id !== payment.enrollments?.campus_id,
+      amount: payment.amount,
+      method: payment.method,
+      methodLabel: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
+      paidAt: payment.paid_at,
+      notes: payment.notes,
+      concepts: conceptsByPaymentId.get(payment.id) ?? [],
+      excludedFromCorte: payment.method === "stripe_360player",
+    })),
   };
 }
-
-// ── Resumen Mensual ───────────────────────────────────────────────────────────
 
 export type ChargesByType = {
   typeCode: string;
@@ -309,106 +312,98 @@ export type ResumenMensualData = {
   totalCargosEmitidos: number;
   totalCobrado: number;
   pendingBalance: number;
+  paymentCount: number;
+  player360Amount: number;
+  player360Count: number;
+  historicalCatchupAmount: number;
+  historicalCatchupCount: number;
   chargesByType: ChargesByType[];
   paymentsByMethod: PaymentsByMethod[];
 };
 
+type ResumenMensualRpcRow = {
+  month: string;
+  active_enrollments: number | string | null;
+  total_cargos_emitidos: number | string | null;
+  total_cobrado: number | string | null;
+  pending_balance: number | string | null;
+  payment_count: number | string | null;
+  charges_by_type: unknown;
+  payments_by_method: unknown;
+  player_360_amount: number | string | null;
+  player_360_count: number | string | null;
+  historical_catchup_amount: number | string | null;
+  historical_catchup_count: number | string | null;
+};
+
 export async function getResumenMensualData(filters: {
-  month?: string; // YYYY-MM
+  month?: string;
   campusId?: string;
 }): Promise<ResumenMensualData> {
   const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("get_resumen_mensual_summary", {
+      p_month: filters.month ?? null,
+      p_campus_id: filters.campusId ?? null,
+    })
+    .maybeSingle<ResumenMensualRpcRow>();
 
-  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : getMonterreyMonthString();
-  const { start: monthStart, end: nextMonthStart, periodMonth } = getMonterreyMonthBounds(month);
-
-  let activeEnrollmentIdsQuery = supabase.from("enrollments").select("id").eq("status", "active");
-  if (filters.campusId) {
-    activeEnrollmentIdsQuery = activeEnrollmentIdsQuery.eq("campus_id", filters.campusId);
+  if (error || !data) {
+    return {
+      month: filters.month ?? "",
+      activeEnrollments: 0,
+      totalCargosEmitidos: 0,
+      totalCobrado: 0,
+      pendingBalance: 0,
+      paymentCount: 0,
+      player360Amount: 0,
+      player360Count: 0,
+      historicalCatchupAmount: 0,
+      historicalCatchupCount: 0,
+      chargesByType: [],
+      paymentsByMethod: [],
+    };
   }
 
-  let chargesQuery = supabase
-    .from("charges")
-    .select("amount, period_month, created_at, charge_types(code, name), enrollments!inner(campus_id)")
-    .neq("status", "void")
-    .or(`period_month.eq.${periodMonth},and(period_month.is.null,created_at.gte.${monthStart},created_at.lt.${nextMonthStart})`);
-  if (filters.campusId) {
-    chargesQuery = chargesQuery.eq("enrollments.campus_id", filters.campusId);
-  }
+  const chargesByType = parseJsonArray<{
+    typeCode: string;
+    typeName: string;
+    count: number | string;
+    total: number | string;
+  }>(data.charges_by_type).map((row) => ({
+    typeCode: row.typeCode,
+    typeName: row.typeName,
+    count: Number(row.count ?? 0),
+    total: toNumber(row.total),
+  }));
 
-  let paymentsQuery = supabase
-    .from("payments")
-    .select("amount, method, enrollments!inner(campus_id)")
-    .eq("status", "posted")
-    .gte("paid_at", monthStart)
-    .lt("paid_at", nextMonthStart);
-  if (filters.campusId) {
-    paymentsQuery = paymentsQuery.eq("enrollments.campus_id", filters.campusId);
-  }
-
-  const [activeResult, chargesResult, paymentsResult] = await Promise.all([
-    activeEnrollmentIdsQuery.returns<{ id: string }[]>(),
-    chargesQuery.returns<ChargeWithType[]>(),
-    paymentsQuery.returns<PaymentForMonth[]>()
-  ]);
-
-  const activeEnrollmentIds = (activeResult.data ?? []).map((e) => e.id);
-  const charges = chargesResult.data ?? [];
-  const payments = paymentsResult.data ?? [];
-
-  let pendingBalance = 0;
-  if (activeEnrollmentIds.length > 0) {
-    const { data: balances } = await supabase
-      .from("v_enrollment_balances")
-      .select("balance")
-      .gt("balance", 0)
-      .in("enrollment_id", activeEnrollmentIds)
-      .returns<{ balance: number | string | null }[]>();
-
-    pendingBalance = (balances ?? []).reduce((sum, row) => sum + toNumber(row.balance), 0);
-  }
-
-  const chargesByTypeMap = new Map<string, { typeName: string; count: number; total: number }>();
-  charges.forEach((c) => {
-    const code = c.charge_types?.code ?? "other";
-    const name = c.charge_types?.name ?? "Otro";
-    const prev = chargesByTypeMap.get(code) ?? { typeName: name, count: 0, total: 0 };
-    chargesByTypeMap.set(code, { typeName: name, count: prev.count + 1, total: prev.total + c.amount });
-  });
-
-  const paymentsByMethodMap = new Map<string, { count: number; total: number }>();
-  payments.forEach((p) => {
-    const prev = paymentsByMethodMap.get(p.method) ?? { count: 0, total: 0 };
-    paymentsByMethodMap.set(p.method, { count: prev.count + 1, total: prev.total + p.amount });
-  });
+  const paymentsByMethod = parseJsonArray<{
+    method: string;
+    methodLabel: string;
+    count: number | string;
+    total: number | string;
+  }>(data.payments_by_method).map((row) => ({
+    method: row.method,
+    methodLabel: row.methodLabel ?? PAYMENT_METHOD_LABELS[row.method] ?? row.method,
+    count: Number(row.count ?? 0),
+    total: toNumber(row.total),
+  }));
 
   return {
-    month,
-    activeEnrollments: activeEnrollmentIds.length,
-    totalCargosEmitidos: charges.reduce((sum, c) => sum + c.amount, 0),
-    totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
-    pendingBalance,
-    chargesByType: Array.from(chargesByTypeMap.entries())
-      .map(([typeCode, { typeName, count, total }]) => ({ typeCode, typeName, count, total }))
-      .sort((a, b) => b.total - a.total),
-    paymentsByMethod: Array.from(paymentsByMethodMap.entries())
-      .map(([method, { count, total }]) => ({
-        method,
-        methodLabel: PAYMENT_METHOD_LABELS[method] ?? method,
-        count,
-        total
-      }))
-      .sort((a, b) => b.total - a.total)
+    month: data.month,
+    activeEnrollments: Number(data.active_enrollments ?? 0),
+    totalCargosEmitidos: toNumber(data.total_cargos_emitidos),
+    totalCobrado: toNumber(data.total_cobrado),
+    pendingBalance: toNumber(data.pending_balance),
+    paymentCount: Number(data.payment_count ?? 0),
+    player360Amount: toNumber(data.player_360_amount),
+    player360Count: Number(data.player_360_count ?? 0),
+    historicalCatchupAmount: toNumber(data.historical_catchup_amount),
+    historicalCatchupCount: Number(data.historical_catchup_count ?? 0),
+    chargesByType,
+    paymentsByMethod,
   };
 }
-
-// ── Corte Semanal ─────────────────────────────────────────────────────────────
-
-type WeekPaymentRow = {
-  amount: number;
-  method: string;
-  paid_at: string;
-};
 
 export type WeekByMethod = {
   method: string;
@@ -418,7 +413,7 @@ export type WeekByMethod = {
 
 export type WeekSummary = {
   weekNum: number;
-  label: string; // e.g. "1–7 Mar"
+  label: string;
   startDay: number;
   endDay: number;
   totalCobrado: number;
@@ -430,83 +425,87 @@ export type CorteSemanalData = {
   month: string;
   monthLabel: string;
   totalCobrado: number;
+  paymentCount: number;
+  player360Amount: number;
+  player360Count: number;
+  historicalCatchupAmount: number;
+  historicalCatchupCount: number;
   weeks: WeekSummary[];
 };
 
-const MONTH_NAMES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-
-function daysInMonth(year: number, monthIndex: number) {
-  return new Date(year, monthIndex + 1, 0).getUTCDate();
-}
+type CorteSemanalRpcRow = {
+  month: string;
+  month_label: string;
+  total_cobrado: number | string | null;
+  payment_count: number | string | null;
+  player_360_amount: number | string | null;
+  player_360_count: number | string | null;
+  historical_catchup_amount: number | string | null;
+  historical_catchup_count: number | string | null;
+  weeks: unknown;
+};
 
 export async function getCorteSemanallData(filters: {
-  month?: string; // YYYY-MM
+  month?: string;
   campusId?: string;
 }): Promise<CorteSemanalData> {
   const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("get_corte_semanal_summary", {
+      p_month: filters.month ?? null,
+      p_campus_id: filters.campusId ?? null,
+    })
+    .maybeSingle<CorteSemanalRpcRow>();
 
-  const month = /^\d{4}-\d{2}$/.test(filters.month ?? "") ? (filters.month as string) : getMonterreyMonthString();
-  const [yearRaw, monthRaw] = month.split("-");
-  const year = Number(yearRaw);
-  const monthIndex = Number(monthRaw) - 1;
-  const { start: monthStart, end: nextMonthStart } = getMonterreyMonthBounds(month);
-
-  let query = supabase
-    .from("payments")
-    .select("amount, method, paid_at, enrollments!inner(campus_id)")
-    .eq("status", "posted")
-    .gte("paid_at", monthStart)
-    .lt("paid_at", nextMonthStart);
-
-  if (filters.campusId) {
-    query = query.eq("enrollments.campus_id", filters.campusId);
+  if (error || !data) {
+    return {
+      month: filters.month ?? "",
+      monthLabel: "",
+      totalCobrado: 0,
+      paymentCount: 0,
+      player360Amount: 0,
+      player360Count: 0,
+      historicalCatchupAmount: 0,
+      historicalCatchupCount: 0,
+      weeks: [],
+    };
   }
 
-  const { data } = await query.returns<WeekPaymentRow[]>();
-  const payments = data ?? [];
-
-  const totalDays = daysInMonth(year, monthIndex);
-  const numWeeks = Math.ceil(totalDays / 7);
-  const monthShort = MONTH_NAMES_SHORT[monthIndex];
-
-  // Build week buckets
-  const weekBuckets: Map<number, WeekPaymentRow[]> = new Map();
-  for (let w = 1; w <= numWeeks; w++) weekBuckets.set(w, []);
-
-  payments.forEach((p) => {
-    const day = Number(getMonterreyDateParts(p.paid_at).day);
-    const weekNum = Math.ceil(day / 7);
-    weekBuckets.get(weekNum)?.push(p);
-  });
-
-  const weeks: WeekSummary[] = Array.from(weekBuckets.entries()).map(([weekNum, rows]) => {
-    const startDay = (weekNum - 1) * 7 + 1;
-    const endDay = Math.min(weekNum * 7, totalDays);
-
-    const methodMap = new Map<string, number>();
-    rows.forEach((r) => {
-      methodMap.set(r.method, (methodMap.get(r.method) ?? 0) + r.amount);
-    });
-
-    const byMethod: WeekByMethod[] = Array.from(methodMap.entries())
-      .map(([method, total]) => ({ method, methodLabel: PAYMENT_METHOD_LABELS[method] ?? method, total }))
-      .sort((a, b) => b.total - a.total);
-
-    return {
-      weekNum,
-      label: `${startDay}–${endDay} ${monthShort}`,
-      startDay,
-      endDay,
-      totalCobrado: rows.reduce((sum, r) => sum + r.amount, 0),
-      paymentCount: rows.length,
-      byMethod
-    };
-  });
+  const weeks = parseJsonArray<{
+    weekNum: number | string;
+    label: string;
+    startDay: number | string;
+    endDay: number | string;
+    totalCobrado: number | string;
+    paymentCount: number | string;
+    byMethod: unknown;
+  }>(data.weeks).map((week) => ({
+    weekNum: Number(week.weekNum ?? 0),
+    label: week.label,
+    startDay: Number(week.startDay ?? 0),
+    endDay: Number(week.endDay ?? 0),
+    totalCobrado: toNumber(week.totalCobrado),
+    paymentCount: Number(week.paymentCount ?? 0),
+    byMethod: parseJsonArray<{
+      method: string;
+      methodLabel: string;
+      total: number | string;
+    }>(week.byMethod).map((method) => ({
+      method: method.method,
+      methodLabel: method.methodLabel ?? PAYMENT_METHOD_LABELS[method.method] ?? method.method,
+      total: toNumber(method.total),
+    })),
+  }));
 
   return {
-    month,
-    monthLabel: `${monthShort} ${year}`,
-    totalCobrado: payments.reduce((sum, p) => sum + p.amount, 0),
-    weeks
+    month: data.month,
+    monthLabel: data.month_label,
+    totalCobrado: toNumber(data.total_cobrado),
+    paymentCount: Number(data.payment_count ?? 0),
+    player360Amount: toNumber(data.player_360_amount),
+    player360Count: Number(data.player_360_count ?? 0),
+    historicalCatchupAmount: toNumber(data.historical_catchup_amount),
+    historicalCatchupCount: Number(data.historical_catchup_count ?? 0),
+    weeks,
   };
 }

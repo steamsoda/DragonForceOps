@@ -9,7 +9,7 @@ function fmt(value: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -23,26 +23,22 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
 
   const [campuses, data] = await Promise.all([
     listCampuses(),
-    getCorteSemanallData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined })
+    getCorteSemanallData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
   ]);
 
   return (
-    <PageShell
-      title="Corte Semanal"
-      subtitle={`Cobros agrupados por semana · ${data.monthLabel}`}
-    >
+    <PageShell title="Corte Semanal" subtitle={`Cobros agrupados por semana · ${data.monthLabel}`}>
       <div className="space-y-6">
-        {/* Filters */}
-        <form className="grid gap-3 rounded-md border border-slate-200 dark:border-slate-700 p-3 md:grid-cols-[1fr_1fr_auto]">
+        <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
           >
             <option value="">Todos los campus</option>
-            {campuses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+            {campuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>
+                {campus.name}
               </option>
             ))}
           </select>
@@ -50,41 +46,47 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
             type="month"
             name="month"
             defaultValue={data.month}
-            className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
           />
-          <button
-            type="submit"
-            className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark"
-          >
+          <button type="submit" className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark">
             Aplicar
           </button>
         </form>
 
-        {/* Total tile */}
-        <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total del mes</p>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total del mes</p>
           <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.totalCobrado)}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {data.weeks.reduce((s, w) => s + w.paymentCount, 0)} pagos ·{" "}
-            {campuses.find((c) => c.id === selectedCampusId)?.name ?? "Todos los campus"}
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {data.paymentCount} pago{data.paymentCount !== 1 ? "s" : ""} · {campuses.find((campus) => campus.id === selectedCampusId)?.name ?? "Todos los campus"}
           </p>
         </div>
 
-        {/* Weekly bar chart */}
-        <WeeklyBar
-          data={data.weeks.map((w) => ({ label: w.label, totalCobrado: w.totalCobrado }))}
-        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">360Player</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.player360Amount)}</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+              {data.player360Count} pago{data.player360Count !== 1 ? "s" : ""} incluidos dentro del total semanal del mes
+            </p>
+          </div>
+          <div className="rounded-md border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
+            <p className="text-xs uppercase tracking-wide text-sky-700 dark:text-sky-300">Regularización histórica Contry</p>
+            <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.historicalCatchupAmount)}</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+              {data.historicalCatchupCount} pago{data.historicalCatchupCount !== 1 ? "s" : ""} contados por su fecha real de pago
+            </p>
+          </div>
+        </div>
 
-        {/* Week-by-week breakdown */}
-        {data.weeks.every((w) => w.paymentCount === 0) ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
-            Sin cobros registrados para este mes.
-          </p>
+        <WeeklyBar data={data.weeks.map((week) => ({ label: week.label, totalCobrado: week.totalCobrado }))} />
+
+        {data.weeks.every((week) => week.paymentCount === 0) ? (
+          <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">Sin cobros registrados para este mes.</p>
         ) : (
           <div className="space-y-3">
             {data.weeks.map((week) => (
-              <div key={week.weekNum} className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-                <div className="flex items-center justify-between mb-3">
+              <div key={week.weekNum} className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                <div className="mb-3 flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900 dark:text-slate-100">Semana {week.weekNum}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{week.label}</p>
@@ -101,19 +103,18 @@ export default async function CorteSemanalPage({ searchParams }: { searchParams:
                   <p className="text-xs text-slate-400">Sin cobros esta semana.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {week.byMethod.map((m) => (
+                    {week.byMethod.map((method) => (
                       <div
-                        key={m.method}
-                        className="rounded-md bg-slate-50 dark:bg-slate-800 border border-slate-100 px-3 py-1.5 text-xs"
+                        key={method.method}
+                        className="rounded-md border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs dark:bg-slate-800"
                       >
-                        <span className="text-slate-500 dark:text-slate-400">{m.methodLabel}:</span>{" "}
-                        <span className="font-medium text-slate-900 dark:text-slate-100">{fmt(m.total)}</span>
+                        <span className="text-slate-500 dark:text-slate-400">{method.methodLabel}:</span>{" "}
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{fmt(method.total)}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Link to corte diario for the first day of this week */}
                 <Link
                   href={`/reports/corte-diario?date=${data.month}-${String(week.startDay).padStart(2, "0")}${selectedCampusId ? `&campus=${selectedCampusId}` : ""}`}
                   className="mt-3 inline-block text-xs text-portoBlue hover:underline"
