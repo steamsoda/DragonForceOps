@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-04-05 (session 42)
+
+### Pendientes Call-Center Mode v1
+
+- Replaced the old `Contactado` checkbox workflow in `/pending` with a light CRM-style current follow-up state on each enrollment:
+  - `No contactado`
+  - `No contesta`
+  - `Contactado`
+  - `Promesa de pago`
+  - `No regresará`
+- Added structured follow-up fields on `enrollments` and migrated the old `contactado_*` values forward into the new model.
+- `Promesa de pago` now stores a required promised date plus an optional note.
+- `No regresará` now acts as a handoff state in `Pendientes` and adds a direct `Ir a baja` route into the existing enrollment edit / baja flow instead of ending the enrollment silently.
+- `Pendientes` rows/cards now work as an inline follow-up workspace:
+  - choose status
+  - write/update note
+  - capture promised payment date when applicable
+  - save inline without leaving the collections view
+- Added row/card styling so current collection status is visible at a glance.
+- The pending enrollments RPC and TS adapter now return the new follow-up fields instead of the old checkbox fields.
+- Payment settlement now clears follow-up state automatically when the enrollment balance reaches zero, and ending/cancelling an enrollment also clears the stored follow-up state.
+- Added audit visibility for follow-up changes through `pending_follow_up.updated`, surfaced in both `Actividad` and admin `Auditoría`.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-04 (session 41)
 
 ### Release + Versioning Policy

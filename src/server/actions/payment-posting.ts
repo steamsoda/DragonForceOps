@@ -160,10 +160,35 @@ export async function syncPaidUniformOrders(
   await supabase.from("uniform_orders").insert(ordersToInsert);
 }
 
+export async function clearPendingFollowUpIfResolved(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string
+) {
+  const { data } = await supabase
+    .from("v_enrollment_balances")
+    .select("balance")
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{ balance: number | null }>();
+
+  if ((data?.balance ?? 0) > 0.009) return;
+
+  await supabase
+    .from("enrollments")
+    .update({
+      follow_up_status: null,
+      follow_up_at: null,
+      follow_up_by: null,
+      follow_up_note: null,
+      promise_date: null,
+    })
+    .eq("id", enrollmentId);
+}
+
 export async function revalidatePaymentSurfaces(ledger: EnrollmentLedger) {
   revalidatePath(`/enrollments/${ledger.enrollment.id}/charges`);
   revalidatePath("/receipts");
   revalidatePath("/caja");
+  revalidatePath("/pending");
   revalidatePath("/uniforms");
   revalidatePath("/reports/corte-diario");
   if (ledger.enrollment.playerId) {

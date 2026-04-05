@@ -6,6 +6,7 @@ type AuditEntry = {
   action: string;
   tableName: string;
   recordId?: string | null;
+  beforeData?: Record<string, unknown> | null;
   afterData?: Record<string, unknown> | null;
 };
 
@@ -22,7 +23,7 @@ export async function writeAuditLog(supabase: SupabaseClient, entry: AuditEntry)
       table_name: entry.tableName,
       record_id: entry.recordId ?? null,
       after_data: entry.afterData ?? null,
-      before_data: null
+      before_data: entry.beforeData ?? null
     });
   } catch {
     // intentionally swallowed

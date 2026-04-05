@@ -10,6 +10,7 @@ import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing
 import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
+import { parseDateOnlyInput } from "@/lib/time";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -258,6 +259,10 @@ export async function updateEnrollmentAction(
 
   if (error) return redirectWithEditError(enrollmentId, playerId, "update_failed");
 
+  if (parsed.status === "ended" || parsed.status === "cancelled") {
+    await clearPendingFollowUpForEnrollment(supabase, enrollmentId);
+  }
+
   const action =
     parsed.status === "ended" || parsed.status === "cancelled"
       ? "enrollment.ended"
@@ -278,16 +283,56 @@ export async function updateEnrollmentAction(
   redirect(`/players/${playerId}`);
 }
 
-export type UpdateContactadoResult =
+export type UpdatePendingFollowUpResult =
   | { ok: true }
   | { ok: false; error: string };
 
-export async function updateContactadoAction(
+export type PendingFollowUpStatus =
+  | "uncontacted"
+  | "no_answer"
+  | "contacted"
+  | "promise_to_pay"
+  | "will_not_return";
+
+const PENDING_FOLLOW_UP_STATUSES = new Set<PendingFollowUpStatus>([
+  "uncontacted",
+  "no_answer",
+  "contacted",
+  "promise_to_pay",
+  "will_not_return",
+]);
+
+export async function clearPendingFollowUpForEnrollment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
   enrollmentId: string,
-  contacted: boolean,
-  notes: string
-): Promise<UpdateContactadoResult> {
+) {
+  await supabase
+    .from("enrollments")
+    .update({
+      follow_up_status: null,
+      follow_up_at: null,
+      follow_up_by: null,
+      follow_up_note: null,
+      promise_date: null,
+    })
+    .eq("id", enrollmentId);
+}
+
+export async function updatePendingFollowUpAction(
+  enrollmentId: string,
+  status: string,
+  note: string,
+  promiseDateRaw: string,
+): Promise<UpdatePendingFollowUpResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  if (!PENDING_FOLLOW_UP_STATUSES.has(status as PendingFollowUpStatus)) {
+    return { ok: false, error: "invalid_status" };
+  }
+
+  const promiseDate = promiseDateRaw.trim() ? parseDateOnlyInput(promiseDateRaw.trim()) : null;
+  if (promiseDateRaw.trim() && !promiseDate) return { ok: false, error: "invalid_promise_date" };
+  if (status === "promise_to_pay" && !promiseDate) return { ok: false, error: "promise_date_required" };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -306,16 +351,51 @@ export async function updateContactadoAction(
     return { ok: false, error: "update_failed" };
   }
 
+  const followUpStatus = status as PendingFollowUpStatus;
+  const followUpNote = note.trim() || null;
+
+  const { data: current } = await supabase
+    .from("enrollments")
+    .select("follow_up_status, follow_up_note, promise_date")
+    .eq("id", enrollmentId)
+    .maybeSingle<{
+      follow_up_status: string | null;
+      follow_up_note: string | null;
+      promise_date: string | null;
+    }>();
+
   const { error } = await supabase
     .from("enrollments")
     .update(
-      contacted
-        ? { contactado_at: new Date().toISOString(), contactado_by: user.id, contactado_notes: notes || null }
-        : { contactado_at: null, contactado_by: null, contactado_notes: null }
+      {
+        follow_up_status: followUpStatus === "uncontacted" ? null : followUpStatus,
+        follow_up_at: followUpStatus === "uncontacted" ? null : new Date().toISOString(),
+        follow_up_by: followUpStatus === "uncontacted" ? null : user.id,
+        follow_up_note: followUpStatus === "uncontacted" ? null : followUpNote,
+        promise_date: followUpStatus === "promise_to_pay" ? promiseDate : null,
+      }
     )
     .eq("id", enrollmentId);
 
   if (error) return { ok: false, error: "update_failed" };
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "pending_follow_up.updated",
+    tableName: "enrollments",
+    recordId: enrollmentId,
+    beforeData: {
+      follow_up_status: current?.follow_up_status ?? null,
+      follow_up_note: current?.follow_up_note ?? null,
+      promise_date: current?.promise_date ?? null,
+    },
+    afterData: {
+      follow_up_status: followUpStatus === "uncontacted" ? null : followUpStatus,
+      follow_up_note: followUpStatus === "uncontacted" ? null : followUpNote,
+      promise_date: followUpStatus === "promise_to_pay" ? promiseDate : null,
+    },
+  });
 
   revalidatePath("/pending");
   return { ok: true };

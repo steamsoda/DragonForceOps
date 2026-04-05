@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, string> = {
   "enrollment.ended": "Inscripcion dada de baja",
   "enrollment.reactivated": "Inscripcion reactivada",
   "enrollment.updated": "Inscripcion actualizada",
+  "pending_follow_up.updated": "Seguimiento de pendiente actualizado",
   "monthly_charges.generated": "Mensualidades generadas",
 };
 
@@ -86,6 +87,20 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
     const reason = data.dropout_reason as string | undefined;
     const parts = [status, reason].filter(Boolean);
     return parts.length > 0 ? parts.join(" | ") : null;
+  }
+  if (action === "pending_follow_up.updated") {
+    const status = data.follow_up_status as string | undefined | null;
+    const promiseDate = data.promise_date as string | undefined | null;
+    const labels: Record<string, string> = {
+      uncontacted: "No contactado",
+      no_answer: "No contesta",
+      contacted: "Contactado",
+      promise_to_pay: "Promesa de pago",
+      will_not_return: "No regresará",
+    };
+    return [status ? labels[status] ?? status : "Sin seguimiento", promiseDate ? `Promesa ${promiseDate}` : null]
+      .filter(Boolean)
+      .join(" | ");
   }
   return null;
 }

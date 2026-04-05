@@ -31,6 +31,7 @@ const ACTION_LABELS: Record<string, string> = {
   "enrollment.ended": "Baja",
   "enrollment.reactivated": "Reactivación",
   "enrollment.updated": "Inscripción actualizada",
+  "pending_follow_up.updated": "Seguimiento de pendiente actualizado",
   "monthly_charges.generated": "Mensualidades generadas",
   "player.nuked": "Jugador eliminado",
   "merge_players": "Jugadores fusionados"
@@ -41,7 +42,7 @@ const ACTION_OPTIONS = [
   "charge.created", "charge.voided",
   "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
-  "monthly_charges.generated", "player.nuked"
+  "monthly_charges.generated", "player.nuked", "pending_follow_up.updated"
 ].map((v) => ({ value: v, label: ACTION_LABELS[v] ?? v }));
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -96,6 +97,20 @@ if (action === "charge.created" || action === "charge.voided") {
     const status = data.status as string | undefined;
     const reason = data.dropout_reason as string | undefined;
     return [status, reason].filter(Boolean).join(" · ") || null;
+  }
+  if (action === "pending_follow_up.updated") {
+    const status = data.follow_up_status as string | undefined | null;
+    const promiseDate = data.promise_date as string | undefined | null;
+    const labels: Record<string, string> = {
+      uncontacted: "No contactado",
+      no_answer: "No contesta",
+      contacted: "Contactado",
+      promise_to_pay: "Promesa de pago",
+      will_not_return: "No regresarÃ¡",
+    };
+    return [status ? labels[status] ?? status : "Sin seguimiento", promiseDate ? `Promesa ${promiseDate}` : null]
+      .filter(Boolean)
+      .join(" Â· ");
   }
   if (action === "monthly_charges.generated") {
     const count = data.count as number | undefined;

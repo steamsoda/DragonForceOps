@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-04.
 
-Current preview release line: `v1.7.3`
+Current preview release line: `v1.9.0`
 
 ---
 
@@ -119,7 +119,7 @@ Follow after the operational tracks above:
 | 13 | **Coach on player profile** | ✅ Done | `coaches` join in `getPlayerDetail`, displayed in profile info grid |
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
-| 16 | **Pendientes — call center mode** | 🔴 Open | "Contactado" checkbox + notes per enrollment row, persisted across sessions |
+| 16 | **Pendientes — call center mode** | 🟡 In progress | `/pending` now uses a lightweight follow-up workflow instead of the old `Contactado` checkbox: `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresará`, with inline note editing, required promise-date capture, and direct baja handoff for `No regresará`. Follow-up state also clears automatically when balance reaches zero or the enrollment is formally ended. |
 | 30 | **New-enrollment tuition tiers (3 tiers)** | ✅ Done | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury incident + optional monthly omission** | 🟡 In progress | Active enrollments can now record an operational incident (`absence`, `injury`, `other`) from the enrollment ledger, with an explicit choice to either just log it or also omit a selected tuition month. Incidents also carry optional `starts_on` / `ends_on` dates for real absence/recovery windows, and active-today `absence` / `injury` incidents now surface as soft indicators in `Jugadores`, player profile, and `Caja`. The monthly generator respects only incidents carrying `omit_period_month`, and the ledger keeps active plus historical incident visibility. Partial-month attendance/proration remains out of scope for this v1. |

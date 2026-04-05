@@ -18,6 +18,7 @@ import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
   revalidatePaymentSurfaces,
+  clearPendingFollowUpIfResolved,
   syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
@@ -989,6 +990,8 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     actorUserId: user.id,
     soldAt: paidAt,
   });
+
+  await clearPendingFollowUpIfResolved(supabase, enrollmentId);
 
   await revalidatePaymentSurfaces(ledger);
   const refreshedLedger = await getEnrollmentLedger(enrollmentId);

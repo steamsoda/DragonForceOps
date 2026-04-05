@@ -13,6 +13,7 @@ import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
   revalidatePaymentSurfaces,
+  clearPendingFollowUpIfResolved,
   syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
@@ -201,6 +202,8 @@ async function postEnrollmentPaymentInternal(
     actorUserId: user.id,
     soldAt: paidAt,
   });
+
+  await clearPendingFollowUpIfResolved(supabase, enrollmentId);
 
   await revalidatePaymentSurfaces(ledger);
   for (const path of mode.extraRevalidatePaths ?? []) revalidatePath(path);

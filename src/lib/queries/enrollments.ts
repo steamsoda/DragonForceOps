@@ -90,9 +90,18 @@ type PendingRpcRow = {
   team_id: string | null;
   team_name: string | null;
   earliest_due_date: string | null;
-  contactado_at: string | null;
-  contactado_notes: string | null;
+  follow_up_status: string | null;
+  follow_up_at: string | null;
+  follow_up_note: string | null;
+  promise_date: string | null;
 };
+
+export type PendingFollowUpStatus =
+  | "uncontacted"
+  | "no_answer"
+  | "contacted"
+  | "promise_to_pay"
+  | "will_not_return";
 
 export async function listPendingEnrollments(filters: PendingEnrollmentsFilters) {
   const supabase = await createClient();
@@ -130,8 +139,10 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
         balance,
         dueDate: r.earliest_due_date ?? null,
         overdueDays,
-        contactadoAt: r.contactado_at ?? null,
-        contactNotes: r.contactado_notes ?? null
+        followUpStatus: (r.follow_up_status as PendingFollowUpStatus | null) ?? "uncontacted",
+        followUpAt: r.follow_up_at ?? null,
+        followUpNote: r.follow_up_note ?? null,
+        promiseDate: r.promise_date ?? null,
       };
     })
     .filter((row) => {
