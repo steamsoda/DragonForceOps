@@ -42,7 +42,11 @@ export default async function PendingPaymentsPage({ searchParams }: { searchPara
   const qsBase = `q=${encodeURIComponent(q)}&campus=${encodeURIComponent(campusId)}&team=${encodeURIComponent(teamId)}&bucket=${encodeURIComponent(bucket)}&overdue=${encodeURIComponent(overdue)}`;
 
   return (
-    <PageShell title="Pagos pendientes" subtitle="Filtra por campus, equipo, rango de saldo y dias vencidos">
+    <PageShell
+      title="Pagos pendientes"
+      subtitle="Filtra por campus, equipo, rango de saldo y dias vencidos"
+      wide
+    >
       <div className="space-y-4">
         <PendingFilters
           q={q}

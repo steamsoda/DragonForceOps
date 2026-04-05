@@ -24,6 +24,10 @@
 - Added audit visibility for follow-up changes through `pending_follow_up.updated`, surfaced in both `Actividad` and admin `Auditoría`.
 - Hotfix after the first preview push:
   - updated the pending follow-up migration to drop and recreate `list_pending_enrollments_full(uuid)` before changing its return shape, which unblocks preview DB application cleanly
+- UI polish follow-up:
+  - widened `/pending` to the local wide page shell
+  - replaced the cramped desktop pending table with full-width grouped cards
+  - expanded the filter bar into a wider two-row layout with a direct `Limpiar` action
 - Verification:
   - `npm run typecheck` passed
   - `npm run build` passed

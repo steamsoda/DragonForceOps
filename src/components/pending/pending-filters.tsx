@@ -28,15 +28,19 @@ export function PendingFilters({
   teams
 }: PendingFiltersProps) {
   return (
-    <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-6">
+    <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-2 xl:grid-cols-12">
       <input
         type="text"
         name="q"
         defaultValue={q}
         placeholder="Jugador, telefono o equipo"
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 md:col-span-2"
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 md:col-span-2 xl:col-span-4"
       />
-      <select name="campus" defaultValue={campusId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+      <select
+        name="campus"
+        defaultValue={campusId}
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 xl:col-span-2"
+      >
         <option value="">Todos los campus</option>
         {campuses.map((campus) => (
           <option key={campus.id} value={campus.id}>
@@ -44,7 +48,11 @@ export function PendingFilters({
           </option>
         ))}
       </select>
-      <select name="team" defaultValue={teamId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+      <select
+        name="team"
+        defaultValue={teamId}
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 xl:col-span-2"
+      >
         <option value="">Todos los equipos</option>
         {teams.map((team) => (
           <option key={team.id} value={team.id}>
@@ -55,25 +63,37 @@ export function PendingFilters({
       <select
         name="bucket"
         defaultValue={balanceBucket}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 xl:col-span-2"
       >
         <option value="all">Todos los saldos</option>
         <option value="small">Hasta $1,000</option>
         <option value="medium">$1,001 a $3,000</option>
         <option value="high">Mas de $3,000</option>
       </select>
-      <select name="overdue" defaultValue={overdue} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+      <select
+        name="overdue"
+        defaultValue={overdue}
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 xl:col-span-2"
+      >
         <option value="all">Cualquier vencimiento</option>
         <option value="overdue">Solo vencidos</option>
         <option value="7plus">Vencidos +7 dias</option>
         <option value="30plus">Vencidos +30 dias</option>
       </select>
-      <button
-        type="submit"
-        className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark md:col-span-1"
-      >
-        Aplicar filtros
-      </button>
+      <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-12">
+        <button
+          type="submit"
+          className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+        >
+          Aplicar filtros
+        </button>
+        <a
+          href="/pending"
+          className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+        >
+          Limpiar
+        </a>
+      </div>
     </form>
   );
 }

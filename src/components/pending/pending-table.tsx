@@ -32,7 +32,7 @@ const STATUS_OPTIONS: Array<{ value: PendingFollowUpStatus; label: string }> = [
   { value: "no_answer", label: "No contesta" },
   { value: "contacted", label: "Contactado" },
   { value: "promise_to_pay", label: "Promesa de pago" },
-  { value: "will_not_return", label: "No regresará" },
+  { value: "will_not_return", label: "No regresara" },
 ];
 
 const STATUS_LABELS: Record<PendingFollowUpStatus, string> = {
@@ -40,15 +40,15 @@ const STATUS_LABELS: Record<PendingFollowUpStatus, string> = {
   no_answer: "No contesta",
   contacted: "Contactado",
   promise_to_pay: "Promesa de pago",
-  will_not_return: "No regresará",
+  will_not_return: "No regresara",
 };
 
 const STATUS_STYLES: Record<PendingFollowUpStatus, string> = {
   uncontacted: "border-slate-200 bg-white dark:bg-slate-900",
-  no_answer: "border-amber-200 bg-amber-50/50 dark:bg-amber-950/20",
-  contacted: "border-blue-200 bg-blue-50/40 dark:bg-blue-950/20",
-  promise_to_pay: "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20",
-  will_not_return: "border-rose-200 bg-rose-50/40 dark:bg-rose-950/20",
+  no_answer: "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20",
+  contacted: "border-blue-200 bg-blue-50/40 dark:border-blue-800 dark:bg-blue-950/20",
+  promise_to_pay: "border-emerald-200 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20",
+  will_not_return: "border-rose-200 bg-rose-50/40 dark:border-rose-800 dark:bg-rose-950/20",
 };
 
 function formatMoney(value: number) {
@@ -91,9 +91,11 @@ function statusPill(status: PendingFollowUpStatus) {
 
 function FollowUpCell({
   row,
+  compact = false,
   onSaved,
 }: {
   row: PendingRow;
+  compact?: boolean;
   onSaved: (next: Partial<PendingRow>) => void;
 }) {
   const [status, setStatus] = useState<PendingFollowUpStatus>(row.followUpStatus);
@@ -114,14 +116,16 @@ function FollowUpCell({
           result.error === "promise_date_required"
             ? "Captura la fecha de promesa."
             : result.error === "invalid_promise_date"
-            ? "La fecha prometida no es válida."
-            : "No se pudo guardar."
+              ? "La fecha prometida no es valida."
+              : "No se pudo guardar."
         );
         return;
       }
+
       const nextFollowUpAt = status === "uncontacted" ? null : new Date().toISOString();
       const nextNote = status === "uncontacted" ? null : note.trim() || null;
       const nextPromiseDate = status === "promise_to_pay" ? promiseDate : null;
+
       setFollowUpAt(nextFollowUpAt);
       onSaved({
         followUpStatus: status,
@@ -137,7 +141,7 @@ function FollowUpCell({
   const isNoReturn = status === "will_not_return";
 
   return (
-    <div className="min-w-[240px] space-y-2">
+    <div className={`space-y-2 ${compact ? "" : "min-w-0"}`}>
       <select
         value={status}
         onChange={(e) => {
@@ -180,7 +184,7 @@ function FollowUpCell({
           setError(null);
         }}
         placeholder="Notas del seguimiento..."
-        rows={2}
+        rows={compact ? 2 : 3}
         className="w-full resize-none rounded border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800"
       />
 
@@ -208,11 +212,92 @@ function FollowUpCell({
         <div className="space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
           <p>Estado actual: {STATUS_LABELS[status]}</p>
           {status === "promise_to_pay" && promiseDate ? <p>Promesa: {formatDate(promiseDate)}</p> : null}
-          {followUpAt ? <p>Última actualización: {formatDateTime(followUpAt)}</p> : null}
+          {followUpAt ? <p>Ultima actualizacion: {formatDateTime(followUpAt)}</p> : null}
         </div>
       ) : null}
 
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+    </div>
+  );
+}
+
+function PendingDesktopRow({
+  row,
+  onSaved,
+}: {
+  row: PendingRow;
+  onSaved: (next: Partial<PendingRow>) => void;
+}) {
+  return (
+    <div className={`rounded-lg border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.2fr)_minmax(340px,1.9fr)_auto]">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
+              {row.playerName}
+            </Link>
+            <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
+          </div>
+          <div className="grid gap-1 text-sm text-slate-600 dark:text-slate-400">
+            <p>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Cat.</span> {row.birthYear ?? "-"}
+            </p>
+            <p>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Campus</span> {row.campusName} ({row.campusCode})
+            </p>
+            <p>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Equipo</span> {row.teamName}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-2 text-sm">
+          <div className="rounded-md border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Telefono</p>
+            <p className="font-medium text-slate-700 dark:text-slate-200">{row.primaryPhone ?? "-"}</p>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">Saldo</p>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{formatMoney(row.balance)}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Vence</p>
+              <p className="text-slate-700 dark:text-slate-200">{formatDate(row.dueDate)}</p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Dias vencidos</p>
+              <p className="text-slate-700 dark:text-slate-200">{row.overdueDays}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/60">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Seguimiento</p>
+          <FollowUpCell row={row} onSaved={onSaved} />
+        </div>
+
+        <div className="flex flex-row gap-3 xl:flex-col xl:items-stretch">
+          {row.primaryPhone ? (
+            <a
+              href={`tel:${row.primaryPhone}`}
+              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+            >
+              Llamar
+            </a>
+          ) : (
+            <span className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm text-slate-400 dark:border-slate-700">
+              Sin telefono
+            </span>
+          )}
+          <Link
+            href={`/enrollments/${row.enrollmentId}/charges`}
+            className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+          >
+            Abrir cuenta
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
@@ -226,132 +311,77 @@ export function PendingTable({ rows }: PendingTableProps) {
     );
   }
 
+  if (localRows.length === 0) {
+    return (
+      <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        No hay inscripciones pendientes con los filtros actuales.
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="space-y-3 md:hidden">
-        {localRows.length === 0 ? (
-          <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
-            No hay inscripciones pendientes con los filtros actuales.
-          </div>
-        ) : (
-          localRows.map((row) => (
-            <div
-              key={row.enrollmentId}
-              className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
-                    {row.playerName}
-                  </Link>
-                  <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
-                </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Cat. {row.birthYear ?? "-"} | {row.campusName} ({row.campusCode})
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Equipo: {row.teamName}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Telefono: {row.primaryPhone ?? "-"}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Saldo</p>
-                  <p className="font-medium">{formatMoney(row.balance)}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Vence</p>
-                  <p>{formatDate(row.dueDate)}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-400">Dias vencidos</p>
-                  <p>{row.overdueDays}</p>
-                </div>
-              </div>
-
-              <FollowUpCell row={row} onSaved={(next) => handleRowSaved(row.enrollmentId, next)} />
-
-              <div className="flex flex-wrap gap-3 text-sm">
-                {row.primaryPhone ? (
-                  <a href={`tel:${row.primaryPhone}`} className="text-portoBlue hover:underline">
-                    Llamar
-                  </a>
-                ) : (
-                  <span className="text-slate-400">Sin telefono</span>
-                )}
-                <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
-                  Abrir cuenta
+        {localRows.map((row) => (
+          <div
+            key={row.enrollmentId}
+            className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}
+          >
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
+                  {row.playerName}
                 </Link>
+                <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Cat. {row.birthYear ?? "-"} | {row.campusName} ({row.campusCode})
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Equipo: {row.teamName}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Telefono: {row.primaryPhone ?? "-"}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Saldo</p>
+                <p className="font-medium">{formatMoney(row.balance)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Vence</p>
+                <p>{formatDate(row.dueDate)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Dias vencidos</p>
+                <p>{row.overdueDays}</p>
               </div>
             </div>
-          ))
-        )}
+
+            <FollowUpCell row={row} compact onSaved={(next) => handleRowSaved(row.enrollmentId, next)} />
+
+            <div className="flex flex-wrap gap-3 text-sm">
+              {row.primaryPhone ? (
+                <a href={`tel:${row.primaryPhone}`} className="text-portoBlue hover:underline">
+                  Llamar
+                </a>
+              ) : (
+                <span className="text-slate-400">Sin telefono</span>
+              )}
+              <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
+                Abrir cuenta
+              </Link>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
-        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-            <tr>
-              <th className="px-3 py-2">Jugador</th>
-              <th className="px-3 py-2">Cat.</th>
-              <th className="px-3 py-2">Campus</th>
-              <th className="px-3 py-2">Equipo</th>
-              <th className="px-3 py-2">Telefono</th>
-              <th className="px-3 py-2">Saldo</th>
-              <th className="px-3 py-2">Vence</th>
-              <th className="px-3 py-2">Dias vencidos</th>
-              <th className="px-3 py-2">Seguimiento</th>
-              <th className="px-3 py-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {localRows.length === 0 ? (
-              <tr>
-                <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={10}>
-                  No hay inscripciones pendientes con los filtros actuales.
-                </td>
-              </tr>
-            ) : (
-              localRows.map((row) => (
-                <tr key={row.enrollmentId} className={row.followUpStatus !== "uncontacted" ? STATUS_STYLES[row.followUpStatus] : undefined}>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Link href={`/players/${row.playerId}`} className="text-portoBlue hover:underline">
-                        {row.playerName}
-                      </Link>
-                      <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.birthYear ?? "-"}</td>
-                  <td className="px-3 py-2">
-                    {row.campusName} ({row.campusCode})
-                  </td>
-                  <td className="px-3 py-2">{row.teamName}</td>
-                  <td className="px-3 py-2">{row.primaryPhone ?? "-"}</td>
-                  <td className="px-3 py-2 font-medium">{formatMoney(row.balance)}</td>
-                  <td className="px-3 py-2">{formatDate(row.dueDate)}</td>
-                  <td className="px-3 py-2">{row.overdueDays}</td>
-                  <td className="px-3 py-2">
-                    <FollowUpCell row={row} onSaved={(next) => handleRowSaved(row.enrollmentId, next)} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-3">
-                      {row.primaryPhone ? (
-                        <a href={`tel:${row.primaryPhone}`} className="text-portoBlue hover:underline">
-                          Llamar
-                        </a>
-                      ) : (
-                        <span className="text-slate-400">Sin telefono</span>
-                      )}
-                      <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
-                        Abrir cuenta
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="hidden space-y-3 md:block">
+        {localRows.map((row) => (
+          <PendingDesktopRow
+            key={row.enrollmentId}
+            row={row}
+            onSaved={(next) => handleRowSaved(row.enrollmentId, next)}
+          />
+        ))}
       </div>
     </>
   );
