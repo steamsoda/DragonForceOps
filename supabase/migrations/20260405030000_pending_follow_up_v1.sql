@@ -23,6 +23,8 @@ set
   follow_up_note = coalesce(follow_up_note, contactado_notes)
 where contactado_at is not null;
 
+drop function if exists public.list_pending_enrollments_full(uuid);
+
 create or replace function public.list_pending_enrollments_full(
   p_campus_id uuid default null
 )

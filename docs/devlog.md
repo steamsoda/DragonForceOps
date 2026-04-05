@@ -22,6 +22,8 @@
 - The pending enrollments RPC and TS adapter now return the new follow-up fields instead of the old checkbox fields.
 - Payment settlement now clears follow-up state automatically when the enrollment balance reaches zero, and ending/cancelling an enrollment also clears the stored follow-up state.
 - Added audit visibility for follow-up changes through `pending_follow_up.updated`, surfaced in both `Actividad` and admin `Auditoría`.
+- Hotfix after the first preview push:
+  - updated the pending follow-up migration to drop and recreate `list_pending_enrollments_full(uuid)` before changing its return shape, which unblocks preview DB application cleanly
 - Verification:
   - `npm run typecheck` passed
   - `npm run build` passed
