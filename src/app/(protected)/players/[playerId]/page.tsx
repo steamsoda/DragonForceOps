@@ -5,6 +5,7 @@ import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
+import type { ActiveIncident } from "@/lib/incidents";
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
@@ -16,6 +17,23 @@ function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
   const [y, m, d] = dateStr.split("-");
   return d ? `${d}/${m}/${y}` : dateStr;
+}
+
+function activeIncidentSummary(
+  incident: {
+    label: string;
+    startsOn: string | null;
+    endsOn: string | null;
+  } | null,
+) {
+  if (!incident) return null;
+  if (incident.startsOn && incident.endsOn) {
+    return `${incident.label} del ${fmtDate(incident.startsOn)} al ${fmtDate(incident.endsOn)}`;
+  }
+  if (incident.endsOn) {
+    return `${incident.label} hasta ${fmtDate(incident.endsOn)}`;
+  }
+  return incident.label;
 }
 
 const DROPOUT_LABELS: Record<string, string> = {
@@ -88,6 +106,7 @@ export default async function PlayerDetailPage({
             (1000 * 60 * 60 * 24)
         )
       : null;
+  const activeIncident = player.activeIncident as ActiveIncident | null;
 
   return (
     <PageShell
@@ -121,6 +140,17 @@ export default async function PlayerDetailPage({
         <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Este jugador está activo pero no tiene equipo asignado.{" "}
           <a href="/teams" className="underline hover:text-amber-900">Ver equipos</a>
+        </div>
+      )}
+      {activeIncident && (
+        <div
+          className={`mb-4 rounded-md border px-4 py-3 text-sm ${
+            activeIncident.type === "injury"
+              ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
+              : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200"
+          }`}
+        >
+          {activeIncidentSummary(activeIncident)}
         </div>
       )}
       <div className="space-y-6">

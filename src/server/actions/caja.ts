@@ -22,6 +22,7 @@ import {
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
+import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -52,6 +53,7 @@ export type CajaEnrollmentData = {
   campusName: string;
   balance: number;
   currency: string;
+  activeIncident: ActiveIncident | null;
   pendingCharges: CajaPendingCharge[];
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
 };
@@ -649,6 +651,15 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     campusName: ledger.enrollment.campusName,
     balance: ledger.totals.balance,
     currency: ledger.enrollment.currency,
+    activeIncident: resolveActiveIncident(
+      ledger.incidents.map((incident) => ({
+        incidentType: incident.typeCode,
+        startsOn: incident.startsOn,
+        endsOn: incident.endsOn,
+        createdAt: incident.createdAt,
+        cancelledAt: incident.cancelledAt,
+      })),
+    ),
     pendingCharges,
     advanceTuitionOptions: advanceTuitionOptions.map((option) => ({
       periodMonth: option.periodMonth,

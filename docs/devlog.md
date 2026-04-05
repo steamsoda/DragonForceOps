@@ -1354,3 +1354,13 @@
 - No billing behavior changed in this patch:
   - date ranges are informational/operational
   - only `omit_period_month` still affects monthly charge generation
+
+### Active Incident Indicators (v1.8.2)
+- Added a shared `activeIncident` status derived from enrollment incidents only when the recorded date window is active today.
+- `Jugadores` now shows soft pills for `Lesión activa` and `Ausencia activa`.
+- Player profile now shows a top-level status banner for active injuries or absences.
+- `Caja` now shows a non-blocking warning banner on the selected player while keeping pending charges and payment actions unchanged.
+- This patch is indicator-only:
+  - no billing changes
+  - no charging restrictions
+  - incidents without a date range do not appear as active warnings

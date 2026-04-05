@@ -24,8 +24,43 @@ const DROPOUT_LABELS: Record<string, string> = {
 type PlayerRow = Awaited<ReturnType<typeof listPlayers>>["rows"][number];
 type BajaRow = Awaited<ReturnType<typeof listBajas>>["rows"][number];
 
+function formatIncidentTitle(row: PlayerRow) {
+  if (!row.activeIncident) return undefined;
+  if (row.activeIncident.startsOn && row.activeIncident.endsOn) {
+    return `${row.activeIncident.label}: ${fmtDate(row.activeIncident.startsOn)} al ${fmtDate(row.activeIncident.endsOn)}`;
+  }
+  if (row.activeIncident.endsOn) {
+    return `${row.activeIncident.label} hasta ${fmtDate(row.activeIncident.endsOn)}`;
+  }
+  return row.activeIncident.label;
+}
+
 function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   const pills: React.ReactNode[] = [];
+
+  if (row.activeIncident?.type === "injury") {
+    pills.push(
+      <span
+        key="incident-injury"
+        title={formatIncidentTitle(row)}
+        className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+      >
+        Lesión activa
+      </span>
+    );
+  }
+
+  if (row.activeIncident?.type === "absence") {
+    pills.push(
+      <span
+        key="incident-absence"
+        title={formatIncidentTitle(row)}
+        className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"
+      >
+        Ausencia activa
+      </span>
+    );
+  }
 
   if (tags.teamType) {
     if (row.teamType === "competition") {

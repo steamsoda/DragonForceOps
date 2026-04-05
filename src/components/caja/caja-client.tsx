@@ -48,6 +48,50 @@ function methodLabel(method: string) {
   return labels[method] ?? method;
 }
 
+function formatDateOnly(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  return day ? `${day}/${month}/${year}` : dateStr;
+}
+
+function formatActiveIncidentMessage(
+  incident: {
+    label: string;
+    startsOn: string | null;
+    endsOn: string | null;
+  } | null,
+) {
+  if (!incident) return null;
+  if (incident.startsOn && incident.endsOn) {
+    return `${incident.label} del ${formatDateOnly(incident.startsOn)} al ${formatDateOnly(incident.endsOn)}`;
+  }
+  if (incident.endsOn) {
+    return `${incident.label} hasta ${formatDateOnly(incident.endsOn)}`;
+  }
+  return incident.label;
+}
+
+function ActiveIncidentBanner({
+  incident,
+}: {
+  incident: {
+    type: "absence" | "injury";
+    label: string;
+    startsOn: string | null;
+    endsOn: string | null;
+  } | null;
+}) {
+  const message = formatActiveIncidentMessage(incident);
+  if (!incident || !message) return null;
+
+  const tone =
+    incident.type === "injury"
+      ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200"
+      : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200";
+
+  return <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>{message}</div>;
+}
+
 const PAYMENT_METHOD_OPTIONS = [
   { value: "cash", label: "Efectivo" },
   { value: "card", label: "Tarjeta" },
@@ -955,6 +999,7 @@ function PosEnrollmentPanel({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
+          <ActiveIncidentBanner incident={data.activeIncident} />
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos pendientes</p>
@@ -1682,6 +1727,8 @@ function EnrollmentPanel({
         </div>
       </div>
 
+      <ActiveIncidentBanner incident={data.activeIncident} />
+
       {/* Pending charges */}
       {data.pendingCharges.length > 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
@@ -2172,6 +2219,8 @@ function ProductGridPanel({
         </div>
         <p className="text-xs text-slate-400">Nuevo cargo</p>
       </div>
+
+      <ActiveIncidentBanner incident={data.activeIncident} />
 
       {/* Product grid */}
       <div className="space-y-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">

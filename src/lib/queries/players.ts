@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 
 const PAGE_SIZE = 20;
 
@@ -155,6 +156,15 @@ type UniformOrderRow = {
   status: string;
 };
 
+type EnrollmentIncidentListRow = {
+  enrollment_id: string;
+  incident_type: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  created_at: string;
+  cancelled_at: string | null;
+};
+
 type ListBalanceRow = {
   enrollment_id: string;
   balance: number;
@@ -228,7 +238,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   const enrollmentIds = (players ?? []).map((player) => player.enrollments[0]?.id).filter(Boolean) as string[];
   const needsUniform = filters.enabledTags?.uniform === true;
 
-  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult, pendingMonthResult] =
+  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult, pendingMonthResult, { data: incidentRows }] =
     await Promise.all([
       supabase
         .from("player_guardians")
@@ -264,6 +274,11 @@ export async function listPlayers(filters: PlayerListFilters) {
             .neq("status", "void")
             .returns<PendingMonthChargeRow[]>()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("enrollment_incidents")
+        .select("enrollment_id, incident_type, starts_on, ends_on, created_at, cancelled_at")
+        .in("enrollment_id", enrollmentIds)
+        .returns<EnrollmentIncidentListRow[]>(),
     ]);
 
   const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
@@ -291,6 +306,31 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   const balanceByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row.balance]));
   const teamByEnrollment = new Map((teamRows ?? []).map((row) => [row.enrollment_id, row.teams ?? null]));
+  const activeIncidentByEnrollment = new Map<string, ActiveIncident>();
+
+  if (incidentRows) {
+    const incidentsByEnrollment = new Map<string, EnrollmentIncidentListRow[]>();
+    for (const row of incidentRows) {
+      const arr = incidentsByEnrollment.get(row.enrollment_id) ?? [];
+      arr.push(row);
+      incidentsByEnrollment.set(row.enrollment_id, arr);
+    }
+
+    for (const [enrollmentId, rows] of incidentsByEnrollment) {
+      const activeIncident = resolveActiveIncident(
+        rows.map((row) => ({
+          incidentType: row.incident_type,
+          startsOn: row.starts_on,
+          endsOn: row.ends_on,
+          createdAt: row.created_at,
+          cancelledAt: row.cancelled_at,
+        })),
+      );
+      if (activeIncident) {
+        activeIncidentByEnrollment.set(enrollmentId, activeIncident);
+      }
+    }
+  }
 
   const pendingEnrollmentIds = new Set<string>();
   for (const charge of pendingMonthResult.data ?? []) {
@@ -333,6 +373,7 @@ export async function listPlayers(filters: PlayerListFilters) {
       uniformStatus: uniformStatusByPlayer.get(player.id) ?? null,
       enrollmentId,
       hasPendingSelectedMonth: enrollmentId ? pendingEnrollmentIds.has(enrollmentId) : false,
+      activeIncident: enrollmentId ? (activeIncidentByEnrollment.get(enrollmentId) ?? null) : null,
     };
   });
 
@@ -494,6 +535,7 @@ export async function getPlayerDetail(playerId: string) {
 
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
   let teamAssignment: TeamAssignmentDetailRow | null = null;
+  let activeIncident: ActiveIncident | null = null;
 
   await Promise.all([
     enrollmentIds.length > 0
@@ -517,6 +559,30 @@ export async function getPlayerDetail(playerId: string) {
           .returns<TeamAssignmentDetailRow | null>()
           .then(({ data }) => {
             teamAssignment = data;
+          })
+      : Promise.resolve(),
+    activeEnrollmentRow
+      ? supabase
+          .from("enrollment_incidents")
+          .select("incident_type, starts_on, ends_on, created_at, cancelled_at")
+          .eq("enrollment_id", activeEnrollmentRow.id)
+          .returns<Array<{
+            incident_type: string;
+            starts_on: string | null;
+            ends_on: string | null;
+            created_at: string;
+            cancelled_at: string | null;
+          }>>()
+          .then(({ data }) => {
+            activeIncident = resolveActiveIncident(
+              (data ?? []).map((row) => ({
+                incidentType: row.incident_type,
+                startsOn: row.starts_on,
+                endsOn: row.ends_on,
+                createdAt: row.created_at,
+                cancelledAt: row.cancelled_at,
+              })),
+            );
           })
       : Promise.resolve()
   ]);
@@ -563,6 +629,7 @@ export async function getPlayerDetail(playerId: string) {
     uniformSize: player.uniform_size,
     isGoalkeeper: player.is_goalkeeper,
     jerseyNumber,
+    activeIncident,
     guardians,
     enrollments,
     activeTeam: team
