@@ -76,6 +76,8 @@ type EnrollmentIncidentRow = {
   incident_type: string;
   note: string | null;
   omit_period_month: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
   created_at: string;
   cancelled_at: string | null;
   consumed_at: string | null;
@@ -135,6 +137,8 @@ export type EnrollmentLedger = {
     typeName: string;
     note: string | null;
     omitPeriodMonth: string | null;
+    startsOn: string | null;
+    endsOn: string | null;
     status: "record_only" | "omission_active" | "used" | "cancelled";
     createdAt: string;
     cancelledAt: string | null;
@@ -189,7 +193,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       .returns<PaymentRow[]>(),
     supabase
       .from("enrollment_incidents")
-      .select("id, incident_type, note, omit_period_month, created_at, cancelled_at, consumed_at")
+      .select("id, incident_type, note, omit_period_month, starts_on, ends_on, created_at, cancelled_at, consumed_at")
       .eq("enrollment_id", enrollmentId)
       .order("created_at", { ascending: false })
       .returns<EnrollmentIncidentRow[]>()
@@ -297,6 +301,8 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       typeName: INCIDENT_LABELS[row.incident_type] ?? row.incident_type,
       note: row.note,
       omitPeriodMonth: row.omit_period_month,
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
       status: getIncidentStatus(row),
       createdAt: row.created_at,
       cancelledAt: row.cancelled_at,

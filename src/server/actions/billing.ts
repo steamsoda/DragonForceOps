@@ -22,6 +22,8 @@ type EnrollmentIncidentRow = {
   incident_type: string;
   note: string | null;
   omit_period_month: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
   cancelled_at: string | null;
   consumed_at: string | null;
 };
@@ -31,6 +33,8 @@ type EnrollmentIncidentInsert = {
   incident_type: string;
   note: string | null;
   omit_period_month: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
   created_by: string;
 };
 
@@ -39,6 +43,10 @@ const INCIDENT_TYPES = new Set(["absence", "injury", "other"]);
 function normalizeMonthInput(raw: string): string | null {
   if (!/^\d{4}-\d{2}$/.test(raw)) return null;
   return `${raw}-01`;
+}
+
+function normalizeDateInput(raw: string): string | null {
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
 
 function getCurrentPeriodMonth() {
@@ -88,20 +96,30 @@ function parseIncidentFormData(formData: FormData) {
   const mode = String(formData.get("mode") ?? "record_only").trim();
   const note = String(formData.get("note") ?? "").trim();
   const omitPeriodMonthRaw = String(formData.get("omit_period_month") ?? "").trim();
+  const startsOnRaw = String(formData.get("starts_on") ?? "").trim();
+  const endsOnRaw = String(formData.get("ends_on") ?? "").trim();
 
   if (!INCIDENT_TYPES.has(incidentType)) return { ok: false as const, error: "incident_type_required" };
   if (mode !== "record_only" && mode !== "omit_month") return { ok: false as const, error: "invalid_incident" };
 
   const omitPeriodMonth = mode === "omit_month" ? normalizeMonthInput(omitPeriodMonthRaw) : null;
+  const startsOn = startsOnRaw ? normalizeDateInput(startsOnRaw) : null;
+  const endsOn = endsOnRaw ? normalizeDateInput(endsOnRaw) : null;
   if (mode === "omit_month" && !omitPeriodMonth) {
     return { ok: false as const, error: "incident_month_required" };
   }
+  if (startsOnRaw && !startsOn) return { ok: false as const, error: "incident_date_invalid" };
+  if (endsOnRaw && !endsOn) return { ok: false as const, error: "incident_date_invalid" };
+  if (endsOn && !startsOn) return { ok: false as const, error: "incident_start_required" };
+  if (startsOn && endsOn && endsOn < startsOn) return { ok: false as const, error: "incident_date_range_invalid" };
 
   return {
     ok: true as const,
     incidentType,
     note: note || null,
     omitPeriodMonth,
+    startsOn,
+    endsOn,
   };
 }
 
@@ -216,6 +234,8 @@ export async function createEnrollmentIncidentAction(
       incident_type: parsed.incidentType,
       note: parsed.note,
       omit_period_month: parsed.omitPeriodMonth,
+      starts_on: parsed.startsOn,
+      ends_on: parsed.endsOn,
       created_by: context.user.id,
     } satisfies EnrollmentIncidentInsert)
     .select("id")
@@ -234,6 +254,8 @@ export async function createEnrollmentIncidentAction(
       incident_type: parsed.incidentType,
       note: parsed.note,
       omit_period_month: parsed.omitPeriodMonth,
+      starts_on: parsed.startsOn,
+      ends_on: parsed.endsOn,
     },
   });
 
@@ -252,7 +274,7 @@ export async function cancelEnrollmentIncidentAction(
 
   const { data: incident } = await supabase
     .from("enrollment_incidents")
-    .select("id, enrollment_id, incident_type, note, omit_period_month, cancelled_at, consumed_at")
+    .select("id, enrollment_id, incident_type, note, omit_period_month, starts_on, ends_on, cancelled_at, consumed_at")
     .eq("id", incidentId)
     .eq("enrollment_id", enrollmentId)
     .maybeSingle<EnrollmentIncidentRow | null>();
@@ -284,6 +306,8 @@ export async function cancelEnrollmentIncidentAction(
       incident_type: incident.incident_type,
       note: incident.note,
       omit_period_month: incident.omit_period_month,
+      starts_on: incident.starts_on,
+      ends_on: incident.ends_on,
     },
   });
 
@@ -309,7 +333,7 @@ export async function replaceEnrollmentIncidentAction(
 
   const { data: existingIncident } = await supabase
     .from("enrollment_incidents")
-    .select("id, enrollment_id, incident_type, note, omit_period_month, cancelled_at, consumed_at")
+    .select("id, enrollment_id, incident_type, note, omit_period_month, starts_on, ends_on, cancelled_at, consumed_at")
     .eq("id", incidentId)
     .eq("enrollment_id", enrollmentId)
     .maybeSingle<EnrollmentIncidentRow | null>();
@@ -345,6 +369,8 @@ export async function replaceEnrollmentIncidentAction(
       incident_type: parsed.incidentType,
       note: parsed.note,
       omit_period_month: parsed.omitPeriodMonth,
+      starts_on: parsed.startsOn,
+      ends_on: parsed.endsOn,
       created_by: context.user.id,
     } satisfies EnrollmentIncidentInsert)
     .select("id")
@@ -363,9 +389,13 @@ export async function replaceEnrollmentIncidentAction(
       previous_incident_id: incidentId,
       previous_incident_type: existingIncident.incident_type,
       previous_omit_period_month: existingIncident.omit_period_month,
+      previous_starts_on: existingIncident.starts_on,
+      previous_ends_on: existingIncident.ends_on,
       incident_type: parsed.incidentType,
       note: parsed.note,
       omit_period_month: parsed.omitPeriodMonth,
+      starts_on: parsed.startsOn,
+      ends_on: parsed.endsOn,
     },
   });
 

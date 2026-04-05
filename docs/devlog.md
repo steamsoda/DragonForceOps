@@ -1340,3 +1340,17 @@
 - Future boundary kept explicit:
   - this is a full-month manual omission tool only
   - partial-month absences remain incident records only and do not introduce proration or attendance-based finance rules yet
+
+### Incident Date-Range Follow-Up (v1.8.1)
+- Extended `enrollment_incidents` with optional `starts_on` and `ends_on` dates so front desk can capture real absence / recovery windows like “10 days” or “2 weeks”.
+- The incident form on the enrollment ledger now supports:
+  - `Desde`
+  - `Hasta`
+  - optional omission month still remains separate
+- Validation now blocks invalid ranges:
+  - `Hasta` cannot be earlier than `Desde`
+  - `Hasta` cannot be provided without `Desde`
+- Activity and superadmin audit views now include the recorded date window when present.
+- No billing behavior changed in this patch:
+  - date ranges are informational/operational
+  - only `omit_period_month` still affects monthly charge generation

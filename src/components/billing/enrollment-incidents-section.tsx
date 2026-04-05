@@ -8,6 +8,8 @@ type IncidentRow = {
   typeName: string;
   note: string | null;
   omitPeriodMonth: string | null;
+  startsOn: string | null;
+  endsOn: string | null;
   status: "record_only" | "omission_active" | "used" | "cancelled";
   createdAt: string;
   cancelledAt: string | null;
@@ -62,6 +64,12 @@ function formatPeriodMonth(value: string | null) {
   return `${monthLabels[monthIndex] ?? month} ${year}`;
 }
 
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  return day ? `${day}/${month}/${year}` : value;
+}
+
 function statusBadge(status: IncidentRow["status"]) {
   switch (status) {
     case "omission_active":
@@ -93,11 +101,15 @@ function IncidentFormFields({
   initialType = "absence",
   initialMode = "record_only",
   initialNote = "",
+  initialStartsOn = "",
+  initialEndsOn = "",
 }: {
   defaultMonth: string;
   initialType?: string;
   initialMode?: "record_only" | "omit_month";
   initialNote?: string;
+  initialStartsOn?: string;
+  initialEndsOn?: string;
 }) {
   const [mode, setMode] = useState<"record_only" | "omit_month">(initialMode);
 
@@ -145,7 +157,7 @@ function IncidentFormFields({
         </fieldset>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         <label className="space-y-1 text-sm md:col-span-2">
           <span className="font-medium text-slate-700 dark:text-slate-300">Nota (opcional)</span>
           <input
@@ -153,6 +165,24 @@ function IncidentFormFields({
             name="note"
             defaultValue={initialNote}
             placeholder="Ej: yeso por 4 semanas, viaje familiar, etc."
+            className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Desde (opcional)</span>
+          <input
+            type="date"
+            name="starts_on"
+            defaultValue={initialStartsOn}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Hasta (opcional)</span>
+          <input
+            type="date"
+            name="ends_on"
+            defaultValue={initialEndsOn}
             className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600"
           />
         </label>
@@ -227,6 +257,12 @@ export function EnrollmentIncidentsSection({
                   </div>
                   <div className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                     <p>Creada: {formatDateTime(row.createdAt)}</p>
+                    {row.startsOn || row.endsOn ? (
+                      <p>
+                        Ausencia: {formatDate(row.startsOn)}
+                        {row.endsOn ? ` al ${formatDate(row.endsOn)}` : ""}
+                      </p>
+                    ) : null}
                     {row.omitPeriodMonth ? <p>Mes omitido: {formatPeriodMonth(row.omitPeriodMonth)}</p> : null}
                     {row.note ? <p>Nota: {row.note}</p> : null}
                   </div>
@@ -253,6 +289,8 @@ export function EnrollmentIncidentsSection({
                             initialType={row.typeCode}
                             initialMode={row.omitPeriodMonth ? "omit_month" : "record_only"}
                             initialNote={row.note ?? ""}
+                            initialStartsOn={row.startsOn ?? ""}
+                            initialEndsOn={row.endsOn ?? ""}
                           />
                           <button
                             type="submit"
@@ -289,6 +327,12 @@ export function EnrollmentIncidentsSection({
                   </div>
                   <div className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                     <p>Creada: {formatDateTime(row.createdAt)}</p>
+                    {row.startsOn || row.endsOn ? (
+                      <p>
+                        Ausencia: {formatDate(row.startsOn)}
+                        {row.endsOn ? ` al ${formatDate(row.endsOn)}` : ""}
+                      </p>
+                    ) : null}
                     {row.omitPeriodMonth ? <p>Mes omitido: {formatPeriodMonth(row.omitPeriodMonth)}</p> : null}
                     {row.consumedAt ? <p>Usada: {formatDateTime(row.consumedAt)}</p> : null}
                     {row.cancelledAt ? <p>Cancelada: {formatDateTime(row.cancelledAt)}</p> : null}

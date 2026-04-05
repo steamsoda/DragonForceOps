@@ -69,10 +69,17 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
   if (action.startsWith("enrollment_incident")) {
     const type = data.incident_type as string | undefined;
     const omit = data.omit_period_month as string | undefined;
+    const startsOn = data.starts_on as string | undefined;
+    const endsOn = data.ends_on as string | undefined;
     const typeLabel =
       type === "absence" ? "Ausencia" : type === "injury" ? "Lesión" : type === "other" ? "Otro" : type;
     const omitLabel = omit ? `Omite ${omit.slice(0, 7)}` : "Solo registro";
-    return [typeLabel, omitLabel].filter(Boolean).join(" | ");
+    const rangeLabel = startsOn
+      ? endsOn
+        ? `${startsOn} a ${endsOn}`
+        : startsOn
+      : null;
+    return [typeLabel, omitLabel, rangeLabel].filter(Boolean).join(" | ");
   }
   if (action.startsWith("enrollment")) {
     const status = data.status as string | undefined;
