@@ -1304,3 +1304,39 @@
 - Follow-up SQL hotfix:
   - renamed reserved-word CTEs inside `20260404223000_sql_finance_report_hardening.sql`
   - preview remote push was failing on `with window as (...)`, so the migration now uses safe names and can apply cleanly
+
+### Local Dev + Dependency Maintenance
+- Ran `npm audit fix` and cleared the previously reported vulnerabilities.
+- Local dependency result:
+  - Next.js resolved to `16.2.2`
+  - lockfile/transitive vulnerable packages were updated to their patched versions
+- Local dev workflow is now verified on this machine:
+  - `.env.local` was reset to the linked preview Supabase project with valid local runtime keys
+  - local dev server now starts successfully
+  - `http://localhost:3000/login` responds correctly
+- Note:
+  - Vercel preview env pull returned blank Supabase keys for this project, so local dev was fixed by using the linked Supabase preview project directly instead of trusting the pulled Vercel preview env file
+
+### Absence / Injury Incidents With Optional Monthly Omission (v1.8.0)
+- Added `enrollment_incidents` as a new operational exception model for active enrollments.
+  - incident types: `absence`, `injury`, `other`
+  - incidents can be recorded with no billing effect
+  - or can carry `omit_period_month` to intentionally skip a future/current monthly tuition charge
+- Extended the enrollment account page (`/enrollments/[id]/charges`) with a new `Ausencias / lesiones` section.
+  - front desk and directors can create incidents from the ledger
+  - omission is now an explicit choice, not an automatic consequence of absence/injury
+  - active rows can be cancelled or replaced
+  - history keeps `Solo registro`, `Omisión activa`, `Usada`, and `Cancelada` states visible
+- Patched the live DB `generate_monthly_charges(...)` function so it now:
+  - still skips scholarship enrollments
+  - also skips enrollments that have an active incident with `omit_period_month = p_period_month`
+  - marks those omission incidents as used via `consumed_at`
+  - returns split skip counts for existing-charge, scholarship, and incident-driven omissions
+- Updated `/admin/mensualidades` to surface the new skip breakdown instead of collapsing all skipped rows into one generic message.
+- Added audit events for the new workflow:
+  - `enrollment_incident.created`
+  - `enrollment_incident.cancelled`
+  - `enrollment_incident.replaced`
+- Future boundary kept explicit:
+  - this is a full-month manual omission tool only
+  - partial-month absences remain incident records only and do not introduce proration or attendance-based finance rules yet

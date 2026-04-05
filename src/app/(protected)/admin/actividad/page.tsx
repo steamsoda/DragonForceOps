@@ -24,6 +24,9 @@ const ACTION_LABELS: Record<string, string> = {
   "payment.voided": "Cobro anulado",
   "charge.created": "Cargo creado",
   "charge.voided": "Cargo anulado",
+  "enrollment_incident.created": "Incidencia registrada",
+  "enrollment_incident.cancelled": "Incidencia cancelada",
+  "enrollment_incident.replaced": "Incidencia reemplazada",
   "enrollment.created": "Inscripción creada",
   "enrollment.ended": "Baja",
   "enrollment.reactivated": "Reactivación",
@@ -36,6 +39,7 @@ const ACTION_LABELS: Record<string, string> = {
 const ACTION_OPTIONS = [
   "payment.posted", "payment.voided",
   "charge.created", "charge.voided",
+  "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
   "monthly_charges.generated", "player.nuked"
 ].map((v) => ({ value: v, label: ACTION_LABELS[v] ?? v }));
@@ -73,10 +77,17 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
       data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, source].filter(Boolean).join(" · ");
   }
-  if (action === "charge.created" || action === "charge.voided") {
+if (action === "charge.created" || action === "charge.voided") {
     const desc = data.description as string | undefined;
     const amount = data.amount as number | undefined;
     return [desc, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null].filter(Boolean).join(" · ");
+  }
+  if (action.startsWith("enrollment_incident")) {
+    const type = data.incident_type as string | undefined;
+    const omit = data.omit_period_month as string | undefined;
+    const typeLabel =
+      type === "absence" ? "Ausencia" : type === "injury" ? "Lesión" : type === "other" ? "Otro" : type;
+    return [typeLabel, omit ? `Omite ${omit.slice(0, 7)}` : "Solo registro"].filter(Boolean).join(" · ");
   }
   if (action.startsWith("enrollment")) {
     const status = data.status as string | undefined;

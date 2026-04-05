@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import {
+  canAccessEnrollmentRecord,
+  requireDirectorContext,
+  requireOperationalContext,
+} from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -11,6 +15,133 @@ type TeamAssignmentRow = {
   enrollment_id: string;
   enrollments: { status: string; pricing_plans: { currency: string | null } | null } | null;
 };
+
+type EnrollmentIncidentRow = {
+  id: string;
+  enrollment_id: string;
+  incident_type: string;
+  note: string | null;
+  omit_period_month: string | null;
+  cancelled_at: string | null;
+  consumed_at: string | null;
+};
+
+type EnrollmentIncidentInsert = {
+  enrollment_id: string;
+  incident_type: string;
+  note: string | null;
+  omit_period_month: string | null;
+  created_by: string;
+};
+
+const INCIDENT_TYPES = new Set(["absence", "injury", "other"]);
+
+function normalizeMonthInput(raw: string): string | null {
+  if (!/^\d{4}-\d{2}$/.test(raw)) return null;
+  return `${raw}-01`;
+}
+
+function getCurrentPeriodMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function isPastPeriodMonth(periodMonth: string) {
+  return periodMonth < getCurrentPeriodMonth();
+}
+
+async function getMonthlyTuitionChargeTypeId(
+  supabase: Awaited<ReturnType<typeof createClient>>
+) {
+  const { data } = await supabase
+    .from("charge_types")
+    .select("id")
+    .eq("code", "monthly_tuition")
+    .eq("is_active", true)
+    .maybeSingle<{ id: string } | null>();
+  return data?.id ?? null;
+}
+
+async function getEnrollmentIncidentContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string
+) {
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, status")
+    .eq("id", enrollmentId)
+    .maybeSingle<{ id: string; status: string } | null>();
+
+  return enrollment;
+}
+
+async function validateEnrollmentIncidentAccess(enrollmentId: string) {
+  const context = await requireOperationalContext(`/enrollments/${enrollmentId}/charges?err=unauthorized`);
+  if (!(await canAccessEnrollmentRecord(enrollmentId, context))) {
+    redirect(`/enrollments/${enrollmentId}/charges?err=unauthorized`);
+  }
+  return context;
+}
+
+function parseIncidentFormData(formData: FormData) {
+  const incidentType = String(formData.get("incident_type") ?? "").trim();
+  const mode = String(formData.get("mode") ?? "record_only").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const omitPeriodMonthRaw = String(formData.get("omit_period_month") ?? "").trim();
+
+  if (!INCIDENT_TYPES.has(incidentType)) return { ok: false as const, error: "incident_type_required" };
+  if (mode !== "record_only" && mode !== "omit_month") return { ok: false as const, error: "invalid_incident" };
+
+  const omitPeriodMonth = mode === "omit_month" ? normalizeMonthInput(omitPeriodMonthRaw) : null;
+  if (mode === "omit_month" && !omitPeriodMonth) {
+    return { ok: false as const, error: "incident_month_required" };
+  }
+
+  return {
+    ok: true as const,
+    incidentType,
+    note: note || null,
+    omitPeriodMonth,
+  };
+}
+
+async function validateIncidentInsert(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+  incidentIdToIgnore: string | null,
+  omitPeriodMonth: string | null
+) {
+  if (!omitPeriodMonth) return null;
+  if (isPastPeriodMonth(omitPeriodMonth)) return "incident_past_month";
+
+  const chargeTypeId = await getMonthlyTuitionChargeTypeId(supabase);
+  if (!chargeTypeId) return "invalid_incident";
+
+  const { data: existingCharge } = await supabase
+    .from("charges")
+    .select("id")
+    .eq("enrollment_id", enrollmentId)
+    .eq("charge_type_id", chargeTypeId)
+    .eq("period_month", omitPeriodMonth)
+    .neq("status", "void")
+    .maybeSingle<{ id: string } | null>();
+
+  if (existingCharge?.id) return "incident_charge_exists";
+
+  let conflictQuery = supabase
+    .from("enrollment_incidents")
+    .select("id")
+    .eq("enrollment_id", enrollmentId)
+    .eq("omit_period_month", omitPeriodMonth)
+    .is("cancelled_at", null);
+
+  if (incidentIdToIgnore) conflictQuery = conflictQuery.neq("id", incidentIdToIgnore);
+
+  const { data: conflictingIncident } = await conflictQuery.maybeSingle<{ id: string } | null>();
+  if (conflictingIncident?.id) return "incident_conflict";
+
+  return null;
+}
 
 export async function generateMonthlyTuitionAction(formData: FormData) {
   const periodMonthRaw = String(formData.get("period_month") ?? "").trim();
@@ -38,11 +169,208 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
   const typedResult = (result ?? { created: 0, skipped: 0, error: "rpc_failed" }) as {
     created?: number;
     skipped?: number;
+    skipped_existing_charge?: number;
+    skipped_scholarship?: number;
+    skipped_by_incident?: number;
+    skipped_other?: number;
     error?: string;
   };
 
   if (typedResult.error) redirect(`/admin/mensualidades?err=${typedResult.error}`);
-  redirect(`/admin/mensualidades?ok=1&created=${typedResult.created ?? 0}&skipped=${typedResult.skipped ?? 0}`);
+  redirect(
+    `/admin/mensualidades?ok=1&created=${typedResult.created ?? 0}&skipped=${typedResult.skipped ?? 0}` +
+      `&skipped_existing_charge=${typedResult.skipped_existing_charge ?? 0}` +
+      `&skipped_scholarship=${typedResult.skipped_scholarship ?? 0}` +
+      `&skipped_by_incident=${typedResult.skipped_by_incident ?? 0}` +
+      `&skipped_other=${typedResult.skipped_other ?? 0}`
+  );
+}
+
+export async function createEnrollmentIncidentAction(
+  enrollmentId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
+  const context = await validateEnrollmentIncidentAccess(enrollmentId);
+  const parsed = parseIncidentFormData(formData);
+  if (!parsed.ok) redirect(`${BASE}?err=${parsed.error}`);
+
+  const supabase = await createClient();
+  const enrollment = await getEnrollmentIncidentContext(supabase, enrollmentId);
+  if (!enrollment) redirect(`${BASE}?err=enrollment_not_found`);
+  if (enrollment.status !== "active") redirect(`${BASE}?err=incident_inactive_enrollment`);
+
+  const validationError = await validateIncidentInsert(
+    supabase,
+    enrollmentId,
+    null,
+    parsed.omitPeriodMonth
+  );
+  if (validationError) redirect(`${BASE}?err=${validationError}`);
+
+  const { data: insertedIncident, error } = await supabase
+    .from("enrollment_incidents")
+    .insert({
+      enrollment_id: enrollmentId,
+      incident_type: parsed.incidentType,
+      note: parsed.note,
+      omit_period_month: parsed.omitPeriodMonth,
+      created_by: context.user.id,
+    } satisfies EnrollmentIncidentInsert)
+    .select("id")
+    .single<{ id: string }>();
+
+  if (error || !insertedIncident) redirect(`${BASE}?err=invalid_incident`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: context.user.id,
+    actorEmail: context.user.email ?? null,
+    action: "enrollment_incident.created",
+    tableName: "enrollment_incidents",
+    recordId: insertedIncident.id,
+    afterData: {
+      enrollment_id: enrollmentId,
+      incident_type: parsed.incidentType,
+      note: parsed.note,
+      omit_period_month: parsed.omitPeriodMonth,
+    },
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=incident_created`);
+}
+
+export async function cancelEnrollmentIncidentAction(
+  enrollmentId: string,
+  incidentId: string
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
+  const context = await validateEnrollmentIncidentAccess(enrollmentId);
+  const supabase = await createClient();
+
+  const { data: incident } = await supabase
+    .from("enrollment_incidents")
+    .select("id, enrollment_id, incident_type, note, omit_period_month, cancelled_at, consumed_at")
+    .eq("id", incidentId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<EnrollmentIncidentRow | null>();
+
+  if (!incident || incident.cancelled_at || incident.consumed_at) {
+    redirect(`${BASE}?err=incident_not_found`);
+  }
+
+  const { error } = await supabase
+    .from("enrollment_incidents")
+    .update({
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: context.user.id,
+    })
+    .eq("id", incidentId)
+    .is("cancelled_at", null)
+    .is("consumed_at", null);
+
+  if (error) redirect(`${BASE}?err=incident_cancel_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: context.user.id,
+    actorEmail: context.user.email ?? null,
+    action: "enrollment_incident.cancelled",
+    tableName: "enrollment_incidents",
+    recordId: incidentId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      incident_type: incident.incident_type,
+      note: incident.note,
+      omit_period_month: incident.omit_period_month,
+    },
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=incident_cancelled`);
+}
+
+export async function replaceEnrollmentIncidentAction(
+  enrollmentId: string,
+  incidentId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
+  const context = await validateEnrollmentIncidentAccess(enrollmentId);
+  const parsed = parseIncidentFormData(formData);
+  if (!parsed.ok) redirect(`${BASE}?err=${parsed.error}`);
+
+  const supabase = await createClient();
+  const enrollment = await getEnrollmentIncidentContext(supabase, enrollmentId);
+  if (!enrollment) redirect(`${BASE}?err=enrollment_not_found`);
+  if (enrollment.status !== "active") redirect(`${BASE}?err=incident_inactive_enrollment`);
+
+  const { data: existingIncident } = await supabase
+    .from("enrollment_incidents")
+    .select("id, enrollment_id, incident_type, note, omit_period_month, cancelled_at, consumed_at")
+    .eq("id", incidentId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<EnrollmentIncidentRow | null>();
+
+  if (!existingIncident || existingIncident.cancelled_at || existingIncident.consumed_at) {
+    redirect(`${BASE}?err=incident_not_found`);
+  }
+
+  const validationError = await validateIncidentInsert(
+    supabase,
+    enrollmentId,
+    incidentId,
+    parsed.omitPeriodMonth
+  );
+  if (validationError) redirect(`${BASE}?err=${validationError}`);
+
+  const { error: cancelError } = await supabase
+    .from("enrollment_incidents")
+    .update({
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: context.user.id,
+    })
+    .eq("id", incidentId)
+    .is("cancelled_at", null)
+    .is("consumed_at", null);
+
+  if (cancelError) redirect(`${BASE}?err=incident_replace_failed`);
+
+  const { data: newIncident, error: insertError } = await supabase
+    .from("enrollment_incidents")
+    .insert({
+      enrollment_id: enrollmentId,
+      incident_type: parsed.incidentType,
+      note: parsed.note,
+      omit_period_month: parsed.omitPeriodMonth,
+      created_by: context.user.id,
+    } satisfies EnrollmentIncidentInsert)
+    .select("id")
+    .single<{ id: string }>();
+
+  if (insertError || !newIncident) redirect(`${BASE}?err=incident_replace_failed`);
+
+  await writeAuditLog(supabase, {
+    actorUserId: context.user.id,
+    actorEmail: context.user.email ?? null,
+    action: "enrollment_incident.replaced",
+    tableName: "enrollment_incidents",
+    recordId: newIncident.id,
+    afterData: {
+      enrollment_id: enrollmentId,
+      previous_incident_id: incidentId,
+      previous_incident_type: existingIncident.incident_type,
+      previous_omit_period_month: existingIncident.omit_period_month,
+      incident_type: parsed.incidentType,
+      note: parsed.note,
+      omit_period_month: parsed.omitPeriodMonth,
+    },
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=incident_replaced`);
 }
 
 // ── Void payment ─────────────────────────────────────────────────────────────

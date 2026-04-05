@@ -71,6 +71,16 @@ type ChargeTypeRow = {
   is_active: boolean;
 };
 
+type EnrollmentIncidentRow = {
+  id: string;
+  incident_type: string;
+  note: string | null;
+  omit_period_month: string | null;
+  created_at: string;
+  cancelled_at: string | null;
+  consumed_at: string | null;
+};
+
 export type EnrollmentLedger = {
   enrollment: {
     id: string;
@@ -119,14 +129,40 @@ export type EnrollmentLedger = {
     operatorCampusName: string;
     isCrossCampus: boolean;
   }>;
+  incidents: Array<{
+    id: string;
+    typeCode: string;
+    typeName: string;
+    note: string | null;
+    omitPeriodMonth: string | null;
+    status: "record_only" | "omission_active" | "used" | "cancelled";
+    createdAt: string;
+    cancelledAt: string | null;
+    consumedAt: string | null;
+  }>;
 };
+
+const INCIDENT_LABELS: Record<string, string> = {
+  absence: "Ausencia",
+  injury: "Lesión",
+  other: "Otro",
+};
+
+function getIncidentStatus(
+  row: EnrollmentIncidentRow
+): "record_only" | "omission_active" | "used" | "cancelled" {
+  if (row.cancelled_at) return "cancelled";
+  if (row.omit_period_month && row.consumed_at) return "used";
+  if (row.omit_period_month) return "omission_active";
+  return "record_only";
+}
 
 export async function getEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
-  const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }] = await Promise.all([
+  const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }, { data: incidents }] = await Promise.all([
     supabase
       .from("enrollments")
       .select("id, status, start_date, end_date, campus_id, campuses(id, name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
@@ -150,7 +186,13 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       .select("id, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
       .eq("enrollment_id", enrollmentId)
       .order("paid_at", { ascending: false })
-      .returns<PaymentRow[]>()
+      .returns<PaymentRow[]>(),
+    supabase
+      .from("enrollment_incidents")
+      .select("id, incident_type, note, omit_period_month, created_at, cancelled_at, consumed_at")
+      .eq("enrollment_id", enrollmentId)
+      .order("created_at", { ascending: false })
+      .returns<EnrollmentIncidentRow[]>()
   ]);
 
   if (!enrollment) return null;
@@ -248,7 +290,18 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       operatorCampusId: row.operator_campus_id,
       operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",
       isCrossCampus: row.operator_campus_id !== enrollment.campus_id,
-    }))
+    })),
+    incidents: (incidents ?? []).map((row) => ({
+      id: row.id,
+      typeCode: row.incident_type,
+      typeName: INCIDENT_LABELS[row.incident_type] ?? row.incident_type,
+      note: row.note,
+      omitPeriodMonth: row.omit_period_month,
+      status: getIncidentStatus(row),
+      createdAt: row.created_at,
+      cancelledAt: row.cancelled_at,
+      consumedAt: row.consumed_at,
+    })),
   };
 }
 

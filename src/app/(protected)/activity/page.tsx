@@ -17,6 +17,9 @@ const ACTION_LABELS: Record<string, string> = {
   "payment.posted": "Cobro registrado",
   "charge.created": "Cargo creado",
   "charge.voided": "Cargo anulado",
+  "enrollment_incident.created": "Incidencia registrada",
+  "enrollment_incident.cancelled": "Incidencia cancelada",
+  "enrollment_incident.replaced": "Incidencia reemplazada",
   "enrollment.created": "Inscripcion creada",
   "enrollment.ended": "Inscripcion dada de baja",
   "enrollment.reactivated": "Inscripcion reactivada",
@@ -62,6 +65,14 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
     const amount = data.amount as number | undefined;
     const desc = data.description as string | undefined;
     if (desc) return `${desc}${amount !== undefined ? ` | $${amount.toLocaleString("es-MX")}` : ""}`;
+  }
+  if (action.startsWith("enrollment_incident")) {
+    const type = data.incident_type as string | undefined;
+    const omit = data.omit_period_month as string | undefined;
+    const typeLabel =
+      type === "absence" ? "Ausencia" : type === "injury" ? "Lesión" : type === "other" ? "Otro" : type;
+    const omitLabel = omit ? `Omite ${omit.slice(0, 7)}` : "Solo registro";
+    return [typeLabel, omitLabel].filter(Boolean).join(" | ");
   }
   if (action.startsWith("enrollment")) {
     const status = data.status as string | undefined;

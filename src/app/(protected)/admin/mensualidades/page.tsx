@@ -14,6 +14,10 @@ type SearchParams = Promise<{
   ok?: string;
   created?: string;
   skipped?: string;
+  skipped_existing_charge?: string;
+  skipped_scholarship?: string;
+  skipped_by_incident?: string;
+  skipped_other?: string;
   err?: string;
 }>;
 
@@ -30,6 +34,10 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
   const ok = params.ok === "1";
   const created = parseInt(params.created ?? "0", 10);
   const skipped = parseInt(params.skipped ?? "0", 10);
+  const skippedExistingCharge = parseInt(params.skipped_existing_charge ?? "0", 10);
+  const skippedScholarship = parseInt(params.skipped_scholarship ?? "0", 10);
+  const skippedByIncident = parseInt(params.skipped_by_incident ?? "0", 10);
+  const skippedOther = parseInt(params.skipped_other ?? "0", 10);
   const err = params.err;
   const defaultMonth = getCurrentMonthValue();
 
@@ -45,10 +53,20 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
             {created > 0 ? (
               <>
                 <span className="font-semibold">{created} cargo{created !== 1 ? "s" : ""} generado{created !== 1 ? "s" : ""}.</span>
-                {skipped > 0 && <span className="ml-1">{skipped} inscripcion{skipped !== 1 ? "es" : ""} ya tenia{skipped !== 1 ? "n" : ""} cargo para ese mes (omitida{skipped !== 1 ? "s" : ""}).</span>}
+                {skipped > 0 ? (
+                  <span className="ml-1">
+                    Omitidas: {skippedExistingCharge} por cargo existente, {skippedScholarship} con beca, {skippedByIncident} por incidencia
+                    {skippedOther > 0 ? ` y ${skippedOther} por otras causas` : ""}.
+                  </span>
+                ) : null}
               </>
             ) : (
-              <span>Todas las inscripciones activas ya tienen cargo para ese mes. No se generaron cargos nuevos.</span>
+              <span>
+                No se generaron cargos nuevos.
+                {skipped > 0
+                  ? ` Omitidas: ${skippedExistingCharge} por cargo existente, ${skippedScholarship} con beca, ${skippedByIncident} por incidencia${skippedOther > 0 ? ` y ${skippedOther} por otras causas` : ""}.`
+                  : " Todas las inscripciones activas ya tenían una condición que impidió generar cargos."}
+              </span>
             )}
           </div>
         )}
@@ -70,8 +88,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
               className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Se generaran cargos de $750 para inscripciones activas sin beca que aun no tengan cargo ese mes.
-              Inscripciones con beca y las que ya tengan cargo seran omitidas automaticamente.
+              Se generarán cargos de mensualidad para las inscripciones activas que no tengan beca, cargo existente ni una incidencia con omisión para ese mes.
             </p>
           </div>
 
@@ -86,10 +103,11 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
         <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
           <p className="font-medium text-slate-700 dark:text-slate-300">Notas</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>El cargo se crea a la tarifa regular ($750). El descuento por pago anticipado se aplica al momento del pago (dias 1–10).</li>
-            <li>La operacion es segura de repetir — no crea duplicados.</li>
+            <li>La operación usa la versión de tarifa vigente para el mes seleccionado.</li>
+            <li>La operación es segura de repetir, no crea duplicados.</li>
             <li>Solo afecta inscripciones con estatus <strong>activo</strong> y sin beca (<code>has_scholarship = false</code>).</li>
-            <li>Este boton es para uso manual (meses atrasados, pruebas). El dia 1 de cada mes los cargos se generan <strong>automaticamente</strong> a las 06:00 UTC via pg_cron en Supabase.</li>
+            <li>Las incidencias con omisión activa para ese mes también se respetan automáticamente.</li>
+            <li>Este botón es para uso manual (meses atrasados, pruebas). El día 1 de cada mes los cargos se generan <strong>automáticamente</strong> a las 06:00 UTC vía pg_cron en Supabase.</li>
           </ul>
         </div>
       </div>

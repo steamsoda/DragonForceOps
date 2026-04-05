@@ -13,6 +13,10 @@ export function lastDayOfMonth(year: number, month: number): string {
 export type GenerateResult = {
   created: number;
   skipped: number;
+  skippedExistingCharge?: number;
+  skippedScholarship?: number;
+  skippedByIncident?: number;
+  skippedOther?: number;
   error?: string;
 };
 
@@ -30,6 +34,10 @@ type TuitionRuleRow = {
 };
 
 type ExistingChargeRow = {
+  enrollment_id: string;
+};
+
+type IncidentRow = {
   enrollment_id: string;
 };
 
@@ -61,7 +69,22 @@ export async function generateMonthlyChargesCore(
     .eq("has_scholarship", false);
 
   const activeEnrollments = (enrollments ?? []) as unknown as ActiveEnrollmentRow[];
-  if (activeEnrollments.length === 0) return { created: 0, skipped: 0 };
+  const { count: scholarshipCount } = await supabase
+    .from("enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active")
+    .eq("has_scholarship", true);
+
+  if (activeEnrollments.length === 0) {
+    return {
+      created: 0,
+      skipped: scholarshipCount ?? 0,
+      skippedExistingCharge: 0,
+      skippedScholarship: scholarshipCount ?? 0,
+      skippedByIncident: 0,
+      skippedOther: 0,
+    };
+  }
 
   const enrollmentIds = activeEnrollments.map((e) => e.id);
 
@@ -74,10 +97,32 @@ export async function generateMonthlyChargesCore(
     .in("enrollment_id", enrollmentIds);
 
   const alreadyCharged = new Set(((existingCharges ?? []) as ExistingChargeRow[]).map((c) => c.enrollment_id));
-  const toCharge = activeEnrollments.filter((e) => !alreadyCharged.has(e.id));
-  const skipped = activeEnrollments.length - toCharge.length;
+  const eligibleAfterExistingCharge = activeEnrollments.filter((e) => !alreadyCharged.has(e.id));
 
-  if (toCharge.length === 0) return { created: 0, skipped };
+  const { data: incidents } = await supabase
+    .from("enrollment_incidents")
+    .select("enrollment_id")
+    .eq("omit_period_month", periodMonth)
+    .is("cancelled_at", null)
+    .in("enrollment_id", eligibleAfterExistingCharge.map((e) => e.id));
+
+  const skippedByIncidentSet = new Set(((incidents ?? []) as IncidentRow[]).map((row) => row.enrollment_id));
+  const toCharge = eligibleAfterExistingCharge.filter((e) => !skippedByIncidentSet.has(e.id));
+  const skippedExistingCharge = activeEnrollments.length - eligibleAfterExistingCharge.length;
+  const skippedByIncident = eligibleAfterExistingCharge.length - toCharge.length;
+  const skippedScholarship = scholarshipCount ?? 0;
+  const skipped = skippedScholarship + skippedExistingCharge + skippedByIncident;
+
+  if (toCharge.length === 0) {
+    return {
+      created: 0,
+      skipped,
+      skippedExistingCharge,
+      skippedScholarship,
+      skippedByIncident,
+      skippedOther: 0,
+    };
+  }
 
   const uniquePlanIds = [...new Set(toCharge.map((e) => e.pricing_plan_id))];
   const { data: tuitionRules } = await supabase
@@ -121,10 +166,47 @@ export async function generateMonthlyChargesCore(
     })
     .filter((c) => c !== null);
 
-  if (charges.length === 0) return { created: 0, skipped, error: "no_rate_found" };
+  if (charges.length === 0) {
+    return {
+      created: 0,
+      skipped,
+      skippedExistingCharge,
+      skippedScholarship,
+      skippedByIncident,
+      skippedOther: 0,
+      error: "no_rate_found",
+    };
+  }
 
   const { error: insertError } = await supabase.from("charges").insert(charges);
-  if (insertError) return { created: 0, skipped, error: "insert_failed" };
+  if (insertError) {
+    return {
+      created: 0,
+      skipped,
+      skippedExistingCharge,
+      skippedScholarship,
+      skippedByIncident,
+      skippedOther: 0,
+      error: "insert_failed",
+    };
+  }
 
-  return { created: charges.length, skipped };
+  if (skippedByIncident > 0) {
+    await supabase
+      .from("enrollment_incidents")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("omit_period_month", periodMonth)
+      .is("cancelled_at", null)
+      .is("consumed_at", null)
+      .in("enrollment_id", Array.from(skippedByIncidentSet));
+  }
+
+  return {
+    created: charges.length,
+    skipped,
+    skippedExistingCharge,
+    skippedScholarship,
+    skippedByIncident,
+    skippedOther: Math.max(activeEnrollments.length + skippedScholarship - charges.length - skipped, 0),
+  };
 }

@@ -8,8 +8,15 @@ import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { PaymentPostForm } from "@/components/billing/payment-post-form";
+import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
 import { postEnrollmentPaymentAction } from "@/server/actions/payments";
-import { voidChargeAction, voidPaymentAction } from "@/server/actions/billing";
+import {
+  cancelEnrollmentIncidentAction,
+  createEnrollmentIncidentAction,
+  replaceEnrollmentIncidentAction,
+  voidChargeAction,
+  voidPaymentAction,
+} from "@/server/actions/billing";
 import { getPrinterName } from "@/lib/queries/settings";
 
 const errorMessages: Record<string, string> = {
@@ -23,8 +30,23 @@ const errorMessages: Record<string, string> = {
   payment_not_found: "Pago no encontrado o ya fue anulado.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
   void_failed: "No se pudo anular. Intenta de nuevo.",
-  unauthorized: "No tienes permiso para anular."
+  unauthorized: "No tienes permiso para anular.",
+  invalid_incident: "Los datos de la incidencia no son válidos.",
+  incident_type_required: "Selecciona un tipo de incidencia.",
+  incident_month_required: "Selecciona el mes a omitir.",
+  incident_past_month: "Solo puedes omitir el mes actual o uno futuro.",
+  incident_charge_exists: "Ese mes ya tiene una mensualidad registrada; la omisión ya no aplica.",
+  incident_conflict: "Ya existe una omisión activa para ese mes.",
+  incident_not_found: "Incidencia no encontrada o ya cerrada.",
+  incident_cancel_failed: "No se pudo cancelar la incidencia.",
+  incident_replace_failed: "No se pudo reemplazar la incidencia.",
+  incident_inactive_enrollment: "Solo se pueden registrar incidencias en inscripciones activas.",
 };
+
+function getCurrentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export default async function ChargesPage({
   params,
@@ -47,6 +69,9 @@ export default async function ChargesPage({
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
   const postPayment = postEnrollmentPaymentAction.bind(null, enrollmentId);
+  const createIncident = createEnrollmentIncidentAction.bind(null, enrollmentId);
+  const cancelIncident = cancelEnrollmentIncidentAction.bind(null, enrollmentId);
+  const replaceIncident = replaceEnrollmentIncidentAction.bind(null, enrollmentId);
   const voidCharge = isDirector
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
@@ -59,6 +84,12 @@ export default async function ChargesPage({
       ? "Pago registrado correctamente."
       : query.ok === "charge_created"
       ? "Cargo creado correctamente."
+      : query.ok === "incident_created"
+      ? "Incidencia registrada correctamente."
+      : query.ok === "incident_cancelled"
+      ? "Incidencia cancelada correctamente."
+      : query.ok === "incident_replaced"
+      ? "Incidencia reemplazada correctamente."
       : query.ok === "charge_voided"
       ? "Cargo anulado correctamente."
       : query.ok === "payment_voided"
@@ -97,6 +128,15 @@ export default async function ChargesPage({
           totalCharges={ledger.totals.totalCharges}
           totalPayments={ledger.totals.totalPayments}
           balance={ledger.totals.balance}
+        />
+
+        <EnrollmentIncidentsSection
+          rows={ledger.incidents}
+          createAction={createIncident}
+          cancelAction={cancelIncident}
+          replaceAction={replaceIncident}
+          canManage={permissionContext?.hasOperationalAccess ?? false}
+          defaultMonth={getCurrentMonthValue()}
         />
 
         <section className="space-y-2">
