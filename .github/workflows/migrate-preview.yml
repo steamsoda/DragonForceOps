@@ -26,7 +26,7 @@ jobs:
       - name: Apply migrations to preview
         run: |
           ENCODED_PASSWORD="$(python3 -c "import os, urllib.parse; print(urllib.parse.quote(os.environ['SUPABASE_PREVIEW_DB_PASSWORD']))")"
-          DB_URL="postgresql://postgres:${ENCODED_PASSWORD}@db.eqefgwdsqabnmpnbpqbq.supabase.co:5432/postgres?sslmode=require"
+          DB_URL="postgresql://postgres.eqefgwdsqabnmpnbpqbq:${ENCODED_PASSWORD}@aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require"
           supabase db push --db-url "$DB_URL"
         env:
           SUPABASE_PREVIEW_DB_PASSWORD: ${{ secrets.SUPABASE_PREVIEW_DB_PASSWORD }}
