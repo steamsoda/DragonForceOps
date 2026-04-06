@@ -169,8 +169,50 @@ function getPaymentWorkflowError(error: string) {
     refunded_at_required: "Debes capturar la fecha y hora real del reembolso.",
     invalid_refund_method: "Selecciona el m\u00e9todo real del reembolso.",
     invalid_refund_date: "La fecha del reembolso no es v\u00e1lida.",
+    refund_insert_failed: "No se pudo registrar el reembolso por un problema de datos del pago.",
+    refund_function_missing: "La funci\u00f3n de reembolsos no est\u00e1 disponible todav\u00eda.",
+    refund_failed: "No se pudo registrar el reembolso.",
   };
   return messages[error] ?? "No se pudo completar la operaci\u00f3n. Intenta de nuevo.";
+}
+
+function normalizeRefundWorkflowError(raw: string | null | undefined) {
+  const value = raw?.trim() ?? "";
+  if (!value) return "refund_failed";
+
+  const knownCodes = new Set([
+    "unauthenticated",
+    "unauthorized",
+    "payment_not_found",
+    "payment_not_posted",
+    "payment_already_refunded",
+    "payment_has_no_allocations",
+    "refund_reason_required",
+    "refunded_at_required",
+    "invalid_refund_method",
+    "invalid_refund_date",
+    "refund_insert_failed",
+    "refund_failed",
+  ]);
+  if (knownCodes.has(value)) return value;
+
+  const lowered = value.toLowerCase();
+  if (lowered.includes("record_payment_refund")) return "refund_function_missing";
+  if (lowered.includes("not found")) return "payment_not_found";
+  if (lowered.includes("row-level security") || lowered.includes("permission denied")) return "unauthorized";
+  if (
+    lowered.includes("payment_refunds")
+    || lowered.includes("operator_campus_id")
+    || lowered.includes("created_by")
+    || lowered.includes("refund_method")
+    || lowered.includes("foreign key")
+    || lowered.includes("not-null")
+    || lowered.includes("violates")
+  ) {
+    return "refund_insert_failed";
+  }
+
+  return "refund_failed";
 }
 
 function parseIncidentFormData(formData: FormData) {
@@ -585,7 +627,10 @@ export async function refundPaymentAction(
 
   const resultRow = Array.isArray(data) ? data[0] : data;
   if (error || !resultRow?.ok) {
-    return { ok: false, error: error?.message ?? resultRow?.error_code ?? "refund_failed" };
+    return {
+      ok: false,
+      error: normalizeRefundWorkflowError(error?.message ?? resultRow?.error_code ?? "refund_failed"),
+    };
   }
 
   await writeAuditLog(supabase, {

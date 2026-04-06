@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { refundPaymentAction } from "@/server/actions/billing";
 
@@ -41,15 +41,29 @@ function getErrorMessage(code: string) {
     unauthorized: "No tienes permiso para reembolsar este pago.",
     refund_reason_required: "Debes capturar el motivo del reembolso.",
     refunded_at_required: "Debes capturar la fecha y hora real del reembolso.",
-    invalid_refund_method: "Selecciona el m\u00e9todo real del reembolso.",
-    invalid_refund_date: "La fecha del reembolso no es v\u00e1lida.",
+    invalid_refund_method: "Selecciona el método real del reembolso.",
+    invalid_refund_date: "La fecha del reembolso no es válida.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
     payment_not_posted: "Solo se pueden reembolsar pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
-    unauthenticated: "Tu sesi\u00f3n expir\u00f3. Inicia sesi\u00f3n de nuevo.",
+    payment_not_found: "No se encontró el pago seleccionado.",
+    refund_insert_failed: "No se pudo registrar el reembolso por un problema de datos del pago.",
+    refund_function_missing: "La función de reembolsos todavía no está disponible en la base de datos.",
+    refund_failed: "No se pudo registrar el reembolso. Intenta de nuevo.",
+    unauthenticated: "Tu sesión expiró. Inicia sesión de nuevo.",
     debug_read_only: "El modo de solo lectura bloquea cambios.",
   };
   return messages[code] ?? "No se pudo registrar el reembolso.";
+}
+
+function getInitialDateTimeLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hour = String(now.getHours()).padStart(2, "0");
+  const minute = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 export function PaymentRefundPanel({
@@ -75,6 +89,12 @@ export function PaymentRefundPanel({
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!refundedAt) {
+      setRefundedAt(getInitialDateTimeLocal());
+    }
+  }, [refundedAt]);
 
   function submitRefund() {
     setErrorMessage(null);
@@ -104,7 +124,7 @@ export function PaymentRefundPanel({
         <div className="space-y-2">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Pago a reembolsar</p>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            {formatDateTime(payment.paidAt)} \u00b7 {getMethodLabel(payment.method)}
+            {formatDateTime(payment.paidAt)} · {getMethodLabel(payment.method)}
           </p>
           <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {formatMoney(payment.amount, payment.currency)}
@@ -123,13 +143,13 @@ export function PaymentRefundPanel({
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Registrar reembolso real</h3>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Esto registra la devoluci\u00f3n del dinero en la fecha real del reembolso. El pago original sigue existiendo y el saldo vuelve a abrirse.
+            Esto registra la devolución del dinero en la fecha real del reembolso. El pago original sigue existiendo y el saldo vuelve a abrirse.
           </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-300">M\u00e9todo del reembolso</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Método del reembolso</span>
             <select
               value={refundMethod}
               onChange={(event) => setRefundMethod(event.target.value)}
@@ -143,23 +163,26 @@ export function PaymentRefundPanel({
             </select>
           </label>
           <label className="space-y-1 text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora del reembolso</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora del reembolso (obligatoria)</span>
             <input
               type="datetime-local"
               value={refundedAt}
               onChange={(event) => setRefundedAt(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Registra cuándo se devolvió realmente el dinero.
+            </p>
           </label>
         </div>
 
         <label className="block space-y-1 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-300">Motivo</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Motivo (obligatorio)</span>
           <input
             type="text"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Ej: devoluci\u00f3n real al padre, error operativo, cambio cancelado..."
+            placeholder="Ej: devolución real al padre, error operativo, cambio cancelado..."
             className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
           />
         </label>

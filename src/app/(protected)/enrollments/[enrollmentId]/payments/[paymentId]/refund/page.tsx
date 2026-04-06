@@ -30,7 +30,7 @@ export default async function RefundPaymentPage({
   return (
     <PageShell
       title="Reembolsar pago"
-      subtitle="Registra la devoluci\u00f3n real del dinero en la fecha en que ocurri\u00f3."
+      subtitle="Registra la devolución real del dinero en la fecha en que ocurrió."
       breadcrumbs={[
         { label: "Cuenta", href: `/enrollments/${enrollmentId}/charges` },
         { label: "Reembolsar" },

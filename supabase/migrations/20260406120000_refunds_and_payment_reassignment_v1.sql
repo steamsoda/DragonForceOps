@@ -143,6 +143,7 @@ declare
   v_refund_id uuid;
   v_charge_breakdown jsonb := '[]'::jsonb;
   v_allocated_total numeric(12,2);
+  v_operator_campus_id uuid;
 begin
   if auth.uid() is null then
     return query select false, 'unauthenticated', null::uuid, null::uuid, null::uuid, null::numeric, null::uuid;
@@ -211,6 +212,14 @@ begin
     return;
   end if;
 
+  v_operator_campus_id := v_payment.operator_campus_id;
+  if v_operator_campus_id is null then
+    select e.campus_id
+    into v_operator_campus_id
+    from public.enrollments e
+    where e.id = v_payment.enrollment_id;
+  end if;
+
   insert into public.payment_refunds (
     payment_id,
     enrollment_id,
@@ -231,7 +240,7 @@ begin
     v_payment.currency,
     p_refund_method,
     p_refunded_at,
-    v_payment.operator_campus_id,
+    v_operator_campus_id,
     trim(p_reason),
     nullif(trim(coalesce(p_notes, '')), ''),
     v_charge_breakdown,
@@ -250,7 +259,28 @@ begin
     v_payment.id,
     v_payment.enrollment_id,
     v_payment.amount,
-    v_payment.operator_campus_id;
+    v_operator_campus_id;
+exception
+  when not_null_violation or foreign_key_violation or check_violation then
+    return query
+    select
+      false,
+      'refund_insert_failed',
+      null::uuid,
+      v_payment.id,
+      v_payment.enrollment_id,
+      v_payment.amount,
+      coalesce(v_operator_campus_id, v_payment.operator_campus_id);
+  when others then
+    return query
+    select
+      false,
+      'refund_failed',
+      null::uuid,
+      v_payment.id,
+      v_payment.enrollment_id,
+      v_payment.amount,
+      coalesce(v_operator_campus_id, v_payment.operator_campus_id);
 end;
 $$;
 
