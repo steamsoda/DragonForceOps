@@ -1,3 +1,5 @@
+-- Issue 56: refunds + payment reassignment workflow v1
+
 create table if not exists public.payment_refunds (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references public.payments(id) on delete restrict,
