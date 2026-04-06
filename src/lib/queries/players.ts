@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
+import { getEnrollmentLedger, type EnrollmentLedger } from "@/lib/queries/billing";
 
 const PAGE_SIZE = 20;
 
@@ -536,6 +537,7 @@ export async function getPlayerDetail(playerId: string) {
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
   let teamAssignment: TeamAssignmentDetailRow | null = null;
   let activeIncident: ActiveIncident | null = null;
+  let activeEnrollmentLedger: EnrollmentLedger | null = null;
 
   await Promise.all([
     enrollmentIds.length > 0
@@ -584,8 +586,12 @@ export async function getPlayerDetail(playerId: string) {
               })),
             );
           })
-      : Promise.resolve()
+      : Promise.resolve(),
   ]);
+
+  if (activeEnrollmentRow) {
+    activeEnrollmentLedger = await getEnrollmentLedger(activeEnrollmentRow.id);
+  }
 
   const guardians = (guardianRows ?? [])
     .filter((row) => !!row.guardians)
@@ -614,6 +620,8 @@ export async function getPlayerDetail(playerId: string) {
       balance: balance?.balance ?? 0
     };
   });
+  const activeEnrollment = enrollments.find((row) => row.status === "active") ?? null;
+  const historicalEnrollments = enrollments.filter((row) => row.status !== "active");
 
   const team = (teamAssignment as TeamAssignmentDetailRow | null)?.teams ?? null;
 
@@ -632,6 +640,9 @@ export async function getPlayerDetail(playerId: string) {
     activeIncident,
     guardians,
     enrollments,
+    activeEnrollment,
+    historicalEnrollments,
+    activeEnrollmentLedger,
     activeTeam: team
       ? {
           id: team.id,

@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-04.
+Updated continuously. Last updated: 2026-04-05.
 
-Current preview release line: `v1.9.2`
+Current preview release line: `v1.10.0`
 
 ---
 
@@ -12,8 +12,9 @@ Current preview release line: `v1.9.2`
 ### Immediate Sequence
 
 1. `#17` Uniformes dashboard validation / rollout follow-up
-2. then return to smaller operational follow-up items such as `#32`, `#16`, and `#56`
-3. after that, resume larger sports-management planning like `#38`
+2. `#35` player profile consolidation / single-player hub
+3. then return to smaller operational follow-up items such as `#32`, `#16`, and `#56`
+4. after that, resume larger sports-management planning like `#38`
 
 Notes:
 
@@ -24,6 +25,29 @@ Notes:
   - every repo-tracked implementation change bumps `package.json`
   - every push updates `docs/devlog.md`
   - patch = fixes/polish/perf, minor = meaningful feature/workflow additions
+
+### 0. App Health / Hardening Passes
+
+Run these as explicit periodic passes between feature waves so the app keeps maturing safely as real operations expand:
+
+- architecture / data-ownership review
+  - keep one clear source of truth per business rule and reduce overlapping logic between pages
+- permissions audit refresh
+  - recheck route guards, campus scope, action guards, and RLS-sensitive surfaces after major workflow additions
+- finance / payment / reporting regression checklist
+  - verify receipts, allocations, operator-campus ownership, `paid_at` semantics, corte outputs, and monthly/weekly summaries still agree
+- performance hotspot review
+  - identify slow pages, heavy queries, unnecessary refreshes, and wide payloads before they become daily friction
+- backup / recovery / rollback confidence
+  - confirm migration safety, reversible finance actions where applicable, and practical rollback paths for preview/prod incidents
+- migration / deployment verification discipline
+  - keep preview/prod DB parity visible, confirm migrations actually apply, and avoid schema drift between code and remote environments
+
+Notes:
+
+- This is not a panic rewrite track.
+- The goal is controlled evolution, not perfection.
+- Treat this as an operational maturity lane that should recur after major feature waves like Uniformes, refunds, and future sports modules.
 
 ### 1. Finance Ops Stabilization 💳
 
@@ -142,7 +166,7 @@ Follow after the operational tracks above:
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |
-| 35 | **Player profile consolidation** | 🔴 Open | Show full account (enrollment, charges, payments, uniforms, guardians) directly on player profile page. "Cuenta Completa" accessible without navigating away — reduce clicks significantly. |
+| 35 | **Player profile consolidation** | 🟡 In progress | The player profile is now being promoted into the single-player hub: active account detail (summary, charges, payments, incidents, payment form), guardians, uniforms, and compact expandable enrollment history live directly on `/players/[id]`, while the enrollment account page remains as the fallback deep-detail route. |
 | 36 | **Document uploads per player** | 🔴 Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
 | 37 | **Player dropout historical record / bajas revamp** | 🔴 Open | Current bajas flow needs a fuller operational picture. Improve the Bajas view with enrollment history, reasons, balances, and decision support for future re-enrollment handling. |
 | 38 | **League/tournament tag + management tab** | 🔴 Open | Sports-ops priority. Use the existing `tournaments` schema as the base for tournament/league/cup management, team entries, and player-level readiness. Keep Director Deportivo views focused on payment status, not money totals. |

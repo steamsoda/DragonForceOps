@@ -1,5 +1,56 @@
 # Devlog
 
+## 2026-04-05 (session 44)
+
+### Player Profile Consolidation / Single-Player Hub v1
+
+- Reworked the player profile into the default single-player operational hub instead of a thin summary page.
+- The player page now brings the active enrollment account inline, so staff can handle most normal single-player work without leaving the profile:
+  - account summary cards
+  - payment posting
+  - incident management
+  - charges table
+  - payments table
+- Reorganized the page into clearer operational sections:
+  - top identity and status summary
+  - quick actions
+  - player basics
+  - guardians / contact
+  - current enrollment + account
+  - uniforms
+  - compact enrollment history
+- Added stronger chips / tags for high-signal operational state, including:
+  - active / inactive enrollment state
+  - campus
+  - team / level
+  - goalkeeper
+  - active incident
+  - uniform state
+  - balance state
+- Historical enrollments now stay compact by default and expand only when staff wants more detail, keeping the current enrollment visually dominant.
+- The dedicated enrollment account page remains available as a deep-detail / fallback route, but the player profile is now the main single-player workspace.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
+## 2026-04-05 (session 43)
+
+### App Health / Hardening Track Added
+
+- Added a dedicated app-health / hardening priority to the roadmap so long-term stability is treated as planned work, not just a vague worry about AI-built software.
+- Locked the framing for this track:
+  - the app is already real operational software, not a throwaway demo
+  - the main risk is unmanaged technical debt or inconsistent business rules, not "AI code" by itself
+  - hardening should happen as recurring passes between feature waves, especially around finance, permissions, reporting, and performance
+- The new roadmap track now explicitly calls out:
+  - architecture / data-ownership review
+  - permissions audit refresh
+  - finance/payment/report regression checklist
+  - performance hotspot review
+  - backup / recovery / rollback confidence
+  - migration / preview / prod deployment verification discipline
+- This is intentionally framed as an operational maturity lane, not a panic rewrite or anti-feature freeze.
+
 ## 2026-04-05 (session 42)
 
 ### Pendientes Call-Center Mode v1
