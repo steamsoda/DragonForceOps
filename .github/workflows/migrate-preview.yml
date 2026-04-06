@@ -25,8 +25,8 @@ jobs:
 
       - name: Apply migrations to preview
         run: |
-          supabase link --project-ref "eqefgwdsqabnmpnbpqbq" --password "$SUPABASE_PREVIEW_DB_PASSWORD"
-          supabase db push --password "$SUPABASE_PREVIEW_DB_PASSWORD"
+          ENCODED_PASSWORD="$(python3 -c "import os, urllib.parse; print(urllib.parse.quote(os.environ['SUPABASE_PREVIEW_DB_PASSWORD']))")"
+          DB_URL="postgresql://postgres:${ENCODED_PASSWORD}@db.eqefgwdsqabnmpnbpqbq.supabase.co:5432/postgres?sslmode=require"
+          supabase db push --db-url "$DB_URL"
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PREVIEW_DB_PASSWORD: ${{ secrets.SUPABASE_PREVIEW_DB_PASSWORD }}
