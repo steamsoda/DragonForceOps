@@ -4,12 +4,8 @@ import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { findContryCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
-import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
-import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
-import { PaymentsTable } from "@/components/billing/payments-table";
-import { HistoricalPaymentPostForm } from "@/components/billing/historical-payment-post-form";
 import { ContryRegularizationPlayerPicker } from "@/components/billing/contry-regularization-player-picker";
-import { postContryHistoricalPaymentRedirectAction } from "@/server/actions/payments";
+import { ContryRegularizationAccountPanel } from "@/components/billing/contry-regularization-account-panel";
 
 type SearchParams = Promise<{
   enrollment?: string;
@@ -43,14 +39,6 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
   if (selectedEnrollmentId && (!selectedLedger || selectedLedger.enrollment.campusId !== contryCampus.id)) {
     notFound();
   }
-
-  const baseParams = new URLSearchParams();
-  if (selectedEnrollmentId) baseParams.set("enrollment", selectedEnrollmentId);
-  const returnTo = `/regularizacion/contry${baseParams.toString() ? `?${baseParams.toString()}` : ""}`;
-
-  const postHistoricalPayment = selectedLedger
-    ? postContryHistoricalPaymentRedirectAction.bind(null, selectedLedger.enrollment.id, contryCampus.id, returnTo)
-    : null;
 
   const successMessage =
     params.ok === "historical_payment_posted"
@@ -107,49 +95,7 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
                 Selecciona una cuenta de Contry para revisar cargos pendientes y capturar el pago historico.
               </div>
             ) : (
-              <>
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedLedger.enrollment.playerName}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        {selectedLedger.enrollment.campusName} ({selectedLedger.enrollment.campusCode}) | Inscripcion {selectedLedger.enrollment.id}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/enrollments/${selectedLedger.enrollment.id}/charges`}
-                      className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      Ver cuenta completa
-                    </Link>
-                  </div>
-                </div>
-
-                <LedgerSummaryCards
-                  currency={selectedLedger.enrollment.currency}
-                  totalCharges={selectedLedger.totals.totalCharges}
-                  totalPayments={selectedLedger.totals.totalPayments}
-                  balance={selectedLedger.totals.balance}
-                />
-
-                {postHistoricalPayment ? (
-                  <HistoricalPaymentPostForm
-                    action={postHistoricalPayment}
-                    currentBalance={selectedLedger.totals.balance}
-                    currency={selectedLedger.enrollment.currency}
-                  />
-                ) : null}
-
-                <section className="space-y-2">
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos pendientes e historicos</h3>
-                  <ChargesLedgerTable rows={selectedLedger.charges} />
-                </section>
-
-                <section className="space-y-2">
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Pagos registrados</h3>
-                  <PaymentsTable rows={selectedLedger.payments} />
-                </section>
-              </>
+              <ContryRegularizationAccountPanel initialLedger={selectedLedger} contryCampusId={contryCampus.id} />
             )}
           </section>
         </div>

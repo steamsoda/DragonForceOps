@@ -24,6 +24,7 @@ import {
 } from "@/server/actions/payment-posting";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
+import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -182,10 +183,12 @@ async function createResolvedAdvanceTuitionCharge(
     enrollmentId,
     periodMonth,
     userId,
+    requiredCampusId,
   }: {
     enrollmentId: string;
     periodMonth: string;
     userId: string;
+    requiredCampusId?: string;
   }
 ) {
   const normalizedPeriodMonth = normalizePeriodMonth(periodMonth);
@@ -199,6 +202,16 @@ async function createResolvedAdvanceTuitionCharge(
   if (!enrollment) return { ok: false as const, error: "enrollment_not_found" };
   if (enrollment.status === "ended" || enrollment.status === "cancelled") {
     return { ok: false as const, error: "enrollment_inactive" };
+  }
+  const { data: campusRow } = await supabase
+    .from("enrollments")
+    .select("campus_id")
+    .eq("id", enrollmentId)
+    .maybeSingle()
+    .returns<{ campus_id: string } | null>();
+  if (!campusRow) return { ok: false as const, error: "enrollment_not_found" };
+  if (requiredCampusId && campusRow.campus_id !== requiredCampusId) {
+    return { ok: false as const, error: "enrollment_not_found" };
   }
 
   const planCode = enrollment.pricing_plans?.plan_code;
@@ -310,7 +323,8 @@ export async function getProductsForCajaAction(): Promise<CajaProductCategory[]>
 
 export async function postCajaChargeAction(
   enrollmentId: string,
-  formData: FormData
+  formData: FormData,
+  requiredCampusId?: string,
 ): Promise<CajaChargeResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const productId = formData.get("productId")?.toString().trim() ?? "";
@@ -366,6 +380,7 @@ export async function postCajaChargeAction(
       enrollmentId,
       periodMonth: periodMonthRaw,
       userId: user.id,
+      requiredCampusId,
     });
     if (!tuitionResult.ok) return tuitionResult;
 
@@ -394,14 +409,17 @@ export async function postCajaChargeAction(
 
     const { data: enrollment } = await supabase
       .from("enrollments")
-      .select("id, status, pricing_plans(currency)")
+      .select("id, status, campus_id, pricing_plans(currency)")
       .eq("id", enrollmentId)
       .maybeSingle()
-      .returns<{ id: string; status: string; pricing_plans: { currency: string } | null } | null>();
+      .returns<{ id: string; status: string; campus_id: string; pricing_plans: { currency: string } | null } | null>();
 
     if (!enrollment) return { ok: false, error: "enrollment_not_found" };
     if (enrollment.status === "ended" || enrollment.status === "cancelled") {
       return { ok: false, error: "enrollment_inactive" };
+    }
+    if (requiredCampusId && enrollment.campus_id !== requiredCampusId) {
+      return { ok: false, error: "enrollment_not_found" };
     }
 
     const currency = enrollment.pricing_plans?.currency ?? "MXN";
@@ -571,7 +589,8 @@ export async function searchPlayersForCajaAction(q: string): Promise<CajaPlayerR
 
 export async function createAdvanceTuitionAction(
   enrollmentId: string,
-  periodMonth: string // "YYYY-MM"
+  periodMonth: string, // "YYYY-MM"
+  requiredCampusId?: string,
 ): Promise<CajaAdvanceTuitionResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   if (!periodMonth) {
@@ -586,6 +605,7 @@ export async function createAdvanceTuitionAction(
     enrollmentId,
     periodMonth,
     userId: user.id,
+    requiredCampusId,
   });
   if (!tuitionResult.ok) return tuitionResult;
 
@@ -816,34 +836,26 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
 
   // ── Allocate new payment(s) ───────────────────────────────────────────────
   // Helper: runs a FIFO allocation pass, consuming from `available` map
-  function allocatePass(
-    budget: number,
-    chargeList: typeof effectiveCharges,
-    available: Map<string, number>,
-    priorityIds: Set<string>
-  ): Array<{ chargeId: string; amount: number }> {
-    const result: Array<{ chargeId: string; amount: number }> = [];
-    let rem = budget;
-    const ordered = priorityIds.size > 0
-      ? [...chargeList.filter(c => priorityIds.has(c.id)), ...chargeList.filter(c => !priorityIds.has(c.id))]
-      : chargeList;
-    for (const charge of ordered) {
-      if (rem <= 0) break;
-      const ep = available.get(charge.id) ?? 0;
-      if (ep <= 0) continue;
-      const alloc = Math.round(Math.min(rem, ep) * 100) / 100;
-      result.push({ chargeId: charge.id, amount: alloc });
-      available.set(charge.id, Math.round((ep - alloc) * 100) / 100);
-      rem = Math.round((rem - alloc) * 100) / 100;
-    }
-    return result;
-  }
-
   const available = new Map(effectiveCharges.map(c => [c.id, c.pendingAmount]));
-  const allocations1 = allocatePass(parsed.amount, effectiveCharges, available, targetSet);
-  const allocations2 = parsed.split
-    ? allocatePass(parsed.split.amount, effectiveCharges, available, new Set())
-    : [];
+  const firstPassCharges = effectiveCharges.map((charge) => ({
+    id: charge.id,
+    pendingAmount: available.get(charge.id) ?? 0,
+  }));
+  const firstPass = allocateChargesWithPriority(parsed.amount, firstPassCharges, targetSet);
+  for (const allocation of firstPass.allocations) {
+    const pending = available.get(allocation.chargeId) ?? 0;
+    available.set(allocation.chargeId, Math.round((pending - allocation.amount) * 100) / 100);
+  }
+  const allocations1 = firstPass.allocations;
+
+  const secondPassCharges = effectiveCharges.map((charge) => ({
+    id: charge.id,
+    pendingAmount: available.get(charge.id) ?? 0,
+  }));
+  const secondPass = parsed.split
+    ? allocateChargesWithPriority(parsed.split.amount, secondPassCharges, [])
+    : { allocations: [] as Array<{ chargeId: string; amount: number }> };
+  const allocations2 = secondPass.allocations;
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase

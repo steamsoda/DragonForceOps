@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { canAccessCampus, findContryCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
+import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { listPlayers } from "@/lib/queries/players";
 import { createClient } from "@/lib/supabase/server";
+import { getAdvanceTuitionOptions } from "@/lib/pricing/plans";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { redirect } from "next/navigation";
@@ -70,6 +72,10 @@ export type ContryRegularizationDrilldownMeta = {
   campusId: string;
   campusName: string;
   birthYears: number[];
+};
+
+export type ContryRegularizationChargeContext = {
+  advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
 };
 
 type SharedPostedPayment = {
@@ -160,15 +166,11 @@ async function postEnrollmentPaymentInternal(
 
   if (pendingCharges.length === 0) return { ok: false, error: "no_pending_charges" };
 
-  const allocations: Array<{ chargeId: string; amount: number }> = [];
-  let remaining = parsed.amount;
-
-  for (const charge of pendingCharges) {
-    if (remaining <= 0) break;
-    const allocated = Math.min(remaining, charge.pendingAmount);
-    allocations.push({ chargeId: charge.id, amount: Math.round(allocated * 100) / 100 });
-    remaining = Math.round((remaining - allocated) * 100) / 100;
-  }
+  const { allocations } = allocateChargesWithPriority(
+    parsed.amount,
+    pendingCharges.map((charge) => ({ id: charge.id, pendingAmount: charge.pendingAmount })),
+    parsed.targetChargeIds,
+  );
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase
@@ -326,6 +328,51 @@ export async function getContryRegularizationDrilldownMetaAction(): Promise<Cont
     campusName: contryCampus.name,
     birthYears,
   };
+}
+
+export async function getContryRegularizationChargeContextAction(
+  enrollmentId: string,
+): Promise<ContryRegularizationChargeContext | null> {
+  const context = await getContryRegularizationContext();
+  if (!context) return null;
+
+  const { supabase, contryCampus } = context;
+  const ledger = await getEnrollmentLedger(enrollmentId);
+  if (!ledger || ledger.enrollment.campusId !== contryCampus.id) return null;
+
+  const { data: enrollmentPlan } = await supabase
+    .from("enrollments")
+    .select("pricing_plans(plan_code)")
+    .eq("id", enrollmentId)
+    .maybeSingle()
+    .returns<{ pricing_plans: { plan_code: string } | null } | null>();
+
+  const planCode = enrollmentPlan?.pricing_plans?.plan_code;
+  const existingPeriods = ledger.charges
+    .filter((charge) => charge.typeCode === "monthly_tuition" && charge.status !== "void" && charge.periodMonth)
+    .map((charge) => charge.periodMonth!);
+
+  const advanceTuitionOptions = planCode
+    ? await getAdvanceTuitionOptions(supabase, { planCode, existingPeriodMonths: existingPeriods })
+    : [];
+
+  return {
+    advanceTuitionOptions: advanceTuitionOptions.map((option) => ({
+      periodMonth: option.periodMonth,
+      label: option.label,
+      amount: option.amount,
+    })),
+  };
+}
+
+export async function getContryRegularizationLedgerAction(enrollmentId: string) {
+  const context = await getContryRegularizationContext();
+  if (!context) return null;
+
+  const ledger = await getEnrollmentLedger(enrollmentId);
+  if (!ledger || ledger.enrollment.campusId !== context.contryCampus.id) return null;
+
+  return ledger;
 }
 
 export async function searchContryRegularizationPlayersAction(

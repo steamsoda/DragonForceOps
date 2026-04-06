@@ -1520,3 +1520,18 @@
   - no payment semantics changed
   - no receipt/reporting behavior changed
   - Caja behavior remains untouched
+
+### Regularización Contry Emergency Patch: Targeted Payments + Add Charge (v1.11.4)
+- Extended `Regularización Contry` so staff can now target specific pending charges when posting a historical payment.
+  - selected charges are paid first
+  - any remaining amount continues FIFO across the rest of the pending balance
+  - Contry historical-payment semantics stay unchanged (`paid_at` required, Contry ownership forced, no cash-session linking, no auto-print)
+- Reworked the right-side Contry account panel into an inline client workspace:
+  - pending-charge selection area for targeted payment
+  - historical payment form with selected-total helper
+  - Caja-lite add-charge section without full POS/cart behavior
+- Added inline charge creation from the same Contry workflow:
+  - catalog-based charges reuse Caja product rules
+  - advance tuition creation is now available without leaving the regularization screen
+  - successful charge creation refreshes the same ledger/payment panel immediately
+- Caja itself keeps the same behavior; only shared allocation helpers and optional campus guards were reused under the hood.
