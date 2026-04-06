@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-06 (session 50)
+
+### Production Migration Workflow Hardening
+
+- Hardened the production DB migration workflow after the preview migration failures exposed the old connection path as too brittle.
+- `migrate-production.yml` now uses the repository `SUPABASE_PROD_DB_URL` secret directly instead of relying on the older `supabase link` + password flow.
+- This keeps production migrations aligned with the more reliable direct DB connection approach and reduces the risk of future `main` migration runs failing for connection/setup reasons unrelated to the SQL itself.
+- No app-code behavior changed in this pass.
+
 ## 2026-04-06 (session 49)
 
 ### Refunds + Payment Reassignment Workflow v1
