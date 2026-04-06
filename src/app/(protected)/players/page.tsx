@@ -163,9 +163,28 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
     <div className="space-y-3 md:hidden">
       {rows.map((row) => (
         <div key={row.playerId} className="space-y-2 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
-          <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
-            {row.fullName}
-          </Link>
+          <div className="space-y-1">
+            <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+              {row.fullName}
+            </Link>
+            <div className="flex flex-wrap gap-1">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                Baja
+              </span>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                {row.campusName}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  row.pendingBalance > 0
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                }`}
+              >
+                {row.pendingBalance > 0 ? "Saldo pendiente" : "Sin saldo"}
+              </span>
+            </div>
+          </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">Inscripcion: {fmtDate(row.startDate)}</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">Baja: {fmtDate(row.endDate)}</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -466,16 +485,18 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <tr>
                     <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">Campus</th>
                     <th className="px-3 py-2">Fecha inscripcion</th>
                     <th className="px-3 py-2">Fecha baja</th>
                     <th className="px-3 py-2">Dias inscrito</th>
                     <th className="px-3 py-2">Motivo</th>
+                    <th className="px-3 py-2">Saldo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {bajaRows.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={7}>
                         No se encontraron jugadores dados de baja con esos filtros.
                       </td>
                     </tr>
@@ -487,10 +508,22 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                             {row.fullName}
                           </Link>
                         </td>
+                        <td className="px-3 py-2">{row.campusName}</td>
                         <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
                         <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
                         <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>
                         <td className="px-3 py-2">{row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              row.pendingBalance > 0
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            }`}
+                          >
+                            {row.pendingBalance > 0 ? "Saldo pendiente" : "Sin saldo"}
+                          </span>
+                        </td>
                       </tr>
                     ))
                   )}

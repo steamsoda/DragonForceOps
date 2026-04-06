@@ -254,6 +254,7 @@ export default async function PlayerDetailPage({
   if (!player) notFound();
 
   const activeEnrollment = player.activeEnrollment;
+  const archiveEnrollment = player.latestEndedEnrollment;
   const activeEnrollmentId = activeEnrollment?.id ?? null;
   const activeLedger = player.activeEnrollmentLedger;
   const uniformOrders = activeEnrollmentId ? await getUniformOrdersAction(activeEnrollmentId) : [];
@@ -261,10 +262,11 @@ export default async function PlayerDetailPage({
   const incidentSummary = activeIncidentSummary(activeIncident);
   const primaryGuardian = player.guardians[0] ?? null;
   const uniformSummary = getUniformSummary(uniformOrders);
+  const profileBalance = activeLedger?.totals.balance ?? activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0;
   const balanceTone =
-    (activeLedger?.totals.balance ?? activeEnrollment?.balance ?? 0) > 0
+    profileBalance > 0
       ? "amber"
-      : (activeLedger?.totals.balance ?? activeEnrollment?.balance ?? 0) < 0
+      : profileBalance < 0
         ? "emerald"
         : "slate";
 
@@ -275,6 +277,8 @@ export default async function PlayerDetailPage({
         ? "Datos del tutor actualizados."
         : sp.ok === "merged"
           ? "Jugadores fusionados correctamente. Este es el registro master."
+          : sp.ok === "dropped"
+            ? "Inscripcion dada de baja correctamente."
           : null;
 
   const postPayment = activeEnrollmentId ? postEnrollmentPaymentAction.bind(null, activeEnrollmentId) : null;
@@ -304,8 +308,8 @@ export default async function PlayerDetailPage({
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {activeEnrollment
                     ? `${activeEnrollment.campusName} (${activeEnrollment.campusCode})`
-                    : player.historicalEnrollments[0]
-                      ? `${player.historicalEnrollments[0].campusName} (${player.historicalEnrollments[0].campusCode})`
+                    : archiveEnrollment
+                      ? `${archiveEnrollment.campusName} (${archiveEnrollment.campusCode})`
                       : "Sin inscripcion activa"}
                 </p>
                 <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{player.fullName}</h2>
@@ -316,19 +320,21 @@ export default async function PlayerDetailPage({
 
               <div className="flex flex-wrap gap-2">
                 <SummaryChip label={activeEnrollment ? "Activo" : "Baja"} tone={activeEnrollment ? "emerald" : "slate"} />
-                {activeEnrollment ? <SummaryChip label={activeEnrollment.campusName} tone="blue" /> : null}
+                {(activeEnrollment ?? archiveEnrollment) ? (
+                  <SummaryChip label={(activeEnrollment ?? archiveEnrollment)!.campusName} tone="blue" />
+                ) : null}
                 {player.activeTeam?.name ? <SummaryChip label={player.activeTeam.name} tone="blue" /> : null}
                 {player.activeTeam?.level ? <SummaryChip label={`Nivel ${player.activeTeam.level}`} tone="violet" /> : null}
                 {player.isGoalkeeper ? <SummaryChip label="Portero" tone="violet" /> : null}
                 {activeIncident ? (
                   <SummaryChip label={activeIncident.type === "injury" ? "Lesion activa" : "Ausencia activa"} tone={activeIncident.type === "injury" ? "rose" : "blue"} />
                 ) : null}
-                <SummaryChip label={uniformSummary.label} tone={uniformSummary.tone} />
+                {activeEnrollment ? <SummaryChip label={uniformSummary.label} tone={uniformSummary.tone} /> : null}
                 <SummaryChip
                   label={
-                    (activeLedger?.totals.balance ?? activeEnrollment?.balance ?? 0) > 0
+                    profileBalance > 0
                       ? "Saldo pendiente"
-                      : (activeLedger?.totals.balance ?? activeEnrollment?.balance ?? 0) < 0
+                      : profileBalance < 0
                         ? "Credito"
                         : "Al corriente"
                   }
@@ -381,6 +387,30 @@ export default async function PlayerDetailPage({
                   Editar inscripcion
                 </Link>
               ) : null}
+              {activeEnrollmentId ? (
+                <Link
+                  href={`/players/${player.id}/enrollments/${activeEnrollmentId}/dropout`}
+                  className="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
+                >
+                  Dar de baja
+                </Link>
+              ) : null}
+              {!activeEnrollmentId && archiveEnrollment ? (
+                <Link
+                  href={`/enrollments/${archiveEnrollment.id}/charges`}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Ver cuenta anterior
+                </Link>
+              ) : null}
+              {!activeEnrollmentId && archiveEnrollment?.balance && archiveEnrollment.balance > 0 ? (
+                <Link
+                  href="/pending/bajas"
+                  className="rounded-md border border-amber-300 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
+                >
+                  Ir a Bajas y saldos pendientes
+                </Link>
+              ) : null}
               <Link
                 href={`/players/${player.id}/edit`}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
@@ -431,18 +461,55 @@ export default async function PlayerDetailPage({
                 <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas medicas</p>
                 <p className="font-medium">{player.medicalNotes ?? "-"}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo</p>
-                <p className="font-medium">{player.activeTeam?.name ?? "Sin equipo"}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coach</p>
-                <p className="font-medium">{player.activeTeam?.coachName ?? "Sin asignar"}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan actual</p>
-                <p className="font-medium">{activeEnrollment?.pricingPlanName ?? "-"}</p>
-              </div>
+              {activeEnrollment ? (
+                <>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo</p>
+                    <p className="font-medium">{player.activeTeam?.name ?? "Sin equipo"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coach</p>
+                    <p className="font-medium">{player.activeTeam?.coachName ?? "Sin asignar"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan actual</p>
+                    <p className="font-medium">{activeEnrollment.pricingPlanName}</p>
+                  </div>
+                </>
+              ) : archiveEnrollment ? (
+                <>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Ultimo campus</p>
+                    <p className="font-medium">
+                      {archiveEnrollment.campusName} ({archiveEnrollment.campusCode})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Periodo</p>
+                    <p className="font-medium">
+                      {fmtDate(archiveEnrollment.startDate)} - {fmtDate(archiveEnrollment.endDate)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo pendiente</p>
+                    <p className={`font-medium ${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                      {formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Motivo de baja</p>
+                    <p className="font-medium">
+                      {archiveEnrollment.dropoutReason
+                        ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
+                        : "Sin motivo registrado"}
+                    </p>
+                  </div>
+                  <div className="md:col-span-2 xl:col-span-2">
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas de baja</p>
+                    <p className="font-medium">{archiveEnrollment.dropoutNotes ?? "-"}</p>
+                  </div>
+                </>
+              ) : null}
             </div>
           </section>
 
@@ -500,27 +567,25 @@ export default async function PlayerDetailPage({
           </section>
         </div>
 
-        <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cuenta actual</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Vista completa de la inscripcion activa, cargos, pagos e incidencias.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {activeEnrollmentId ? (
+        {activeLedger ? (
+          <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cuenta actual</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Vista completa de la inscripcion activa, cargos, pagos e incidencias.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <Link
                   href={`/enrollments/${activeEnrollmentId}/charges`}
                   className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
                 >
                   Ver cuenta dedicada
                 </Link>
-              ) : null}
+              </div>
             </div>
-          </div>
 
-          {activeLedger ? (
             <div className="space-y-5">
               <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 md:grid-cols-4">
                 <div>
@@ -587,12 +652,85 @@ export default async function PlayerDetailPage({
                 </section>
               </div>
             </div>
-          ) : (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
-              Este jugador no tiene inscripcion activa. Usa el boton "Nueva inscripcion" para reactivarlo.
+          </section>
+        ) : archiveEnrollment ? (
+          <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Archivo del jugador</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Esta ficha ya no tiene inscripcion activa. Usa este resumen para contexto historico y reingreso.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/enrollments/${archiveEnrollment.id}/charges`}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Ver cuenta anterior
+                </Link>
+                <Link
+                  href={`/players/${player.id}/enrollments/new`}
+                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                >
+                  Nueva inscripcion
+                </Link>
+              </div>
             </div>
-          )}
-        </section>
+
+            <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 md:grid-cols-4">
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Ultimo campus</p>
+                <p className="font-medium">{archiveEnrollment.campusName}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Inicio</p>
+                <p className="font-medium">{fmtDate(archiveEnrollment.startDate)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Baja</p>
+                <p className="font-medium">{fmtDate(archiveEnrollment.endDate)}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo pendiente</p>
+                <p className={`font-medium ${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                  {formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[1.1fr_1fr]">
+              <div className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Motivo de baja</p>
+                <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+                  {archiveEnrollment.dropoutReason
+                    ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
+                    : "Sin motivo registrado"}
+                </p>
+                {archiveEnrollment.dropoutNotes ? (
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{archiveEnrollment.dropoutNotes}</p>
+                ) : null}
+              </div>
+
+              <div className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Siguiente paso</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  {archiveEnrollment.balance > 0
+                    ? "Este jugador ya esta de baja, pero aun conserva saldo pendiente. La baja no anula cargos automaticamente."
+                    : "Este jugador ya esta archivado y sin saldo pendiente. Si regresa, crea una nueva inscripcion."}
+                </p>
+                {archiveEnrollment.balance > 0 ? (
+                  <Link
+                    href="/pending/bajas"
+                    className="mt-3 inline-flex rounded-md border border-amber-300 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
+                  >
+                    Ir a Bajas y saldos pendientes
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {activeEnrollmentId ? (
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
@@ -600,6 +738,7 @@ export default async function PlayerDetailPage({
           </div>
         ) : null}
 
+        {!activeEnrollment ? (
         <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -628,6 +767,7 @@ export default async function PlayerDetailPage({
             </div>
           )}
         </section>
+        ) : null}
       </div>
     </PageShell>
   );

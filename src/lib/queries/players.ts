@@ -111,6 +111,7 @@ type BajaEnrollmentRow = {
   end_date: string | null;
   campus_id: string;
   dropout_reason: string | null;
+  campuses: { name: string | null; code: string | null } | null;
   players: { first_name: string | null; last_name: string | null } | null;
 };
 
@@ -416,7 +417,7 @@ export async function listBajas(filters: BajaListFilters) {
 
   let query = supabase
     .from("enrollments")
-    .select("player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name)")
+    .select("id, player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name), campuses(name, code)")
     .in("status", ["ended", "cancelled"])
     .in("campus_id", campusAccess.campusIds)
     .order("end_date", { ascending: false });
@@ -428,7 +429,17 @@ export async function listBajas(filters: BajaListFilters) {
     query = query.eq("campus_id", filters.campusId);
   }
 
-  const { data: rows } = await query.returns<BajaEnrollmentRow[]>();
+  const { data: rows } = await query.returns<Array<BajaEnrollmentRow & { id: string }>>();
+
+  const endedEnrollmentIds = (rows ?? []).map((row) => row.id);
+  const { data: endedBalanceRows } = endedEnrollmentIds.length
+    ? await supabase
+        .from("v_enrollment_balances")
+        .select("enrollment_id, balance")
+        .in("enrollment_id", endedEnrollmentIds)
+        .returns<ListBalanceRow[]>()
+    : { data: [] as ListBalanceRow[] };
+  const endedBalanceMap = new Map((endedBalanceRows ?? []).map((row) => [row.enrollment_id, row.balance]));
 
   // Deduplicate: keep only most recent ended enrollment per player; exclude active players
   const seen = new Set<string>();
@@ -459,7 +470,10 @@ export async function listBajas(filters: BajaListFilters) {
       startDate: row.start_date,
       endDate: row.end_date,
       daysEnrolled,
-      dropoutReason: row.dropout_reason
+      dropoutReason: row.dropout_reason,
+      campusName: row.campuses?.name ?? "-",
+      campusCode: row.campuses?.code ?? "-",
+      pendingBalance: endedBalanceMap.get(row.id) ?? 0,
     };
   });
 
@@ -622,6 +636,12 @@ export async function getPlayerDetail(playerId: string) {
   });
   const activeEnrollment = enrollments.find((row) => row.status === "active") ?? null;
   const historicalEnrollments = enrollments.filter((row) => row.status !== "active");
+  const latestEndedEnrollment =
+    [...historicalEnrollments].sort((a, b) => {
+      const left = a.endDate ?? a.startDate;
+      const right = b.endDate ?? b.startDate;
+      return right.localeCompare(left);
+    })[0] ?? null;
 
   const team = (teamAssignment as TeamAssignmentDetailRow | null)?.teams ?? null;
 
@@ -640,8 +660,10 @@ export async function getPlayerDetail(playerId: string) {
     activeIncident,
     guardians,
     enrollments,
+    hasActiveEnrollment: !!activeEnrollment,
     activeEnrollment,
     historicalEnrollments,
+    latestEndedEnrollment,
     activeEnrollmentLedger,
     activeTeam: team
       ? {

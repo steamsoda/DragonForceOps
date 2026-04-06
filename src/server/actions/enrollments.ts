@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
 import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
-import { parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
+import { parseEnrollmentDropoutData, parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
 import { parseDateOnlyInput } from "@/lib/time";
@@ -204,6 +204,10 @@ function redirectWithEditError(enrollmentId: string, playerId: string, code: str
   redirect(`/players/${playerId}/enrollments/${enrollmentId}/edit?err=${code}`);
 }
 
+function redirectWithDropoutError(enrollmentId: string, playerId: string, code: string): never {
+  redirect(`/players/${playerId}/enrollments/${enrollmentId}/dropout?err=${code}`);
+}
+
 export async function updateEnrollmentAction(
   enrollmentId: string,
   playerId: string,
@@ -281,6 +285,76 @@ export async function updateEnrollmentAction(
 
   revalidatePath(`/players/${playerId}`);
   redirect(`/players/${playerId}`);
+}
+
+export async function dropoutEnrollmentAction(
+  enrollmentId: string,
+  playerId: string,
+  formData: FormData,
+) {
+  await assertDebugWritesAllowed(`/players/${playerId}/enrollments/${enrollmentId}/dropout`);
+  const parsed = parseEnrollmentDropoutData(formData);
+  if (!parsed) return redirectWithDropoutError(enrollmentId, playerId, "invalid_form");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return redirectWithDropoutError(enrollmentId, playerId, "unauthenticated");
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return redirectWithDropoutError(enrollmentId, playerId, "unauthenticated");
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, campus_id, status")
+    .eq("id", enrollmentId)
+    .eq("player_id", playerId)
+    .maybeSingle<{ id: string; campus_id: string; status: string }>();
+
+  if (!enrollment) return redirectWithDropoutError(enrollmentId, playerId, "not_found");
+  if (!canAccessCampus(campusAccess, enrollment.campus_id)) {
+    return redirectWithDropoutError(enrollmentId, playerId, "not_found");
+  }
+  if (enrollment.status !== "active") {
+    return redirectWithDropoutError(enrollmentId, playerId, "not_active");
+  }
+
+  const { error } = await supabase
+    .from("enrollments")
+    .update({
+      status: "ended",
+      end_date: parsed.endDate,
+      dropout_reason: parsed.dropoutReason,
+      dropout_notes: parsed.dropoutNotes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", enrollmentId);
+
+  if (error) return redirectWithDropoutError(enrollmentId, playerId, "update_failed");
+
+  await clearPendingFollowUpForEnrollment(supabase, enrollmentId);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "enrollment.ended",
+    tableName: "enrollments",
+    recordId: enrollmentId,
+    afterData: {
+      status: "ended",
+      end_date: parsed.endDate,
+      dropout_reason: parsed.dropoutReason,
+      dropout_notes: parsed.dropoutNotes,
+    },
+  });
+
+  revalidatePath(`/players/${playerId}`);
+  revalidatePath("/players");
+  revalidatePath("/pending");
+  revalidatePath("/pending/bajas");
+  redirect(`/players/${playerId}?ok=dropped`);
 }
 
 export type UpdatePendingFollowUpResult =

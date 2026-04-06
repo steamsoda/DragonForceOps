@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-04-06 (session 45)
+
+### Baja / Dropout Revamp + Archive Player Profile v1
+
+- Replaced the weak generic dropout path with a dedicated `Dar de baja` flow for active enrollments.
+- The new baja workflow now has its own route and focused form:
+  - effective dropout date
+  - required dropout reason
+  - optional dropout notes
+- Normal dropout now writes a standard ended enrollment, clears active collections follow-up state, and returns staff to the player profile with a clear success state.
+- The player profile now behaves in two distinct modes:
+  - active player hub with current account, payments, incidents, and uniforms
+  - archive player hub for players without an active enrollment
+- Active player profiles no longer show `Historial de inscripciones`.
+- Archive player profiles now show:
+  - latest dropout summary
+  - pending balance status
+  - deep link to the previous account
+  - direct `Nueva inscripcion` return path
+  - handoff to `Bajas y saldos pendientes` when debt remains
+- `Jugadores > bajas` now gives stronger archive context at a glance, including campus and pending-balance state, while still linking into the archive player profile.
+- The old enrollment edit page remains available for generic edits, but the normal operational path for ending enrollment is now the dedicated baja route.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-05 (session 44)
 
 ### Player Profile Consolidation / Single-Player Hub v1

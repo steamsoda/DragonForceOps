@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-05.
+Updated continuously. Last updated: 2026-04-06.
 
-Current preview release line: `v1.10.0`
+Current preview release line: `v1.11.0`
 
 ---
 
@@ -168,7 +168,7 @@ Follow after the operational tracks above:
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |
 | 35 | **Player profile consolidation** | 🟡 In progress | The player profile is now being promoted into the single-player hub: active account detail (summary, charges, payments, incidents, payment form), guardians, uniforms, and compact expandable enrollment history live directly on `/players/[id]`, while the enrollment account page remains as the fallback deep-detail route. |
 | 36 | **Document uploads per player** | 🔴 Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
-| 37 | **Player dropout historical record / bajas revamp** | 🔴 Open | Current bajas flow needs a fuller operational picture. Improve the Bajas view with enrollment history, reasons, balances, and decision support for future re-enrollment handling. |
+| 37 | **Player dropout historical record / bajas revamp** | 🟡 In progress | The baja flow is being upgraded from a generic enrollment edit into a dedicated dropout workflow, and dropped players are shifting into archive/read-only profile mode with clearer balance handoff, historical context, and re-enrollment CTA. `Jugadores > bajas` is also becoming the main discovery surface for these archive players. |
 | 38 | **League/tournament tag + management tab** | 🔴 Open | Sports-ops priority. Use the existing `tournaments` schema as the base for tournament/league/cup management, team entries, and player-level readiness. Keep Director Deportivo views focused on payment status, not money totals. |
 | 39 | **Input fields → button toggles (UX pass)** | 🔴 Open | Replace 2-option dropdowns with toggle buttons in Caja and elsewhere: payment method (Efectivo/Tarjeta), campus selector, gender, tuition tier selection. |
 | 40 | **Custom receipt tickets** | ⚠️ Needs spec | Some products need a different ticket format. **Spec not provided — ask director which products and what the ticket should show before implementing.** |

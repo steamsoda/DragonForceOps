@@ -46,9 +46,19 @@ export default async function EnrollmentEditPage({
         )}
 
         <div className="text-sm">
-          <Link href={`/players/${playerId}`} className="text-portoBlue hover:underline">
-            Volver al jugador
-          </Link>
+          <div className="flex flex-wrap gap-4">
+            <Link href={`/players/${playerId}`} className="text-portoBlue hover:underline">
+              Volver al jugador
+            </Link>
+            {context.enrollment.status === "active" ? (
+              <Link
+                href={`/players/${playerId}/enrollments/${enrollmentId}/dropout`}
+                className="text-rose-600 hover:underline"
+              >
+                Dar de baja
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <EnrollmentEditForm

@@ -62,6 +62,12 @@ export type ParsedEnrollmentEditInput = {
   dropoutNotes: string | null;
 };
 
+export type ParsedEnrollmentDropoutInput = {
+  endDate: string;
+  dropoutReason: DropoutReason;
+  dropoutNotes: string | null;
+};
+
 export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEditInput | null {
   const status = String(formData.get("status") ?? "").trim();
   if (!["active", "ended", "cancelled"].includes(status)) return null;
@@ -91,6 +97,25 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
     notes,
     dropoutReason,
     dropoutNotes
+  };
+}
+
+export function parseEnrollmentDropoutData(formData: FormData): ParsedEnrollmentDropoutInput | null {
+  const endDate = parseDate(String(formData.get("endDate") ?? "").trim());
+  if (!endDate) return null;
+
+  const dropoutReasonRaw = String(formData.get("dropoutReason") ?? "").trim();
+  const dropoutReason = (DROPOUT_REASONS as readonly string[]).includes(dropoutReasonRaw)
+    ? (dropoutReasonRaw as DropoutReason)
+    : null;
+  if (!dropoutReason) return null;
+
+  const dropoutNotes = String(formData.get("dropoutNotes") ?? "").trim() || null;
+
+  return {
+    endDate,
+    dropoutReason,
+    dropoutNotes,
   };
 }
 

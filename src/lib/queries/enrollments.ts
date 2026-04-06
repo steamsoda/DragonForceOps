@@ -279,6 +279,21 @@ export type EnrollmentEditContext = {
   campuses: Array<{ id: string; code: string; name: string }>;
 };
 
+export type EnrollmentDropoutContext = {
+  enrollment: {
+    id: string;
+    status: string;
+    startDate: string;
+    endDate: string | null;
+    campusId: string;
+    campusName: string;
+    playerName: string;
+    dropoutReason: string | null;
+    dropoutNotes: string | null;
+    pendingBalance: number;
+  };
+};
+
 export async function getEnrollmentEditContext(enrollmentId: string): Promise<EnrollmentEditContext | null> {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
@@ -317,6 +332,45 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
       dropoutNotes: e.dropout_notes
     },
     campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id))
+  };
+}
+
+export async function getEnrollmentDropoutContext(enrollmentId: string): Promise<EnrollmentDropoutContext | null> {
+  const supabase = await createClient();
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
+
+  const [{ data: enrollment }, { data: balanceRow }] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id, status, start_date, end_date, campus_id, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
+      .eq("id", enrollmentId)
+      .maybeSingle()
+      .returns<EnrollmentEditRow | null>(),
+    supabase
+      .from("v_enrollment_balances")
+      .select("enrollment_id, balance")
+      .eq("enrollment_id", enrollmentId)
+      .maybeSingle()
+      .returns<EnrollmentBalanceRow | null>(),
+  ]);
+
+  if (!enrollment) return null;
+  if (!canAccessCampus(campusAccess, enrollment.campus_id)) return null;
+
+  return {
+    enrollment: {
+      id: enrollment.id,
+      status: enrollment.status,
+      startDate: enrollment.start_date,
+      endDate: enrollment.end_date,
+      campusId: enrollment.campus_id,
+      campusName: enrollment.campuses?.name ?? "-",
+      playerName: `${enrollment.players?.first_name ?? ""} ${enrollment.players?.last_name ?? ""}`.trim(),
+      dropoutReason: enrollment.dropout_reason,
+      dropoutNotes: enrollment.dropout_notes,
+      pendingBalance: balanceRow?.balance ?? 0,
+    },
   };
 }
 
