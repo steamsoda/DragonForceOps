@@ -28,6 +28,8 @@ const errorMessages: Record<string, string> = {
   allocation_insert_failed: "No se pudieron guardar las asignaciones del pago. Intenta de nuevo.",
   charge_not_found: "Cargo no encontrado o ya fue anulado.",
   payment_not_found: "Pago no encontrado o ya fue anulado.",
+  payment_reassigned: "No se pudo aplicar el cambio de concepto.",
+  payment_refunded: "No se pudo registrar el reembolso.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
   void_failed: "No se pudo anular. Intenta de nuevo.",
   unauthorized: "No tienes permiso para anular.",
@@ -97,6 +99,10 @@ export default async function ChargesPage({
       ? "Cargo anulado correctamente."
       : query.ok === "payment_voided"
       ? "Pago anulado. Los cargos asociados quedaron pendientes."
+      : query.ok === "payment_reassigned"
+      ? "Cambio de concepto aplicado correctamente."
+      : query.ok === "payment_refunded"
+      ? "Reembolso registrado correctamente."
       : null;
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
 
@@ -159,7 +165,12 @@ export default async function ChargesPage({
             allowedCampuses={campusAccess?.campuses ?? []}
             defaultCampusId={campusAccess?.defaultCampusId ?? ledger.enrollment.campusId}
           />
-          <PaymentsTable rows={ledger.payments} voidPaymentAction={voidPayment} />
+          <PaymentsTable
+            enrollmentId={enrollmentId}
+            rows={ledger.payments}
+            returnTo={`/enrollments/${enrollmentId}/charges`}
+            voidPaymentAction={voidPayment}
+          />
         </section>
       </div>
     </PageShell>

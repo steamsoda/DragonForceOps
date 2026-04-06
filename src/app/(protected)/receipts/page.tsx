@@ -29,6 +29,10 @@ function isHistoricalCatchup(row: { externalSource: string }) {
   return row.externalSource === "historical_catchup_contry";
 }
 
+function isRefunded(row: { refundedAt: string | null }) {
+  return Boolean(row.refundedAt);
+}
+
 export default async function ReceiptsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const q = params.q ?? "";
@@ -122,6 +126,11 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     {row.campusName} | {formatDateTimeMonterrey(row.paidAt)}
                   </p>
+                  {isRefunded(row) ? (
+                    <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
+                      Reembolsado {formatDateTimeMonterrey(row.refundedAt!)}
+                    </p>
+                  ) : null}
                   {isHistoricalCatchup(row) ? (
                     <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Regularización histórica Contry</p>
                   ) : null}
@@ -185,6 +194,11 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                     <td className="px-3 py-2">
                       <div className="space-y-1">
                         <p>{METHOD_LABELS[row.method] ?? row.method}</p>
+                        {isRefunded(row) ? (
+                          <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                            Reembolsado
+                          </span>
+                        ) : null}
                         {isHistoricalCatchup(row) ? (
                           <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                             Hist. Contry

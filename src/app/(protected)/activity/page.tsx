@@ -15,6 +15,8 @@ type AuditLogRow = {
 
 const ACTION_LABELS: Record<string, string> = {
   "payment.posted": "Cobro registrado",
+  "payment.reassigned": "Concepto cambiado",
+  "payment.refunded": "Reembolso registrado",
   "charge.created": "Cargo creado",
   "charge.voided": "Cargo anulado",
   "enrollment_incident.created": "Incidencia registrada",
@@ -61,6 +63,26 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
     const source =
       data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, folio, source].filter(Boolean).join(" | ");
+  }
+  if (action === "payment.reassigned") {
+    const amount = data.amount as number | undefined;
+    const oldCharges = Array.isArray(data.old_charges) ? data.old_charges.length : 0;
+    const newCharges = Array.isArray(data.new_charges) ? data.new_charges.length : 0;
+    return [
+      amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null,
+      oldCharges > 0 ? `${oldCharges} origen` : null,
+      newCharges > 0 ? `${newCharges} destino` : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  }
+  if (action === "payment.refunded") {
+    const amount = data.amount as number | undefined;
+    const refundMethod = data.refund_method as string | undefined;
+    const reason = data.reason as string | undefined;
+    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, refundMethod, reason]
+      .filter(Boolean)
+      .join(" | ");
   }
   if (action === "charge.created") {
     const amount = data.amount as number | undefined;
@@ -226,7 +248,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Sea
                     {detail ? <p className="text-sm text-slate-700 dark:text-slate-300">{detail}</p> : null}
                     <p className="text-xs text-slate-500 dark:text-slate-400">{log.actor_email ?? "sistema"}</p>
                     <div className="flex flex-wrap gap-3 text-sm">
-                      {log.action === "payment.posted" && log.record_id ? (
+                      {(log.action === "payment.posted" || log.action === "payment.refunded") && log.record_id ? (
                         <Link href={`/receipts?payment=${log.record_id}`} className="text-portoBlue hover:underline">
                           {paymentFolio ? `Recibo ${paymentFolio}` : "Ver recibo"}
                         </Link>
@@ -264,7 +286,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Sea
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap justify-end gap-3 text-xs">
-                      {log.action === "payment.posted" && log.record_id ? (
+                      {(log.action === "payment.posted" || log.action === "payment.refunded") && log.record_id ? (
                         <Link href={`/receipts?payment=${log.record_id}`} className="text-portoBlue hover:underline">
                           {paymentFolio ? `Recibo ${paymentFolio}` : "Ver recibo"}
                         </Link>

@@ -43,6 +43,10 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
   const successMessage =
     params.ok === "historical_payment_posted"
       ? "Pago historico registrado correctamente para Contry."
+      : params.ok === "payment_reassigned"
+        ? "Cambio de concepto aplicado correctamente."
+        : params.ok === "payment_refunded"
+          ? "Reembolso registrado correctamente."
       : null;
   const errorMessage = params.err ? errorMessages[params.err] ?? "Ocurrio un error en la regularizacion." : null;
 

@@ -5,11 +5,13 @@ import { revalidatePath } from "next/cache";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import {
   canAccessEnrollmentRecord,
+  getPermissionContext,
   requireDirectorContext,
   requireOperationalContext,
 } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { parseMonterreyDateTimeInput } from "@/lib/time";
 
 type TeamAssignmentRow = {
   enrollment_id: string;
@@ -39,6 +41,20 @@ type EnrollmentIncidentInsert = {
 };
 
 const INCIDENT_TYPES = new Set(["absence", "injury", "other"]);
+const PAYMENT_METHODS = new Set(["cash", "transfer", "card", "stripe_360player", "other"]);
+
+type PaymentReassignmentResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+type PaymentRefundResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+type PaymentWorkflowContext = {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  user: { id: string; email: string | null };
+};
 
 function normalizeMonthInput(raw: string): string | null {
   if (!/^\d{4}-\d{2}$/.test(raw)) return null;
@@ -89,6 +105,72 @@ async function validateEnrollmentIncidentAccess(enrollmentId: string) {
     redirect(`/enrollments/${enrollmentId}/charges?err=unauthorized`);
   }
   return context;
+}
+
+async function getPaymentWorkflowContext(enrollmentId: string): Promise<PaymentWorkflowContext | null> {
+  const context = await getPermissionContext();
+  if (!context?.hasOperationalAccess) return null;
+  if (!(await canAccessEnrollmentRecord(enrollmentId, context))) return null;
+  return { supabase: context.supabase, user: context.user };
+}
+
+function normalizeReturnTo(returnTo: string | null | undefined, fallback: string) {
+  if (typeof returnTo !== "string") return fallback;
+  const trimmed = returnTo.trim();
+  if (!trimmed.startsWith("/")) return fallback;
+  return trimmed;
+}
+
+function parseChargeIdList(raw: string | null | undefined) {
+  return (raw ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseRefundFormData(formData: FormData) {
+  const refundMethod = String(formData.get("refundMethod") ?? "").trim();
+  const refundedAtRaw = String(formData.get("refundedAt") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!PAYMENT_METHODS.has(refundMethod)) return { ok: false as const, error: "invalid_refund_method" };
+  if (!reason) return { ok: false as const, error: "refund_reason_required" };
+  if (!refundedAtRaw) return { ok: false as const, error: "refunded_at_required" };
+
+  const refundedAt = parseMonterreyDateTimeInput(refundedAtRaw);
+  if (!refundedAt) return { ok: false as const, error: "invalid_refund_date" };
+
+  return {
+    ok: true as const,
+    refundMethod,
+    refundedAt,
+    reason,
+    notes: notes || null,
+  };
+}
+
+function getPaymentWorkflowError(error: string) {
+  const messages: Record<string, string> = {
+    unauthenticated: "Tu sesi\u00f3n expir\u00f3. Inicia sesi\u00f3n de nuevo.",
+    unauthorized: "No tienes permiso para modificar este pago.",
+    payment_not_found: "No se encontr\u00f3 el pago seleccionado.",
+    payment_not_posted: "Solo se pueden modificar pagos vigentes.",
+    payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
+    payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
+    source_charge_shared: "Este pago comparte cargo origen con otro pago y no se puede mover autom\u00e1ticamente.",
+    source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto de forma exclusiva por este pago.",
+    target_charge_required: "Selecciona al menos un cargo destino.",
+    target_charge_conflict: "No puedes volver a aplicar el pago sobre el mismo cargo origen.",
+    target_charge_invalid: "Alguno de los cargos destino ya no es v\u00e1lido.",
+    target_capacity_too_small: "Los cargos destino no absorben el pago completo.",
+    refund_reason_required: "Debes capturar el motivo del reembolso.",
+    refunded_at_required: "Debes capturar la fecha y hora real del reembolso.",
+    invalid_refund_method: "Selecciona el m\u00e9todo real del reembolso.",
+    invalid_refund_date: "La fecha del reembolso no es v\u00e1lida.",
+  };
+  return messages[error] ?? "No se pudo completar la operaci\u00f3n. Intenta de nuevo.";
 }
 
 function parseIncidentFormData(formData: FormData) {
@@ -404,6 +486,128 @@ export async function replaceEnrollmentIncidentAction(
 }
 
 // ── Void payment ─────────────────────────────────────────────────────────────
+
+export async function reassignPaymentAction(
+  enrollmentId: string,
+  paymentId: string,
+  formData: FormData,
+): Promise<PaymentReassignmentResult> {
+  const basePath = `/enrollments/${enrollmentId}/payments/${paymentId}/reassign`;
+  await assertDebugWritesAllowed(basePath);
+  const workflowContext = await getPaymentWorkflowContext(enrollmentId);
+  if (!workflowContext) return { ok: false, error: "unauthorized" };
+
+  const supabase = workflowContext.supabase;
+  const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
+  if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
+
+  const paymentSnapshot = await supabase
+    .from("payments")
+    .select("id, amount, charges:payment_allocations(charge_id, amount, charges(description))")
+    .eq("id", paymentId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{
+      id: string;
+      amount: number;
+      charges: Array<{ charge_id: string; amount: number; charges: { description: string | null } | null }>;
+    } | null>();
+
+  const { data, error } = await supabase.rpc("reassign_payment_to_charges", {
+    p_payment_id: paymentId,
+    p_target_charge_ids: targetChargeIds,
+  });
+
+  const resultRow = Array.isArray(data) ? data[0] : data;
+  if (error || !resultRow?.ok) {
+    return { ok: false, error: error?.message ?? resultRow?.error_code ?? "reassign_failed" };
+  }
+
+  const { data: destinationChargeRows } = await supabase
+    .from("charges")
+    .select("id, description, amount")
+    .in("id", targetChargeIds)
+    .returns<Array<{ id: string; description: string; amount: number }>>();
+
+  await writeAuditLog(supabase, {
+    actorUserId: workflowContext.user.id,
+    actorEmail: workflowContext.user.email ?? null,
+    action: "payment.reassigned",
+    tableName: "payments",
+    recordId: paymentId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      amount: paymentSnapshot.data?.amount ?? null,
+      old_charges: (paymentSnapshot.data?.charges ?? []).map((row) => ({
+        charge_id: row.charge_id,
+        description: row.charges?.description ?? "Cargo",
+        amount: row.amount,
+      })),
+      new_charges: (destinationChargeRows ?? []).map((row) => ({
+        charge_id: row.id,
+        description: row.description,
+        amount: row.amount,
+      })),
+    },
+  });
+
+  revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  return { ok: true };
+}
+
+export async function refundPaymentAction(
+  enrollmentId: string,
+  paymentId: string,
+  formData: FormData,
+): Promise<PaymentRefundResult> {
+  const basePath = `/enrollments/${enrollmentId}/payments/${paymentId}/refund`;
+  await assertDebugWritesAllowed(basePath);
+  const workflowContext = await getPaymentWorkflowContext(enrollmentId);
+  if (!workflowContext) return { ok: false, error: "unauthorized" };
+
+  const parsed = parseRefundFormData(formData);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const supabase = workflowContext.supabase;
+  const { data: paymentRow } = await supabase
+    .from("payments")
+    .select("id, amount, method")
+    .eq("id", paymentId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{ id: string; amount: number; method: string } | null>();
+
+  const { data, error } = await supabase.rpc("record_payment_refund", {
+    p_payment_id: paymentId,
+    p_refund_method: parsed.refundMethod,
+    p_refunded_at: parsed.refundedAt,
+    p_reason: parsed.reason,
+    p_notes: parsed.notes,
+  });
+
+  const resultRow = Array.isArray(data) ? data[0] : data;
+  if (error || !resultRow?.ok) {
+    return { ok: false, error: error?.message ?? resultRow?.error_code ?? "refund_failed" };
+  }
+
+  await writeAuditLog(supabase, {
+    actorUserId: workflowContext.user.id,
+    actorEmail: workflowContext.user.email ?? null,
+    action: "payment.refunded",
+    tableName: "payments",
+    recordId: paymentId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      amount: paymentRow?.amount ?? resultRow.amount ?? null,
+      original_method: paymentRow?.method ?? null,
+      refund_method: parsed.refundMethod,
+      refunded_at: parsed.refundedAt,
+      reason: parsed.reason,
+      notes: parsed.notes,
+    },
+  });
+
+  revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  return { ok: true };
+}
 
 export async function voidPaymentAction(
   enrollmentId: string,

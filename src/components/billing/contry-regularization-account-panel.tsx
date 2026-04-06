@@ -608,7 +608,11 @@ export function ContryRegularizationAccountPanel({
 
       <section className="space-y-2">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Pagos registrados</h3>
-        <PaymentsTable rows={ledger.payments} />
+        <PaymentsTable
+          enrollmentId={ledger.enrollment.id}
+          rows={ledger.payments}
+          returnTo={`/regularizacion/contry?enrollment=${ledger.enrollment.id}`}
+        />
       </section>
     </section>
   );

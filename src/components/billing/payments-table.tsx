@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatDateTimeMonterrey } from "@/lib/time";
 
 type PaymentItem = {
@@ -11,10 +12,19 @@ type PaymentItem = {
   allocatedAmount: number;
   operatorCampusName: string;
   isCrossCampus: boolean;
+  refundStatus: "not_refunded" | "refunded";
+  refundedAt: string | null;
+  refundMethod: string | null;
+  refundReason: string | null;
+  refundNotes: string | null;
+  canReassign: boolean;
+  reassignBlockedReason: string | null;
 };
 
 type PaymentsTableProps = {
+  enrollmentId: string;
   rows: PaymentItem[];
+  returnTo?: string;
   voidPaymentAction?: (paymentId: string, fd: FormData) => Promise<void>;
 };
 
@@ -56,7 +66,26 @@ function getPaymentStatusLabel(status: string) {
   }
 }
 
-export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
+function getRefundMethodLabel(method: string | null) {
+  return method ? getPaymentMethodLabel(method) : "-";
+}
+
+function getReassignBlockedReason(code: string | null) {
+  const messages: Record<string, string> = {
+    payment_not_posted: "Solo se puede cambiar concepto en pagos vigentes.",
+    payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
+    payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
+    source_charge_shared: "El cargo origen tambi\u00e9n tiene otro pago aplicado.",
+    source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto de forma exclusiva por este pago.",
+  };
+  return code ? messages[code] ?? "Este pago no se puede mover con seguridad." : null;
+}
+
+export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction }: PaymentsTableProps) {
+  const actionCount = 1 + (voidPaymentAction ? 1 : 0);
+  const colSpan = 8 + actionCount;
+
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
@@ -69,13 +98,14 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
             <th className="px-3 py-2">Monto</th>
             <th className="px-3 py-2">Aplicado</th>
             <th className="px-3 py-2">Notas</th>
-            {voidPaymentAction && <th className="px-3 py-2" />}
+            <th className="px-3 py-2">Acciones</th>
+            {voidPaymentAction && <th className="px-3 py-2">Director</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={voidPaymentAction ? 8 : 7}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={colSpan}>
                 No hay pagos registrados.
               </td>
             </tr>
@@ -96,16 +126,74 @@ export function PaymentsTable({ rows, voidPaymentAction }: PaymentsTableProps) {
                 </td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    row.status === "posted"
+                    row.refundStatus === "refunded"
+                      ? "bg-amber-100 text-amber-800"
+                      : row.status === "posted"
                       ? "bg-emerald-100 text-emerald-800"
                       : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}>
-                    {getPaymentStatusLabel(row.status)}
+                    {row.refundStatus === "refunded" ? "Reembolsado" : getPaymentStatusLabel(row.status)}
                   </span>
+                  {row.refundStatus === "refunded" ? (
+                    <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                      {row.refundedAt ? `${formatDate(row.refundedAt)} \u00b7 ${getRefundMethodLabel(row.refundMethod)}` : getRefundMethodLabel(row.refundMethod)}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">{formatMoney(row.amount, row.currency)}</td>
                 <td className="px-3 py-2">{formatMoney(row.allocatedAmount, row.currency)}</td>
-                <td className="px-3 py-2">{row.notes?.trim() ? row.notes : "-"}</td>
+                <td className="px-3 py-2">
+                  <div className="space-y-1">
+                    <p>{row.notes?.trim() ? row.notes : "-"}</p>
+                    {row.refundReason ? (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                        Reembolso: {row.refundReason}
+                      </p>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-col gap-2">
+                    {row.status === "posted" ? (
+                      <>
+                        {row.canReassign ? (
+                          <Link
+                            href={`/enrollments/${enrollmentId}/payments/${row.id}/reassign${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+                            className="inline-flex rounded-md border border-blue-300 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20"
+                          >
+                            Cambiar concepto
+                          </Link>
+                        ) : (
+                          <span
+                            className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400"
+                            title={getReassignBlockedReason(row.reassignBlockedReason) ?? undefined}
+                          >
+                            Cambiar concepto
+                          </span>
+                        )}
+                        {row.refundStatus === "refunded" ? (
+                          <span className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400">
+                            Reembolsar
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/enrollments/${enrollmentId}/payments/${row.id}/refund${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+                            className="inline-flex rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
+                          >
+                            Reembolsar
+                          </Link>
+                        )}
+                        {!row.canReassign && row.reassignBlockedReason ? (
+                          <p className="max-w-[14rem] text-[11px] text-slate-500 dark:text-slate-400">
+                            {getReassignBlockedReason(row.reassignBlockedReason)}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400">Sin acciones</span>
+                    )}
+                  </div>
+                </td>
                 {voidPaymentAction && (
                   <td className="relative px-3 py-2">
                     {row.status === "posted" && (

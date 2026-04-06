@@ -21,6 +21,8 @@ const REVERSIBLE_ACTIONS = new Set(["payment.posted", "charge.created"]);
 
 const ACTION_LABELS: Record<string, string> = {
   "payment.posted": "Cobro registrado",
+  "payment.reassigned": "Concepto cambiado",
+  "payment.refunded": "Reembolso registrado",
   "payment.voided": "Cobro anulado",
   "charge.created": "Cargo creado",
   "charge.voided": "Cargo anulado",
@@ -38,7 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_OPTIONS = [
-  "payment.posted", "payment.voided",
+  "payment.posted", "payment.reassigned", "payment.refunded", "payment.voided",
   "charge.created", "charge.voided",
   "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
@@ -78,7 +80,23 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
       data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, source].filter(Boolean).join(" · ");
   }
-if (action === "charge.created" || action === "charge.voided") {
+  if (action === "payment.reassigned") {
+    const amount = data.amount as number | undefined;
+    const oldCharges = Array.isArray(data.old_charges) ? data.old_charges.length : 0;
+    const newCharges = Array.isArray(data.new_charges) ? data.new_charges.length : 0;
+    return [
+      amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null,
+      oldCharges > 0 ? `${oldCharges} origen` : null,
+      newCharges > 0 ? `${newCharges} destino` : null,
+    ].filter(Boolean).join(" Â· ");
+  }
+  if (action === "payment.refunded") {
+    const amount = data.amount as number | undefined;
+    const refundMethod = data.refund_method as string | undefined;
+    const reason = data.reason as string | undefined;
+    return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, refundMethod, reason].filter(Boolean).join(" Â· ");
+  }
+  if (action === "charge.created" || action === "charge.voided") {
     const desc = data.description as string | undefined;
     const amount = data.amount as number | undefined;
     return [desc, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null].filter(Boolean).join(" · ");
@@ -336,7 +354,7 @@ export default async function SuperAdminActividadPage({ searchParams }: { search
                               Ver inscripción ↗
                             </a>
                           )}
-                          {log.action === "payment.posted" && log.record_id && (
+                          {(log.action === "payment.posted" || log.action === "payment.refunded") && log.record_id && (
                             <a href={`/receipts?payment=${log.record_id}`}
                               className="inline-flex items-center gap-1 rounded bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 whitespace-nowrap">
                               Ver recibo ↗

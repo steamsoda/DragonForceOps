@@ -270,6 +270,11 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
                   <td className="px-3 py-2 align-top text-slate-600 print:px-2 print:py-1.5 dark:text-slate-400">
                     <div className="flex flex-wrap items-center gap-2">
                       <span>{payment.methodLabel}</span>
+                      {payment.isRefund ? (
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                          Reembolso
+                        </span>
+                      ) : null}
                       {payment.excludedFromCorte ? (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                           Externo

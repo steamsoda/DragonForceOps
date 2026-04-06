@@ -59,8 +59,18 @@ type PaymentRow = {
 };
 
 type AllocationRow = {
+  id?: string;
   payment_id: string;
   charge_id: string;
+  amount: number;
+};
+
+type PaymentRefundRow = {
+  payment_id: string;
+  refunded_at: string;
+  refund_method: string;
+  reason: string;
+  notes: string | null;
   amount: number;
 };
 
@@ -130,6 +140,21 @@ export type EnrollmentLedger = {
     operatorCampusId: string;
     operatorCampusName: string;
     isCrossCampus: boolean;
+    refundStatus: "not_refunded" | "refunded";
+    refundedAt: string | null;
+    refundMethod: string | null;
+    refundReason: string | null;
+    refundNotes: string | null;
+    canReassign: boolean;
+    reassignBlockedReason: string | null;
+    sourceCharges: Array<{
+      chargeId: string;
+      description: string;
+      typeCode: string;
+      typeName: string;
+      amount: number;
+      allocatedAmount: number;
+    }>;
   }>;
   incidents: Array<{
     id: string;
@@ -217,29 +242,49 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
   const paymentIds = (payments ?? []).map((row) => row.id);
 
   let allocations: AllocationRow[] = [];
-  if (chargeIds.length > 0 || paymentIds.length > 0) {
+  if (chargeIds.length > 0) {
     let allocationQuery = supabase
       .from("payment_allocations")
       .select("payment_id, charge_id, amount");
 
-    if (chargeIds.length > 0 && paymentIds.length > 0) {
-      allocationQuery = allocationQuery.in("charge_id", chargeIds).in("payment_id", paymentIds);
-    } else if (chargeIds.length > 0) {
-      allocationQuery = allocationQuery.in("charge_id", chargeIds);
-    } else if (paymentIds.length > 0) {
-      allocationQuery = allocationQuery.in("payment_id", paymentIds);
-    }
+    allocationQuery = allocationQuery.in("charge_id", chargeIds);
 
     const { data: allocationRows } = await allocationQuery.returns<AllocationRow[]>();
     allocations = allocationRows ?? [];
   }
 
+  const { data: refundRows } = paymentIds.length
+    ? await supabase
+        .from("payment_refunds")
+        .select("payment_id, refunded_at, refund_method, reason, notes, amount")
+        .in("payment_id", paymentIds)
+        .returns<PaymentRefundRow[]>()
+    : { data: [] as PaymentRefundRow[] };
+
   const allocatedByCharge = new Map<string, number>();
   const allocatedByPayment = new Map<string, number>();
+  const allocationsByPayment = new Map<string, AllocationRow[]>();
+  const allocationsByCharge = new Map<string, AllocationRow[]>();
+  const chargeById = new Map(
+    (charges ?? []).map((charge) => [
+      charge.id,
+      {
+        id: charge.id,
+        description: charge.description,
+        amount: charge.amount,
+        typeCode: charge.charge_types?.code ?? "-",
+        typeName: charge.charge_types?.name ?? "-",
+        status: charge.status,
+      },
+    ]),
+  );
+  const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
 
   allocations.forEach((row) => {
     allocatedByCharge.set(row.charge_id, (allocatedByCharge.get(row.charge_id) ?? 0) + row.amount);
     allocatedByPayment.set(row.payment_id, (allocatedByPayment.get(row.payment_id) ?? 0) + row.amount);
+    allocationsByPayment.set(row.payment_id, [...(allocationsByPayment.get(row.payment_id) ?? []), row]);
+    allocationsByCharge.set(row.charge_id, [...(allocationsByCharge.get(row.charge_id) ?? []), row]);
   });
 
   return {
@@ -281,20 +326,70 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
         pendingAmount: Math.max(row.amount - allocatedAmount, 0)
       };
     }),
-    payments: (payments ?? []).map((row) => ({
-      id: row.id,
-      paidAt: row.paid_at,
-      method: row.method,
-      amount: row.amount,
-      currency: row.currency,
-      status: row.status,
-      notes: row.notes,
-      createdAt: row.created_at,
-      allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
-      operatorCampusId: row.operator_campus_id,
-      operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",
-      isCrossCampus: row.operator_campus_id !== enrollment.campus_id,
-    })),
+    payments: (payments ?? []).map((row) => {
+      const paymentAllocations = allocationsByPayment.get(row.id) ?? [];
+      const refund = refundByPaymentId.get(row.id) ?? null;
+      const sourceCharges = paymentAllocations.map((allocation) => {
+        const charge = chargeById.get(allocation.charge_id);
+        return {
+          chargeId: allocation.charge_id,
+          description: charge?.description ?? "Cargo",
+          typeCode: charge?.typeCode ?? "-",
+          typeName: charge?.typeName ?? "-",
+          amount: charge?.amount ?? allocation.amount,
+          allocatedAmount: allocation.amount,
+        };
+      });
+
+      let reassignBlockedReason: string | null = null;
+      if (row.status !== "posted") {
+        reassignBlockedReason = "payment_not_posted";
+      } else if (refund) {
+        reassignBlockedReason = "payment_already_refunded";
+      } else if (paymentAllocations.length === 0) {
+        reassignBlockedReason = "payment_has_no_allocations";
+      } else if (Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01) {
+        reassignBlockedReason = "payment_not_fully_allocated";
+      } else if (
+        paymentAllocations.some((allocation) => {
+          const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
+          return chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id);
+        })
+      ) {
+        reassignBlockedReason = "source_charge_shared";
+      } else if (
+        paymentAllocations.some((allocation) => {
+          const charge = chargeById.get(allocation.charge_id);
+          const totalAllocated = allocatedByCharge.get(allocation.charge_id) ?? 0;
+          return !charge || Math.abs(charge.amount - totalAllocated) > 0.01 || charge.status === "void";
+        })
+      ) {
+        reassignBlockedReason = "source_charge_not_exclusive";
+      }
+
+      return {
+        id: row.id,
+        paidAt: row.paid_at,
+        method: row.method,
+        amount: row.amount,
+        currency: row.currency,
+        status: row.status,
+        notes: row.notes,
+        createdAt: row.created_at,
+        allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+        operatorCampusId: row.operator_campus_id,
+        operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",
+        isCrossCampus: row.operator_campus_id !== enrollment.campus_id,
+        refundStatus: refund ? "refunded" : "not_refunded",
+        refundedAt: refund?.refunded_at ?? null,
+        refundMethod: refund?.refund_method ?? null,
+        refundReason: refund?.reason ?? null,
+        refundNotes: refund?.notes ?? null,
+        canReassign: reassignBlockedReason === null,
+        reassignBlockedReason,
+        sourceCharges,
+      };
+    }),
     incidents: (incidents ?? []).map((row) => ({
       id: row.id,
       typeCode: row.incident_type,

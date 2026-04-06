@@ -12,6 +12,9 @@ export type ReceiptSearchRow = {
   method: string;
   enrollmentId: string;
   externalSource: string;
+  refundedAt: string | null;
+  refundMethod: string | null;
+  refundReason: string | null;
 };
 
 export type ReceiptSearchResult = {
@@ -34,6 +37,9 @@ type ReceiptRpcRow = {
   method: string;
   enrollment_id: string;
   external_source: string;
+  refunded_at: string | null;
+  refund_method: string | null;
+  refund_reason: string | null;
   total_count: number;
 };
 
@@ -97,6 +103,9 @@ export async function searchReceipts({
       method: row.method,
       enrollmentId: row.enrollment_id,
       externalSource: row.external_source,
+      refundedAt: row.refunded_at,
+      refundMethod: row.refund_method,
+      refundReason: row.refund_reason,
     }));
 
   return {

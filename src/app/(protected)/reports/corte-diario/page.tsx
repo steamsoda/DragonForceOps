@@ -205,6 +205,11 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 text-xs">
+                        {payment.isRefund ? (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                            Reembolso
+                          </span>
+                        ) : null}
                         {payment.isCrossCampus ? (
                           <span className="rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
                             Cruzado
@@ -260,6 +265,11 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
                           <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                             <div className="flex items-center gap-2">
                               <span>{payment.methodLabel}</span>
+                              {payment.isRefund ? (
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-300">
+                                  Reembolso
+                                </span>
+                              ) : null}
                               {payment.excludedFromCorte ? (
                                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                                   Externo

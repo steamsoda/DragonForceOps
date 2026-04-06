@@ -1,5 +1,34 @@
 # Devlog
 
+## 2026-04-06 (session 49)
+
+### Refunds + Payment Reassignment Workflow v1
+
+- Added two explicit payment-side workflows to reduce front-desk confusion around the old "void charge and leave credit" workaround:
+  - `Cambiar concepto`
+  - `Reembolsar`
+- `Cambiar concepto` now lets staff reuse an already-posted full payment on different charges without returning money:
+  - destination charges can be selected from existing pending charges
+  - or created inline through Caja-lite charge creation / advance tuition helpers
+  - the original payment row keeps its original `paid_at`, method, campus ownership, and folio
+  - allocations are moved to the new destination charges
+  - original source charges are auto-voided when they are exclusively covered by that payment
+- Added a new `payment_refunds` table plus SQL RPCs so true refunds are recorded as separate negative financial movements on the refund date instead of silently mutating history.
+- Refunds now:
+  - keep the original payment historically visible
+  - remove its allocations so the underlying charges become due again
+  - store refund method, refund date, reason, notes, actor, campus ownership, and a charge-breakdown snapshot
+- Shared payment ledgers now expose the new actions directly on posted payments:
+  - enrollment account
+  - player hub current account
+  - Contry regularization ledger
+- Receipts, activity, admin audit, and finance summaries were extended so refund/reassignment state is visible and traceable.
+- Daily/weekly/monthly/dashboard finance reporting now nets refunds on `refunded_at`, using the recorded refund method, while preserving the original collection event on its original payment date.
+- `Corte Diario` now treats refunds as negative movements in the checkpoint window and marks them visually as `Reembolso`.
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-06 (session 48)
 
 ### Issue 37 Accepted / Closed

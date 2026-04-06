@@ -56,6 +56,28 @@ type PaymentAllocationWithCharge = {
     | null;
 };
 
+type RefundRow = {
+  id: string;
+  payment_id: string;
+  amount: number;
+  refund_method: string;
+  refunded_at: string;
+  reason: string;
+  notes: string | null;
+  operator_campus_id: string;
+  enrollment_id: string;
+  charge_breakdown: unknown;
+};
+
+type RefundBreakdownItem = {
+  chargeId?: string;
+  description?: string | null;
+  chargeTypeCode?: string | null;
+  chargeTypeName?: string | null;
+  productId?: string | null;
+  amount?: number | string | null;
+};
+
 export type CortePaymentRow = {
   id: string;
   enrollmentId: string;
@@ -72,6 +94,7 @@ export type CortePaymentRow = {
   notes: string | null;
   concepts: string[];
   excludedFromCorte: boolean;
+  isRefund: boolean;
 };
 
 export type CorteByMethod = {
@@ -169,7 +192,32 @@ export async function getCorteDiarioData(filters: {
     .returns<PaymentWithPlayer[]>();
 
   const payments = data ?? [];
-  const operatorCampusIds = [...new Set(payments.map((payment) => payment.operator_campus_id).filter(Boolean))];
+  const { data: refundData } = await supabase
+    .from("payment_refunds")
+    .select("id, payment_id, amount, refund_method, refunded_at, reason, notes, operator_campus_id, enrollment_id, charge_breakdown")
+    .gte("refunded_at", queryStart)
+    .lt("refunded_at", queryEnd)
+    .eq("operator_campus_id", selectedCampusId)
+    .returns<RefundRow[]>();
+
+  const refunds = refundData ?? [];
+  const refundPaymentIds = [...new Set(refunds.map((refund) => refund.payment_id).filter(Boolean))];
+  const { data: refundPaymentRows } = refundPaymentIds.length
+    ? await supabase
+        .from("payments")
+        .select(
+          "id, folio, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))"
+        )
+        .in("id", refundPaymentIds)
+        .returns<PaymentWithPlayer[]>()
+    : { data: [] };
+
+  const refundPaymentById = new Map((refundPaymentRows ?? []).map((payment) => [payment.id, payment]));
+  const operatorCampusIds = [
+    ...new Set(
+      [...payments.map((payment) => payment.operator_campus_id), ...refunds.map((refund) => refund.operator_campus_id)].filter(Boolean)
+    ),
+  ];
   const { data: operatorCampusRows } = operatorCampusIds.length
     ? await supabase
         .from("campuses")
@@ -192,6 +240,14 @@ export async function getCorteDiarioData(filters: {
     byMethodMap.set(payment.method, {
       count: previous.count + 1,
       total: previous.total + payment.amount,
+    });
+  });
+
+  refunds.forEach((refund) => {
+    const previous = byMethodMap.get(refund.refund_method) ?? { count: 0, total: 0 };
+    byMethodMap.set(refund.refund_method, {
+      count: previous.count,
+      total: previous.total - refund.amount,
     });
   });
 
@@ -224,7 +280,7 @@ export async function getCorteDiarioData(filters: {
 
   let byChargeType: CorteByChargeType[] = [];
   let productDetails: CorteProductDetail[] = [];
-  if (countedPaymentIds.length > 0) {
+  if (countedPaymentIds.length > 0 || refunds.length > 0) {
     const byChargeTypeMap = new Map<string, { typeName: string; total: number }>();
     const productDetailsMap = new Map<string, number>();
 
@@ -243,18 +299,93 @@ export async function getCorteDiarioData(filters: {
         }
       });
 
+    refunds.forEach((refund) => {
+      const breakdown = parseJsonArray<RefundBreakdownItem>(refund.charge_breakdown);
+      breakdown.forEach((item) => {
+        const amount = toNumber(item.amount);
+        if (amount <= 0) return;
+
+        const code = item.chargeTypeCode ?? "other";
+        const name = item.chargeTypeName ?? "Otro";
+        const previous = byChargeTypeMap.get(code) ?? { typeName: name, total: 0 };
+        byChargeTypeMap.set(code, { typeName: name, total: previous.total - amount });
+
+        if (item.productId) {
+          const productName = item.description?.trim() || item.chargeTypeName?.trim() || "Producto";
+          productDetailsMap.set(productName, (productDetailsMap.get(productName) ?? 0) - amount);
+        }
+      });
+    });
+
     byChargeType = Array.from(byChargeTypeMap.entries())
       .map(([typeCode, values]) => ({
         typeCode,
         typeName: values.typeName,
         total: values.total,
       }))
+      .filter((row) => Math.abs(row.total) > 0.009)
       .sort((a, b) => b.total - a.total);
 
     productDetails = Array.from(productDetailsMap.entries())
       .map(([description, total]) => ({ description, total }))
+      .filter((row) => Math.abs(row.total) > 0.009)
       .sort((a, b) => b.total - a.total || a.description.localeCompare(b.description, "es-MX"));
   }
+
+  const paymentRows: CortePaymentRow[] = payments.map((payment) => ({
+    id: payment.id,
+    enrollmentId: payment.enrollment_id,
+    folio: payment.folio,
+    playerName:
+      `${payment.enrollments?.players?.first_name ?? ""} ${payment.enrollments?.players?.last_name ?? ""}`.trim() || "-",
+    birthYear: payment.enrollments?.players?.birth_date
+      ? parseInt(payment.enrollments.players.birth_date.slice(0, 4), 10)
+      : null,
+    playerCampusName: payment.enrollments?.campuses?.name ?? "-",
+    operatorCampusName: operatorCampusById.get(payment.operator_campus_id) ?? "-",
+    isCrossCampus: payment.operator_campus_id !== payment.enrollments?.campus_id,
+    amount: payment.amount,
+    method: payment.method,
+    methodLabel: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
+    paidAt: payment.paid_at,
+    notes: payment.notes,
+    concepts: conceptsByPaymentId.get(payment.id) ?? [],
+    excludedFromCorte: payment.method === "stripe_360player",
+    isRefund: false,
+  }));
+
+  const refundRows: CortePaymentRow[] = refunds
+    .map((refund) => {
+      const originalPayment = refundPaymentById.get(refund.payment_id);
+      const breakdown = parseJsonArray<RefundBreakdownItem>(refund.charge_breakdown);
+      const concepts = breakdown
+        .map((item) => item.description?.trim() || item.chargeTypeName?.trim() || "Cargo")
+        .filter((value, index, array) => Boolean(value) && array.indexOf(value) === index);
+      const playerName =
+        `${originalPayment?.enrollments?.players?.first_name ?? ""} ${originalPayment?.enrollments?.players?.last_name ?? ""}`.trim() || "-";
+
+      return {
+        id: refund.id,
+        enrollmentId: refund.enrollment_id,
+        folio: originalPayment?.folio ?? null,
+        playerName,
+        birthYear: originalPayment?.enrollments?.players?.birth_date
+          ? parseInt(originalPayment.enrollments.players.birth_date.slice(0, 4), 10)
+          : null,
+        playerCampusName: originalPayment?.enrollments?.campuses?.name ?? "-",
+        operatorCampusName: operatorCampusById.get(refund.operator_campus_id) ?? "-",
+        isCrossCampus: refund.operator_campus_id !== originalPayment?.enrollments?.campus_id,
+        amount: -refund.amount,
+        method: refund.refund_method,
+        methodLabel: PAYMENT_METHOD_LABELS[refund.refund_method] ?? refund.refund_method,
+        paidAt: refund.refunded_at,
+        notes: refund.notes?.trim() || refund.reason,
+        concepts,
+        excludedFromCorte: false,
+        isRefund: true,
+      };
+    })
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
 
   return {
     campusId: selectedCampusId,
@@ -262,33 +393,16 @@ export async function getCorteDiarioData(filters: {
     openedAt: queryStart,
     closedAt: filters.closedAt ?? null,
     isCurrentOpen: !filters.closedAt,
-    totalCobrado: countedPayments.reduce((sum, payment) => sum + payment.amount, 0),
+    totalCobrado:
+      countedPayments.reduce((sum, payment) => sum + payment.amount, 0) -
+      refunds.reduce((sum, refund) => sum + refund.amount, 0),
     countedPaymentsCount: countedPayments.length,
     excludedPaymentsCount: payments.length - countedPayments.length,
     excludedPaymentsTotal,
     byMethod,
     byChargeType,
     productDetails,
-    payments: payments.map((payment) => ({
-      id: payment.id,
-      enrollmentId: payment.enrollment_id,
-      folio: payment.folio,
-      playerName:
-        `${payment.enrollments?.players?.first_name ?? ""} ${payment.enrollments?.players?.last_name ?? ""}`.trim() || "-",
-      birthYear: payment.enrollments?.players?.birth_date
-        ? parseInt(payment.enrollments.players.birth_date.slice(0, 4), 10)
-        : null,
-      playerCampusName: payment.enrollments?.campuses?.name ?? "-",
-      operatorCampusName: operatorCampusById.get(payment.operator_campus_id) ?? "-",
-      isCrossCampus: payment.operator_campus_id !== payment.enrollments?.campus_id,
-      amount: payment.amount,
-      method: payment.method,
-      methodLabel: PAYMENT_METHOD_LABELS[payment.method] ?? payment.method,
-      paidAt: payment.paid_at,
-      notes: payment.notes,
-      concepts: conceptsByPaymentId.get(payment.id) ?? [],
-      excludedFromCorte: payment.method === "stripe_360player",
-    })),
+    payments: [...paymentRows, ...refundRows].sort((a, b) => b.paidAt.localeCompare(a.paidAt)),
   };
 }
 

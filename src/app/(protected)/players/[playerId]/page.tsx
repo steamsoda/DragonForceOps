@@ -279,6 +279,10 @@ export default async function PlayerDetailPage({
           ? "Jugadores fusionados correctamente. Este es el registro master."
           : sp.ok === "dropped"
             ? "Inscripcion dada de baja correctamente."
+            : sp.ok === "payment_reassigned"
+              ? "Cambio de concepto aplicado correctamente."
+              : sp.ok === "payment_refunded"
+                ? "Reembolso registrado correctamente."
           : null;
 
   const postPayment = activeEnrollmentId ? postEnrollmentPaymentAction.bind(null, activeEnrollmentId) : null;
@@ -664,7 +668,12 @@ export default async function PlayerDetailPage({
                 </section>
                 <section className="space-y-2">
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Pagos</h4>
-                  <PaymentsTable rows={activeLedger.payments} voidPaymentAction={voidPayment} />
+                  <PaymentsTable
+                    enrollmentId={activeEnrollmentId ?? activeLedger.enrollment.id}
+                    rows={activeLedger.payments}
+                    returnTo={`/players/${player.id}`}
+                    voidPaymentAction={voidPayment}
+                  />
                 </section>
               </div>
             </div>
