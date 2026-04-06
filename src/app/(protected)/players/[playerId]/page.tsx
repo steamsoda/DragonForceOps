@@ -353,6 +353,22 @@ export default async function PlayerDetailPage({
                   {incidentSummary}
                 </div>
               ) : null}
+
+              {!activeEnrollment && archiveEnrollment ? (
+                <div className="inline-flex flex-wrap items-center gap-3 rounded-lg border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-900 shadow-sm dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100">
+                  <span className="rounded-md bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                    Jugador dado de baja
+                  </span>
+                  <span>
+                    {archiveEnrollment.dropoutReason
+                      ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
+                      : "Sin motivo registrado"}
+                  </span>
+                  <span className={`${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-700 dark:text-slate-300"}`}>
+                    {archiveEnrollment.balance > 0 ? `Saldo pendiente: ${formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}` : "Sin saldo pendiente"}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2 xl:max-w-[30rem] xl:justify-end">

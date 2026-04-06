@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-06 (session 47)
+
+### Archive Player Profile Badge Polish
+
+- Strengthened the visual archive state on dropped-player profiles.
+- Archive-mode player profiles now show a larger, more obvious `Jugador dado de baja` banner near the top instead of relying only on the small status chip.
+- The banner also surfaces the recorded dropout reason and whether the archived player still has pending balance, so front-desk staff can confirm at a glance that the baja applied correctly.
+
 ## 2026-04-06 (session 46)
 
 ### Dropout Reason Constraint Hotfix
