@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-06 (session 46)
+
+### Dropout Reason Constraint Hotfix
+
+- Fixed the `Dar de baja` failure caused by a DB/app mismatch on `enrollments.dropout_reason`.
+- Root cause:
+  - the app-level baja forms and validation now use a much larger dropout-reason catalog
+  - but the database check constraint was still limited to the original small legacy set
+  - result: valid baja submissions reached Supabase but the `enrollments` update was rejected and surfaced as `No se pudo registrar la baja. Intenta de nuevo.`
+- Added an idempotent migration to expand `enrollments_dropout_reason_check` so it accepts the current operational reason catalog while keeping older legacy codes valid.
+- This is a DB-only hotfix for both the new dedicated baja workflow and the older generic enrollment-end path.
+
 ## 2026-04-06 (session 45)
 
 ### Baja / Dropout Revamp + Archive Player Profile v1
