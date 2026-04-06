@@ -7,6 +7,15 @@ export type AccessibleCampus = {
   name: string;
 };
 
+export function isContryCampus(campus: { code: string; name: string }) {
+  const normalized = `${campus.code} ${campus.name}`.toLowerCase();
+  return normalized.includes("contry") || normalized.includes("ctr");
+}
+
+export function findContryCampus<T extends { code: string; name: string }>(campuses: T[]) {
+  return campuses.find(isContryCampus);
+}
+
 type RoleCampusRow = {
   campus_id: string | null;
   app_roles: { code: string } | null;

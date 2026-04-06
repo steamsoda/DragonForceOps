@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { canAccessCampus, findContryCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { listPlayers } from "@/lib/queries/players";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
@@ -54,6 +55,23 @@ export type HistoricalRegularizationPaymentResult =
     }
   | { ok: false; error: string };
 
+export type ContryRegularizationPlayerResult = {
+  playerId: string;
+  playerName: string;
+  birthYear: number | null;
+  enrollmentId: string;
+  campusName: string;
+  balance: number;
+  teamName: string | null;
+  coachName: string | null;
+};
+
+export type ContryRegularizationDrilldownMeta = {
+  campusId: string;
+  campusName: string;
+  birthYears: number[];
+};
+
 type SharedPostedPayment = {
   receipt: PostedPaymentReceipt;
   paymentId: string;
@@ -70,6 +88,35 @@ type PostEnrollmentPaymentMode = {
   linkCashToSession: boolean;
   extraRevalidatePaths?: string[];
 };
+
+type CajaYearListRow = {
+  player_id: string;
+  player_name: string;
+  birth_year: number | null;
+  enrollment_id: string;
+  campus_name: string;
+  balance: number;
+  team_name: string | null;
+  coach_name: string | null;
+};
+
+async function getContryRegularizationContext() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) return null;
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return null;
+
+  const contryCampus = findContryCampus(campusAccess.campuses);
+  if (!contryCampus) return null;
+
+  return { supabase, user, campusAccess, contryCampus };
+}
 
 async function postEnrollmentPaymentInternal(
   enrollmentId: string,
@@ -256,6 +303,84 @@ export async function postEnrollmentPaymentAction(
     ok: true,
     receipt: result.posted.receipt,
   };
+}
+
+export async function getContryRegularizationDrilldownMetaAction(): Promise<ContryRegularizationDrilldownMeta> {
+  const context = await getContryRegularizationContext();
+  if (!context) return { campusId: "", campusName: "Contry", birthYears: [] };
+
+  const { supabase, contryCampus } = context;
+  const { data } = await supabase
+    .from("players")
+    .select("birth_date, enrollments!inner(campus_id, status)")
+    .eq("enrollments.status", "active")
+    .eq("enrollments.campus_id", contryCampus.id)
+    .returns<Array<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>>();
+
+  const birthYears = [...new Set((data ?? []).map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort(
+    (a, b) => a - b
+  );
+
+  return {
+    campusId: contryCampus.id,
+    campusName: contryCampus.name,
+    birthYears,
+  };
+}
+
+export async function searchContryRegularizationPlayersAction(
+  q: string,
+): Promise<ContryRegularizationPlayerResult[]> {
+  const trimmed = q.trim();
+  if (trimmed.length < 2) return [];
+
+  const context = await getContryRegularizationContext();
+  if (!context) return [];
+
+  const { contryCampus } = context;
+  const result = await listPlayers({
+    campusId: contryCampus.id,
+    q: /^\d{4}$/.test(trimmed) ? undefined : trimmed,
+    birthYear: /^\d{4}$/.test(trimmed) ? trimmed : undefined,
+    page: 1,
+  });
+
+  return result.rows.slice(0, 8).map((row) => ({
+    playerId: row.id,
+    playerName: row.fullName,
+    birthYear: row.birthYear,
+    enrollmentId: row.enrollmentId ?? "",
+    campusName: row.campusName,
+    balance: row.balance,
+    teamName: row.teamName,
+    coachName: null,
+  })).filter((row) => !!row.enrollmentId);
+}
+
+export async function listContryRegularizationPlayersByYearAction(
+  birthYear: number,
+): Promise<ContryRegularizationPlayerResult[]> {
+  const context = await getContryRegularizationContext();
+  if (!context) return [];
+
+  const { supabase, contryCampus } = context;
+  const { data, error } = await supabase.rpc("list_caja_players_by_campus_year", {
+    p_campus_id: contryCampus.id,
+    p_birth_year: birthYear,
+  });
+
+  if (error || !data) return [];
+
+  return (data as CajaYearListRow[]).map((row) => ({
+    playerId: row.player_id,
+    playerName: row.player_name,
+    birthYear: row.birth_year,
+    enrollmentId: row.enrollment_id,
+    campusName: row.campus_name,
+    balance: row.balance,
+    teamName: row.team_name ?? null,
+    coachName: row.coach_name ?? null,
+  }));
 }
 
 export async function postContryHistoricalPaymentAction(

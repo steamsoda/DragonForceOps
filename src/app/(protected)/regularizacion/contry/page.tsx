@@ -2,18 +2,16 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
-import { listPlayers } from "@/lib/queries/players";
+import { findContryCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { HistoricalPaymentPostForm } from "@/components/billing/historical-payment-post-form";
+import { ContryRegularizationPlayerPicker } from "@/components/billing/contry-regularization-player-picker";
 import { postContryHistoricalPaymentRedirectAction } from "@/server/actions/payments";
 
 type SearchParams = Promise<{
-  q?: string;
-  phone?: string;
   enrollment?: string;
   ok?: string;
   err?: string;
@@ -31,32 +29,15 @@ const errorMessages: Record<string, string> = {
   debug_read_only: "El modo de solo lectura bloquea capturas historicas.",
 };
 
-function isContryCampus(campus: { code: string; name: string }) {
-  const normalized = `${campus.code} ${campus.name}`.toLowerCase();
-  return normalized.includes("contry") || normalized.includes("ctr");
-}
-
 export default async function ContryRegularizationPage({ searchParams }: { searchParams: SearchParams }) {
   await requireOperationalContext();
   const params = await searchParams;
-  const q = params.q?.trim() ?? "";
-  const phone = params.phone?.trim() ?? "";
   const selectedEnrollmentId = params.enrollment?.trim() ?? "";
   const campusAccess = await getOperationalCampusAccess();
 
   if (!campusAccess) redirect("/unauthorized");
-  const contryCampus = campusAccess.campuses.find(isContryCampus);
+  const contryCampus = findContryCampus(campusAccess.campuses);
   if (!contryCampus) redirect("/unauthorized");
-
-  const searchActive = Boolean(q || phone);
-  const result = searchActive
-    ? await listPlayers({
-        q: q || undefined,
-        phone: phone || undefined,
-        campusId: contryCampus.id,
-        page: 1,
-      })
-    : { rows: [], total: 0, page: 1, pageSize: 20 };
 
   const selectedLedger = selectedEnrollmentId ? await getEnrollmentLedger(selectedEnrollmentId) : null;
   if (selectedEnrollmentId && (!selectedLedger || selectedLedger.enrollment.campusId !== contryCampus.id)) {
@@ -64,8 +45,6 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
   }
 
   const baseParams = new URLSearchParams();
-  if (q) baseParams.set("q", q);
-  if (phone) baseParams.set("phone", phone);
   if (selectedEnrollmentId) baseParams.set("enrollment", selectedEnrollmentId);
   const returnTo = `/regularizacion/contry${baseParams.toString() ? `?${baseParams.toString()}` : ""}`;
 
@@ -119,84 +98,8 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
           </div>
         ) : null}
 
-        <form method="GET" className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)_auto_auto]">
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Buscar jugador Contry por nombre"
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-          <input
-            type="text"
-            name="phone"
-            defaultValue={phone}
-            placeholder="Telefono tutor (opcional)"
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-          />
-          <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-            Buscar
-          </button>
-          {(q || phone || selectedEnrollmentId) ? (
-            <Link
-              href="/regularizacion/contry"
-              className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Limpiar
-            </Link>
-          ) : null}
-        </form>
-
         <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Resultados Contry</h2>
-              {searchActive ? (
-                <span className="text-xs text-slate-500 dark:text-slate-400">{result.total} resultado{result.total !== 1 ? "s" : ""}</span>
-              ) : null}
-            </div>
-
-            {!searchActive ? (
-              <div className="rounded-md border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                Busca por nombre o telefono para abrir una cuenta de Contry y registrar pagos historicos.
-              </div>
-            ) : result.rows.length === 0 ? (
-              <div className="rounded-md border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                No se encontraron jugadores activos de Contry con esos filtros.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {result.rows.map((row) => {
-                  const rowParams = new URLSearchParams();
-                  if (q) rowParams.set("q", q);
-                  if (phone) rowParams.set("phone", phone);
-                  if (row.enrollmentId) rowParams.set("enrollment", row.enrollmentId);
-                  const isSelected = row.enrollmentId === selectedEnrollmentId;
-
-                  return (
-                    <Link
-                      key={row.id}
-                      href={`/regularizacion/contry?${rowParams.toString()}`}
-                      className={`block rounded-md border px-4 py-3 transition ${
-                        isSelected
-                          ? "border-portoBlue bg-portoBlue/5"
-                          : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/60"
-                      }`}
-                    >
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{row.fullName}</p>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        Cat. {new Date(row.birthDate).getFullYear()} | {row.level ?? "Sin nivel"} | {row.campusName}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Saldo: {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(row.balance)}
-                        {row.primaryPhone ? ` | Tutor: ${row.primaryPhone}` : ""}
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <ContryRegularizationPlayerPicker selectedEnrollmentId={selectedEnrollmentId} />
 
           <section className="space-y-4">
             {!selectedLedger ? (

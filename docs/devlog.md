@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-06 (session 48)
+
+### Issue 37 Accepted / Closed
+
+- Preview validation for the baja/archive pass is complete.
+- Confirmed working in preview:
+  - dedicated `Dar de baja` flow
+  - archive/read-only player profile mode
+  - stronger archive baja banner for staff
+  - correct handoff for dropped players with pending balance
+- Issue `#37` can now be treated as covered unless new live-ops feedback appears.
+
 ## 2026-04-06 (session 47)
 
 ### Archive Player Profile Badge Polish
@@ -1493,3 +1505,18 @@
   - no billing changes
   - no charging restrictions
   - incidents without a date range do not appear as active warnings
+
+### Regularización Contry Search UX Refresh (v1.11.3)
+- Reworked `/regularizacion/contry` player discovery so it no longer relies on the old server GET form with free-text name + tutor-phone inputs.
+- The left-side picker now mirrors the Caja search/discovery style:
+  - live autocomplete search
+  - `Buscar por categoría`
+  - modern empty/loading/no-results states
+- Discovery remains intentionally hard-scoped to Contry:
+  - only active Contry enrollments can appear
+  - category drilldown opens directly to Contry birth years, with no campus step
+  - selecting a player updates `?enrollment=` and keeps the right-side ledger plus historical payment capture flow unchanged
+- This is a UX-only polish pass for the existing historical regularization workflow:
+  - no payment semantics changed
+  - no receipt/reporting behavior changed
+  - Caja behavior remains untouched
