@@ -172,6 +172,11 @@ type ListBalanceRow = {
   balance: number;
 };
 
+type ListPendingBalanceRpcRow = {
+  enrollment_id: string;
+  balance: number | string;
+};
+
 type ListTeamRow = {
   enrollment_id: string;
   teams: { name: string | null; type: string; level: string | null } | null;
@@ -240,7 +245,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   const enrollmentIds = (players ?? []).map((player) => player.enrollments[0]?.id).filter(Boolean) as string[];
   const needsUniform = filters.enabledTags?.uniform === true;
 
-  const [{ data: guardianLinks }, { data: balanceRows }, { data: teamRows }, uniformResult, pendingMonthResult, { data: incidentRows }] =
+  const [{ data: guardianLinks }, { data: pendingBalanceRowsRaw }, { data: teamRows }, uniformResult, pendingMonthResult, { data: incidentRows }] =
     await Promise.all([
       supabase
         .from("player_guardians")
@@ -248,10 +253,8 @@ export async function listPlayers(filters: PlayerListFilters) {
         .in("player_id", playerIds)
         .returns<GuardianLinkRow[]>(),
       supabase
-        .from("v_enrollment_balances")
-        .select("enrollment_id, balance")
-        .in("enrollment_id", enrollmentIds)
-        .returns<ListBalanceRow[]>(),
+        .rpc("list_pending_enrollments_full", { p_campus_id: filters.campusId ?? null })
+        .returns<ListPendingBalanceRpcRow[]>(),
       supabase
         .from("team_assignments")
         .select("enrollment_id, teams(name, type, level)")
@@ -283,6 +286,10 @@ export async function listPlayers(filters: PlayerListFilters) {
         .returns<EnrollmentIncidentListRow[]>(),
     ]);
 
+  const pendingBalanceRows = Array.isArray(pendingBalanceRowsRaw)
+    ? (pendingBalanceRowsRaw as ListPendingBalanceRpcRow[])
+    : [];
+
   const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
   if (needsUniform && uniformResult.data) {
     const ordersByPlayer = new Map<string, string[]>();
@@ -306,7 +313,11 @@ export async function listPlayers(filters: PlayerListFilters) {
     guardiansByPlayer.set(link.player_id, arr);
   }
 
-  const balanceByEnrollment = new Map((balanceRows ?? []).map((row) => [row.enrollment_id, row.balance]));
+  const balanceByEnrollment = new Map(
+    pendingBalanceRows
+      .filter((row) => enrollmentIds.includes(row.enrollment_id))
+      .map((row) => [row.enrollment_id, typeof row.balance === "string" ? Number(row.balance) : (row.balance ?? 0)]),
+  );
   const teamByEnrollment = new Map((teamRows ?? []).map((row) => [row.enrollment_id, row.teams ?? null]));
   const activeIncidentByEnrollment = new Map<string, ActiveIncident>();
 

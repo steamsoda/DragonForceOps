@@ -1535,3 +1535,11 @@
   - advance tuition creation is now available without leaving the regularization screen
   - successful charge creation refreshes the same ledger/payment panel immediately
 - Caja itself keeps the same behavior; only shared allocation helpers and optional campus guards were reused under the hood.
+
+### Jugadores Balance State Fix (v1.11.5)
+- Fixed the `Estado` chip in `Jugadores` so active debtors are no longer incorrectly tagged as `Al corriente`.
+- The active-player list now derives its pending-balance state from the same pending-enrollment aggregation used by `Pendientes`, instead of the stale list-balance source that was drifting from real outstanding debt.
+- This patch only fixes player-list payment state rendering:
+  - no financial data changed
+  - no profile or Caja behavior changed
+  - no migration was required
