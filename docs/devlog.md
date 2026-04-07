@@ -11,6 +11,7 @@
 - Added an explicit preview read-only guard for `Cambiar concepto` and `Reembolsar` so validations done through `Ver como` return `debug_read_only` cleanly instead of failing as a generic error.
 - Added refund debug diagnostics on the server action and UI banner so preview validation can surface the raw failure code/message when a refund still fails.
 - Added follow-up migration `20260407001500_fix_payment_refunds_policy_ambiguity.sql` after preview surfaced `column reference "payment_id" is ambiguous` during refund insert RLS checks.
+- Added follow-up migration `20260407003000_fix_payment_function_ambiguity.sql` after tracing the real remaining cause to `RETURNS TABLE` output-variable ambiguity inside `record_payment_refund(...)` and `reassign_payment_to_charges(...)`.
 
 ## 2026-04-06 (session 50)
 
