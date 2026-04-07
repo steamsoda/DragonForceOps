@@ -21,6 +21,20 @@ jobs:
 
       - name: Apply migrations to production
         run: |
-          supabase db push --db-url "$SUPABASE_PROD_DB_URL"
+          python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          raw = os.environ["SUPABASE_PROD_DB_URL"]
+          parsed = urllib.parse.urlparse(raw)
+          password = urllib.parse.quote(urllib.parse.unquote(parsed.password or ""))
+          project_ref = "hjvytfaalnfcqfgbxsmj"
+          pooler_host = "aws-1-us-east-2.pooler.supabase.com"
+          db_url = f"postgresql://postgres.{project_ref}:{password}@{pooler_host}:5432/postgres?sslmode=require"
+          print(f"DB_URL={db_url}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+            fh.write(f"DB_URL={db_url}\n")
+          PY
+          supabase db push --db-url "$DB_URL"
         env:
           SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}

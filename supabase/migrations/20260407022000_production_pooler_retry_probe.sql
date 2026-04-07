@@ -1,0 +1,1 @@
+-- No-op migration to retrigger production DB push after switching the workflow to the pooled connection path.
