@@ -131,10 +131,13 @@ export function EnrollmentIntakeForm({
   const requestRef = useRef(0);
   const [uniformSize, setUniformSize] = useState("");
   const [kitFulfillment, setKitFulfillment] = useState<"deliver_now" | "pending_order">("deliver_now");
+  const [kitIsGoalkeeper, setKitIsGoalkeeper] = useState(false);
   const [addExtraKit, setAddExtraKit] = useState(false);
   const [extraKitSize, setExtraKitSize] = useState("");
+  const [extraKitIsGoalkeeper, setExtraKitIsGoalkeeper] = useState(false);
   const [addGameUniform, setAddGameUniform] = useState(false);
   const [gameUniformSize, setGameUniformSize] = useState("");
+  const [gameUniformIsGoalkeeper, setGameUniformIsGoalkeeper] = useState(false);
 
   const birthDate = useMemo(() => parseDateOnlyInput(birthDateText), [birthDateText]);
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -195,10 +198,13 @@ export function EnrollmentIntakeForm({
       <input type="hidden" name="returnInscriptionMode" value={isReturning ? returnInscriptionMode : ""} />
       <input type="hidden" name="uniformSize" value={uniformSize} />
       <input type="hidden" name="kitFulfillment" value={kitFulfillment} />
+      <input type="hidden" name="kitIsGoalkeeper" value={kitIsGoalkeeper ? "1" : "0"} />
       <input type="hidden" name="addExtraKit" value={addExtraKit ? "1" : "0"} />
       <input type="hidden" name="extraKitSize" value={extraKitSize} />
+      <input type="hidden" name="extraKitIsGoalkeeper" value={extraKitIsGoalkeeper ? "1" : "0"} />
       <input type="hidden" name="addGameUniform" value={addGameUniform ? "1" : "0"} />
       <input type="hidden" name="gameUniformSize" value={gameUniformSize} />
+      <input type="hidden" name="gameUniformIsGoalkeeper" value={gameUniformIsGoalkeeper ? "1" : "0"} />
 
       <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="space-y-1">
@@ -592,27 +598,44 @@ export function EnrollmentIntakeForm({
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
               2 kits de entrenamiento incluidos en la inscripción
             </p>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Talla (ambos kits)</span>
-                <select
-                  value={uniformSize}
-                  onChange={(e) => setUniformSize(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Sin registrar</option>
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Talla (ambos kits)</p>
+                <div className="flex flex-wrap gap-1.5">
                   {UNIFORM_SIZES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setUniformSize(uniformSize === s ? "" : s)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        uniformSize === s
+                          ? "border-portoBlue bg-portoBlue text-white"
+                          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {s}
+                    </button>
                   ))}
-                </select>
-              </label>
-              <div className="space-y-1 text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Entrega</span>
-                <div className="flex rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setKitIsGoalkeeper((g) => !g)}
+                    className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                      kitIsGoalkeeper
+                        ? "border-violet-500 bg-violet-500 text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Portero {kitIsGoalkeeper ? "✓" : ""}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Entrega</p>
+                <div className="flex rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden w-fit">
                   <button
                     type="button"
                     onClick={() => setKitFulfillment("deliver_now")}
-                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                       kitFulfillment === "deliver_now"
                         ? "bg-portoBlue text-white"
                         : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -623,7 +646,7 @@ export function EnrollmentIntakeForm({
                   <button
                     type="button"
                     onClick={() => setKitFulfillment("pending_order")}
-                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors border-l border-slate-300 dark:border-slate-600 ${
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-slate-300 dark:border-slate-600 ${
                       kitFulfillment === "pending_order"
                         ? "bg-portoBlue text-white"
                         : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -652,19 +675,36 @@ export function EnrollmentIntakeForm({
               </span>
             </label>
             {addExtraKit && (
-              <label className="block space-y-1 text-sm ml-6">
-                <span className="text-slate-600 dark:text-slate-400">Talla</span>
-                <select
-                  value={extraKitSize}
-                  onChange={(e) => setExtraKitSize(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Sin registrar</option>
+              <div className="ml-6 space-y-1">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
+                <div className="flex flex-wrap gap-1.5">
                   {UNIFORM_SIZES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setExtraKitSize(extraKitSize === s ? "" : s)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        extraKitSize === s
+                          ? "border-portoBlue bg-portoBlue text-white"
+                          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {s}
+                    </button>
                   ))}
-                </select>
-              </label>
+                  <button
+                    type="button"
+                    onClick={() => setExtraKitIsGoalkeeper((g) => !g)}
+                    className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                      extraKitIsGoalkeeper
+                        ? "border-violet-500 bg-violet-500 text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Portero {extraKitIsGoalkeeper ? "✓" : ""}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -683,19 +723,36 @@ export function EnrollmentIntakeForm({
             </span>
           </label>
           {addGameUniform && (
-            <label className="block space-y-1 text-sm ml-6">
-              <span className="text-slate-600 dark:text-slate-400">Talla</span>
-              <select
-                value={gameUniformSize}
-                onChange={(e) => setGameUniformSize(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Sin registrar</option>
+            <div className="ml-6 space-y-1">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
+              <div className="flex flex-wrap gap-1.5">
                 {UNIFORM_SIZES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setGameUniformSize(gameUniformSize === s ? "" : s)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      gameUniformSize === s
+                        ? "border-portoBlue bg-portoBlue text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {s}
+                  </button>
                 ))}
-              </select>
-            </label>
+                <button
+                  type="button"
+                  onClick={() => setGameUniformIsGoalkeeper((g) => !g)}
+                  className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                    gameUniformIsGoalkeeper
+                      ? "border-violet-500 bg-violet-500 text-white"
+                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Portero {gameUniformIsGoalkeeper ? "✓" : ""}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </section>

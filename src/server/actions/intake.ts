@@ -162,12 +162,15 @@ export async function searchLikelyPlayersForIntakeAction(input: {
 export async function createEnrollmentIntakeAction(formData: FormData) {
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
-  const uniformSize     = formData.get("uniformSize")?.toString().trim() || null;
-  const kitFulfillment  = formData.get("kitFulfillment")?.toString() === "deliver_now" ? "deliver_now" : "pending_order";
-  const addExtraKit     = formData.get("addExtraKit") === "1";
-  const extraKitSize    = formData.get("extraKitSize")?.toString().trim() || null;
-  const addGameUniform  = formData.get("addGameUniform") === "1";
-  const gameUniformSize = formData.get("gameUniformSize")?.toString().trim() || null;
+  const uniformSize             = formData.get("uniformSize")?.toString().trim() || null;
+  const kitFulfillment          = formData.get("kitFulfillment")?.toString() === "deliver_now" ? "deliver_now" : "pending_order";
+  const kitIsGoalkeeper         = formData.get("kitIsGoalkeeper") === "1";
+  const addExtraKit             = formData.get("addExtraKit") === "1";
+  const extraKitSize            = formData.get("extraKitSize")?.toString().trim() || null;
+  const extraKitIsGoalkeeper    = formData.get("extraKitIsGoalkeeper") === "1";
+  const addGameUniform          = formData.get("addGameUniform") === "1";
+  const gameUniformSize         = formData.get("gameUniformSize")?.toString().trim() || null;
+  const gameUniformIsGoalkeeper = formData.get("gameUniformIsGoalkeeper") === "1";
 
   const player = parsePlayerFormData(formData);
   const enrollment = parseEnrollmentFormData(formData);
@@ -365,7 +368,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
         charge_id: null,
         sold_at: now,
         delivered_at: kitFulfillment === "deliver_now" ? now : null,
-        notes: "Incluido en inscripción",
+        notes: kitIsGoalkeeper ? "Incluido en inscripción · Portero" : "Incluido en inscripción",
         created_by: user.id,
       },
       {
@@ -377,7 +380,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
         charge_id: null,
         sold_at: now,
         delivered_at: kitFulfillment === "deliver_now" ? now : null,
-        notes: "Incluido en inscripción",
+        notes: kitIsGoalkeeper ? "Incluido en inscripción · Portero" : "Incluido en inscripción",
         created_by: user.id,
       },
     ]);
@@ -395,6 +398,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       currency,
       status: "pending",
       size: extraKitSize,
+      is_goalkeeper: extraKitIsGoalkeeper,
       uniform_fulfillment_mode: "pending_order",
       created_by: user.id,
     });
@@ -409,6 +413,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       currency,
       status: "pending",
       size: gameUniformSize,
+      is_goalkeeper: gameUniformIsGoalkeeper,
       uniform_fulfillment_mode: "pending_order",
       created_by: user.id,
     });
