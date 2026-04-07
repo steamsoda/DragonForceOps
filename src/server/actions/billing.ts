@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
+import { assertDebugWritesAllowed, isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import {
   canAccessEnrollmentRecord,
   getPermissionContext,
@@ -535,6 +535,7 @@ export async function reassignPaymentAction(
   formData: FormData,
 ): Promise<PaymentReassignmentResult> {
   const basePath = `/enrollments/${enrollmentId}/payments/${paymentId}/reassign`;
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   await assertDebugWritesAllowed(basePath);
   const workflowContext = await getPaymentWorkflowContext(enrollmentId);
   if (!workflowContext) return { ok: false, error: "unauthorized" };
@@ -602,6 +603,7 @@ export async function refundPaymentAction(
   formData: FormData,
 ): Promise<PaymentRefundResult> {
   const basePath = `/enrollments/${enrollmentId}/payments/${paymentId}/refund`;
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   await assertDebugWritesAllowed(basePath);
   const workflowContext = await getPaymentWorkflowContext(enrollmentId);
   if (!workflowContext) return { ok: false, error: "unauthorized" };

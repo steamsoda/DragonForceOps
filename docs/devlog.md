@@ -8,6 +8,7 @@
 - Marked the refund reason and refund datetime more explicitly as required and now prefill the refund datetime with the current local value to reduce front-desk friction.
 - Hardened `refundPaymentAction(...)` so unknown backend failures normalize into stable refund error codes instead of collapsing into the generic banner.
 - Hardened `record_payment_refund(...)` in SQL to fall back to the enrollment campus if an older payment is missing `operator_campus_id`, and to return stable `refund_insert_failed` / `refund_failed` codes instead of leaking raw DB exceptions.
+- Added an explicit preview read-only guard for `Cambiar concepto` and `Reembolsar` so validations done through `Ver como` return `debug_read_only` cleanly instead of failing as a generic error.
 
 ## 2026-04-06 (session 50)
 
