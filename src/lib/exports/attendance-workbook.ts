@@ -6,16 +6,33 @@ const SECTION_LEVELS = ["B2", "B1", "B3", "Selectivo"] as const;
 const ATTENDANCE_HEADERS = Array.from({ length: ATTENDANCE_COLUMN_COUNT }, (_, index) => `A${index + 1}`);
 const TOTAL_COLUMNS = 6 + ATTENDANCE_COLUMN_COUNT;
 
+type ExportGroup = {
+  label: string;
+  genders: string[];
+  birthYears: number[];
+};
+
+const EXPORT_GROUPS: ExportGroup[] = [
+  { label: "Little Dragons", genders: ["Varonil", "Femenil"], birthYears: [2021, 2022] },
+  { label: "FEM 2016-2019",  genders: ["Femenil"],            birthYears: [2019, 2018, 2017, 2016] },
+  { label: "FEM 2014-2015",  genders: ["Femenil"],            birthYears: [2015, 2014] },
+  { label: "FEM 2012-2013",  genders: ["Femenil"],            birthYears: [2013, 2012] },
+  { label: "FEM 2009-2011",  genders: ["Femenil"],            birthYears: [2011, 2010, 2009] },
+  { label: "VAR 2019-2020",  genders: ["Varonil"],            birthYears: [2020, 2019] },
+  { label: "VAR 2018",       genders: ["Varonil"],            birthYears: [2018] },
+  { label: "VAR 2017",       genders: ["Varonil"],            birthYears: [2017] },
+  { label: "VAR 2016",       genders: ["Varonil"],            birthYears: [2016] },
+  { label: "VAR 2015",       genders: ["Varonil"],            birthYears: [2015] },
+  { label: "VAR 2014",       genders: ["Varonil"],            birthYears: [2014] },
+  { label: "VAR 2013",       genders: ["Varonil"],            birthYears: [2013] },
+  { label: "VAR 2012",       genders: ["Varonil"],            birthYears: [2012] },
+  { label: "VAR 2011",       genders: ["Varonil"],            birthYears: [2011] },
+  { label: "VAR 2010",       genders: ["Varonil"],            birthYears: [2010] },
+  { label: "VAR 2008-2009",  genders: ["Varonil"],            birthYears: [2009, 2008] },
+];
+
 function sanitizeSheetName(value: string) {
   return value.replace(/[\\/*?:[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31);
-}
-
-function getSheetKey(row: AttendanceExportRow) {
-  return `${row.campusId}::${row.birthYear}::${row.genderLabel}`;
-}
-
-function buildSheetName(row: AttendanceExportRow) {
-  return sanitizeSheetName(`${row.campusName} ${row.birthYear} ${row.genderLabel}`);
 }
 
 function levelRank(level: string) {
@@ -101,6 +118,40 @@ function addSection(
   });
 }
 
+function addGenderBlock(
+  worksheet: ExcelJS.Worksheet,
+  genderLabel: string,
+  rows: AttendanceExportRow[]
+) {
+  if (rows.length === 0) return;
+
+  if (worksheet.rowCount > 1) {
+    worksheet.addRow([]);
+  }
+
+  const genderHeader = worksheet.addRow([genderLabel.toUpperCase()]);
+  worksheet.mergeCells(genderHeader.number, 1, genderHeader.number, TOTAL_COLUMNS);
+  genderHeader.font = { bold: true };
+  genderHeader.alignment = { vertical: "middle", horizontal: "center" };
+  genderHeader.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFD6E4F0" },
+  };
+  applyGridBorder(genderHeader, TOTAL_COLUMNS);
+
+  const sortedRows = [...rows].sort((a, b) => {
+    if (a.birthYear !== b.birthYear) return a.birthYear - b.birthYear;
+    const levelDiff = levelRank(a.level) - levelRank(b.level);
+    if (levelDiff !== 0) return levelDiff;
+    return a.playerName.localeCompare(b.playerName, "es-MX");
+  });
+
+  for (const level of getOrderedLevels(sortedRows)) {
+    addSection(worksheet, level, sortedRows.filter((row) => row.level === level));
+  }
+}
+
 function buildEmptyWorkbookSheet(workbook: ExcelJS.Workbook) {
   const worksheet = workbook.addWorksheet("Sin jugadores");
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
@@ -122,59 +173,77 @@ export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
     return workbook;
   }
 
-  const grouped = new Map<string, AttendanceExportRow[]>();
+  // Collect unique campuses sorted alphabetically
+  const campusMap = new Map<string, { campusName: string; campusCode: string }>();
   for (const row of rows) {
-    const key = getSheetKey(row);
-    const current = grouped.get(key) ?? [];
-    current.push(row);
-    grouped.set(key, current);
+    if (!campusMap.has(row.campusId)) {
+      campusMap.set(row.campusId, { campusName: row.campusName, campusCode: row.campusCode });
+    }
+  }
+  const campuses = [...campusMap.entries()].sort((a, b) =>
+    a[1].campusName.localeCompare(b[1].campusName, "es-MX")
+  );
+
+  for (const [campusId, { campusName, campusCode }] of campuses) {
+    const campusRows = rows.filter((row) => row.campusId === campusId);
+
+    for (const group of EXPORT_GROUPS) {
+      const groupRows = campusRows.filter(
+        (row) =>
+          group.birthYears.includes(row.birthYear) &&
+          group.genders.includes(row.genderLabel)
+      );
+
+      if (groupRows.length === 0) continue;
+
+      const sheetTabName = sanitizeSheetName(`${campusCode} · ${group.label}`);
+      const worksheet = workbook.addWorksheet(sheetTabName);
+      worksheet.views = [{ state: "frozen", ySplit: 1 }];
+      worksheet.columns = [
+        { width: 5 },
+        { width: 34 },
+        { width: 8 },
+        { width: 12 },
+        { width: 24 },
+        { width: 16 },
+        ...Array.from({ length: ATTENDANCE_COLUMN_COUNT }, () => ({ width: 6 })),
+      ];
+
+      const titleRow = worksheet.addRow([`${campusName} · ${group.label}`]);
+      worksheet.mergeCells(titleRow.number, 1, titleRow.number, TOTAL_COLUMNS);
+      titleRow.font = { bold: true, size: 14 };
+      titleRow.alignment = { vertical: "middle", horizontal: "center" };
+      titleRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFDCEAF7" },
+      };
+      applyGridBorder(titleRow, TOTAL_COLUMNS);
+
+      const isMultiGender = group.genders.length > 1;
+
+      if (isMultiGender) {
+        for (const gender of group.genders) {
+          addGenderBlock(worksheet, gender, groupRows.filter((row) => row.genderLabel === gender));
+        }
+      } else {
+        const sortedRows = [...groupRows].sort((a, b) => {
+          if (a.birthYear !== b.birthYear) return a.birthYear - b.birthYear;
+          const levelDiff = levelRank(a.level) - levelRank(b.level);
+          if (levelDiff !== 0) return levelDiff;
+          return a.playerName.localeCompare(b.playerName, "es-MX");
+        });
+
+        for (const level of getOrderedLevels(sortedRows)) {
+          addSection(worksheet, level, sortedRows.filter((row) => row.level === level));
+        }
+      }
+    }
   }
 
-  const sheets = [...grouped.values()].sort((a, b) => {
-    const campusDiff = a[0].campusName.localeCompare(b[0].campusName, "es-MX");
-    if (campusDiff !== 0) return campusDiff;
-    if (a[0].birthYear !== b[0].birthYear) return a[0].birthYear - b[0].birthYear;
-    return a[0].genderLabel.localeCompare(b[0].genderLabel, "es-MX");
-  });
-
-  for (const sheetRows of sheets) {
-    const first = sheetRows[0];
-    const worksheet = workbook.addWorksheet(buildSheetName(first));
-    worksheet.views = [{ state: "frozen", ySplit: 1 }];
-    worksheet.columns = [
-      { width: 5 },
-      { width: 34 },
-      { width: 8 },
-      { width: 12 },
-      { width: 24 },
-      { width: 16 },
-      ...Array.from({ length: ATTENDANCE_COLUMN_COUNT }, () => ({ width: 6 })),
-    ];
-
-    const titleRow = worksheet.addRow([`${first.campusName} · Cat ${first.birthYear} · ${first.genderLabel}`]);
-    worksheet.mergeCells(titleRow.number, 1, titleRow.number, TOTAL_COLUMNS);
-    titleRow.font = { bold: true, size: 14 };
-    titleRow.alignment = { vertical: "middle", horizontal: "center" };
-    titleRow.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFDCEAF7" },
-    };
-    applyGridBorder(titleRow, TOTAL_COLUMNS);
-
-    const orderedRows = [...sheetRows].sort((a, b) => {
-      const levelDiff = levelRank(a.level) - levelRank(b.level);
-      if (levelDiff !== 0) return levelDiff;
-      return a.playerName.localeCompare(b.playerName, "es-MX");
-    });
-
-    for (const level of getOrderedLevels(orderedRows)) {
-      addSection(
-        worksheet,
-        level,
-        orderedRows.filter((row) => row.level === level)
-      );
-    }
+  // Fallback: if no sheets were created (all players outside defined groups)
+  if (workbook.worksheets.length === 0) {
+    buildEmptyWorkbookSheet(workbook);
   }
 
   return workbook;
