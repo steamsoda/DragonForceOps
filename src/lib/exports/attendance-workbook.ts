@@ -4,7 +4,15 @@ import type { AttendanceExportRow } from "@/lib/queries/player-exports";
 const ATTENDANCE_COLUMN_COUNT = 20;
 const SECTION_LEVELS = ["B2", "B1", "B3", "Selectivo"] as const;
 const ATTENDANCE_HEADERS = Array.from({ length: ATTENDANCE_COLUMN_COUNT }, (_, index) => `A${index + 1}`);
-const TOTAL_COLUMNS = 6 + ATTENDANCE_COLUMN_COUNT;
+const TOTAL_COLUMNS = 5 + ATTENDANCE_COLUMN_COUNT; // 25 — no Tel Tutor
+
+// FC Porto brand palette (ARGB)
+const PORTO_NAVY  = "FF003087";
+const PORTO_GOLD  = "FFFFC72C";
+const PORTO_BLUE  = "FF1455A4";
+const PORTO_LIGHT = "FFE8EEF7";
+const WHITE       = "FFFFFFFF";
+const GRAY_BORDER = "FFB8C0CC";
 
 type ExportGroup = {
   label: string;
@@ -47,7 +55,6 @@ function getOrderedLevels(rows: AttendanceExportRow[]) {
   const extras = withoutSinNivel
     .filter((level) => !SECTION_LEVELS.includes(level as (typeof SECTION_LEVELS)[number]))
     .sort((a, b) => a.localeCompare(b, "es-MX"));
-
   return [
     ...prioritized,
     ...extras,
@@ -56,12 +63,12 @@ function getOrderedLevels(rows: AttendanceExportRow[]) {
 }
 
 function applyGridBorder(row: ExcelJS.Row, totalColumns: number) {
-  for (let columnIndex = 1; columnIndex <= totalColumns; columnIndex += 1) {
-    row.getCell(columnIndex).border = {
-      top: { style: "thin", color: { argb: "FFB8C0CC" } },
-      left: { style: "thin", color: { argb: "FFB8C0CC" } },
-      bottom: { style: "thin", color: { argb: "FFB8C0CC" } },
-      right: { style: "thin", color: { argb: "FFB8C0CC" } },
+  for (let col = 1; col <= totalColumns; col += 1) {
+    row.getCell(col).border = {
+      top:    { style: "thin", color: { argb: GRAY_BORDER } },
+      left:   { style: "thin", color: { argb: GRAY_BORDER } },
+      bottom: { style: "thin", color: { argb: GRAY_BORDER } },
+      right:  { style: "thin", color: { argb: GRAY_BORDER } },
     };
   }
 }
@@ -77,24 +84,18 @@ function addSection(
     worksheet.addRow([]);
   }
 
+  // Level header — light Porto blue
   const sectionTitle = worksheet.addRow([`Nivel: ${level}`]);
   worksheet.mergeCells(sectionTitle.number, 1, sectionTitle.number, TOTAL_COLUMNS);
-  sectionTitle.font = { bold: true };
-  sectionTitle.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFEAF0F6" },
-  };
+  sectionTitle.font = { bold: true, color: { argb: PORTO_NAVY } };
+  sectionTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_LIGHT } };
   applyGridBorder(sectionTitle, TOTAL_COLUMNS);
 
-  const headerRow = worksheet.addRow(["#", "Nombre", "Cat", "Nivel", "Equipo", "Tel Tutor", ...ATTENDANCE_HEADERS]);
-  headerRow.font = { bold: true };
+  // Column header — Porto gold
+  const headerRow = worksheet.addRow(["#", "Nombre", "Cat", "Nivel", "Equipo", ...ATTENDANCE_HEADERS]);
+  headerRow.font = { bold: true, color: { argb: PORTO_NAVY } };
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFF8E37B" },
-  };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_GOLD } };
   applyGridBorder(headerRow, TOTAL_COLUMNS);
 
   rows.forEach((row, index) => {
@@ -104,15 +105,13 @@ function addSection(
       row.birthYear,
       row.level,
       row.teamName,
-      row.guardianPhone,
       ...Array.from({ length: ATTENDANCE_COLUMN_COUNT }, () => ""),
     ]);
     dataRow.getCell(1).alignment = { horizontal: "center" };
     dataRow.getCell(3).alignment = { horizontal: "center" };
     dataRow.getCell(4).alignment = { horizontal: "center" };
-    dataRow.getCell(6).alignment = { horizontal: "center" };
-    for (let columnIndex = 7; columnIndex <= TOTAL_COLUMNS; columnIndex += 1) {
-      dataRow.getCell(columnIndex).alignment = { horizontal: "center" };
+    for (let col = 6; col <= TOTAL_COLUMNS; col += 1) {
+      dataRow.getCell(col).alignment = { horizontal: "center" };
     }
     applyGridBorder(dataRow, TOTAL_COLUMNS);
   });
@@ -129,15 +128,12 @@ function addGenderBlock(
     worksheet.addRow([]);
   }
 
+  // Gender header — Porto blue, white text
   const genderHeader = worksheet.addRow([genderLabel.toUpperCase()]);
   worksheet.mergeCells(genderHeader.number, 1, genderHeader.number, TOTAL_COLUMNS);
-  genderHeader.font = { bold: true };
+  genderHeader.font = { bold: true, color: { argb: WHITE } };
   genderHeader.alignment = { vertical: "middle", horizontal: "center" };
-  genderHeader.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFD6E4F0" },
-  };
+  genderHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_BLUE } };
   applyGridBorder(genderHeader, TOTAL_COLUMNS);
 
   const sortedRows = [...rows].sort((a, b) => {
@@ -161,10 +157,13 @@ function buildEmptyWorkbookSheet(workbook: ExcelJS.Workbook) {
   titleRow.alignment = { vertical: "middle", horizontal: "center" };
 }
 
-export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
+export async function buildAttendanceWorkbook(
+  rows: AttendanceExportRow[],
+  logoBuffer?: Buffer
+) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "INVICTA";
-  workbook.lastModifiedBy = "INVICTA";
+  workbook.creator = "Dragon Force Monterrey";
+  workbook.lastModifiedBy = "Dragon Force Monterrey";
   workbook.created = new Date();
   workbook.modified = new Date();
 
@@ -172,6 +171,12 @@ export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
     buildEmptyWorkbookSheet(workbook);
     return workbook;
   }
+
+  // Register logo once for the whole workbook
+  const logoId = logoBuffer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? workbook.addImage({ buffer: logoBuffer as any, extension: "png" })
+    : undefined;
 
   // Collect unique campuses sorted alphabetically
   const campusMap = new Map<string, { campusName: string; campusCode: string }>();
@@ -200,25 +205,32 @@ export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
       const worksheet = workbook.addWorksheet(sheetTabName);
       worksheet.views = [{ state: "frozen", ySplit: 1 }];
       worksheet.columns = [
-        { width: 5 },
-        { width: 34 },
-        { width: 8 },
-        { width: 12 },
-        { width: 24 },
-        { width: 16 },
+        { width: 5 },   // #
+        { width: 34 },  // Nombre
+        { width: 8 },   // Cat
+        { width: 12 },  // Nivel
+        { width: 24 },  // Equipo
         ...Array.from({ length: ATTENDANCE_COLUMN_COUNT }, () => ({ width: 6 })),
       ];
 
-      const titleRow = worksheet.addRow([`${campusName} · ${group.label}`]);
+      // Title row — Porto navy background, white text
+      const titleRow = worksheet.addRow([`Dragon Force Monterrey  ·  ${campusName}  ·  ${group.label}`]);
       worksheet.mergeCells(titleRow.number, 1, titleRow.number, TOTAL_COLUMNS);
-      titleRow.font = { bold: true, size: 14 };
+      titleRow.height = 42;
+      titleRow.font = { bold: true, size: 13, color: { argb: WHITE } };
       titleRow.alignment = { vertical: "middle", horizontal: "center" };
-      titleRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFDCEAF7" },
-      };
+      titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_NAVY } };
       applyGridBorder(titleRow, TOTAL_COLUMNS);
+
+      // Overlay logo on the right side of the title row
+      if (logoId !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        worksheet.addImage(logoId, {
+          tl: { col: TOTAL_COLUMNS - 4, row: 0 },
+          br: { col: TOTAL_COLUMNS,     row: 1 },
+          editAs: "oneCell",
+        } as any);
+      }
 
       const isMultiGender = group.genders.length > 1;
 
@@ -241,7 +253,6 @@ export async function buildAttendanceWorkbook(rows: AttendanceExportRow[]) {
     }
   }
 
-  // Fallback: if no sheets were created (all players outside defined groups)
   if (workbook.worksheets.length === 0) {
     buildEmptyWorkbookSheet(workbook);
   }

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import path from "path";
+import fs from "fs";
 import { buildAttendanceWorkbook } from "@/lib/exports/attendance-workbook";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +16,15 @@ function formatDateForFilename(date: Date) {
   }).format(date);
 }
 
+function readLogoBuffer(): Buffer | undefined {
+  try {
+    const logoPath = path.join(process.cwd(), "public", "watermark dragon force mty-15.png");
+    return fs.readFileSync(logoPath);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -26,7 +37,8 @@ export async function GET() {
   }
 
   const exportData = await getAttendanceExportData();
-  const workbook = await buildAttendanceWorkbook(exportData.rows);
+  const logoBuffer = readLogoBuffer();
+  const workbook = await buildAttendanceWorkbook(exportData.rows, logoBuffer);
   const workbookBuffer = await workbook.xlsx.writeBuffer();
   const bytes = workbookBuffer instanceof Uint8Array ? workbookBuffer : new Uint8Array(workbookBuffer);
   const filename = `asistencia-jugadores-${formatDateForFilename(new Date())}.xlsx`;
