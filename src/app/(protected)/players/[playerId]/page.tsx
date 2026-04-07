@@ -470,6 +470,10 @@ export default async function PlayerDetailPage({
                 </p>
               </div>
               <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Nivel</p>
+                <p className="font-medium">{player.level ?? "Sin nivel"}</p>
+              </div>
+              <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Talla de uniforme</p>
                 <p className="font-medium">{player.uniformSize ?? "Sin registrar"}</p>
               </div>

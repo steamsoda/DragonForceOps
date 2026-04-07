@@ -107,6 +107,19 @@ export default async function PlayerEditPage({
           </label>
         </div>
 
+        {/* Level */}
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Nivel</span>
+          <select name="level" defaultValue={player.level ?? ""} className={inputClass}>
+            <option value="">Sin nivel</option>
+            <option value="Little Dragons">Little Dragons</option>
+            <option value="B2">B2</option>
+            <option value="B1">B1</option>
+            <option value="B3">B3</option>
+            <option value="Selectivo">Selectivo</option>
+          </select>
+        </label>
+
         {/* Jersey number */}
         <label className="block space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Número de camiseta (opcional)</span>
