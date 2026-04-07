@@ -162,6 +162,12 @@ export async function searchLikelyPlayersForIntakeAction(input: {
 export async function createEnrollmentIntakeAction(formData: FormData) {
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
+  const uniformSize     = formData.get("uniformSize")?.toString().trim() || null;
+  const kitFulfillment  = formData.get("kitFulfillment")?.toString() === "deliver_now" ? "deliver_now" : "pending_order";
+  const addExtraKit     = formData.get("addExtraKit") === "1";
+  const extraKitSize    = formData.get("extraKitSize")?.toString().trim() || null;
+  const addGameUniform  = formData.get("addGameUniform") === "1";
+  const gameUniformSize = formData.get("gameUniformSize")?.toString().trim() || null;
 
   const player = parsePlayerFormData(formData);
   const enrollment = parseEnrollmentFormData(formData);
@@ -197,13 +203,15 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     supabase
       .from("charge_types")
       .select("id, code")
-      .in("code", ["inscription", "monthly_tuition"])
+      .in("code", ["inscription", "monthly_tuition", "uniform_training", "uniform_game"])
       .returns<ChargeTypeRow[]>(),
   ]);
 
   const chargeTypes = chargeTypesResult.data;
-  const inscriptionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
-  const tuitionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "monthly_tuition")?.id;
+  const inscriptionTypeId      = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
+  const tuitionTypeId          = (chargeTypes ?? []).find((ct) => ct.code === "monthly_tuition")?.id;
+  const uniformTrainingTypeId  = (chargeTypes ?? []).find((ct) => ct.code === "uniform_training")?.id;
+  const uniformGameTypeId      = (chargeTypes ?? []).find((ct) => ct.code === "uniform_game")?.id;
   if (!pricingQuote || !inscriptionTypeId || !tuitionTypeId) {
     return redirectWithError("config_error", {
       isReturning: enrollment.isReturning,
@@ -340,6 +348,72 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       returnMode: enrollment.returnInscriptionMode,
     });
   }
+
+  // ── Uniform handling ────────────────────────────────────────────────────
+  const includesKits = !isReturning || returnMode === "full";
+  const now = new Date().toISOString();
+
+  if (includesKits) {
+    const kitStatus = kitFulfillment === "deliver_now" ? "delivered" : "pending_order";
+    await supabase.from("uniform_orders").insert([
+      {
+        player_id: createdPlayer.id,
+        enrollment_id: createdEnrollment.id,
+        uniform_type: "training",
+        size: uniformSize,
+        status: kitStatus,
+        charge_id: null,
+        sold_at: now,
+        delivered_at: kitFulfillment === "deliver_now" ? now : null,
+        notes: "Incluido en inscripción",
+        created_by: user.id,
+      },
+      {
+        player_id: createdPlayer.id,
+        enrollment_id: createdEnrollment.id,
+        uniform_type: "training",
+        size: uniformSize,
+        status: kitStatus,
+        charge_id: null,
+        sold_at: now,
+        delivered_at: kitFulfillment === "deliver_now" ? now : null,
+        notes: "Incluido en inscripción",
+        created_by: user.id,
+      },
+    ]);
+    if (uniformSize) {
+      await supabase.from("players").update({ uniform_size: uniformSize }).eq("id", createdPlayer.id);
+    }
+  }
+
+  if (addExtraKit && uniformTrainingTypeId) {
+    await supabase.from("charges").insert({
+      enrollment_id: createdEnrollment.id,
+      charge_type_id: uniformTrainingTypeId,
+      description: "Kit de entrenamiento adicional",
+      amount: 600,
+      currency,
+      status: "pending",
+      size: extraKitSize,
+      uniform_fulfillment_mode: "pending_order",
+      created_by: user.id,
+    });
+  }
+
+  if (addGameUniform && uniformGameTypeId) {
+    await supabase.from("charges").insert({
+      enrollment_id: createdEnrollment.id,
+      charge_type_id: uniformGameTypeId,
+      description: "Uniforme de juego",
+      amount: 600,
+      currency,
+      status: "pending",
+      size: gameUniformSize,
+      uniform_fulfillment_mode: "pending_order",
+      created_by: user.id,
+    });
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   const birthYear = Number(player.birthDate.slice(0, 4));
   const b2Team = await findB2TeamForAutoAssign(enrollment.campusId, birthYear, player.gender ?? null);
