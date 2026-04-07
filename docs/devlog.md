@@ -7,6 +7,7 @@
 - Diagnosed the failed `main` rollout after the preview promotion: production DB migrations were still using the direct Supabase host from `SUPABASE_PROD_DB_URL`, and GitHub Actions could not reach that IPv6 endpoint.
 - Updated `.github/workflows/migrate-production.yml` to derive and use the pooled Supabase connection URL for the production project (`hjvytfaalnfcqfgbxsmj`) instead of the direct host path.
 - Added a no-op migration to safely retrigger the production DB workflow after the connection fix so the pending refund/reassignment migrations can apply on prod.
+- Follow-up hotfix: corrected the production workflow shell step so the derived pooled `DB_URL` is actually available to the same `supabase db push` command instead of being written only to `GITHUB_ENV`.
 
 ## 2026-04-06 (session 51)
 
