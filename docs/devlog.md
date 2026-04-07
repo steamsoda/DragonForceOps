@@ -9,6 +9,7 @@
 - Hardened `refundPaymentAction(...)` so unknown backend failures normalize into stable refund error codes instead of collapsing into the generic banner.
 - Hardened `record_payment_refund(...)` in SQL to fall back to the enrollment campus if an older payment is missing `operator_campus_id`, and to return stable `refund_insert_failed` / `refund_failed` codes instead of leaking raw DB exceptions.
 - Added an explicit preview read-only guard for `Cambiar concepto` and `Reembolsar` so validations done through `Ver como` return `debug_read_only` cleanly instead of failing as a generic error.
+- Added refund debug diagnostics on the server action and UI banner so preview validation can surface the raw failure code/message when a refund still fails.
 
 ## 2026-04-06 (session 50)
 

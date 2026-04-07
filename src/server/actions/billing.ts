@@ -49,7 +49,7 @@ type PaymentReassignmentResult =
 
 type PaymentRefundResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; error: string; details?: string | null };
 
 type PaymentWorkflowContext = {
   supabase: Awaited<ReturnType<typeof createClient>>;
@@ -629,9 +629,20 @@ export async function refundPaymentAction(
 
   const resultRow = Array.isArray(data) ? data[0] : data;
   if (error || !resultRow?.ok) {
+    const rawError = error?.message ?? resultRow?.error_code ?? "refund_failed";
+    console.error("[refundPaymentAction] refund failed", {
+      enrollmentId,
+      paymentId,
+      parsedRefundMethod: parsed.refundMethod,
+      parsedRefundedAt: parsed.refundedAt,
+      rawError,
+      rpcError: error,
+      rpcResult: resultRow ?? null,
+    });
     return {
       ok: false,
-      error: normalizeRefundWorkflowError(error?.message ?? resultRow?.error_code ?? "refund_failed"),
+      error: normalizeRefundWorkflowError(rawError),
+      details: rawError,
     };
   }
 

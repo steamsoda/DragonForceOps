@@ -88,6 +88,7 @@ export function PaymentRefundPanel({
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export function PaymentRefundPanel({
 
   function submitRefund() {
     setErrorMessage(null);
+    setErrorDetails(null);
 
     startTransition(async () => {
       const formData = new FormData();
@@ -109,6 +111,7 @@ export function PaymentRefundPanel({
       const result = await refundPaymentAction(enrollmentId, payment.id, formData);
       if (!result.ok) {
         setErrorMessage(getErrorMessage(result.error));
+        setErrorDetails(result.details ?? result.error);
         return;
       }
 
@@ -135,7 +138,8 @@ export function PaymentRefundPanel({
 
       {errorMessage ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
-          {errorMessage}
+          <p>{errorMessage}</p>
+          {errorDetails ? <p className="mt-1 text-xs opacity-80">Detalle: {errorDetails}</p> : null}
         </div>
       ) : null}
 
