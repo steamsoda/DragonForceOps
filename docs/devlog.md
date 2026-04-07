@@ -1597,6 +1597,17 @@
 
 ## 2026-04-06
 
+### Attendance Export — Branding + Tel Tutor Removal (v1.13.1)
+- Removed the `Tel Tutor` column from the attendance sheet (TOTAL_COLUMNS 26 → 25).
+- Applied FC Porto brand colors throughout:
+  - Title bar: Porto navy (`#003087`) background, white bold text
+  - Column headers: Porto gold (`#FFC72C`) with navy text
+  - Gender section headers (Little Dragons): Porto blue (`#1455A4`) with white text
+  - Level section headers: light Porto blue tint with navy text
+- Title row now reads `Dragon Force Monterrey · {campus} · {group}` and is 42px tall.
+- Logo (`watermark dragon force mty-15.png`) overlaid on the right side of each title row; read from `public/` at request time, silently skipped if file is missing.
+- `workbook.creator` updated to `Dragon Force Monterrey`.
+
 ### Attendance Export — Fixed Group Sheets (v1.13.0)
 - Replaced the dynamic per-birth-year/gender sheet layout with a fixed set of 16 predefined groups per campus.
 - Groups:
