@@ -1606,6 +1606,17 @@
 
 ## 2026-04-06
 
+### Attendance Export — Logo Fix + Birth Year Dividers (v1.14.1)
+- Fixed logo stretching: switched from `tl+br` cell-range approach to `tl+ext` with fixed 60×40px dimensions matching the actual 1.51:1 PNG aspect ratio.
+- Multi-year sheets now group rows by birth year first with a `Categoría {year}` header row (medium blue) between each year group, then level sections within each year.
+- Single-year sheets unchanged.
+
+### Player Nivel — Editable + Profile Display (v1.14.0)
+- Added `level` to `getPlayerDetail` query and returned object.
+- Added `Nivel` select to player edit form: Little Dragons, B2, B1, B3, Selectivo, Sin nivel — pre-populated with current value.
+- Wired `level` through `updatePlayerAction` to the `players` table.
+- `Nivel` now shows in the player profile info grid alongside gender, uniform size, and jersey number.
+
 ### Attendance Export — Branding + Tel Tutor Removal (v1.13.1)
 - Removed the `Tel Tutor` column from the attendance sheet (TOTAL_COLUMNS 26 → 25).
 - Applied FC Porto brand colors throughout:
