@@ -1594,3 +1594,18 @@
   - no financial data changed
   - no profile or Caja behavior changed
   - no migration was required
+
+## 2026-04-06
+
+### Attendance Export — Fixed Group Sheets (v1.13.0)
+- Replaced the dynamic per-birth-year/gender sheet layout with a fixed set of 16 predefined groups per campus.
+- Groups:
+  - Little Dragons (all genders, 2021–2022)
+  - FEM 2016–2019, FEM 2014–2015, FEM 2012–2013, FEM 2009–2011
+  - VAR 2019–2020, VAR 2018, VAR 2017, VAR 2016, VAR 2015, VAR 2014, VAR 2013, VAR 2012, VAR 2011, VAR 2010, VAR 2008–2009
+- Sheet tabs named `{campusCode} · {groupLabel}` (e.g. `LV · VAR 2018`, `LV · Little Dragons`).
+- Multi-gender sheets (Little Dragons) show a VARONIL / FEMENIL section header before level sections.
+- Single-gender sheets go straight to level sections — no redundant gender header.
+- Players sort by birth year asc → level rank → name within each section.
+- Sheets with zero matching players are skipped; players outside all defined groups are silently excluded.
+- No changes to data fetching (`player-exports.ts`) or the API route.
