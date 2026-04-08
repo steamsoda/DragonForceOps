@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-07.
+Updated continuously. Last updated: 2026-04-08.
 
-Current preview release line: `v1.15.7`
+Current preview release line: `v1.15.10`
 
 ---
 
@@ -11,13 +11,20 @@ Current preview release line: `v1.15.7`
 
 ### Immediate Sequence
 
-1. `#17` Uniformes dashboard validation / rollout follow-up
-2. `#35` player profile consolidation / single-player hub
-3. then return to smaller operational follow-up items such as `#32`, `#16`, and `#56`
-4. after that, resume larger sports-management planning like `#38`
+1. payment-method selection hardening
+   - replace `Método` dropdowns with explicit button choices in Caja and `Regularización Contry`
+   - default state should be unselected so front desk must choose the payment method intentionally before submitting
+2. Caja-only payment entrypoint audit
+   - audit and remove remaining normal payment paths outside Caja
+   - keep `Regularización Contry` as the explicit exception if that still matches operations
+   - replace inline non-Caja payment forms with `Abrir Caja` where appropriate
+   - this remains the next dedicated follow-up after method-selection hardening lands
+3. `#17` Uniformes dashboard validation / rollout follow-up
+4. then return to operational follow-up items such as `#32`, `#16`, and `#56`, plus later sports-management planning like `#38`
 
 Notes:
 
+- front desk feedback surfaced recurring payment-method mistakes, so these two payment-flow items are now the top short-term UX/control priorities
 - `#17` is now in active implementation on preview as the next major front-desk workflow
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass

@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-08 (session 62)
+
+### Payment Method Hardening
+
+- Replaced the payment-method dropdowns in Caja and `Regularización Contry` with explicit button-based selection.
+- `Método` now starts unselected by default, so front desk must intentionally choose the payment method before posting.
+- Applied the same rule to Caja split payments: `Método 2` also starts unselected and blocks submit until chosen.
+- Logged the separate Caja-only payment-entrypoint follow-up as the next operational payment-control audit.
+
 ## 2026-04-08 (session 61)
 
 ### Production Migration Workflow Hotfix

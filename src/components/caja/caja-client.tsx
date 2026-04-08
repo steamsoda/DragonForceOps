@@ -116,10 +116,12 @@ function MethodToggleGroup({
   value,
   onChange,
   name,
+  disabled = false,
 }: {
   value: string;
   onChange?: (value: string) => void;
   name?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -128,17 +130,18 @@ function MethodToggleGroup({
         return (
           <label
             key={option.value}
-            className={`cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors ${
+            className={`rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors ${
               active
                 ? "border-portoBlue bg-portoBlue text-white"
                 : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
-            }`}
+            } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
           >
             <input
               type="radio"
               name={name}
               value={option.value}
               checked={active}
+              disabled={disabled}
               onChange={() => onChange?.(option.value)}
               className="sr-only"
             />
@@ -772,9 +775,9 @@ function PosEnrollmentPanel({
   const [stagedItems, setStagedItems] = useState<StagedCartItem[]>([]);
   const [splitMode, setSplitMode] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentAmount2, setPaymentAmount2] = useState("");
-  const [paymentMethod2, setPaymentMethod2] = useState("transfer");
+  const [paymentMethod2, setPaymentMethod2] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentPaidAt, setPaymentPaidAt] = useState("");
   const [operatorCampusId, setOperatorCampusId] = useState(
@@ -820,6 +823,8 @@ function PosEnrollmentPanel({
     stagedItems.reduce((sum, item) => sum + item.amount, 0);
   const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
   const payableNow = checkoutTotal > 0;
+  const hasPrimaryMethod = Boolean(paymentMethod);
+  const hasSecondaryMethod = !splitMode || Boolean(paymentMethod2);
   const selectedOperatorCampus = allowedCampuses.find((campus) => campus.id === operatorCampusId) ?? null;
   const isCrossCampus = operatorCampusId !== data.campusId;
 
@@ -944,6 +949,10 @@ function PosEnrollmentPanel({
   function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPanelError(null);
+    if (!paymentMethod || (splitMode && !paymentMethod2)) {
+      setPanelError("Selecciona el método de pago antes de cobrar.");
+      return;
+    }
     startCheckoutTransition(async () => {
       const formData = new FormData();
       formData.set("amount", paymentAmount);
@@ -1445,17 +1454,7 @@ function PosEnrollmentPanel({
               </label>
               <label className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
-                >
-                  <option value="cash">Efectivo</option>
-                  <option value="transfer">Transferencia</option>
-                  <option value="card">Tarjeta</option>
-                  <option value="stripe_360player">360Player</option>
-                  <option value="other">Otro</option>
-                </select>
+                <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} disabled={isCheckoutPending} />
               </label>
             </div>
 
@@ -1499,6 +1498,7 @@ function PosEnrollmentPanel({
                     onClick={() => {
                       setSplitMode(false);
                       setPaymentAmount2("");
+                      setPaymentMethod2("");
                     }}
                     className="text-xs text-slate-400 hover:text-slate-600"
                   >
@@ -1520,17 +1520,7 @@ function PosEnrollmentPanel({
                   </label>
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
-                    <select
-                      value={paymentMethod2}
-                      onChange={(e) => setPaymentMethod2(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
-                    >
-                      <option value="cash">Efectivo</option>
-                      <option value="transfer">Transferencia</option>
-                      <option value="card">Tarjeta</option>
-                      <option value="stripe_360player">360Player</option>
-                      <option value="other">Otro</option>
-                    </select>
+                    <MethodToggleGroup value={paymentMethod2} onChange={setPaymentMethod2} disabled={isCheckoutPending} />
                   </label>
                 </div>
               </div>
@@ -1563,7 +1553,7 @@ function PosEnrollmentPanel({
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={!payableNow || isCheckoutPending}
+                disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isCheckoutPending ? "Procesando…" : cartTotal > 0 ? "Cobrar carrito" : "Cobrar todo"}
@@ -1629,6 +1619,8 @@ function EnrollmentPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [splitMode, setSplitMode] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentMethod2, setPaymentMethod2] = useState("");
   const [showTuitionForm, setShowTuitionForm] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState(
     data.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? getDefaultNextMonthCaja()
@@ -1686,6 +1678,7 @@ function EnrollmentPanel({
     : data.balance > 0
     ? data.balance.toFixed(2)
     : "";
+  const canSubmitPayment = Boolean(paymentMethod) && (!splitMode || Boolean(paymentMethod2)) && !isPending;
 
   function toggleCharge(id: string) {
     setSelectedIds((prev) => {
@@ -1907,13 +1900,7 @@ function EnrollmentPanel({
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
-              <select name="method" required className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none">
-                <option value="cash">Efectivo</option>
-                <option value="transfer">Transferencia</option>
-                <option value="card">Tarjeta</option>
-                <option value="stripe_360player">360Player</option>
-                <option value="other">Otro</option>
-              </select>
+              <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} name="method" disabled={isPending} />
             </label>
           </div>
 
@@ -1932,7 +1919,10 @@ function EnrollmentPanel({
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Segundo método de pago</span>
                 <button
                   type="button"
-                  onClick={() => setSplitMode(false)}
+                  onClick={() => {
+                    setSplitMode(false);
+                    setPaymentMethod2("");
+                  }}
                   className="text-xs text-slate-400 hover:text-slate-600"
                 >
                   × Cancelar división
@@ -1952,13 +1942,7 @@ function EnrollmentPanel({
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
-                  <select name="method2" required className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none">
-                    <option value="cash">Efectivo</option>
-                    <option value="transfer">Transferencia</option>
-                    <option value="card">Tarjeta</option>
-                    <option value="stripe_360player">360Player</option>
-                    <option value="other">Otro</option>
-                  </select>
+                  <MethodToggleGroup value={paymentMethod2} onChange={setPaymentMethod2} name="method2" disabled={isPending} />
                 </label>
               </div>
             </div>
@@ -1993,7 +1977,7 @@ function EnrollmentPanel({
           <div className="flex gap-3">
             <button
               type="submit"
-              disabled={isPending}
+              disabled={!canSubmitPayment}
               className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
             >
               {isPending ? "Registrando…" : "Cobrar"}

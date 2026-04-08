@@ -21,6 +21,13 @@ import {
 } from "@/server/actions/caja";
 
 const SIZES = ["XCH JR", "CH JR", "M JR", "G JR", "XL JR", "CH", "M", "G", "XL"];
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "cash", label: "Efectivo" },
+  { value: "card", label: "Tarjeta" },
+  { value: "transfer", label: "Transferencia" },
+  { value: "stripe_360player", label: "360Player" },
+  { value: "other", label: "Otro" },
+] as const;
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
@@ -59,6 +66,39 @@ function getInitialDateTimeLocal() {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
+function MethodToggleGroup({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {PAYMENT_METHOD_OPTIONS.map((option) => {
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              active
+                ? "border-portoBlue bg-portoBlue text-white"
+                : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
+            } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ContryRegularizationAccountPanel({
   initialLedger,
   contryCampusId,
@@ -71,7 +111,7 @@ export function ContryRegularizationAccountPanel({
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [paymentAmount, setPaymentAmount] = useState(initialLedger.totals.balance > 0 ? initialLedger.totals.balance.toFixed(2) : "");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentPaidAt, setPaymentPaidAt] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
@@ -95,6 +135,7 @@ export function ContryRegularizationAccountPanel({
     setErrorMessage(null);
     setPendingMessage(null);
     setPaymentPaidAt("");
+    setPaymentMethod("");
   }, [initialLedger]);
 
   useEffect(() => {
@@ -458,18 +499,7 @@ export function ContryRegularizationAccountPanel({
           </label>
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
-            <select
-              value={paymentMethod}
-              disabled={isPending}
-              onChange={(event) => setPaymentMethod(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
-            >
-              <option value="cash">Efectivo</option>
-              <option value="transfer">Transferencia</option>
-              <option value="card">Tarjeta</option>
-              <option value="stripe_360player">360Player</option>
-              <option value="other">Otro</option>
-            </select>
+            <MethodToggleGroup value={paymentMethod} disabled={isPending} onChange={setPaymentMethod} />
           </label>
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Notas</span>
@@ -501,7 +531,7 @@ export function ContryRegularizationAccountPanel({
 
         <button
           type="button"
-          disabled={isPending || !paymentAmount || !paymentPaidAt}
+          disabled={isPending || !paymentAmount || !paymentPaidAt || !paymentMethod}
           onClick={submitHistoricalPayment}
           className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
         >
