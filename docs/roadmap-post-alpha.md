@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-07.
 
-Current preview release line: `v1.15.6`
+Current preview release line: `v1.15.7`
 
 ---
 
@@ -36,6 +36,7 @@ Run these as explicit periodic passes between feature waves so the app keeps mat
   - recheck route guards, campus scope, action guards, and RLS-sensitive surfaces after major workflow additions
 - finance / payment / reporting regression checklist
   - verify receipts, allocations, operator-campus ownership, `paid_at` semantics, corte outputs, and monthly/weekly summaries still agree
+  - finance drift guardrail now includes `/admin/finance-sanity` plus SQL reconciliation helpers so pending collections, dashboard KPIs, and canonical balance math can be checked against each other intentionally
 - performance hotspot review
   - identify slow pages, heavy queries, unnecessary refreshes, and wide payloads before they become daily friction
 - backup / recovery / rollback confidence

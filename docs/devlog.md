@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-07 (session 59)
+
+### Finance Source-of-Truth Guardrails
+
+- Added an explicit finance source-of-truth doc so balance math and report math stop living as implicit team memory:
+  - live balance must flow from `v_enrollment_balances`
+  - reporting must flow from `finance_*_facts`
+- Added SQL reconciliation helpers:
+  - `get_finance_reconciliation_summary(...)`
+  - `list_finance_reconciliation_drift(...)`
+- Added a hidden superadmin-only sanity page at `/admin/finance-sanity` so drift can be checked intentionally instead of discovered late.
+- This is meant to reduce future finance drift by turning “remember the rule” into:
+  - a written rule
+  - a shared SQL verification layer
+  - a concrete admin validation surface
+
 ## 2026-04-07 (session 58)
 
 ### Finance Drift Audit
