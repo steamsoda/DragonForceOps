@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-04-07 (session 60)
+
+### Finance Sanity Nav Link
+
+- Added a superadmin-only sidebar/menu link to `/admin/finance-sanity`.
+- The hidden finance sanity page is now reachable from the normal Super Admin section instead of requiring a manual URL.
+
 ## 2026-04-07 (session 59)
 
 ### Finance Source-of-Truth Guardrails
