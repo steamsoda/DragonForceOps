@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-07.
 
-Current preview release line: `v1.15.3`
+Current preview release line: `v1.15.4`
 
 ---
 
@@ -44,6 +44,7 @@ Run these as explicit periodic passes between feature waves so the app keeps mat
   - keep preview/prod DB parity visible, confirm migrations actually apply, and avoid schema drift between code and remote environments
 - security scanning + env/RLS review
   - first pass now starts as one explicit lane: advisory TruffleHog in CI, advisory dependency audit, and a short repo-specific findings memo covering service-role usage, public env usage, API/CORS review, and follow-up hardening items
+  - second pass now includes GitHub Actions runtime maintenance plus a repo/app sweep of service-role usage, public envs, auth/API routes, sensitive server actions, and high-risk RLS-backed finance/admin paths
 
 Notes:
 

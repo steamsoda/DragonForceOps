@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-04-07 (session 56)
+
+### Security Follow-Up v2
+
+- Patched the GitHub Actions runtime warning by moving all repo workflows to the newer Node 24-compatible action majors:
+  - `actions/checkout@v6`
+  - `actions/setup-node@v6`
+  - `actions/upload-artifact@v6`
+  - `supabase/setup-cli@v2`
+- Applied that runtime maintenance pass to:
+  - preview DB migrations
+  - production DB migrations
+  - secret scanning
+  - dependency audit
+- Ran a second repo/app security sweep focused on real exposure surfaces rather than adding more scanners.
+- Second-pass findings:
+  - the service-role client helper still appears server-only and no active runtime callers were found during the repo-wide search
+  - public env usage remains limited to intentionally public Supabase client config plus the public QZ certificate
+  - `src/app/api/sign-qz/route.ts` still requires an authenticated user before signing
+  - placeholder API routes are still returning `501` and are not currently active data endpoints
+  - high-risk server action modules continue to use authenticated-user retrieval plus shared role/campus permission helpers for sensitive mutations
+- Follow-up items recorded instead of treated as immediate bugs:
+  - keep reviewing finance/admin/cross-campus mutation surfaces for role drift
+  - add an explicit role gate to the attendance export route if that endpoint becomes a broader operational surface
+  - keep placeholder API routes non-functional until they are implemented with explicit auth behavior
+
 ## 2026-04-07 (session 55)
 
 ### Dependency Audit Patch
