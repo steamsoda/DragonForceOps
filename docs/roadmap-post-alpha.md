@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-07.
 
-Current preview release line: `v1.15.5`
+Current preview release line: `v1.15.6`
 
 ---
 
@@ -61,6 +61,8 @@ Next implementation priority. Group these together as one operational wave:
 - `#48` SQL-side finance/report aggregation hardening is now complete on preview for dashboard, Resumen Mensual, and Corte Semanal
 - `#56` refunds workflow
 - `#57` Corte Diario checkpoint history, detailed report KPIs, and compact thermal-product detail follow-up
+- refund drift follow-up:
+  - pending-collections RPCs now also need to stay aligned with refund-aware balance semantics, not just dashboard/report SQL, to avoid silent debt undercounting after refunds
 
 ### 2. Permissions + Campus Operations 🔐
 

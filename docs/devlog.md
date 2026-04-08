@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-07 (session 58)
+
+### Finance Drift Audit
+
+- Audited the main finance surfaces for drift risk after the refunds/reassignment rollout:
+  - account ledger / player hub
+  - `Jugadores` balance state
+  - `Pendientes`
+  - dashboard / monthly / weekly reports
+- Confirmed the major finance reporting lane is already converging on shared refund-aware SQL facts and the refund-aware `v_enrollment_balances` view.
+- Found one real mismatch: `list_pending_enrollments_full(...)` was still subtracting posted payments without adding refunded amounts back, which could understate debt on `Pendientes` and active-player debt chips after a refund.
+- Added a SQL migration to realign that RPC with the same refund-aware balance semantics used by `v_enrollment_balances`.
+- This was treated as a true drift fix, not just documentation, because it could silently weaken pending-collections visibility over time.
+
 ## 2026-04-07 (session 57)
 
 ### Refunds + Contry Front-Desk Polish Pass
