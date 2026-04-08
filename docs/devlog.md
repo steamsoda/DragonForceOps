@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-08 (session 61)
+
+### Production Migration Workflow Hotfix
+
+- Fixed the production/preview DB migration workflows after discovering that `supabase/setup-cli@v2` does not exist.
+- Reverted both migration workflows to the valid `supabase/setup-cli@v1` action while keeping the newer pooled DB connection path and current CLI version.
+- This was a CI/runtime wiring issue, not a schema or app-code issue, but it blocked the first production migration run for `v1.15.8`.
+
 ## 2026-04-07 (session 60)
 
 ### Finance Sanity Nav Link
