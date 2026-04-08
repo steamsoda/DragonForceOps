@@ -31,6 +31,8 @@ type AdvanceOption = {
   amount: number;
 };
 
+type AddChargeMode = "product" | "tuition";
+
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
@@ -66,22 +68,22 @@ function getMethodLabel(method: string) {
 function getActionErrorMessage(code: string) {
   const messages: Record<string, string> = {
     invalid_form: "Revisa los datos del cargo que quieres crear.",
-    unauthenticated: "Tu sesi\u00f3n expir\u00f3. Inicia sesi\u00f3n de nuevo.",
-    enrollment_not_found: "La cuenta ya no est\u00e1 disponible.",
-    enrollment_inactive: "La inscripci\u00f3n ya no est\u00e1 activa.",
+    unauthenticated: "Tu sesión expiró. Inicia sesión de nuevo.",
+    enrollment_not_found: "La cuenta ya no está disponible.",
+    enrollment_inactive: "La inscripción ya no está activa.",
     product_not_found: "Producto no encontrado o inactivo.",
     charge_insert_failed: "No se pudo crear el cargo destino.",
     tuition_rate_not_found: "No se pudo calcular la mensualidad adelantada.",
     prior_month_arrears: "Hay mensualidades anteriores pendientes.",
     duplicate_period: "Ya existe una mensualidad para ese periodo.",
-    charge_type_not_found: "Falta configuraci\u00f3n del tipo de cargo.",
+    charge_type_not_found: "Falta configuración del tipo de cargo.",
     target_charge_required: "Selecciona al menos un cargo destino.",
     target_capacity_too_small: "Los cargos destino no absorben el pago completo.",
-    target_charge_invalid: "Alguno de los cargos destino ya no es v\u00e1lido.",
+    target_charge_invalid: "Alguno de los cargos destino ya no es válido.",
     target_charge_conflict: "No puedes reusar el mismo cargo origen como destino.",
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
-    source_charge_shared: "El cargo origen tambi\u00e9n tiene otro pago aplicado.",
-    source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto exclusivamente por este pago.",
+    source_charge_shared: "El cargo origen también tiene otro pago aplicado.",
+    source_charge_not_exclusive: "El cargo origen no está cubierto exclusivamente por este pago.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
     payment_not_posted: "Solo se pueden mover pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
@@ -90,8 +92,6 @@ function getActionErrorMessage(code: string) {
   };
   return messages[code] ?? "No se pudo completar el cambio de concepto.";
 }
-
-type AddChargeMode = "product" | "tuition";
 
 export function PaymentReassignmentPanel({
   enrollmentId,
@@ -118,6 +118,7 @@ export function PaymentReassignmentPanel({
   const [tuitionPeriod, setTuitionPeriod] = useState(advanceTuitionOptions[0]?.periodMonth.slice(0, 7) ?? "");
   const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("product");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedTotal = useMemo(
@@ -127,6 +128,9 @@ export function PaymentReassignmentPanel({
         .reduce((sum, charge) => sum + charge.pendingAmount, 0),
     [pendingCharges, selectedChargeIds],
   );
+
+  const remainingToCover = Math.round((payment.amount - selectedTotal) * 100) / 100;
+  const selectionIsEnough = remainingToCover <= 0;
 
   function toggleCharge(chargeId: string) {
     setSelectedChargeIds((current) =>
@@ -152,6 +156,7 @@ export function PaymentReassignmentPanel({
   function submitProductCharge() {
     if (!selectedProduct) return;
     setErrorMessage(null);
+    setPendingMessage("Creando el cargo destino para completar el cambio...");
 
     startTransition(async () => {
       const formData = new FormData();
@@ -162,11 +167,13 @@ export function PaymentReassignmentPanel({
 
       const result = await postCajaChargeAction(enrollmentId, formData);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
       if (!result.updatedData) {
-        setErrorMessage("No se pudo refrescar la cuenta despues de crear el cargo.");
+        setPendingMessage(null);
+        setErrorMessage("No se pudo refrescar la cuenta después de crear el cargo.");
         return;
       }
 
@@ -175,39 +182,44 @@ export function PaymentReassignmentPanel({
       setChargeAmount("");
       setChargeSize("");
       setGoalkeeper(false);
+      setPendingMessage(null);
     });
   }
 
   function submitAdvanceTuition() {
     if (!tuitionPeriod) return;
     setErrorMessage(null);
+    setPendingMessage("Agregando la mensualidad destino...");
 
     startTransition(async () => {
       const result = await createAdvanceTuitionAction(enrollmentId, tuitionPeriod);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
 
       syncPendingCharges(result.updatedData.pendingCharges, result.newChargeId);
+      setPendingMessage(null);
     });
   }
 
   function submitReassignment() {
     setErrorMessage(null);
+    setPendingMessage("Moviendo el pago a los nuevos cargos y cerrando el cargo origen...");
 
     startTransition(async () => {
       const formData = new FormData();
       formData.set("targetChargeIds", selectedChargeIds.join(","));
       const result = await reassignPaymentAction(enrollmentId, payment.id, formData);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
 
       const joiner = returnTo.includes("?") ? "&" : "?";
-      router.push(`${returnTo}${joiner}ok=payment_reassigned`);
-      router.refresh();
+      router.replace(`${returnTo}${joiner}ok=payment_reassigned`);
     });
   }
 
@@ -217,7 +229,7 @@ export function PaymentReassignmentPanel({
         <div className="space-y-2">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Pago original</p>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            {formatDateTime(payment.paidAt)} \u00b7 {getMethodLabel(payment.method)}
+            {formatDateTime(payment.paidAt)} · {getMethodLabel(payment.method)}
           </p>
           <p className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {formatMoney(payment.amount, payment.currency)}
@@ -245,9 +257,25 @@ export function PaymentReassignmentPanel({
         </div>
       </section>
 
+      <section className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-100">
+        <p className="font-semibold">Qué va a pasar al confirmar</p>
+        <p className="mt-1 text-xs text-sky-800/90 dark:text-sky-100/80">
+          El pago conservará su folio, fecha y método. Solo se moverán sus asignaciones y los cargos origen exclusivos
+          quedarán anulados automáticamente.
+        </p>
+      </section>
+
+      {pendingMessage ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-medium">Procesando cambio de concepto...</p>
+          <p className="mt-1 text-xs opacity-80">{pendingMessage}</p>
+        </div>
+      ) : null}
+
       {errorMessage ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
-          {errorMessage}
+          <p className="font-medium">No se pudo completar el cambio de concepto.</p>
+          <p className="mt-1 text-xs opacity-80">{errorMessage}</p>
         </div>
       ) : null}
 
@@ -267,9 +295,21 @@ export function PaymentReassignmentPanel({
           </div>
         </div>
 
+        <div
+          className={`rounded-md border px-3 py-2 text-sm ${
+            selectionIsEnough
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+              : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+          }`}
+        >
+          {selectionIsEnough
+            ? "El monto seleccionado absorbe el pago completo."
+            : `Todavía faltan ${formatMoney(Math.max(remainingToCover, 0), payment.currency)} por cubrir.`}
+        </div>
+
         <div className="space-y-2">
           {pendingCharges.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Todav\u00eda no hay cargos destino disponibles.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Todavía no hay cargos destino disponibles.</p>
           ) : (
             pendingCharges.map((charge) => {
               const checked = selectedChargeIds.includes(charge.id);
@@ -285,6 +325,7 @@ export function PaymentReassignmentPanel({
                   <input
                     type="checkbox"
                     checked={checked}
+                    disabled={isPending}
                     onChange={() => toggleCharge(charge.id)}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
                   />
@@ -311,15 +352,17 @@ export function PaymentReassignmentPanel({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            disabled={isPending}
             onClick={() => setSelectedChargeIds(pendingCharges.map((charge) => charge.id))}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Seleccionar todos
           </button>
           <button
             type="button"
+            disabled={isPending}
             onClick={() => setSelectedChargeIds([])}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Limpiar
           </button>
@@ -330,7 +373,9 @@ export function PaymentReassignmentPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Crear cargo destino</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Caja-lite para resolver el cambio sin dejar cr\u00e9dito flotando.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Caja-lite para resolver el cambio sin dejar crédito flotando.
+            </p>
           </div>
           <div className="flex rounded-md border border-slate-300 p-1 dark:border-slate-600">
             <button
@@ -338,7 +383,7 @@ export function PaymentReassignmentPanel({
               onClick={() => setAddChargeMode("product")}
               className={`rounded px-3 py-1.5 text-sm ${addChargeMode === "product" ? "bg-portoBlue text-white" : "text-slate-700 dark:text-slate-300"}`}
             >
-              Cat\u00e1logo
+              Catálogo
             </button>
             <button
               type="button"
@@ -362,6 +407,7 @@ export function PaymentReassignmentPanel({
                       <button
                         key={product.id}
                         type="button"
+                        disabled={isPending}
                         onClick={() => selectProduct(product)}
                         className={`rounded-xl border p-4 text-left transition-all ${
                           selected
@@ -392,6 +438,7 @@ export function PaymentReassignmentPanel({
                           <button
                             key={size}
                             type="button"
+                            disabled={isPending}
                             onClick={() => setChargeSize(chargeSize === size ? "" : size)}
                             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                               chargeSize === size
@@ -406,6 +453,7 @@ export function PaymentReassignmentPanel({
                     </div>
                     <button
                       type="button"
+                      disabled={isPending}
                       onClick={() => setGoalkeeper((current) => !current)}
                       className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
                         goalkeeper
@@ -413,7 +461,7 @@ export function PaymentReassignmentPanel({
                           : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
                       }`}
                     >
-                      Portero {goalkeeper ? "\u2713" : ""}
+                      Portero {goalkeeper ? "✓" : ""}
                     </button>
                   </div>
                 ) : null}
@@ -425,6 +473,7 @@ export function PaymentReassignmentPanel({
                     step="0.01"
                     min="0.01"
                     value={chargeAmount}
+                    disabled={isPending}
                     onChange={(event) => setChargeAmount(event.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
                   />
@@ -441,8 +490,9 @@ export function PaymentReassignmentPanel({
                   </button>
                   <button
                     type="button"
+                    disabled={isPending}
                     onClick={() => setSelectedProduct(null)}
-                    className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Cancelar
                   </button>
@@ -456,13 +506,14 @@ export function PaymentReassignmentPanel({
               <span className="font-medium text-slate-700 dark:text-slate-300">Mensualidad adelantada</span>
               <select
                 value={tuitionPeriod}
+                disabled={isPending}
                 onChange={(event) => setTuitionPeriod(event.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
               >
                 <option value="">Selecciona periodo</option>
                 {advanceTuitionOptions.map((option) => (
                   <option key={option.periodMonth} value={option.periodMonth.slice(0, 7)}>
-                    {option.label} \u00b7 {formatMoney(option.amount, payment.currency)}
+                    {option.label} · {formatMoney(option.amount, payment.currency)}
                   </option>
                 ))}
               </select>
@@ -482,7 +533,7 @@ export function PaymentReassignmentPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          El pago original conservar\u00e1 su folio, fecha y m\u00e9todo. Solo se mover\u00e1n sus asignaciones.
+          El pago original conservará su folio, fecha y método. Solo se moverán sus asignaciones.
         </p>
         <button
           type="button"
@@ -490,7 +541,7 @@ export function PaymentReassignmentPanel({
           onClick={submitReassignment}
           className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
         >
-          {isPending ? "Aplicando..." : "Aplicar cambio de concepto"}
+          {isPending ? "Aplicando cambio..." : "Aplicar cambio de concepto"}
         </button>
       </div>
     </div>

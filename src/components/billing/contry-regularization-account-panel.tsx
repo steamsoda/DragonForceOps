@@ -49,6 +49,16 @@ function getActionErrorMessage(code: string) {
 
 type AddChargeMode = "product" | "tuition";
 
+function getInitialDateTimeLocal() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hour = String(now.getHours()).padStart(2, "0");
+  const minute = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
 export function ContryRegularizationAccountPanel({
   initialLedger,
   contryCampusId,
@@ -73,6 +83,7 @@ export function ContryRegularizationAccountPanel({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -82,6 +93,8 @@ export function ContryRegularizationAccountPanel({
     setSuccessMessage(null);
     setSuccessPaymentId(null);
     setErrorMessage(null);
+    setPendingMessage(null);
+    setPaymentPaidAt("");
   }, [initialLedger]);
 
   useEffect(() => {
@@ -120,7 +133,13 @@ export function ContryRegularizationAccountPanel({
     );
   }
 
-  async function refreshWorkspace() {
+  async function refreshWorkspace(options?: { refreshContext?: boolean }) {
+    if (!options?.refreshContext) {
+      const nextLedger = await getContryRegularizationLedgerAction(ledger.enrollment.id);
+      if (nextLedger) setLedger(nextLedger);
+      return nextLedger;
+    }
+
     const [nextLedger, nextContext] = await Promise.all([
       getContryRegularizationLedgerAction(ledger.enrollment.id),
       getContryRegularizationChargeContextAction(ledger.enrollment.id),
@@ -128,16 +147,20 @@ export function ContryRegularizationAccountPanel({
     if (nextLedger) setLedger(nextLedger);
     if (nextContext) {
       setChargeContext(nextContext);
-      if (!tuitionPeriod && nextContext.advanceTuitionOptions[0]?.periodMonth) {
+      if (nextContext.advanceTuitionOptions.length === 0) {
+        setTuitionPeriod("");
+      } else if (!nextContext.advanceTuitionOptions.some((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)) {
         setTuitionPeriod(nextContext.advanceTuitionOptions[0].periodMonth.slice(0, 7));
       }
     }
+    return nextLedger;
   }
 
   function submitHistoricalPayment() {
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
+    setPendingMessage("Registrando el pago histórico y actualizando la cuenta...");
 
     startTransition(async () => {
       const formData = new FormData();
@@ -149,16 +172,18 @@ export function ContryRegularizationAccountPanel({
 
       const result = await postContryHistoricalPaymentAction(ledger.enrollment.id, contryCampusId, formData);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
 
-      await refreshWorkspace();
+      const nextLedger = await refreshWorkspace({ refreshContext: true });
       setSelectedChargeIds([]);
-      setPaymentAmount("");
+      setPaymentAmount(nextLedger && nextLedger.totals.balance > 0 ? nextLedger.totals.balance.toFixed(2) : "");
       setPaymentNotes("");
       setPaymentPaidAt("");
       setSuccessPaymentId(result.paymentId);
+      setPendingMessage(null);
       setSuccessMessage("Pago histórico registrado correctamente para Contry.");
     });
   }
@@ -176,6 +201,7 @@ export function ContryRegularizationAccountPanel({
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
+    setPendingMessage("Agregando el cargo a la cuenta...");
 
     startTransition(async () => {
       const formData = new FormData();
@@ -186,16 +212,21 @@ export function ContryRegularizationAccountPanel({
 
       const result = await postCajaChargeAction(ledger.enrollment.id, formData, contryCampusId);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
 
       await refreshWorkspace();
+      if (result.newChargeId) {
+        setSelectedChargeIds((current) => Array.from(new Set([...current, result.newChargeId!])));
+      }
       setSelectedProduct(null);
       setChargeAmount("");
       setChargeSize("");
       setGoalkeeper(false);
       setSuccessMessage("Cargo agregado correctamente.");
+      setPendingMessage(null);
     });
   }
 
@@ -204,16 +235,22 @@ export function ContryRegularizationAccountPanel({
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
+    setPendingMessage("Agregando la mensualidad adelantada...");
 
     startTransition(async () => {
       const result = await createAdvanceTuitionAction(ledger.enrollment.id, tuitionPeriod, contryCampusId);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
         return;
       }
 
-      await refreshWorkspace();
+      await refreshWorkspace({ refreshContext: true });
+      if (result.newChargeId) {
+        setSelectedChargeIds((current) => Array.from(new Set([...current, result.newChargeId!])));
+      }
       setSuccessMessage("Mensualidad agregada correctamente.");
+      setPendingMessage(null);
     });
   }
 
@@ -236,6 +273,13 @@ export function ContryRegularizationAccountPanel({
         </div>
       </div>
 
+      {pendingMessage ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-medium">Procesando actualización...</p>
+          <p className="mt-1 text-xs opacity-80">{pendingMessage}</p>
+        </div>
+      ) : null}
+
       {successMessage ? (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
           <p>{successMessage}</p>
@@ -251,7 +295,8 @@ export function ContryRegularizationAccountPanel({
 
       {errorMessage ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
-          {errorMessage}
+          <p className="font-medium">No se pudo completar la acción.</p>
+          <p className="mt-1 text-xs opacity-80">{errorMessage}</p>
         </div>
       ) : null}
 
@@ -274,15 +319,17 @@ export function ContryRegularizationAccountPanel({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
+                disabled={isPending}
                 onClick={() => setSelectedChargeIds(pendingCharges.map((charge) => charge.id))}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Seleccionar todos
               </button>
               <button
                 type="button"
+                disabled={isPending}
                 onClick={() => setSelectedChargeIds([])}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Limpiar
               </button>
@@ -308,6 +355,7 @@ export function ContryRegularizationAccountPanel({
                   <input
                     type="checkbox"
                     checked={checked}
+                    disabled={isPending}
                     onChange={() => toggleCharge(charge.id)}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
                   />
@@ -365,8 +413,9 @@ export function ContryRegularizationAccountPanel({
           {selectedTotal > 0 ? (
             <button
               type="button"
+              disabled={isPending}
               onClick={() => setQuickAmount(selectedTotal)}
-              className="rounded-md border border-portoBlue px-3 py-1.5 text-xs font-medium text-portoBlue hover:bg-portoBlue/5"
+              className="rounded-md border border-portoBlue px-3 py-1.5 text-xs font-medium text-portoBlue hover:bg-portoBlue/5 disabled:opacity-50"
             >
               Usar total seleccionado
             </button>
@@ -374,10 +423,21 @@ export function ContryRegularizationAccountPanel({
           {ledger.totals.balance > 0 ? (
             <button
               type="button"
+              disabled={isPending}
               onClick={() => setQuickAmount(ledger.totals.balance)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Usar saldo completo
+            </button>
+          ) : null}
+          {!paymentPaidAt ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setPaymentPaidAt(getInitialDateTimeLocal())}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Usar fecha y hora actual
             </button>
           ) : null}
         </div>
@@ -391,6 +451,7 @@ export function ContryRegularizationAccountPanel({
               min="0.01"
               required
               value={paymentAmount}
+              disabled={isPending}
               onChange={(event) => setPaymentAmount(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             />
@@ -399,6 +460,7 @@ export function ContryRegularizationAccountPanel({
             <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
             <select
               value={paymentMethod}
+              disabled={isPending}
               onChange={(event) => setPaymentMethod(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             >
@@ -414,6 +476,7 @@ export function ContryRegularizationAccountPanel({
             <input
               type="text"
               value={paymentNotes}
+              disabled={isPending}
               onChange={(event) => setPaymentNotes(event.target.value)}
               placeholder="Referencia, nota del papel, etc."
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
@@ -427,6 +490,7 @@ export function ContryRegularizationAccountPanel({
             type="datetime-local"
             required
             value={paymentPaidAt}
+            disabled={isPending}
             onChange={(event) => setPaymentPaidAt(event.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
           />
@@ -482,6 +546,7 @@ export function ContryRegularizationAccountPanel({
                         <button
                           key={product.id}
                           type="button"
+                          disabled={isPending}
                           onClick={() => selectProduct(product)}
                           className={`rounded-xl border p-4 text-left transition-all ${
                             selected
@@ -513,6 +578,7 @@ export function ContryRegularizationAccountPanel({
                           <button
                             key={size}
                             type="button"
+                            disabled={isPending}
                             onClick={() => setChargeSize(chargeSize === size ? "" : size)}
                             className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                               chargeSize === size
@@ -527,6 +593,7 @@ export function ContryRegularizationAccountPanel({
                     </div>
                     <button
                       type="button"
+                      disabled={isPending}
                       onClick={() => setGoalkeeper((current) => !current)}
                       className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
                         goalkeeper
@@ -546,6 +613,7 @@ export function ContryRegularizationAccountPanel({
                     step="0.01"
                     min="0.01"
                     value={chargeAmount}
+                    disabled={isPending}
                     onChange={(event) => setChargeAmount(event.target.value)}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
                   />
@@ -562,8 +630,9 @@ export function ContryRegularizationAccountPanel({
                   </button>
                   <button
                     type="button"
+                    disabled={isPending}
                     onClick={() => setSelectedProduct(null)}
-                    className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Cancelar
                   </button>
@@ -577,6 +646,7 @@ export function ContryRegularizationAccountPanel({
               <span className="font-medium text-slate-700 dark:text-slate-300">Mensualidad adelantada</span>
               <select
                 value={tuitionPeriod}
+                disabled={isPending}
                 onChange={(event) => setTuitionPeriod(event.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
               >

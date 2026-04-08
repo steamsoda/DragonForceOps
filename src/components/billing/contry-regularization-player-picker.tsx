@@ -43,6 +43,7 @@ export function ContryRegularizationPlayerPicker({
   const [view, setView] = useState<SearchView>({ tag: "idle" });
   const [drilldown, setDrilldown] = useState<DrilldownState>({ step: "closed" });
   const [preloadedMeta, setPreloadedMeta] = useState<ContryRegularizationDrilldownMeta | null>(null);
+  const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -53,14 +54,17 @@ export function ContryRegularizationPlayerPicker({
     const trimmed = query.trim();
     if (trimmed.length < 2) {
       setView((current) => (current.tag === "searching" || current.tag === "results" ? { tag: "idle" } : current));
+      setPickerMessage(null);
       return;
     }
 
     setView({ tag: "searching", query: trimmed });
+    setPickerMessage("Buscando jugadores activos de Contry...");
     const timer = setTimeout(() => {
       startTransition(async () => {
         const results = await searchContryRegularizationPlayersAction(trimmed);
         setView({ tag: "results", query: trimmed, results });
+        setPickerMessage(null);
       });
     }, 200);
 
@@ -73,10 +77,13 @@ export function ContryRegularizationPlayerPicker({
     params.delete("ok");
     params.delete("err");
     params.delete("payment");
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    setQuery("");
-    setView({ tag: "idle" });
-    setDrilldown({ step: "closed" });
+    setPickerMessage("Abriendo la cuenta seleccionada...");
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      setQuery("");
+      setView({ tag: "idle" });
+      setDrilldown({ step: "closed" });
+    });
   }
 
   function openDrilldown() {
@@ -86,17 +93,21 @@ export function ContryRegularizationPlayerPicker({
     }
 
     setDrilldown({ step: "loading" });
+    setPickerMessage("Cargando categorías de Contry...");
     startTransition(async () => {
       const meta = await getContryRegularizationDrilldownMetaAction();
       setDrilldown({ step: "years", meta });
+      setPickerMessage(null);
     });
   }
 
   function selectYear(meta: ContryRegularizationDrilldownMeta, birthYear: number) {
     setDrilldown({ step: "players", meta, birthYear, players: null });
+    setPickerMessage(`Cargando jugadores ${birthYear}...`);
     startTransition(async () => {
       const players = await listContryRegularizationPlayersByYearAction(birthYear);
       setDrilldown({ step: "players", meta, birthYear, players });
+      setPickerMessage(null);
     });
   }
 
@@ -117,14 +128,12 @@ export function ContryRegularizationPlayerPicker({
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Nombre o categoría (ej. 2013)…"
+          placeholder="Nombre o categoría (ej. 2013)..."
           className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base shadow-sm focus:border-portoBlue focus:outline-none focus:ring-1 focus:ring-portoBlue dark:border-slate-600 dark:bg-slate-900"
         />
-        {isPending && view.tag === "searching" ? (
-          <p className="mt-1 text-xs text-slate-400">Buscando jugadores activos de Contry…</p>
-        ) : (
-          <p className="mt-1 text-xs text-slate-400">Solo se muestran jugadores activos de Contry con acceso autorizado.</p>
-        )}
+        <p className="mt-1 text-xs text-slate-400">
+          {pickerMessage ?? "Solo se muestran jugadores activos de Contry con acceso autorizado."}
+        </p>
 
         {view.tag === "results" ? (
           <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
@@ -176,7 +185,10 @@ export function ContryRegularizationPlayerPicker({
             return { step: "closed" };
           });
         }}
-        onClose={() => setDrilldown({ step: "closed" })}
+        onClose={() => {
+          setDrilldown({ step: "closed" });
+          setPickerMessage(null);
+        }}
       />
     </section>
   );
@@ -225,7 +237,7 @@ function DrilldownPanel({
   if (drilldown.step === "loading") {
     return (
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">
-        Cargando categorías de Contry…
+        Cargando categorías de Contry...
       </div>
     );
   }
@@ -282,7 +294,7 @@ function DrilldownPanel({
         </button>
       </div>
       {drilldown.players === null ? (
-        <p className="py-4 text-center text-sm text-slate-400">Cargando jugadores…</p>
+        <p className="py-4 text-center text-sm text-slate-400">Cargando jugadores...</p>
       ) : drilldown.players.length === 0 ? (
         <p className="py-4 text-center text-sm text-slate-400">Sin jugadores activos en esta categoría.</p>
       ) : (

@@ -47,9 +47,9 @@ function getErrorMessage(code: string) {
     payment_not_posted: "Solo se pueden reembolsar pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
     payment_not_found: "No se encontró el pago seleccionado.",
-    refund_insert_failed: "No se pudo registrar el reembolso por un problema de datos del pago.",
+    refund_insert_failed: "No se pudo registrar el reembolso por un problema en los datos del pago.",
     refund_function_missing: "La función de reembolsos todavía no está disponible en la base de datos.",
-    refund_failed: "No se pudo registrar el reembolso. Intenta de nuevo.",
+    refund_failed: "No se pudo registrar el reembolso.",
     unauthenticated: "Tu sesión expiró. Inicia sesión de nuevo.",
     debug_read_only: "El modo de solo lectura bloquea cambios.",
   };
@@ -88,7 +88,7 @@ export function PaymentRefundPanel({
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -99,25 +99,24 @@ export function PaymentRefundPanel({
 
   function submitRefund() {
     setErrorMessage(null);
-    setErrorDetails(null);
+    setPendingMessage("Registrando el reembolso y reabriendo el saldo de la cuenta...");
 
     startTransition(async () => {
       const formData = new FormData();
       formData.set("refundMethod", refundMethod);
       formData.set("refundedAt", refundedAt);
-      formData.set("reason", reason);
+      formData.set("reason", reason.trim());
       if (notes.trim()) formData.set("notes", notes.trim());
 
       const result = await refundPaymentAction(enrollmentId, payment.id, formData);
       if (!result.ok) {
+        setPendingMessage(null);
         setErrorMessage(getErrorMessage(result.error));
-        setErrorDetails(result.details ?? result.error);
         return;
       }
 
       const joiner = returnTo.includes("?") ? "&" : "?";
-      router.push(`${returnTo}${joiner}ok=payment_refunded`);
-      router.refresh();
+      router.replace(`${returnTo}${joiner}ok=payment_refunded`);
     });
   }
 
@@ -136,10 +135,25 @@ export function PaymentRefundPanel({
         </div>
       </section>
 
+      <section className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-100">
+        <p className="font-semibold">Qué va a pasar al confirmar</p>
+        <p className="mt-1 text-xs text-sky-800/90 dark:text-sky-100/80">
+          El pago original seguirá visible en el historial, el saldo volverá a abrirse y el reembolso se contará con la
+          fecha y el método reales de devolución.
+        </p>
+      </section>
+
+      {pendingMessage ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-medium">Procesando reembolso...</p>
+          <p className="mt-1 text-xs opacity-80">{pendingMessage}</p>
+        </div>
+      ) : null}
+
       {errorMessage ? (
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
-          <p>{errorMessage}</p>
-          {errorDetails ? <p className="mt-1 text-xs opacity-80">Detalle: {errorDetails}</p> : null}
+          <p className="font-medium">No se pudo registrar el reembolso.</p>
+          <p className="mt-1 text-xs opacity-80">{errorMessage}</p>
         </div>
       ) : null}
 
@@ -147,7 +161,7 @@ export function PaymentRefundPanel({
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Registrar reembolso real</h3>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Esto registra la devolución del dinero en la fecha real del reembolso. El pago original sigue existiendo y el saldo vuelve a abrirse.
+            Usa este formulario después de devolver el dinero. La fecha de abajo debe ser la fecha real del reembolso.
           </p>
         </div>
 
@@ -156,6 +170,7 @@ export function PaymentRefundPanel({
             <span className="font-medium text-slate-700 dark:text-slate-300">Método del reembolso</span>
             <select
               value={refundMethod}
+              disabled={isPending}
               onChange={(event) => setRefundMethod(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             >
@@ -171,6 +186,7 @@ export function PaymentRefundPanel({
             <input
               type="datetime-local"
               value={refundedAt}
+              disabled={isPending}
               onChange={(event) => setRefundedAt(event.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             />
@@ -185,8 +201,9 @@ export function PaymentRefundPanel({
           <input
             type="text"
             value={reason}
+            disabled={isPending}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Ej: devolución real al padre, error operativo, cambio cancelado..."
+            placeholder="Ej. devolución real al tutor, operación cancelada, error de captura..."
             className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
           />
         </label>
@@ -195,6 +212,7 @@ export function PaymentRefundPanel({
           <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
           <textarea
             value={notes}
+            disabled={isPending}
             onChange={(event) => setNotes(event.target.value)}
             rows={3}
             className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
@@ -203,11 +221,11 @@ export function PaymentRefundPanel({
 
         <button
           type="button"
-          disabled={isPending || !reason || !refundedAt}
+          disabled={isPending || !reason.trim() || !refundedAt}
           onClick={submitRefund}
           className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
-          {isPending ? "Registrando..." : "Registrar reembolso"}
+          {isPending ? "Registrando reembolso..." : "Registrar reembolso"}
         </button>
       </section>
     </div>

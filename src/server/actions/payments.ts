@@ -256,12 +256,12 @@ async function postEnrollmentPaymentInternal(
 
   await revalidatePaymentSurfaces(ledger);
   for (const path of mode.extraRevalidatePaths ?? []) revalidatePath(path);
-  const refreshedLedger = await getEnrollmentLedger(enrollmentId);
-
   const chargesPaid = allocations.map((a) => {
     const charge = ledger.charges.find((c) => c.id === a.chargeId);
     return { description: charge?.description ?? "Cargo", amount: a.amount };
   });
+
+  const remainingBalance = Math.round((ledger.totals.balance - parsed.amount) * 100) / 100;
 
   return {
     ok: true,
@@ -276,7 +276,7 @@ async function postEnrollmentPaymentInternal(
         method: PAYMENT_METHOD_LABELS[parsed.method] ?? parsed.method,
         amount: parsed.amount,
         currency: ledger.enrollment.currency,
-        remainingBalance: refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - parsed.amount, 0),
+        remainingBalance,
         chargesPaid,
         paymentId: paymentRow.id,
         folio,

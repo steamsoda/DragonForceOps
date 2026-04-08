@@ -1,5 +1,30 @@
 # Devlog
 
+## 2026-04-07 (session 57)
+
+### Refunds + Contry Front-Desk Polish Pass
+
+- Ran a shared polish pass across the new refund/reassignment workflows and the `Regularización Contry` workspace.
+- Refund and `Cambiar concepto` screens now behave more like operational tools instead of raw admin forms:
+  - stronger pending/running states while long billing mutations are in flight
+  - clearer effect summaries so staff can see what will happen before confirming
+  - cleaner error banners without exposing raw debug details in normal use
+  - removed the extra client-side `router.refresh()` after success redirects to reduce avoidable page churn
+- Applied a lightweight performance improvement to posted-payment flows by removing an extra enrollment-ledger refetch from the shared payment-posting helper; receipt remaining-balance is now derived directly from the already-loaded ledger totals.
+- `Regularización Contry` now feels more stable during day-to-day use:
+  - player picker/search copy cleaned up
+  - category drilldown/search states are clearer
+  - account workspace now shows explicit pending banners during long mutations
+  - charge/payment/add-charge actions disable more aggressively while running
+  - historical payment capture can now prefill the current timestamp quickly without leaving the form
+  - add-charge flows now keep newly created destination charges selected automatically when possible
+- The Contry workspace refresh path is also narrower now:
+  - ledger-only refresh after normal product-charge creation
+  - ledger + charge-context refresh only when context can actually change (historical payment / advance tuition)
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
 ## 2026-04-07 (session 56)
 
 ### Security Follow-Up v2
