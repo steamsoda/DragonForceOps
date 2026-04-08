@@ -12,21 +12,32 @@ This checklist is mandatory for every feature and PR.
 - No secrets in source code, commits, client bundles, screenshots, or logs.
 - Use only environment variables in Vercel/Supabase/Azure.
 - Rotate secrets immediately after accidental exposure.
+- Public env vars must be intentionally classified as public; server-only keys must never use `NEXT_PUBLIC_*`.
 
-3. Database exposure controls
+3. Expected public config
+- Public Supabase URL plus anon/publishable key is expected in client bundles when RLS is correctly enforced.
+- Treat public client config as acceptable only if database policies and app-layer authorization are still least-privilege.
+- Document any intentionally public env var so staff do not mistake it for a secret leak.
+
+4. Database exposure controls
 - RLS enabled for all domain tables.
 - Policies follow least privilege and explicit allow rules.
 - Service-role key is server-only, never exposed client-side.
 
-4. Input and mutation safety
+5. Input and mutation safety
 - Validate and sanitize all request payloads server-side.
 - Use parameterized database access only (no dynamic SQL concatenation).
 - Critical operations are transactional where partial writes are risky.
 
-5. Operational safeguards
+6. Operational safeguards
 - Preview and production env vars are scoped separately.
 - Deployments use preview-first workflow.
 - Auth audit logs are enabled and reviewed during incidents.
+
+7. CI scanner policy
+- Secret scanning and dependency/security audit run in CI as advisory checks in v1.
+- Findings must be reviewed and tuned before turning them into blocking merge gates.
+- CI scanner logs and artifacts must not echo raw secret values.
 
 ## Performance Baseline
 1. Query design

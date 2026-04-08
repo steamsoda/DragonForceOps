@@ -1,5 +1,34 @@
 # Devlog
 
+## 2026-04-07 (session 54)
+
+### Security Hardening Lane v1
+
+- Started the first explicit security lane as a normal app-hardening pass rather than a panic rewrite.
+- Added two advisory GitHub Actions workflows:
+  - `.github/workflows/security-secrets.yml` for TruffleHog-based secret scanning on `preview`, `main`, and PRs targeting those branches
+  - `.github/workflows/security-dependencies.yml` for lockfile-based `npm audit` reporting on the same branch/PR surfaces
+- Kept both workflows advisory in `v1` so findings can be reviewed and tuned before becoming hard release gates.
+- Extended `docs/security-performance-baseline.md` so the repo now documents:
+  - public vs server-only env expectations
+  - why public Supabase anon/publishable keys are not automatically a breach
+  - scanner policy for advisory CI
+- Added `docs/security-review-2026-04-07.md` as the first concrete findings memo for this repo.
+- Current repo-specific findings from this pass:
+  - no obvious client-side leak of `SUPABASE_SERVICE_ROLE_KEY`
+  - `QZ_PRIVATE_KEY` remains server-side
+  - no explicit custom CORS headers were found in the app routes during the first pass
+  - `npm audit` is currently clean with zero reported vulnerabilities
+
+## 2026-04-07 (session 53)
+
+### Uniformes Card in New Enrollment Intake
+
+- Extended the single-page `Nueva Inscripción` flow so front desk can capture the initial `Uniformes` decision without leaving the intake form.
+- Added the first `Uniformes` card pass to the intake flow in `src/components/enrollments/enrollment-intake-form.tsx`, wiring the new selection data through `src/server/actions/intake.ts`.
+- Follow-up polish corrected the intake-card interaction model so size selection is clearer and `Portero` tagging behaves correctly during the enrollment flow instead of relying on later correction.
+- This keeps the one-page intake closer to the actual front-desk workflow by reducing one more post-enrollment detour into the separate uniforms surface.
+
 ## 2026-04-07 (session 52)
 
 ### Production Migration IPv6 Hotfix

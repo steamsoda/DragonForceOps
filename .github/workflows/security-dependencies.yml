@@ -1,0 +1,74 @@
+name: Dependency Security Audit
+
+on:
+  push:
+    branches:
+      - preview
+      - main
+  pull_request:
+    branches:
+      - preview
+      - main
+
+jobs:
+  npm-audit:
+    name: npm audit (Advisory)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run npm audit against lockfile
+        id: audit
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set +e
+          npm audit --package-lock-only --json > artifacts/npm-audit.json
+          status=$?
+          set -e
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          AUDIT_EXIT_CODE="$status" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("artifacts/npm-audit.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          vulns = data.get("metadata", {}).get("vulnerabilities", {})
+          exit_code = os.environ.get("AUDIT_EXIT_CODE", "0")
+          summary = Path("artifacts/npm-audit-summary.md")
+          summary.write_text(
+            "\n".join(
+              [
+                "## npm Audit Advisory Result",
+                f"- Exit code: {exit_code}",
+                f"- Critical: {vulns.get('critical', 0)}",
+                f"- High: {vulns.get('high', 0)}",
+                f"- Moderate: {vulns.get('moderate', 0)}",
+                f"- Low: {vulns.get('low', 0)}",
+                f"- Total: {vulns.get('total', 0)}",
+                "- Policy: advisory only in v1; findings should be reviewed and tuned before enforcing as a merge gate.",
+              ]
+            ),
+            encoding="utf-8",
+          )
+          PY
+
+      - name: Add job summary
+        if: always()
+        shell: bash
+        run: cat artifacts/npm-audit-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: artifacts/

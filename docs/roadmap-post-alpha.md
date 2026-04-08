@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-07.
 
-Current preview release line: `v1.14.1`
+Current preview release line: `v1.15.2`
 
 ---
 
@@ -42,6 +42,8 @@ Run these as explicit periodic passes between feature waves so the app keeps mat
   - confirm migration safety, reversible finance actions where applicable, and practical rollback paths for preview/prod incidents
 - migration / deployment verification discipline
   - keep preview/prod DB parity visible, confirm migrations actually apply, and avoid schema drift between code and remote environments
+- security scanning + env/RLS review
+  - first pass now starts as one explicit lane: advisory TruffleHog in CI, advisory dependency audit, and a short repo-specific findings memo covering service-role usage, public env usage, API/CORS review, and follow-up hardening items
 
 Notes:
 
@@ -131,7 +133,7 @@ Follow after the operational tracks above:
 | 27 | **Player level (B1/B2/B3) at a glance** | ✅ Done | Nivel column in Jugadores list. Level sourced from team assignment join. |
 | 28 | **Corte Diario quick-access shortcuts** | ✅ Done | "Corte {campus}" buttons in Caja header, directors only, pre-filter campus for today. |
 | 29 | **Multiple items in Caja (cart model)** | ✅ Done | Caja now uses a unified POS-style checkout screen after enrollment selection: pending charges can be added inline to `Cobro actual`, fixed-price product tiles stage new items without immediately persisting them, advance tuition is back as a dedicated visible card, and one checkout posts the whole current selection while preserving the existing allocation/receipt/session flow. `Cobrar todo` still exists as the quick path when `Cobro actual` is empty. Session 27 hotfix: staged advance tuition checkout no longer depends on an active tuition product row in the catalog, so mixed carts like `mensualidad adelantada + producto` can charge correctly. |
-| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | ✅ Done | `/players/new` is now a one-page front-desk intake that captures player data, one primary guardian, enrollment setup, pricing preview, and `Regreso` mode in one submit. It creates guardian + player + enrollment + initial charges atomically, then redirects directly into Caja. The intake also includes a lightweight duplicate/return warning by name + birth year that links to likely existing players without blocking the new record flow. |
+| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | ✅ Done | `/players/new` is now a one-page front-desk intake that captures player data, one primary guardian, enrollment setup, pricing preview, `Regreso` mode, and now the first `Uniformes` decision in one submit. It creates guardian + player + enrollment + initial charges atomically, then redirects directly into Caja. The intake also includes a lightweight duplicate/return warning by name + birth year that links to likely existing players without blocking the new record flow. |
 
 ---
 
@@ -161,7 +163,7 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. Keep future stock control and supplier batch management separate from this issue. |
+| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. The latest intake pass also brings a first `Uniformes` card directly into `/players/new`, including size-button polish and explicit `Portero` tagging so front desk can capture uniform intent earlier in the workflow. Keep future stock control and supplier batch management separate from this issue. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
