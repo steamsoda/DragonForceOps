@@ -77,6 +77,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const superAdminItems: NavSection["items"] = [
     { href: "/admin/users", label: "Usuarios y Permisos" },
     { href: "/admin/actividad", label: "Auditoria" },
+    { href: "/admin/finance-sanity", label: "Sanidad financiera" },
     ...(debugContext.canManage ? [{ href: "/admin/debug-view", label: "Debug permisos" }] : []),
   ];
 

@@ -30,6 +30,8 @@ type EnrollmentIntakeFormProps = {
 const inputClass =
   "w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900";
 
+const UNIFORM_SIZES = ["XCH JR", "CH JR", "M JR", "G JR", "XL JR", "CH", "M", "G", "XL"];
+
 function formatDateMask(rawValue: string) {
   const digits = rawValue.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;
@@ -127,6 +129,15 @@ export function EnrollmentIntakeForm({
   const [matches, setMatches] = useState<IntakeMatch[]>([]);
   const [isCheckingMatches, setIsCheckingMatches] = useState(false);
   const requestRef = useRef(0);
+  const [uniformSize, setUniformSize] = useState("");
+  const [kitFulfillment, setKitFulfillment] = useState<"deliver_now" | "pending_order">("deliver_now");
+  const [kitIsGoalkeeper, setKitIsGoalkeeper] = useState(false);
+  const [addExtraKit, setAddExtraKit] = useState(false);
+  const [extraKitSize, setExtraKitSize] = useState("");
+  const [extraKitIsGoalkeeper, setExtraKitIsGoalkeeper] = useState(false);
+  const [addGameUniform, setAddGameUniform] = useState(false);
+  const [gameUniformSize, setGameUniformSize] = useState("");
+  const [gameUniformIsGoalkeeper, setGameUniformIsGoalkeeper] = useState(false);
 
   const birthDate = useMemo(() => parseDateOnlyInput(birthDateText), [birthDateText]);
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -185,6 +196,15 @@ export function EnrollmentIntakeForm({
       <input type="hidden" name="startDate" value={startDate ?? ""} />
       <input type="hidden" name="isReturning" value={isReturning ? "1" : "0"} />
       <input type="hidden" name="returnInscriptionMode" value={isReturning ? returnInscriptionMode : ""} />
+      <input type="hidden" name="uniformSize" value={uniformSize} />
+      <input type="hidden" name="kitFulfillment" value={kitFulfillment} />
+      <input type="hidden" name="kitIsGoalkeeper" value={kitIsGoalkeeper ? "1" : "0"} />
+      <input type="hidden" name="addExtraKit" value={addExtraKit ? "1" : "0"} />
+      <input type="hidden" name="extraKitSize" value={extraKitSize} />
+      <input type="hidden" name="extraKitIsGoalkeeper" value={extraKitIsGoalkeeper ? "1" : "0"} />
+      <input type="hidden" name="addGameUniform" value={addGameUniform ? "1" : "0"} />
+      <input type="hidden" name="gameUniformSize" value={gameUniformSize} />
+      <input type="hidden" name="gameUniformIsGoalkeeper" value={gameUniformIsGoalkeeper ? "1" : "0"} />
 
       <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="space-y-1">
@@ -563,6 +583,180 @@ export function EnrollmentIntakeForm({
         </label>
       </section>
 
+      {/* ── Uniformes ─────────────────────────────────────────────────────── */}
+      <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Uniformes</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Registra los uniformes que se entregan o agregan en este alta.
+          </p>
+        </div>
+
+        {/* Included training kits — shown when inscription includes uniforms */}
+        {(!isReturning || returnInscriptionMode === "full") && (
+          <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              2 kits de entrenamiento incluidos en la inscripción
+            </p>
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Talla (ambos kits)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {UNIFORM_SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setUniformSize(uniformSize === s ? "" : s)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        uniformSize === s
+                          ? "border-portoBlue bg-portoBlue text-white"
+                          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setKitIsGoalkeeper((g) => !g)}
+                    className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                      kitIsGoalkeeper
+                        ? "border-violet-500 bg-violet-500 text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Portero {kitIsGoalkeeper ? "✓" : ""}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">Entrega</p>
+                <div className="flex rounded-md border border-slate-300 dark:border-slate-600 overflow-hidden w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setKitFulfillment("deliver_now")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      kitFulfillment === "deliver_now"
+                        ? "bg-portoBlue text-white"
+                        : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Entregar ahora
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKitFulfillment("pending_order")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-slate-300 dark:border-slate-600 ${
+                      kitFulfillment === "pending_order"
+                        ? "bg-portoBlue text-white"
+                        : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Sin stock — pedido pendiente
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Extra training kit — shown for returning players who skipped kits */}
+        {isReturning && returnInscriptionMode !== "full" && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={addExtraKit}
+                onChange={(e) => { setAddExtraKit(e.target.checked); if (!e.target.checked) setExtraKitSize(""); }}
+                className="h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
+              />
+              <span className="font-medium text-slate-700 dark:text-slate-300">
+                Agregar kit de entrenamiento adicional — <span className="text-slate-500">$600.00</span>
+              </span>
+            </label>
+            {addExtraKit && (
+              <div className="ml-6 space-y-1">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {UNIFORM_SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setExtraKitSize(extraKitSize === s ? "" : s)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        extraKitSize === s
+                          ? "border-portoBlue bg-portoBlue text-white"
+                          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setExtraKitIsGoalkeeper((g) => !g)}
+                    className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                      extraKitIsGoalkeeper
+                        ? "border-violet-500 bg-violet-500 text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Portero {extraKitIsGoalkeeper ? "✓" : ""}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Game uniform — always optional */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={addGameUniform}
+              onChange={(e) => { setAddGameUniform(e.target.checked); if (!e.target.checked) setGameUniformSize(""); }}
+              className="h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              Agregar uniforme de juego — <span className="text-slate-500">$600.00</span>
+            </span>
+          </label>
+          {addGameUniform && (
+            <div className="ml-6 space-y-1">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Talla</p>
+              <div className="flex flex-wrap gap-1.5">
+                {UNIFORM_SIZES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setGameUniformSize(gameUniformSize === s ? "" : s)}
+                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      gameUniformSize === s
+                        ? "border-portoBlue bg-portoBlue text-white"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setGameUniformIsGoalkeeper((g) => !g)}
+                  className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors ${
+                    gameUniformIsGoalkeeper
+                      ? "border-violet-500 bg-violet-500 text-white"
+                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Portero {gameUniformIsGoalkeeper ? "✓" : ""}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Resumen antes de crear</h2>
@@ -607,6 +801,16 @@ export function EnrollmentIntakeForm({
             <p className="mt-1 text-slate-600">
               Mensualidad: <span className="font-semibold">${monthlyAmount.toFixed(2)}</span>
             </p>
+            {addExtraKit && (
+              <p className="mt-1 text-slate-600">
+                + Kit entrenamiento: <span className="font-semibold">$600.00</span>
+              </p>
+            )}
+            {addGameUniform && (
+              <p className="mt-1 text-slate-600">
+                + Uniforme de juego: <span className="font-semibold">$600.00</span>
+              </p>
+            )}
           </div>
         </div>
 

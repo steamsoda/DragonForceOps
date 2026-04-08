@@ -15,14 +15,14 @@ type SearchParams = Promise<{
 }>;
 
 const errorMessages: Record<string, string> = {
-  invalid_form: "Los datos del pago historico no son validos.",
-  unauthenticated: "Tu sesion no es valida.",
-  enrollment_not_found: "La cuenta seleccionada no pertenece a Contry o ya no esta disponible.",
+  invalid_form: "Los datos del pago histórico no son válidos.",
+  unauthenticated: "Tu sesión no es válida.",
+  enrollment_not_found: "La cuenta seleccionada no pertenece a Contry o ya no está disponible.",
   no_pending_charges: "No hay cargos pendientes en esta cuenta.",
-  payment_insert_failed: "No se pudo registrar el pago historico.",
-  allocation_insert_failed: "No se pudieron guardar las asignaciones del pago historico.",
+  payment_insert_failed: "No se pudo registrar el pago histórico.",
+  allocation_insert_failed: "No se pudieron guardar las asignaciones del pago histórico.",
   paid_at_required: "Debes capturar la fecha y hora real del pago.",
-  debug_read_only: "El modo de solo lectura bloquea capturas historicas.",
+  debug_read_only: "El modo de solo lectura bloquea capturas históricas.",
 };
 
 export default async function ContryRegularizationPage({ searchParams }: { searchParams: SearchParams }) {
@@ -42,27 +42,27 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
 
   const successMessage =
     params.ok === "historical_payment_posted"
-      ? "Pago historico registrado correctamente para Contry."
+      ? "Pago histórico registrado correctamente para Contry."
       : params.ok === "payment_reassigned"
         ? "Cambio de concepto aplicado correctamente."
         : params.ok === "payment_refunded"
           ? "Reembolso registrado correctamente."
-      : null;
-  const errorMessage = params.err ? errorMessages[params.err] ?? "Ocurrio un error en la regularizacion." : null;
+          : null;
+  const errorMessage = params.err ? errorMessages[params.err] ?? "Ocurrió un error en la regularización." : null;
 
   return (
     <PageShell
-      title="Regularizacion Contry"
-      subtitle="Captura historica de pagos de Contry para migrar el rezago del sistema en papel sin tocar la base manualmente."
-      breadcrumbs={[{ label: "Regularizacion Contry" }]}
+      title="Regularización Contry"
+      subtitle="Captura pagos históricos de Contry sin salir del flujo operativo y manteniendo la cuenta seleccionada a la vista."
+      breadcrumbs={[{ label: "Regularización Contry" }]}
       wide
     >
       <div className="space-y-5">
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          <p className="font-semibold">Modo historico Contry</p>
+          <p className="font-semibold">Modo histórico Contry</p>
           <p>
-            Esta pantalla registra pagos reales con fecha historica. Los pagos quedan operativamente como Contry, no se
-            imprimen automaticamente y no se vinculan a la sesion de caja abierta.
+            Esta pantalla registra pagos reales con fecha histórica. Los pagos quedan operativamente como Contry, no se
+            imprimen automáticamente y no se vinculan a la sesión de caja abierta.
           </p>
         </div>
 
@@ -96,7 +96,7 @@ export default async function ContryRegularizationPage({ searchParams }: { searc
           <section className="space-y-4">
             {!selectedLedger ? (
               <div className="rounded-md border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                Selecciona una cuenta de Contry para revisar cargos pendientes y capturar el pago historico.
+                Selecciona una cuenta de Contry para revisar cargos pendientes, aplicar pagos históricos o agregar cargos.
               </div>
             ) : (
               <ContryRegularizationAccountPanel initialLedger={selectedLedger} contryCampusId={contryCampus.id} />

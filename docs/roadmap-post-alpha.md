@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-07.
 
-Current preview release line: `v1.13.1`
+Current preview release line: `v1.15.7`
 
 ---
 
@@ -36,12 +36,16 @@ Run these as explicit periodic passes between feature waves so the app keeps mat
   - recheck route guards, campus scope, action guards, and RLS-sensitive surfaces after major workflow additions
 - finance / payment / reporting regression checklist
   - verify receipts, allocations, operator-campus ownership, `paid_at` semantics, corte outputs, and monthly/weekly summaries still agree
+  - finance drift guardrail now includes `/admin/finance-sanity` plus SQL reconciliation helpers so pending collections, dashboard KPIs, and canonical balance math can be checked against each other intentionally
 - performance hotspot review
   - identify slow pages, heavy queries, unnecessary refreshes, and wide payloads before they become daily friction
 - backup / recovery / rollback confidence
   - confirm migration safety, reversible finance actions where applicable, and practical rollback paths for preview/prod incidents
 - migration / deployment verification discipline
   - keep preview/prod DB parity visible, confirm migrations actually apply, and avoid schema drift between code and remote environments
+- security scanning + env/RLS review
+  - first pass now starts as one explicit lane: advisory TruffleHog in CI, advisory dependency audit, and a short repo-specific findings memo covering service-role usage, public env usage, API/CORS review, and follow-up hardening items
+  - second pass now includes GitHub Actions runtime maintenance plus a repo/app sweep of service-role usage, public envs, auth/API routes, sensitive server actions, and high-risk RLS-backed finance/admin paths
 
 Notes:
 
@@ -58,6 +62,8 @@ Next implementation priority. Group these together as one operational wave:
 - `#48` SQL-side finance/report aggregation hardening is now complete on preview for dashboard, Resumen Mensual, and Corte Semanal
 - `#56` refunds workflow
 - `#57` Corte Diario checkpoint history, detailed report KPIs, and compact thermal-product detail follow-up
+- refund drift follow-up:
+  - pending-collections RPCs now also need to stay aligned with refund-aware balance semantics, not just dashboard/report SQL, to avoid silent debt undercounting after refunds
 
 ### 2. Permissions + Campus Operations 🔐
 
@@ -131,7 +137,7 @@ Follow after the operational tracks above:
 | 27 | **Player level (B1/B2/B3) at a glance** | ✅ Done | Nivel column in Jugadores list. Level sourced from team assignment join. |
 | 28 | **Corte Diario quick-access shortcuts** | ✅ Done | "Corte {campus}" buttons in Caja header, directors only, pre-filter campus for today. |
 | 29 | **Multiple items in Caja (cart model)** | ✅ Done | Caja now uses a unified POS-style checkout screen after enrollment selection: pending charges can be added inline to `Cobro actual`, fixed-price product tiles stage new items without immediately persisting them, advance tuition is back as a dedicated visible card, and one checkout posts the whole current selection while preserving the existing allocation/receipt/session flow. `Cobrar todo` still exists as the quick path when `Cobro actual` is empty. Session 27 hotfix: staged advance tuition checkout no longer depends on an active tuition product row in the catalog, so mixed carts like `mensualidad adelantada + producto` can charge correctly. |
-| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | ✅ Done | `/players/new` is now a one-page front-desk intake that captures player data, one primary guardian, enrollment setup, pricing preview, and `Regreso` mode in one submit. It creates guardian + player + enrollment + initial charges atomically, then redirects directly into Caja. The intake also includes a lightweight duplicate/return warning by name + birth year that links to likely existing players without blocking the new record flow. |
+| 54 | **Single-page new enrollment intake + streamlined initial charge/payment flow** | ✅ Done | `/players/new` is now a one-page front-desk intake that captures player data, one primary guardian, enrollment setup, pricing preview, `Regreso` mode, and now the first `Uniformes` decision in one submit. It creates guardian + player + enrollment + initial charges atomically, then redirects directly into Caja. The intake also includes a lightweight duplicate/return warning by name + birth year that links to likely existing players without blocking the new record flow. |
 
 ---
 
@@ -152,7 +158,7 @@ Follow after the operational tracks above:
 | 42 | **Reprint receipt from app** | ✅ Done | `/receipts` now has a `Reimprimir` action per payment row. Rebuilds the receipt from stored payment, folio, allocation, and enrollment context, then prints through QZ Tray. |
 | 43 | **Pricing change rollout (non-breaking)** | ✅ Done | Pricing now resolves through effective-date plan versions instead of mutating historical financial rows. Existing enrollments can continue using their original plan link while monthly generation and advance tuition resolve the correct version for the target month. |
 | 55 | **Replace free-number financial inputs with guided button choices** | ✅ Done | New enrollment no longer uses free-number tuition inputs, advance tuition in Caja resolves automatically from the selected month/version, the POS checkout stages fixed-price product tiles with locked catalog amounts, uniform items now require `Talla` before they can be added, and only explicit special/manual charges keep open-amount entry. Date/campus entry for front desk also moved to guided controls (`DD/MM/YYYY` masked inputs, calendar access, direct campus buttons). |
-| 56 | **Refund workflow** | 🟡 In progress | `v1` is now working on preview: `Cambiar concepto` can move a full posted payment onto new destination charges and auto-void its exclusive original source charges, while `Reembolsar` records a separate refund movement on the refund date, reopens the underlying balance, and surfaces refund state in receipts/activity/reporting. Follow-up hotfixes corrected refund form copy/required cues and resolved preview DB ambiguity bugs in both `payment_refunds` RLS and the underlying payment refund/reassignment functions. Keep open for future partial refunds, finance-op guardrails, and refund performance optimization after live usage. |
+| 56 | **Refund workflow** | 🟡 In progress | `v1` is working on preview: `Cambiar concepto` can move a full posted payment onto new destination charges and auto-void its exclusive original source charges, while `Reembolsar` records a separate refund movement on the refund date, reopens the underlying balance, and surfaces refund state in receipts/activity/reporting. Follow-up hotfixes corrected refund form copy/required cues, resolved preview DB ambiguity bugs in both `payment_refunds` RLS and the underlying payment refund/reassignment functions, and the latest front-desk polish pass added clearer pending states, cleaner effect messaging, and reduced extra client refresh churn. Keep open for future partial refunds, finance-op guardrails, and deeper refund performance optimization after more live usage. |
 | 57 | **Corte Diario + cash session revamp** | ✅ Done | Front desk now works against automatic campus corte checkpoints instead of manually opening/closing sessions. Corte Diario is campus-first, based on payments since the last printed corte for that campus, printing closes and rolls the next checkpoint automatically, `360Player` remains visible-but-excluded, and `paid_at` can now be backdated from Caja and the enrollment ledger when staff recovers a missed payment. Follow-up polish now adds row-level `Conceptos pagados`, historical checkpoint browsing, historical detailed reports, richer detailed-report KPIs, a dedicated `Por tipo de cargo` block inside `Reporte detallado`, and thermal Corte product-name detail for real product sales without changing the close/print flow. |
 
 ---
@@ -161,7 +167,7 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. Keep future stock control and supplier batch management separate from this issue. |
+| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. The latest intake pass also brings a first `Uniformes` card directly into `/players/new`, including size-button polish and explicit `Portero` tagging so front desk can capture uniform intent earlier in the workflow. Keep future stock control and supplier batch management separate from this issue. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
@@ -178,7 +184,7 @@ Follow after the operational tracks above:
 | 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
 | 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, visible warning counts for active players excluded because they are missing gender, and the surrounding Jugadores filter bar has been cleaned up with a dedicated advanced-filters section. Keep this item open for broader list/export tooling beyond attendance rosters. |
 | 63 | **Attendance-sheet export** | ✅ Done | `/players` exports a formatted `.xlsx` workbook for manual attendance use. Sheets now use a fixed set of 16 predefined groups per campus (Little Dragons all-gender, FEM ranges, VAR by year) instead of one tab per birth year/gender. Multi-gender sheets show VARONIL/FEMENIL section headers; single-gender sheets go straight to level sections. Missing-gender players are excluded. |
-| 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish now aligns the player picker with Caja-style search plus `Buscar por categoría`, and the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
+| 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish aligned the player picker with Caja-style search plus `Buscar por categoría`, the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen, and the latest front-desk pass tightened mutation-state feedback, reduced workspace churn, and cleaned the main user-facing Contry copy. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
 
 ---
 

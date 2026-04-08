@@ -4,15 +4,21 @@ import type { AttendanceExportRow } from "@/lib/queries/player-exports";
 const ATTENDANCE_COLUMN_COUNT = 20;
 const SECTION_LEVELS = ["B2", "B1", "B3", "Selectivo"] as const;
 const ATTENDANCE_HEADERS = Array.from({ length: ATTENDANCE_COLUMN_COUNT }, (_, index) => `A${index + 1}`);
-const TOTAL_COLUMNS = 5 + ATTENDANCE_COLUMN_COUNT; // 25 — no Tel Tutor
+const TOTAL_COLUMNS = 5 + ATTENDANCE_COLUMN_COUNT; // 25
 
 // FC Porto brand palette (ARGB)
 const PORTO_NAVY  = "FF003087";
 const PORTO_GOLD  = "FFFFC72C";
 const PORTO_BLUE  = "FF1455A4";
+const PORTO_MID   = "FFA8C4E0"; // year divider — medium blue
 const PORTO_LIGHT = "FFE8EEF7";
 const WHITE       = "FFFFFFFF";
 const GRAY_BORDER = "FFB8C0CC";
+
+// Logo dimensions — actual PNG is 4025×2667 (ratio ~1.51)
+// Rendered at 60×40px so it fits the 42pt title row without stretching
+const LOGO_WIDTH_PX  = 60;
+const LOGO_HEIGHT_PX = 40;
 
 type ExportGroup = {
   label: string;
@@ -117,10 +123,43 @@ function addSection(
   });
 }
 
+// Adds all level sections for a given set of rows (same birth year)
+function addYearBlock(
+  worksheet: ExcelJS.Worksheet,
+  birthYear: number,
+  rows: AttendanceExportRow[],
+  showYearHeader: boolean
+) {
+  if (rows.length === 0) return;
+
+  if (showYearHeader) {
+    if (worksheet.rowCount > 1) {
+      worksheet.addRow([]);
+    }
+    const yearHeader = worksheet.addRow([`Categoría ${birthYear}`]);
+    worksheet.mergeCells(yearHeader.number, 1, yearHeader.number, TOTAL_COLUMNS);
+    yearHeader.font = { bold: true, color: { argb: PORTO_NAVY } };
+    yearHeader.alignment = { vertical: "middle", horizontal: "center" };
+    yearHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_MID } };
+    applyGridBorder(yearHeader, TOTAL_COLUMNS);
+  }
+
+  const sortedRows = [...rows].sort((a, b) => {
+    const levelDiff = levelRank(a.level) - levelRank(b.level);
+    if (levelDiff !== 0) return levelDiff;
+    return a.playerName.localeCompare(b.playerName, "es-MX");
+  });
+
+  for (const level of getOrderedLevels(sortedRows)) {
+    addSection(worksheet, level, sortedRows.filter((row) => row.level === level));
+  }
+}
+
 function addGenderBlock(
   worksheet: ExcelJS.Worksheet,
   genderLabel: string,
-  rows: AttendanceExportRow[]
+  rows: AttendanceExportRow[],
+  birthYears: number[]
 ) {
   if (rows.length === 0) return;
 
@@ -136,15 +175,14 @@ function addGenderBlock(
   genderHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_BLUE } };
   applyGridBorder(genderHeader, TOTAL_COLUMNS);
 
-  const sortedRows = [...rows].sort((a, b) => {
-    if (a.birthYear !== b.birthYear) return a.birthYear - b.birthYear;
-    const levelDiff = levelRank(a.level) - levelRank(b.level);
-    if (levelDiff !== 0) return levelDiff;
-    return a.playerName.localeCompare(b.playerName, "es-MX");
-  });
-
-  for (const level of getOrderedLevels(sortedRows)) {
-    addSection(worksheet, level, sortedRows.filter((row) => row.level === level));
+  const showYearHeaders = birthYears.length > 1;
+  for (const year of birthYears) {
+    addYearBlock(
+      worksheet,
+      year,
+      rows.filter((row) => row.birthYear === year),
+      showYearHeaders
+    );
   }
 }
 
@@ -222,32 +260,37 @@ export async function buildAttendanceWorkbook(
       titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PORTO_NAVY } };
       applyGridBorder(titleRow, TOTAL_COLUMNS);
 
-      // Overlay logo on the right side of the title row
+      // Overlay logo — fixed pixel size to preserve aspect ratio (no stretching)
       if (logoId !== undefined) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         worksheet.addImage(logoId, {
-          tl: { col: TOTAL_COLUMNS - 4, row: 0 },
-          br: { col: TOTAL_COLUMNS,     row: 1 },
+          tl: { col: TOTAL_COLUMNS - 3.2, row: 0.1 },
+          ext: { width: LOGO_WIDTH_PX, height: LOGO_HEIGHT_PX },
           editAs: "oneCell",
         } as any);
       }
 
       const isMultiGender = group.genders.length > 1;
+      const showYearHeaders = group.birthYears.length > 1;
 
       if (isMultiGender) {
         for (const gender of group.genders) {
-          addGenderBlock(worksheet, gender, groupRows.filter((row) => row.genderLabel === gender));
+          addGenderBlock(
+            worksheet,
+            gender,
+            groupRows.filter((row) => row.genderLabel === gender),
+            group.birthYears
+          );
         }
       } else {
-        const sortedRows = [...groupRows].sort((a, b) => {
-          if (a.birthYear !== b.birthYear) return a.birthYear - b.birthYear;
-          const levelDiff = levelRank(a.level) - levelRank(b.level);
-          if (levelDiff !== 0) return levelDiff;
-          return a.playerName.localeCompare(b.playerName, "es-MX");
-        });
-
-        for (const level of getOrderedLevels(sortedRows)) {
-          addSection(worksheet, level, sortedRows.filter((row) => row.level === level));
+        // Single-gender: year blocks, then level sections within each year
+        for (const year of group.birthYears) {
+          addYearBlock(
+            worksheet,
+            year,
+            groupRows.filter((row) => row.birthYear === year),
+            showYearHeaders
+          );
         }
       }
     }

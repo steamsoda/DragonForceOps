@@ -1,5 +1,137 @@
 # Devlog
 
+## 2026-04-07 (session 60)
+
+### Finance Sanity Nav Link
+
+- Added a superadmin-only sidebar/menu link to `/admin/finance-sanity`.
+- The hidden finance sanity page is now reachable from the normal Super Admin section instead of requiring a manual URL.
+
+## 2026-04-07 (session 59)
+
+### Finance Source-of-Truth Guardrails
+
+- Added an explicit finance source-of-truth doc so balance math and report math stop living as implicit team memory:
+  - live balance must flow from `v_enrollment_balances`
+  - reporting must flow from `finance_*_facts`
+- Added SQL reconciliation helpers:
+  - `get_finance_reconciliation_summary(...)`
+  - `list_finance_reconciliation_drift(...)`
+- Added a hidden superadmin-only sanity page at `/admin/finance-sanity` so drift can be checked intentionally instead of discovered late.
+- This is meant to reduce future finance drift by turning “remember the rule” into:
+  - a written rule
+  - a shared SQL verification layer
+  - a concrete admin validation surface
+
+## 2026-04-07 (session 58)
+
+### Finance Drift Audit
+
+- Audited the main finance surfaces for drift risk after the refunds/reassignment rollout:
+  - account ledger / player hub
+  - `Jugadores` balance state
+  - `Pendientes`
+  - dashboard / monthly / weekly reports
+- Confirmed the major finance reporting lane is already converging on shared refund-aware SQL facts and the refund-aware `v_enrollment_balances` view.
+- Found one real mismatch: `list_pending_enrollments_full(...)` was still subtracting posted payments without adding refunded amounts back, which could understate debt on `Pendientes` and active-player debt chips after a refund.
+- Added a SQL migration to realign that RPC with the same refund-aware balance semantics used by `v_enrollment_balances`.
+- This was treated as a true drift fix, not just documentation, because it could silently weaken pending-collections visibility over time.
+
+## 2026-04-07 (session 57)
+
+### Refunds + Contry Front-Desk Polish Pass
+
+- Ran a shared polish pass across the new refund/reassignment workflows and the `Regularización Contry` workspace.
+- Refund and `Cambiar concepto` screens now behave more like operational tools instead of raw admin forms:
+  - stronger pending/running states while long billing mutations are in flight
+  - clearer effect summaries so staff can see what will happen before confirming
+  - cleaner error banners without exposing raw debug details in normal use
+  - removed the extra client-side `router.refresh()` after success redirects to reduce avoidable page churn
+- Applied a lightweight performance improvement to posted-payment flows by removing an extra enrollment-ledger refetch from the shared payment-posting helper; receipt remaining-balance is now derived directly from the already-loaded ledger totals.
+- `Regularización Contry` now feels more stable during day-to-day use:
+  - player picker/search copy cleaned up
+  - category drilldown/search states are clearer
+  - account workspace now shows explicit pending banners during long mutations
+  - charge/payment/add-charge actions disable more aggressively while running
+  - historical payment capture can now prefill the current timestamp quickly without leaving the form
+  - add-charge flows now keep newly created destination charges selected automatically when possible
+- The Contry workspace refresh path is also narrower now:
+  - ledger-only refresh after normal product-charge creation
+  - ledger + charge-context refresh only when context can actually change (historical payment / advance tuition)
+- Verification:
+  - `npm run typecheck` passed
+  - `npm run build` passed
+
+## 2026-04-07 (session 56)
+
+### Security Follow-Up v2
+
+- Patched the GitHub Actions runtime warning by moving all repo workflows to the newer Node 24-compatible action majors:
+  - `actions/checkout@v6`
+  - `actions/setup-node@v6`
+  - `actions/upload-artifact@v6`
+  - `supabase/setup-cli@v2`
+- Applied that runtime maintenance pass to:
+  - preview DB migrations
+  - production DB migrations
+  - secret scanning
+  - dependency audit
+- Ran a second repo/app security sweep focused on real exposure surfaces rather than adding more scanners.
+- Second-pass findings:
+  - the service-role client helper still appears server-only and no active runtime callers were found during the repo-wide search
+  - public env usage remains limited to intentionally public Supabase client config plus the public QZ certificate
+  - `src/app/api/sign-qz/route.ts` still requires an authenticated user before signing
+  - placeholder API routes are still returning `501` and are not currently active data endpoints
+  - high-risk server action modules continue to use authenticated-user retrieval plus shared role/campus permission helpers for sensitive mutations
+- Follow-up items recorded instead of treated as immediate bugs:
+  - keep reviewing finance/admin/cross-campus mutation surfaces for role drift
+  - add an explicit role gate to the attendance export route if that endpoint becomes a broader operational surface
+  - keep placeholder API routes non-functional until they are implemented with explicit auth behavior
+
+## 2026-04-07 (session 55)
+
+### Dependency Audit Patch
+
+- Investigated the new GitHub `npm audit` findings after the advisory workflow went live.
+- Root cause: GitHub was correctly scanning the committed `package-lock.json`, while the local worktree already had an uncommitted dependency refresh that removed the reported advisories.
+- Refreshed the lockfile so the committed dependency tree now picks up the safer package resolutions already implied by the current `package.json` ranges.
+- The advisory findings reproduced against the older committed lockfile were:
+  - `next`
+  - `flatted`
+  - `minimatch`
+  - `picomatch`
+  - `brace-expansion`
+- After the lockfile refresh, local `npm audit --package-lock-only --json` returns zero vulnerabilities again.
+
+## 2026-04-07 (session 54)
+
+### Security Hardening Lane v1
+
+- Started the first explicit security lane as a normal app-hardening pass rather than a panic rewrite.
+- Added two advisory GitHub Actions workflows:
+  - `.github/workflows/security-secrets.yml` for TruffleHog-based secret scanning on `preview`, `main`, and PRs targeting those branches
+  - `.github/workflows/security-dependencies.yml` for lockfile-based `npm audit` reporting on the same branch/PR surfaces
+- Kept both workflows advisory in `v1` so findings can be reviewed and tuned before becoming hard release gates.
+- Extended `docs/security-performance-baseline.md` so the repo now documents:
+  - public vs server-only env expectations
+  - why public Supabase anon/publishable keys are not automatically a breach
+  - scanner policy for advisory CI
+- Added `docs/security-review-2026-04-07.md` as the first concrete findings memo for this repo.
+- Current repo-specific findings from this pass:
+  - no obvious client-side leak of `SUPABASE_SERVICE_ROLE_KEY`
+  - `QZ_PRIVATE_KEY` remains server-side
+  - no explicit custom CORS headers were found in the app routes during the first pass
+  - `npm audit` is currently clean with zero reported vulnerabilities
+
+## 2026-04-07 (session 53)
+
+### Uniformes Card in New Enrollment Intake
+
+- Extended the single-page `Nueva Inscripción` flow so front desk can capture the initial `Uniformes` decision without leaving the intake form.
+- Added the first `Uniformes` card pass to the intake flow in `src/components/enrollments/enrollment-intake-form.tsx`, wiring the new selection data through `src/server/actions/intake.ts`.
+- Follow-up polish corrected the intake-card interaction model so size selection is clearer and `Portero` tagging behaves correctly during the enrollment flow instead of relying on later correction.
+- This keeps the one-page intake closer to the actual front-desk workflow by reducing one more post-enrollment detour into the separate uniforms surface.
+
 ## 2026-04-07 (session 52)
 
 ### Production Migration IPv6 Hotfix
@@ -1605,6 +1737,17 @@
   - no migration was required
 
 ## 2026-04-06
+
+### Attendance Export — Logo Fix + Birth Year Dividers (v1.14.1)
+- Fixed logo stretching: switched from `tl+br` cell-range approach to `tl+ext` with fixed 60×40px dimensions matching the actual 1.51:1 PNG aspect ratio.
+- Multi-year sheets now group rows by birth year first with a `Categoría {year}` header row (medium blue) between each year group, then level sections within each year.
+- Single-year sheets unchanged.
+
+### Player Nivel — Editable + Profile Display (v1.14.0)
+- Added `level` to `getPlayerDetail` query and returned object.
+- Added `Nivel` select to player edit form: Little Dragons, B2, B1, B3, Selectivo, Sin nivel — pre-populated with current value.
+- Wired `level` through `updatePlayerAction` to the `players` table.
+- `Nivel` now shows in the player profile info grid alongside gender, uniform size, and jersey number.
 
 ### Attendance Export — Branding + Tel Tutor Removal (v1.13.1)
 - Removed the `Tel Tutor` column from the attendance sheet (TOTAL_COLUMNS 26 → 25).
