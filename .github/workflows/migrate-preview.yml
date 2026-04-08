@@ -6,6 +6,7 @@ on:
       - preview
     paths:
       - 'supabase/migrations/**'
+  workflow_dispatch:
 
 concurrency:
   group: preview-db-migrations
@@ -19,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: supabase/setup-cli@v2
+      - uses: supabase/setup-cli@v1
         with:
           version: 2.78.1
 
