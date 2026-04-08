@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-04-07 (session 55)
+
+### Dependency Audit Patch
+
+- Investigated the new GitHub `npm audit` findings after the advisory workflow went live.
+- Root cause: GitHub was correctly scanning the committed `package-lock.json`, while the local worktree already had an uncommitted dependency refresh that removed the reported advisories.
+- Refreshed the lockfile so the committed dependency tree now picks up the safer package resolutions already implied by the current `package.json` ranges.
+- The advisory findings reproduced against the older committed lockfile were:
+  - `next`
+  - `flatted`
+  - `minimatch`
+  - `picomatch`
+  - `brace-expansion`
+- After the lockfile refresh, local `npm audit --package-lock-only --json` returns zero vulnerabilities again.
+
 ## 2026-04-07 (session 54)
 
 ### Security Hardening Lane v1
