@@ -42,7 +42,7 @@ export async function grantRoleAction(formData: FormData) {
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
   let campusId: string | null = null;
-  if (roleCode === "front_desk") {
+  if (roleCode === "front_desk" || roleCode === "director_deportivo") {
     if (!campusIdRaw) redirect(`${BASE}?err=invalid_form`);
     const { data: campus } = await supabase
       .from("campuses")

@@ -1,5 +1,50 @@
 # Devlog
 
+## 2026-04-09 (session 67)
+
+### Director Deportivo + Competition Signups Dashboard v1
+
+- Added the first real sports-ops lane around a new campus-scoped `director_deportivo` role.
+- `director_deportivo` is now assignable from `Usuarios y Permisos`, behaves like a campus-scoped sports role, and has dedicated preview debug personas for:
+  - Linda Vista hub sports view
+  - Contry-only sports view
+- Added a dedicated sports navigation area:
+  - `Director Deportivo`
+  - `Copas / Torneos`
+- Extended the dormant tournament schema into the first operational competition model:
+  - tournaments now carry linked competition product, signup cutoff, and eligible birth-year window
+  - new `tournament_source_teams` table records the normal teams that define the eligible denominator
+  - new `tournament_squads` table records the actual competition squads, each mapped to a real `teams` row for secondary assignments
+  - `tournament_player_entries` now acts as the canonical paid-signup registry via linked `charge_id`
+- Implemented payment-driven competition signup sync:
+  - paying the linked product in `Caja` now marks the player as signed up
+  - refunds, reassignment away from the competition charge, and voided payments now remove the signup again
+  - if signup is removed, active competition-squad assignments for that tournament are also closed
+- Added the first sports management UI:
+  - `/tournaments`
+    - create competitions
+    - link product
+    - set campus/date window/signup cutoff/birth-year window
+    - review per-competition counts
+  - `/tournaments/[id]`
+    - edit competition settings
+    - attach source teams
+    - create multiple competition squads per source team with min/max + refuerzo limits
+    - assign signed players into squads as regular or refuerzo
+    - remove squad assignments
+  - `/director-deportivo`
+    - campus-scoped dashboard
+    - competition overview cards
+    - source-team progress like `10/25`
+    - signed-without-squad counts
+    - squad fill progress and refuerzo usage
+- Sports surfaces intentionally stay non-financial:
+  - they show signup/payment state signals only
+  - they do not expose cash sessions, charge amounts, refunds, or finance totals
+- Verification:
+  - `npm run build` passed
+  - `npm run typecheck` passed
+
 ## 2026-04-09 (session 66)
 
 ### Caja Handoff UI + Preload Polish

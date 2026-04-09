@@ -30,6 +30,7 @@ export type DebugResolvedUser = {
   roleScopes: RoleScope[];
   isSuperAdmin: boolean;
   isDirector: boolean;
+  isSportsDirector: boolean;
   isFrontDesk: boolean;
 };
 
@@ -97,6 +98,10 @@ function buildResolvedUser(
     isSuperAdmin: roleCodes.includes(APP_ROLES.SUPERADMIN),
     isDirector:
       roleCodes.includes(APP_ROLES.SUPERADMIN) || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN),
+    isSportsDirector:
+      roleCodes.includes(APP_ROLES.SUPERADMIN) ||
+      roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN) ||
+      roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO),
     isFrontDesk: roleCodes.includes(APP_ROLES.FRONT_DESK),
   };
 }
