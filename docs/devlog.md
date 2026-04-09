@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-08 (session 65)
+
+### Caja-Only Normal Payment Entry
+
+- Removed the last two non-Caja normal payment forms from the player hub and the dedicated enrollment account page.
+- Normal live payments now route staff into `Caja` via `/caja?enrollmentId=...` instead of being posted inline from account screens.
+- Kept refunds, concept reassignment, director-only voids, payment history, charges, and incidents on the account surfaces.
+- Recorded the control rule in the finance source-of-truth doc so future finance work does not quietly reintroduce page-local payment posting.
+
 ## 2026-04-08 (session 64)
 
 ### Payment Method Button Wrap Fix

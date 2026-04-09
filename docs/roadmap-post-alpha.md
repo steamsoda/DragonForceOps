@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-08.
 
-Current preview release line: `v1.15.12`
+Current preview release line: `v1.15.13`
 
 ---
 
@@ -25,6 +25,9 @@ Current preview release line: `v1.15.12`
 Notes:
 
 - front desk feedback surfaced recurring payment-method mistakes, so these two payment-flow items are now the top short-term UX/control priorities
+- preview now reflects the payment-control rule:
+  - `Método` selection is explicit button-based in Caja and `Regularización Contry`
+  - normal live payments now route through `Caja` only
 - `#17` is now in active implementation on preview as the next major front-desk workflow
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass

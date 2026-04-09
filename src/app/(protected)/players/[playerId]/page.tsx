@@ -2,17 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
-import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
-import { getPrinterName } from "@/lib/queries/settings";
-import { postEnrollmentPaymentAction } from "@/server/actions/payments";
 import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
@@ -246,8 +242,6 @@ export default async function PlayerDetailPage({
   const sp = await searchParams;
   const player = await getPlayerDetail(playerId);
   const permissionContext = await getPermissionContext();
-  const campusAccess = await getOperationalCampusAccess();
-  const printerName = await getPrinterName();
   const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
   const isDirector = permissionContext?.isDirector ?? false;
 
@@ -285,7 +279,6 @@ export default async function PlayerDetailPage({
                 ? "Reembolso registrado correctamente."
           : null;
 
-  const postPayment = activeEnrollmentId ? postEnrollmentPaymentAction.bind(null, activeEnrollmentId) : null;
   const createIncident = activeEnrollmentId ? createEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const replaceIncident = activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
@@ -377,12 +370,12 @@ export default async function PlayerDetailPage({
 
             <div className="flex flex-wrap gap-2 xl:max-w-[30rem] xl:justify-end">
               {activeEnrollmentId ? (
-                <a
-                  href="#cuenta-actual"
+                <Link
+                  href={`/caja?enrollmentId=${activeEnrollmentId}`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
-                  Registrar pago
-                </a>
+                  Abrir Caja
+                </Link>
               ) : (
                 <Link
                   href={`/players/${player.id}/enrollments/new`}
@@ -639,18 +632,19 @@ export default async function PlayerDetailPage({
 
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
                 <div className="space-y-5">
-                  {postPayment && campusAccess ? (
-                    <PaymentPostForm
-                      currentBalance={activeLedger.totals.balance}
-                      currency={activeLedger.enrollment.currency}
-                      action={postPayment}
-                      printerName={printerName}
-                      playerCampusId={activeLedger.enrollment.campusId}
-                      playerCampusName={activeLedger.enrollment.campusName}
-                      allowedCampuses={campusAccess.campuses}
-                      defaultCampusId={campusAccess.defaultCampusId ?? activeLedger.enrollment.campusId}
-                    />
-                  ) : null}
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cobro operativo</p>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                      Los pagos normales de esta cuenta ya se registran exclusivamente en Caja. Mantén esta vista para revisar cargos,
+                      pagos, incidencias y acciones correctivas.
+                    </p>
+                    <Link
+                      href={`/caja?enrollmentId=${activeEnrollmentId}`}
+                      className="mt-3 inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                    >
+                      Abrir Caja para cobrar
+                    </Link>
+                  </div>
                 </div>
 
                 {createIncident && cancelIncident && replaceIncident ? (

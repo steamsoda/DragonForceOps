@@ -98,6 +98,8 @@ Purpose:
 - no new finance page should invent its own balance math if a canonical source already exists
 - if a new RPC exposes balance, it should either read from `v_enrollment_balances` or be tested against it
 - if a new report exposes totals, it should either read from `finance_*_facts` or be tested against them
+- normal live payment posting belongs in `Caja`, not in page-local player/account forms
+- `Regularización Contry` is the explicit exception for historical payment capture
 - when drift is found, fix the shared source first, then the consumers
 
 ## Recurring Verification

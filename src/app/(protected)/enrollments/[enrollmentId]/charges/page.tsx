@@ -1,15 +1,12 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
-import { PaymentPostForm } from "@/components/billing/payment-post-form";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
-import { postEnrollmentPaymentAction } from "@/server/actions/payments";
 import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
@@ -17,7 +14,6 @@ import {
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
-import { getPrinterName } from "@/lib/queries/settings";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del pago son invalidos. Revisa monto y metodo.",
@@ -67,13 +63,10 @@ export default async function ChargesPage({
   if (!ledger) notFound();
 
   const permissionContext = await getPermissionContext();
-  const printerName = await getPrinterName();
-  const campusAccess = await getOperationalCampusAccess();
   const isDirector = permissionContext?.isDirector ?? false;
 
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
-  const postPayment = postEnrollmentPaymentAction.bind(null, enrollmentId);
   const createIncident = createEnrollmentIncidentAction.bind(null, enrollmentId);
   const cancelIncident = cancelEnrollmentIncidentAction.bind(null, enrollmentId);
   const replaceIncident = replaceEnrollmentIncidentAction.bind(null, enrollmentId);
@@ -129,6 +122,12 @@ export default async function ChargesPage({
             >
               Nuevo cargo
             </Link>
+            <Link
+              href={`/caja?enrollmentId=${ledger.enrollment.id}`}
+              className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              Abrir Caja
+            </Link>
           </div>
         </div>
 
@@ -155,16 +154,19 @@ export default async function ChargesPage({
 
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Pagos</h2>
-          <PaymentPostForm
-            currentBalance={ledger.totals.balance}
-            currency={ledger.enrollment.currency}
-            action={postPayment}
-            printerName={printerName}
-            playerCampusId={ledger.enrollment.campusId}
-            playerCampusName={ledger.enrollment.campusName}
-            allowedCampuses={campusAccess?.campuses ?? []}
-            defaultCampusId={campusAccess?.defaultCampusId ?? ledger.enrollment.campusId}
-          />
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cobro operativo</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Los pagos normales de esta cuenta se registran exclusivamente en Caja. Usa esta vista para revisar el historial,
+              cargos, incidencias y acciones correctivas.
+            </p>
+            <Link
+              href={`/caja?enrollmentId=${ledger.enrollment.id}`}
+              className="mt-3 inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+            >
+              Abrir Caja para cobrar
+            </Link>
+          </div>
           <PaymentsTable
             enrollmentId={enrollmentId}
             rows={ledger.payments}
