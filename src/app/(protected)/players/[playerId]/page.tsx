@@ -386,14 +386,6 @@ export default async function PlayerDetailPage({
               )}
               {activeEnrollmentId ? (
                 <Link
-                  href={`/caja?enrollmentId=${activeEnrollmentId}`}
-                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
-                >
-                  Abrir Caja
-                </Link>
-              ) : null}
-              {activeEnrollmentId ? (
-                <Link
                   href={`/players/${player.id}/enrollments/${activeEnrollmentId}/edit`}
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
                 >
@@ -630,24 +622,19 @@ export default async function PlayerDetailPage({
                 balance={activeLedger.totals.balance}
               />
 
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-                <div className="space-y-5">
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cobro operativo</p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                      Los pagos normales de esta cuenta ya se registran exclusivamente en Caja. Mantén esta vista para revisar cargos,
-                      pagos, incidencias y acciones correctivas.
-                    </p>
-                    <Link
-                      href={`/caja?enrollmentId=${activeEnrollmentId}`}
-                      className="mt-3 inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-                    >
-                      Abrir Caja para cobrar
-                    </Link>
-                  </div>
-                </div>
+              <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Caja se abrira con esta cuenta ya seleccionada para cobrar.
+                </p>
+                <Link
+                  href={`/caja?enrollmentId=${activeEnrollmentId}`}
+                  className="inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                >
+                  Abrir Caja
+                </Link>
+              </div>
 
-                {createIncident && cancelIncident && replaceIncident ? (
+              {createIncident && cancelIncident && replaceIncident ? (
                   <EnrollmentIncidentsSection
                     rows={activeLedger.incidents}
                     createAction={createIncident}
@@ -657,8 +644,6 @@ export default async function PlayerDetailPage({
                     defaultMonth={getCurrentMonthValue()}
                   />
                 ) : null}
-              </div>
-
               <div className="grid gap-5 xl:grid-cols-2">
                 <section className="space-y-2">
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos</h4>

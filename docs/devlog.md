@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-09 (session 66)
+
+### Caja Handoff UI + Preload Polish
+
+- Simplified the player-profile Caja handoff so it no longer uses the larger half-width `Cobro operativo` card.
+- The player profile now shows a smaller `Abrir Caja` handoff with a short note that Caja will open with that player account already selected.
+- Caja deep links now preload the enrollment on the server page before rendering the client workspace, removing the extra client-side round-trip that made the account feel slow to appear after navigation.
+
 ## 2026-04-08 (session 65)
 
 ### Caja-Only Normal Payment Entry

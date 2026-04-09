@@ -256,15 +256,34 @@ type View =
 export function CajaClient({
   printerName,
   initialEnrollmentId,
+  initialEnrollmentData,
   allowedCampuses,
   defaultCampusId,
 }: {
   printerName: string;
   initialEnrollmentId?: string;
+  initialEnrollmentData?: CajaEnrollmentData | null;
   allowedCampuses: AccessibleCampus[];
   defaultCampusId: string | null;
 }) {
-  const [view, setView] = useState<View>({ tag: "idle" });
+  const [view, setView] = useState<View>(() => {
+    if (!initialEnrollmentData) return { tag: "idle" };
+
+    return {
+      tag: "enrollment",
+      player: {
+        playerId: "",
+        playerName: initialEnrollmentData.playerName,
+        birthYear: null,
+        enrollmentId: initialEnrollmentData.enrollmentId,
+        campusName: initialEnrollmentData.campusName,
+        balance: initialEnrollmentData.balance,
+        teamName: null,
+        coachName: null,
+      },
+      data: initialEnrollmentData,
+    };
+  });
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -285,7 +304,7 @@ export function CajaClient({
 
   // Auto-load enrollment when deep-linked from player profile (/caja?enrollmentId=...)
   useEffect(() => {
-    if (!initialEnrollmentId || didAutoload.current) return;
+    if (!initialEnrollmentId || initialEnrollmentData || didAutoload.current) return;
     didAutoload.current = true;
     startTransition(async () => {
       const data = await getEnrollmentForCajaAction(initialEnrollmentId);
@@ -306,7 +325,7 @@ export function CajaClient({
       setView({ tag: "enrollment", player: syntheticPlayer, data });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialEnrollmentData, initialEnrollmentId]);
 
   // Debounced search
   useEffect(() => {

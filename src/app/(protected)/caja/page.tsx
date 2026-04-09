@@ -3,6 +3,7 @@ import { CajaClient } from "@/components/caja/caja-client";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPrinterName } from "@/lib/queries/settings";
+import { getEnrollmentForCajaAction } from "@/server/actions/caja";
 
 export const metadata = { title: "Caja - Dragon Force Ops" };
 
@@ -19,6 +20,9 @@ export default async function CajaPage({
   ]);
   const isDirector = permissionContext?.isDirector ?? false;
   const initialEnrollmentId = sp.enrollmentId;
+  const initialEnrollmentData = initialEnrollmentId
+    ? await getEnrollmentForCajaAction(initialEnrollmentId)
+    : null;
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-800">
@@ -55,6 +59,7 @@ export default async function CajaPage({
         <CajaClient
           printerName={printerName}
           initialEnrollmentId={initialEnrollmentId}
+          initialEnrollmentData={initialEnrollmentData}
           allowedCampuses={campusAccess?.campuses ?? []}
           defaultCampusId={campusAccess?.defaultCampusId ?? null}
         />
