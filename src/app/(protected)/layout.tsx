@@ -56,6 +56,7 @@ const ADMIN_SECTION: NavSection = {
 const SPORTS_SECTION: NavSection = {
   label: "Deportivo",
   items: [
+    { href: "/teams", label: "Equipos Base" },
     { href: "/director-deportivo", label: "Director Deportivo" },
     { href: "/tournaments", label: "Copas / Torneos" },
   ],

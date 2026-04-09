@@ -6,6 +6,7 @@ type TournamentRow = {
   name: string;
   campus_id: string | null;
   product_id: string | null;
+  gender: string | null;
   start_date: string | null;
   end_date: string | null;
   signup_deadline: string | null;
@@ -24,6 +25,7 @@ type SourceTeamLinkRow = {
     id: string;
     name: string;
     birth_year: number | null;
+    gender: string | null;
     level: string | null;
     coaches: { first_name: string | null; last_name: string | null } | null;
   } | null;
@@ -85,6 +87,7 @@ type TeamOptionRow = {
   id: string;
   name: string;
   birth_year: number | null;
+  gender: string | null;
   level: string | null;
   type: string;
   campus_id: string;
@@ -113,6 +116,7 @@ export type SourceTeamOption = {
   campusId: string;
   campusName: string;
   birthYear: number | null;
+  gender: string | null;
   level: string | null;
   type: string;
 };
@@ -133,6 +137,7 @@ export type TournamentSourceTeamProgress = {
   sourceTeamId: string;
   sourceTeamName: string;
   birthYear: number | null;
+  gender: string | null;
   level: string | null;
   coachName: string | null;
   eligibleCount: number;
@@ -175,6 +180,7 @@ export type TournamentListItem = {
   campusName: string;
   productId: string | null;
   productName: string | null;
+  gender: string | null;
   startDate: string | null;
   endDate: string | null;
   signupDeadline: string | null;
@@ -265,23 +271,30 @@ async function listCompetitionProductsForCampusAccess(admin: ReturnType<typeof c
 }
 
 async function listSourceTeamsForCampusAccess(admin: ReturnType<typeof createAdminClient>, campusIds: string[]) {
-  const { data } = await admin
-    .from("teams")
-    .select("id, name, birth_year, level, type, campus_id, campuses(name)")
-    .in("campus_id", campusIds)
-    .eq("is_active", true)
-    .order("name")
-    .returns<TeamOptionRow[]>();
+  const [{ data }, { data: squadRows }] = await Promise.all([
+    admin
+      .from("teams")
+      .select("id, name, birth_year, gender, level, type, campus_id, campuses(name)")
+      .in("campus_id", campusIds)
+      .eq("is_active", true)
+      .order("name")
+      .returns<TeamOptionRow[]>(),
+    admin.from("tournament_squads").select("team_id").returns<Array<{ team_id: string }>>(),
+  ]);
+  const squadTeamIds = new Set((squadRows ?? []).map((row) => row.team_id));
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    campusId: row.campus_id,
-    campusName: row.campuses?.name ?? "Campus",
-    birthYear: row.birth_year,
-    level: row.level,
-    type: row.type,
-  }));
+  return (data ?? [])
+    .filter((row) => row.type === "competition" && !squadTeamIds.has(row.id))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? "Campus",
+      birthYear: row.birth_year,
+      gender: row.gender,
+      level: row.level,
+      type: row.type,
+    }));
 }
 
 async function loadTournamentGraph(campusIds: string[], tournamentId?: string) {
@@ -290,7 +303,7 @@ async function loadTournamentGraph(campusIds: string[], tournamentId?: string) {
   let tournamentsQuery = admin
     .from("tournaments")
     .select(
-      "id, name, campus_id, product_id, start_date, end_date, signup_deadline, eligible_birth_year_min, eligible_birth_year_max, is_active, campuses(name), products(name)"
+      "id, name, campus_id, product_id, gender, start_date, end_date, signup_deadline, eligible_birth_year_min, eligible_birth_year_max, is_active, campuses(name), products(name)"
     )
     .in("campus_id", campusIds)
     .order("start_date", { ascending: false })
@@ -319,7 +332,7 @@ async function loadTournamentGraph(campusIds: string[], tournamentId?: string) {
   const [{ data: sourceLinks }, { data: squads }, { data: entries }] = await Promise.all([
     admin
       .from("tournament_source_teams")
-      .select("id, tournament_id, source_team_id, teams(id, name, birth_year, level, coaches(first_name, last_name))")
+      .select("id, tournament_id, source_team_id, teams(id, name, birth_year, gender, level, coaches(first_name, last_name))")
       .in("tournament_id", tournamentIds)
       .returns<SourceTeamLinkRow[]>(),
     admin
@@ -435,6 +448,7 @@ function buildTournamentModels(graph: Awaited<ReturnType<typeof loadTournamentGr
         sourceTeamId: link.source_team_id,
         sourceTeamName: link.teams?.name ?? "Equipo",
         birthYear: link.teams?.birth_year ?? null,
+        gender: link.teams?.gender ?? null,
         level: link.teams?.level ?? null,
         coachName: buildCoachName(link.teams?.coaches),
         eligibleCount: sourceRoster.length,
@@ -537,6 +551,7 @@ function buildTournamentModels(graph: Awaited<ReturnType<typeof loadTournamentGr
       campusName: tournament.campuses?.name ?? "Campus",
       productId: tournament.product_id,
       productName: tournament.products?.name ?? null,
+      gender: tournament.gender ?? "mixed",
       startDate: tournament.start_date,
       endDate: tournament.end_date,
       signupDeadline: tournament.signup_deadline,
@@ -571,6 +586,7 @@ export async function listTournamentsPageData(): Promise<{
     campusName: item.campusName,
     productId: item.productId,
     productName: item.productName,
+    gender: item.gender,
     startDate: item.startDate,
     endDate: item.endDate,
     signupDeadline: item.signupDeadline,
@@ -605,6 +621,7 @@ export async function getTournamentDetailData(tournamentId: string): Promise<Tou
     campusName: item.campusName,
     productId: item.productId,
     productName: item.productName,
+    gender: item.gender,
     startDate: item.startDate,
     endDate: item.endDate,
     signupDeadline: item.signupDeadline,
@@ -617,7 +634,11 @@ export async function getTournamentDetailData(tournamentId: string): Promise<Tou
     awaitingAssignmentCount: item.awaitingAssignmentCount,
     campuses: context.campuses,
     products: graph.products,
-    availableSourceTeams: graph.sourceTeams.filter((team) => team.campusId === item.campusId),
+    availableSourceTeams: graph.sourceTeams.filter(
+      (team) =>
+        team.campusId === item.campusId &&
+        (item.gender === "mixed" || team.gender === item.gender),
+    ),
     attachedSourceTeams: item.sourceTeamProgress,
     unsignedPlayers: item.unsignedPlayers,
     awaitingAssignmentPlayers: item.awaitingAssignmentPlayers,
@@ -638,6 +659,7 @@ export async function getDirectorDashboardData(selectedCampusId?: string | null)
     campusName: item.campusName,
     productId: item.productId,
     productName: item.productName,
+    gender: item.gender,
     startDate: item.startDate,
     endDate: item.endDate,
     signupDeadline: item.signupDeadline,

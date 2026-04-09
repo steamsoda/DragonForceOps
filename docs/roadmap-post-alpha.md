@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-09.
 
-Current preview release line: `v1.16.0`
+Current preview release line: `v1.16.1`
 
 ---
 
@@ -12,18 +12,22 @@ Current preview release line: `v1.16.0`
 ### Immediate Sequence
 
 1. `#58` Director Deportivo dashboard
-   - v1 now in progress on preview:
+   - v3 now in progress on preview:
      - new `director_deportivo` role
      - sports-only dashboard
      - competition signups recognized from paid linked products
      - squad-building on top of secondary team assignments
+     - `/teams` is being rebuilt into the actual `Equipos Base` workflow instead of introducing a second roster model
+     - competition gender is now explicit (`Varonil`, `Femenil`, `Mixto`)
 2. `#38` Copas / Torneos management
    - absorbed into the same preview sports lane so competitions, source teams, and squads are manageable from one surface
+   - source-team attachment now needs to stay aligned with campus + gender + birth-year rules
 3. `#59` team-building / assign available players
    - first pass also absorbed into the sports lane:
      - signed players awaiting squad assignment
      - regular vs refuerzo assignment
      - per-squad target and refuerzo-cap tracking
+     - base-team placement remains the prerequisite source of truth
 4. Panel KPI + dashboard follow-up
    - add drill-downs for pending tuition by category/campus plus trend charts for payments and altas/bajas
 5. then return to medium-priority operational polish items such as attendance export follow-up, player-profile date cleanup, and uniforms/admin utility passes
@@ -146,9 +150,9 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 58 | **Director Deportivo dashboard** | 🟡 In progress | `v1` now exists on preview: new campus-scoped `director_deportivo` role, sports-only nav, campus-filtered dashboard cards, source-team progress, signed-without-squad counts, and squad fill / refuerzo usage without exposing finance totals. |
-| 38 | **League/tournament tag + management tab** | 🟡 In progress | The dormant tournament schema has been extended on preview into the first operational competition model: linked product, signup cutoff, birth-year window, source teams, and competition squads. Keep open for later league/cup refinements beyond the first sports-ops release. |
-| 59 | **Team-building / assign available players workflow** | 🟡 In progress | First pass now lives inside the tournament detail workflow on preview: signed players can be assigned into competition squads as regular or refuerzo while keeping their normal primary team intact. Keep open for later drag/drop or richer coaching ergonomics. |
+| 58 | **Director Deportivo dashboard** | 🟡 In progress | `v3` now exists on preview: campus-scoped `director_deportivo`, sports-only nav, dashboard cards, and the first pass of the real `Equipos Base` board on `/teams` so sports staff can work from the existing team model instead of a parallel roster system. |
+| 38 | **League/tournament tag + management tab** | 🟡 In progress | The preview competition model now includes linked products, signup cutoff, birth-year window, campus scoping, and explicit competition gender. Keep open for later league/cup refinements and richer scheduling/organization beyond the first sports-ops release. |
+| 59 | **Team-building / assign available players workflow** | 🟡 In progress | First pass lives inside the tournament detail workflow on preview: signed players can be assigned into competition squads as regular or refuerzo while keeping their normal primary team intact. Base-team placement on `/teams` is now the prerequisite roster source of truth. |
 | NEW | **Panel KPI drill-downs + trend charts** | 🔴 Open | Add interactive pending-tuition breakdowns by category/campus plus trend charts for payments and altas/bajas. Keep this paired with canonical finance-source checks so new dashboard surfaces do not introduce drift. |
 | 6  | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
 | 7  | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |

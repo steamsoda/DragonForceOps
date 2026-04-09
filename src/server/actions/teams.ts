@@ -3,20 +3,30 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertDebugWritesAllowed, isDebugWriteBlocked } from "@/lib/auth/debug-view";
-import { requireDirectorContext } from "@/lib/auth/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { requireSportsDirectorContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { generateTeamName } from "@/lib/queries/teams";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { BASE_TEAM_LEVELS, TEAM_GENDER_OPTIONS } from "@/lib/teams/shared";
 
 // ── Guards ────────────────────────────────────────────────────────────────────
 
-async function requireDirector() {
+async function requireSportsStaff() {
   try {
-    const { supabase, user } = await requireDirectorContext("/unauthorized");
-    return { supabase, user, isDirector: true } as const;
+    const context = await requireSportsDirectorContext("/unauthorized");
+    return {
+      supabase: createAdminClient(),
+      user: context.user,
+      campusIds: context.campusAccess?.campusIds ?? [],
+      isSportsStaff: true,
+    } as const;
   } catch {
-    const supabase = await createClient();
-    return { supabase, user: null, isDirector: false } as const;
+    return {
+      supabase: createAdminClient(),
+      user: null,
+      campusIds: [] as string[],
+      isSportsStaff: false,
+    } as const;
   }
 }
 
@@ -24,8 +34,8 @@ async function requireDirector() {
 
 export async function createTeamAction(formData: FormData): Promise<void> {
   await assertDebugWritesAllowed("/teams/new");
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) redirect("/teams?err=unauthorized");
+  const { supabase, user, campusIds, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) redirect("/teams?err=unauthorized");
 
   const campusId    = formData.get("campusId")?.toString().trim();
   const birthYearRaw = formData.get("birthYear")?.toString().trim();
@@ -35,7 +45,9 @@ export async function createTeamAction(formData: FormData): Promise<void> {
   const coachId     = formData.get("coachId")?.toString().trim() || null;
   const seasonLabel = formData.get("seasonLabel")?.toString().trim() || null;
 
-  if (!campusId || !level) redirect("/teams/new?err=invalid_form");
+  if (!campusId || !level || !campusIds.includes(campusId)) redirect("/teams/new?err=invalid_form");
+  if (!BASE_TEAM_LEVELS.includes(level as (typeof BASE_TEAM_LEVELS)[number])) redirect("/teams/new?err=invalid_form");
+  if (gender && !TEAM_GENDER_OPTIONS.includes(gender as (typeof TEAM_GENDER_OPTIONS)[number])) redirect("/teams/new?err=invalid_form");
 
   const birthYear = birthYearRaw ? parseInt(birthYearRaw, 10) : null;
   if (type === "competition" && !birthYear) redirect("/teams/new?err=invalid_form");
@@ -81,12 +93,73 @@ export async function createTeamAction(formData: FormData): Promise<void> {
   redirect(`/teams/${team.id}?ok=created`);
 }
 
+export async function createBaseTeamOnDemandAction(formData: FormData): Promise<{ ok: true; teamId: string } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  const { supabase, user, campusIds, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return { ok: false, error: "unauthorized" };
+
+  const campusId = String(formData.get("campusId") ?? "").trim();
+  const birthYearRaw = String(formData.get("birthYear") ?? "").trim();
+  const gender = String(formData.get("gender") ?? "").trim();
+  const level = String(formData.get("level") ?? "").trim();
+
+  if (!campusId || !campusIds.includes(campusId) || !birthYearRaw || !level) return { ok: false, error: "invalid_form" };
+  if (!TEAM_GENDER_OPTIONS.includes(gender as (typeof TEAM_GENDER_OPTIONS)[number])) return { ok: false, error: "invalid_form" };
+  if (!BASE_TEAM_LEVELS.includes(level as (typeof BASE_TEAM_LEVELS)[number])) return { ok: false, error: "invalid_form" };
+
+  const birthYear = Number.parseInt(birthYearRaw, 10);
+  if (!Number.isFinite(birthYear)) return { ok: false, error: "invalid_form" };
+
+  const { data: campus } = await supabase.from("campuses").select("code").eq("id", campusId).maybeSingle<{ code: string | null } | null>();
+  const name = generateTeamName(campus?.code ?? "", birthYear, gender, level, "competition");
+
+  const { data: existing } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("campus_id", campusId)
+    .eq("birth_year", birthYear)
+    .eq("gender", gender)
+    .eq("level", level)
+    .eq("type", "competition")
+    .eq("is_active", true)
+    .maybeSingle<{ id: string } | null>();
+  if (existing?.id) return { ok: true, teamId: existing.id };
+
+  const { data: created, error } = await supabase
+    .from("teams")
+    .insert({
+      campus_id: campusId,
+      birth_year: birthYear,
+      gender,
+      level,
+      type: "competition",
+      is_active: true,
+      name,
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (error || !created) return { ok: false, error: "create_failed" };
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "team.created",
+    tableName: "teams",
+    recordId: created.id,
+    afterData: { campus_id: campusId, birth_year: birthYear, gender, level, type: "competition", name },
+  });
+
+  revalidatePath("/teams");
+  return { ok: true, teamId: created.id };
+}
+
 // ── Edit team ─────────────────────────────────────────────────────────────────
 
 export async function editTeamAction(teamId: string, formData: FormData): Promise<void> {
   await assertDebugWritesAllowed(`/teams/${teamId}/edit`);
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) redirect(`/teams/${teamId}?err=unauthorized`);
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) redirect(`/teams/${teamId}?err=unauthorized`);
 
   const coachId     = formData.get("coachId")?.toString().trim() || null;
   const seasonLabel = formData.get("seasonLabel")?.toString().trim() || null;
@@ -114,8 +187,8 @@ export async function assignPlayerToTeamAction(
   isNewArrival = false
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) return { ok: false, error: "unauthorized" };
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return { ok: false, error: "unauthorized" };
 
   // Close any existing primary assignment
   await supabase
@@ -167,6 +240,125 @@ export async function assignPlayerToTeamAction(
   return { ok: true };
 }
 
+export async function batchAssignBaseTeamAction(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  const { supabase, user, campusIds, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return { ok: false, error: "unauthorized" };
+
+  const teamId = String(formData.get("teamId") ?? "").trim();
+  const enrollmentIds = formData
+    .getAll("enrollmentIds")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (!teamId || enrollmentIds.length === 0) return { ok: false, error: "invalid_form" };
+
+  const [{ data: team }, { data: enrollmentRows }] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, level, campus_id, birth_year, gender, type")
+      .eq("id", teamId)
+      .maybeSingle<{
+        id: string;
+        name: string;
+        level: string | null;
+        campus_id: string;
+        birth_year: number | null;
+        gender: string | null;
+        type: string;
+      } | null>(),
+    supabase
+      .from("enrollments")
+      .select("id, player_id, campus_id, players(birth_date, gender)")
+      .in("id", enrollmentIds)
+      .eq("status", "active")
+      .returns<Array<{
+        id: string;
+        player_id: string;
+        campus_id: string;
+        players: { birth_date: string | null; gender: string | null } | null;
+      }>>(),
+  ]);
+
+  if (!team || !campusIds.includes(team.campus_id) || team.type !== "competition") return { ok: false, error: "invalid_team" };
+  if (!BASE_TEAM_LEVELS.includes((team.level ?? "") as (typeof BASE_TEAM_LEVELS)[number])) return { ok: false, error: "invalid_team" };
+
+  const today = new Date().toISOString().split("T")[0];
+  const validRows = (enrollmentRows ?? []).filter((row) => {
+    if (row.campus_id !== team.campus_id) return false;
+    const birthYear = row.players?.birth_date ? new Date(row.players.birth_date).getUTCFullYear() : null;
+    if (team.birth_year !== null && birthYear !== team.birth_year) return false;
+    if (team.gender && team.gender !== "mixed" && row.players?.gender && row.players.gender !== team.gender) return false;
+    return true;
+  });
+  if (validRows.length === 0) return { ok: false, error: "no_valid_players" };
+
+  const targetEnrollmentIds = validRows.map((row) => row.id);
+  const { data: existingAssignments } = await supabase
+    .from("team_assignments")
+    .select("enrollment_id, team_id")
+    .in("enrollment_id", targetEnrollmentIds)
+    .eq("is_primary", true)
+    .is("end_date", null)
+    .returns<Array<{ enrollment_id: string; team_id: string }>>();
+  const existingTeamByEnrollment = new Map((existingAssignments ?? []).map((row) => [row.enrollment_id, row.team_id]));
+
+  const rowsToMove = validRows.filter((row) => existingTeamByEnrollment.get(row.id) !== teamId);
+  if (rowsToMove.length === 0) return { ok: true };
+
+  await supabase
+    .from("team_assignments")
+    .update({ end_date: today, updated_at: new Date().toISOString() })
+    .in("enrollment_id", rowsToMove.map((row) => row.id))
+    .eq("is_primary", true)
+    .is("end_date", null);
+
+  const rowsToInsert = rowsToMove
+    .map((row) => ({
+      enrollment_id: row.id,
+      team_id: teamId,
+      start_date: today,
+      is_primary: true,
+      role: "regular",
+      is_new_arrival: false,
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await supabase.from("team_assignments").insert(rowsToInsert);
+    if (insertError) return { ok: false, error: "assign_failed" };
+  }
+
+  if (team.level) {
+    await supabase
+      .from("players")
+      .update({ level: team.level })
+      .in("id", rowsToMove.map((row) => row.player_id));
+  }
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "team_assignment.batch_assigned",
+    tableName: "team_assignments",
+    recordId: teamId,
+    afterData: {
+      team_id: teamId,
+      team_name: team.name,
+      enrollment_ids: rowsToMove.map((row) => row.id),
+      count: rowsToMove.length,
+    },
+  });
+
+  revalidatePath("/teams");
+  revalidatePath("/director-deportivo");
+  for (const row of rowsToMove) {
+    revalidatePath(`/players/${row.player_id}`);
+  }
+  revalidatePath(`/teams/${teamId}`);
+
+  return { ok: true };
+}
+
 // ── Transfer player to different team ────────────────────────────────────────
 
 export async function transferPlayerAction(
@@ -180,8 +372,8 @@ export async function transferPlayerAction(
 
   if (!enrollmentId || !playerId || !newTeamId) return;
 
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) return;
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -244,8 +436,8 @@ export async function addRefuerzoAction(
 
   if (!enrollmentId || !playerId || !teamId) return;
 
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) return;
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return;
 
   // Check not already a refuerzo on this team
   const { data: existing } = await supabase
@@ -298,8 +490,8 @@ export async function removeRefuerzoAction(
   teamId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) return { ok: false, error: "unauthorized" };
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return { ok: false, error: "unauthorized" };
 
   const today = new Date().toISOString().split("T")[0];
   const { error } = await supabase
@@ -322,8 +514,8 @@ export async function clearNewArrivalAction(
   teamId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const { supabase, user, isDirector } = await requireDirector();
-  if (!user || !isDirector) return { ok: false, error: "unauthorized" };
+  const { supabase, user, isSportsStaff } = await requireSportsStaff();
+  if (!user || !isSportsStaff) return { ok: false, error: "unauthorized" };
 
   const { error } = await supabase
     .from("team_assignments")

@@ -62,7 +62,7 @@ export default async function DirectorDeportivoPage({
                 <div>
                   <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{competition.name}</h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {competition.campusName} · {formatBirthWindow(competition.eligibleBirthYearMin, competition.eligibleBirthYearMax)}
+                    {competition.campusName} · {competition.gender === "male" ? "Varonil" : competition.gender === "female" ? "Femenil" : "Mixto"} · {formatBirthWindow(competition.eligibleBirthYearMin, competition.eligibleBirthYearMax)}
                   </p>
                 </div>
                 <Link href={`/tournaments/${competition.id}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
@@ -99,7 +99,7 @@ export default async function DirectorDeportivoPage({
                           <div>
                             <p className="font-medium text-slate-900 dark:text-slate-100">{team.sourceTeamName}</p>
                             <p className="text-slate-500 dark:text-slate-400">
-                              {team.birthYear ?? "Sin categoria"} · {team.level ?? "Sin nivel"} · {team.coachName ?? "Sin coach"}
+                              {team.birthYear ?? "Sin categoria"} · {team.gender === "male" ? "Varonil" : team.gender === "female" ? "Femenil" : team.gender === "mixed" ? "Mixto" : "Sin genero"} · {team.level ?? "Sin nivel"} · {team.coachName ?? "Sin coach"}
                             </p>
                           </div>
                           <div className="text-right">

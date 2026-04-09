@@ -1,17 +1,18 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsDirectorContext } from "@/lib/auth/permissions";
 import { listCoaches } from "@/lib/queries/teams";
 import { createTeamAction } from "@/server/actions/teams";
 import { listCampuses } from "@/lib/queries/players";
+import { BASE_TEAM_LEVELS } from "@/lib/teams/shared";
 
-const LEVELS = ["B2", "B1", "Selectivo"];
+const LEVELS = BASE_TEAM_LEVELS;
 const CURRENT_YEAR = new Date().getFullYear();
 const BIRTH_YEARS = Array.from({ length: 15 }, (_, i) => CURRENT_YEAR - 6 - i);
 
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-900";
 
 export default async function NewTeamPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
-  await requireDirectorContext("/unauthorized");
+  await requireSportsDirectorContext("/unauthorized");
 
   const sp = await searchParams;
   const [campuses, coaches] = await Promise.all([listCampuses(), listCoaches()]);
@@ -61,6 +62,7 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
               <option value="">Sin especificar</option>
               <option value="male">Varonil</option>
               <option value="female">Femenil</option>
+              <option value="mixed">Mixto</option>
             </select>
           </label>
 

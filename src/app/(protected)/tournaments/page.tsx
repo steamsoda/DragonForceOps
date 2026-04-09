@@ -97,6 +97,20 @@ export default async function TournamentsPage({
             </label>
 
             <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-200">Genero</span>
+              <select
+                name="gender"
+                required
+                defaultValue="male"
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
+              >
+                <option value="male">Varonil</option>
+                <option value="female">Femenil</option>
+                <option value="mixed">Mixto</option>
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Inicio</span>
               <input name="startDate" type="date" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
             </label>
@@ -150,7 +164,7 @@ export default async function TournamentsPage({
                   <div>
                     <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{tournament.name}</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {tournament.campusName} · {tournament.productName ?? "Sin producto"}
+                      {tournament.campusName} · {tournament.gender === "male" ? "Varonil" : tournament.gender === "female" ? "Femenil" : "Mixto"} · {tournament.productName ?? "Sin producto"}
                     </p>
                   </div>
                   <span

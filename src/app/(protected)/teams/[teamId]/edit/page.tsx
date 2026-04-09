@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsDirectorContext } from "@/lib/auth/permissions";
 import { getTeamDetail, listCoaches } from "@/lib/queries/teams";
 import { editTeamAction } from "@/server/actions/teams";
 
@@ -16,7 +16,7 @@ export default async function EditTeamPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  await requireDirectorContext("/unauthorized");
+  await requireSportsDirectorContext("/unauthorized");
 
   const [team, coaches] = await Promise.all([
     getTeamDetail(teamId),

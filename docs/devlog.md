@@ -1833,6 +1833,26 @@
 
 ## 2026-04-06
 
+## 2026-04-09
+
+### Director Deportivo v3: Equipos Base on `/teams` + Competition Gender (v1.16.1)
+- Reworked the sports plan so the app no longer invents a second parallel base-team system.
+- `/teams` is now the operational `Equipos Base` board:
+  - choose campus, categoria, and genero
+  - see the real base-team ladder (`Little Dragons`, `B3`, `B2`, `B1`, `Selectivo`)
+  - create missing base teams on demand
+  - batch assign or move selected players into the chosen base team
+- The normal primary `team_assignment` remains the single roster truth for `Equipo Base`.
+- Player `Nivel` continues to follow the assigned primary base team, so team placement and player level do not drift apart.
+- Team pages were opened to the new sports role (`director_deportivo`) using the same app-layer permission model as the rest of the sports lane.
+- Competitions now also carry explicit gender scope (`Varonil`, `Femenil`, `Mixto`).
+- Tournament source-team attachment is now gender-aware, and sports views display competition/team gender explicitly.
+- No finance semantics changed:
+  - competition signups still come from fully paid linked Caja products
+  - escuadras still use secondary assignments
+  - base teams remain primary assignments
+
+
 ### Attendance Export — Logo Fix + Birth Year Dividers (v1.14.1)
 - Fixed logo stretching: switched from `tl+br` cell-range approach to `tl+ext` with fixed 60×40px dimensions matching the actual 1.51:1 PNG aspect ratio.
 - Multi-year sheets now group rows by birth year first with a `Categoría {year}` header row (medium blue) between each year group, then level sections within each year.

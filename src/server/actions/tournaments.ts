@@ -12,6 +12,7 @@ type TournamentRow = {
   name: string;
   campus_id: string | null;
   product_id: string | null;
+  gender: string | null;
   eligible_birth_year_min: number | null;
   eligible_birth_year_max: number | null;
 };
@@ -93,7 +94,7 @@ function revalidateSportsSurfaces(tournamentId?: string) {
 async function validateTournamentAccess(admin: ReturnType<typeof createAdminClient>, tournamentId: string, campusIds: string[]) {
   const { data } = await admin
     .from("tournaments")
-    .select("id, name, campus_id, product_id, eligible_birth_year_min, eligible_birth_year_max")
+    .select("id, name, campus_id, product_id, gender, eligible_birth_year_min, eligible_birth_year_max")
     .eq("id", tournamentId)
     .maybeSingle<TournamentRow | null>();
   if (!data?.campus_id || !campusIds.includes(data.campus_id)) return null;
@@ -121,13 +122,16 @@ export async function createTournamentAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const campusId = String(formData.get("campusId") ?? "").trim();
   const productId = String(formData.get("productId") ?? "").trim();
+  const gender = String(formData.get("gender") ?? "").trim();
   const startDate = normalizeDateInput(String(formData.get("startDate") ?? "").trim());
   const endDate = normalizeDateInput(String(formData.get("endDate") ?? "").trim());
   const signupDeadline = normalizeDateInput(String(formData.get("signupDeadline") ?? "").trim());
   const birthYearMin = normalizeIntegerInput(String(formData.get("eligibleBirthYearMin") ?? "").trim());
   const birthYearMax = normalizeIntegerInput(String(formData.get("eligibleBirthYearMax") ?? "").trim());
 
-  if (!name || !campusId || !productId || !campusIds.includes(campusId)) redirect(`${basePath}?err=invalid_form`);
+  if (!name || !campusId || !productId || !campusIds.includes(campusId) || !["male", "female", "mixed"].includes(gender)) {
+    redirect(`${basePath}?err=invalid_form`);
+  }
   if (birthYearMin !== null && birthYearMax !== null && birthYearMin > birthYearMax) redirect(`${basePath}?err=invalid_birth_range`);
 
   const product = await validateCompetitionProduct(admin, productId);
@@ -139,6 +143,7 @@ export async function createTournamentAction(formData: FormData) {
       name,
       campus_id: campusId,
       product_id: product.id,
+      gender,
       start_date: startDate,
       end_date: endDate,
       signup_deadline: signupDeadline,
@@ -162,6 +167,7 @@ export async function createTournamentAction(formData: FormData) {
     afterData: {
       campus_id: campusId,
       product_id: product.id,
+      gender,
       name,
       signup_deadline: signupDeadline,
       eligible_birth_year_min: birthYearMin,
@@ -183,6 +189,7 @@ export async function updateTournamentAction(tournamentId: string, formData: For
   const name = String(formData.get("name") ?? "").trim();
   const campusId = String(formData.get("campusId") ?? "").trim();
   const productId = String(formData.get("productId") ?? "").trim();
+  const gender = String(formData.get("gender") ?? "").trim();
   const startDate = normalizeDateInput(String(formData.get("startDate") ?? "").trim());
   const endDate = normalizeDateInput(String(formData.get("endDate") ?? "").trim());
   const signupDeadline = normalizeDateInput(String(formData.get("signupDeadline") ?? "").trim());
@@ -190,7 +197,9 @@ export async function updateTournamentAction(tournamentId: string, formData: For
   const birthYearMax = normalizeIntegerInput(String(formData.get("eligibleBirthYearMax") ?? "").trim());
   const isActive = formData.get("isActive") === "1";
 
-  if (!name || !campusId || !productId || !campusIds.includes(campusId)) redirect(`${basePath}?err=invalid_form`);
+  if (!name || !campusId || !productId || !campusIds.includes(campusId) || !["male", "female", "mixed"].includes(gender)) {
+    redirect(`${basePath}?err=invalid_form`);
+  }
   if (birthYearMin !== null && birthYearMax !== null && birthYearMin > birthYearMax) redirect(`${basePath}?err=invalid_birth_range`);
 
   const product = await validateCompetitionProduct(admin, productId);
@@ -202,6 +211,7 @@ export async function updateTournamentAction(tournamentId: string, formData: For
       name,
       campus_id: campusId,
       product_id: product.id,
+      gender,
       start_date: startDate,
       end_date: endDate,
       signup_deadline: signupDeadline,
@@ -223,6 +233,7 @@ export async function updateTournamentAction(tournamentId: string, formData: For
     afterData: {
       campus_id: campusId,
       product_id: product.id,
+      gender,
       name,
       signup_deadline: signupDeadline,
       eligible_birth_year_min: birthYearMin,
@@ -247,11 +258,12 @@ export async function attachTournamentSourceTeamAction(tournamentId: string, for
 
   const { data: team } = await admin
     .from("teams")
-    .select("id, name, campus_id")
+    .select("id, name, campus_id, gender")
     .eq("id", sourceTeamId)
-    .maybeSingle<{ id: string; name: string; campus_id: string } | null>();
+    .maybeSingle<{ id: string; name: string; campus_id: string; gender: string | null } | null>();
 
   if (!team || team.campus_id !== tournament.campus_id) redirect(`${basePath}?err=invalid_source_team`);
+  if (tournament.gender !== "mixed" && team.gender !== tournament.gender) redirect(`${basePath}?err=invalid_source_team`);
 
   const { error } = await admin
     .from("tournament_source_teams")

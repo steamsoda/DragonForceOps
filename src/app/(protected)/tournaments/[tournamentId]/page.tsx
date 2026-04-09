@@ -51,7 +51,7 @@ export default async function TournamentDetailPage({
   return (
     <PageShell
       title={data.name}
-      subtitle={`${data.campusName} · ${data.productName ?? "Sin producto ligado"}`}
+      subtitle={`${data.campusName} · ${data.gender === "male" ? "Varonil" : data.gender === "female" ? "Femenil" : "Mixto"} · ${data.productName ?? "Sin producto ligado"}`}
       breadcrumbs={[
         { label: "Copas / Torneos", href: "/tournaments" },
         { label: data.name },
@@ -121,6 +121,19 @@ export default async function TournamentDetailPage({
             </label>
 
             <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-200">Genero</span>
+              <select
+                name="gender"
+                defaultValue={data.gender ?? "mixed"}
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
+              >
+                <option value="male">Varonil</option>
+                <option value="female">Femenil</option>
+                <option value="mixed">Mixto</option>
+              </select>
+            </label>
+
+            <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Inicio</span>
               <input name="startDate" type="date" defaultValue={data.startDate ?? ""} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
             </label>
@@ -171,7 +184,7 @@ export default async function TournamentDetailPage({
                   <option value="">Selecciona...</option>
                   {data.availableSourceTeams.map((team) => (
                     <option key={team.id} value={team.id}>
-                      {team.name} · {team.birthYear ?? "Sin categoria"}
+                      {team.name} · {team.birthYear ?? "Sin categoria"} · {team.gender === "male" ? "Varonil" : team.gender === "female" ? "Femenil" : team.gender === "mixed" ? "Mixto" : "Sin genero"}
                     </option>
                   ))}
                 </select>
@@ -188,7 +201,7 @@ export default async function TournamentDetailPage({
                     <div>
                       <h3 className="font-semibold text-slate-900 dark:text-slate-100">{team.sourceTeamName}</h3>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {team.birthYear ?? "Sin categoria"} · {team.level ?? "Sin nivel"} · {team.coachName ?? "Sin coach"}
+                        {team.birthYear ?? "Sin categoria"} · {team.gender === "male" ? "Varonil" : team.gender === "female" ? "Femenil" : team.gender === "mixed" ? "Mixto" : "Sin genero"} · {team.level ?? "Sin nivel"} · {team.coachName ?? "Sin coach"}
                       </p>
                     </div>
                     <form action={detachTournamentSourceTeamAction.bind(null, data.id, team.linkId)}>
