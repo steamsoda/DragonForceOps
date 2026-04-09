@@ -1,7 +1,7 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-08.
+Updated continuously. Last updated: 2026-04-09.
 
 Current preview release line: `v1.15.14`
 
@@ -11,24 +11,28 @@ Current preview release line: `v1.15.14`
 
 ### Immediate Sequence
 
-1. payment-method selection hardening
-   - replace `Método` dropdowns with explicit button choices in Caja and `Regularización Contry`
-   - default state should be unselected so front desk must choose the payment method intentionally before submitting
-2. Caja-only payment entrypoint audit
-   - audit and remove remaining normal payment paths outside Caja
-   - keep `Regularización Contry` as the explicit exception if that still matches operations
-   - replace inline non-Caja payment forms with `Abrir Caja` where appropriate
-   - this remains the next dedicated follow-up after method-selection hardening lands
-3. `#17` Uniformes dashboard validation / rollout follow-up
-4. then return to operational follow-up items such as `#32`, `#16`, and `#56`, plus later sports-management planning like `#38`
+1. `#58` Director Deportivo dashboard
+   - move sports operations to the front of the queue now that tournaments are starting
+   - keep this sports-only: roster readiness, payment-status signals, and team organization without finance totals
+2. `#38` Copas / Torneos management
+   - use the existing tournament schema as the base for registrations, team entries, tournament status, and roster tracking
+3. `#59` team-building / assign available players
+   - connect player readiness, payments-up-to-date state, and team assignment into one sports workflow
+4. Panel KPI + dashboard follow-up
+   - add drill-downs for pending tuition by category/campus plus trend charts for payments and altas/bajas
+5. then return to medium-priority operational polish items such as attendance export follow-up, player-profile date cleanup, and uniforms/admin utility passes
 
 Notes:
 
-- front desk feedback surfaced recurring payment-method mistakes, so these two payment-flow items are now the top short-term UX/control priorities
-- preview now reflects the payment-control rule:
+- front desk payment-control feedback has already landed:
   - `Método` selection is explicit button-based in Caja and `Regularización Contry`
   - normal live payments now route through `Caja` only
-- `#17` is now in active implementation on preview as the next major front-desk workflow
+- sports operations are now the top product priority because tournament organization is becoming operationally urgent
+- the next admin/front-desk follow-up bucket now includes:
+  - attendance export fixes and workflow cleanup
+  - compact local date/time formatting in player-facing admin views
+  - uniform-size auto-sync into `Ficha técnica`
+  - nutrition tracking workflow discovery
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
 - Release policy:
@@ -136,6 +140,10 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
+| 58 | **Director Deportivo dashboard** | 🔴 Open | Top product priority now that tournaments are starting. Build the sports-only control center for roster readiness, payment-status signals, operational filters, and team organization without exposing finance totals, cash sessions, or report balances. |
+| 38 | **League/tournament tag + management tab** | 🔴 Open | Immediate sports-ops follow-on. Use the existing `tournaments` schema as the base for cup/tournament setup, team entries, player readiness, and roster tracking. |
+| 59 | **Team-building / assign available players workflow** | 🔴 Open | Complete the sports lane by letting Director Deportivo build teams from available players, see readiness/payment-status indicators, and assign players cleanly without exposing money amounts. |
+| NEW | **Panel KPI drill-downs + trend charts** | 🔴 Open | Add interactive pending-tuition breakdowns by category/campus plus trend charts for payments and altas/bajas. Keep this paired with canonical finance-source checks so new dashboard surfaces do not introduce drift. |
 | 6  | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
 | 7  | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |
 | 8  | **Sequential receipt folio numbers** | ✅ Done | `campus_folio_counters` table + BEFORE INSERT trigger; format `LV-202603-00042` |
@@ -160,6 +168,7 @@ Follow after the operational tracks above:
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🟡 In progress | `/pending` now uses a lightweight follow-up workflow instead of the old `Contactado` checkbox: `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresará`, with inline note editing, required promise-date capture, and direct baja handoff for `No regresará`. Follow-up state also clears automatically when balance reaches zero or the enrollment is formally ended. |
+| NEW | **Nutrition tracking / body measurements tab** | 🔴 Open | Add a dedicated nutrition workflow so the nutritionist can capture player weight and body measurements over time without mixing that work into finance or player-admin surfaces. |
 | 30 | **New-enrollment tuition tiers (3 tiers)** | ✅ Done | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury incident + optional monthly omission** | 🟡 In progress | Active enrollments can now record an operational incident (`absence`, `injury`, `other`) from the enrollment ledger, with an explicit choice to either just log it or also omit a selected tuition month. Incidents also carry optional `starts_on` / `ends_on` dates for real absence/recovery windows, and active-today `absence` / `injury` incidents now surface as soft indicators in `Jugadores`, player profile, and `Caja`. The monthly generator respects only incidents carrying `omit_period_month`, and the ledger keeps active plus historical incident visibility. Partial-month attendance/proration remains out of scope for this v1. |
@@ -177,24 +186,23 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. The latest intake pass also brings a first `Uniformes` card directly into `/players/new`, including size-button polish and explicit `Portero` tagging so front desk can capture uniform intent earlier in the workflow. Keep future stock control and supplier batch management separate from this issue. |
+| 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. The latest intake pass also brings a first `Uniformes` card directly into `/players/new`, including size-button polish and explicit `Portero` tagging so front desk can capture uniform intent earlier in the workflow. Follow-up feedback now includes a more compact Uniformes menu plus auto-syncing the purchased uniform size into the player's `Ficha técnica` when a size is captured through sales. Keep future stock control and supplier batch management separate from this issue. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
-| 19 | **Dashboard KPI verification** | 🔴 Open | Saldo Pendiente / Alumnos con Saldo may still show 0 — verify against live data |
+| 19 | **Dashboard KPI verification** | 🔴 Open | Keep this as the data-correctness companion to the new Panel work: verify pending-balance totals against canonical sources, then support the upcoming drill-downs by category/campus and other interactive KPI surfaces without introducing drift. |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |
-| 35 | **Player profile consolidation** | 🟡 In progress | The player profile is now being promoted into the single-player hub: active account detail (summary, charges, payments, incidents, payment form), guardians, uniforms, and compact expandable enrollment history live directly on `/players/[id]`, while the enrollment account page remains as the fallback deep-detail route. |
+| 35 | **Player profile consolidation** | 🟡 In progress | The player profile is now being promoted into the single-player hub: active account detail (summary, charges, payments, incidents), guardians, uniforms, and compact expandable enrollment history live directly on `/players/[id]`, while the enrollment account page remains as the fallback deep-detail route. Follow-up polish now includes compact local date/time formatting instead of verbose UTC-style strings in profile/admin views. |
 | 36 | **Document uploads per player** | 🔴 Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
-| 37 | **Player dropout historical record / bajas revamp** | ✅ Done | Baja now uses a dedicated dropout workflow instead of the generic enrollment edit path, dropped players render as archive/read-only profiles with clearer balance handoff and re-enrollment CTA, active player profiles no longer show historical-enrollment clutter, and `Jugadores > bajas` acts as the main archive discovery surface. |
-| 38 | **League/tournament tag + management tab** | 🔴 Open | Sports-ops priority. Use the existing `tournaments` schema as the base for tournament/league/cup management, team entries, and player-level readiness. Keep Director Deportivo views focused on payment status, not money totals. |
+| 37 | **Player dropout historical record / bajas revamp** | ✅ Done | Baja now uses a dedicated dropout workflow instead of the generic enrollment edit path, dropped players render as archive/read-only profiles with clearer balance handoff and re-enrollment CTA, active player profiles no longer show historical-enrollment clutter, and `Jugadores > bajas` acts as the main archive discovery surface. Keep a small visual polish pass for the `Bajas` tab in the backlog, not as a finance rewrite. |
 | 39 | **Input fields → button toggles (UX pass)** | 🔴 Open | Replace 2-option dropdowns with toggle buttons in Caja and elsewhere: payment method (Efectivo/Tarjeta), campus selector, gender, tuition tier selection. |
 | 40 | **Custom receipt tickets** | ⚠️ Needs spec | Some products need a different ticket format. **Spec not provided — ask director which products and what the ticket should show before implementing.** |
-| 58 | **Director Deportivo dashboard** | 🔴 Open | New sports-only dashboard. Show roster readiness, team-building signals, tournament participation status, and operational sports views without exposing finance totals, cash sessions, or report balances. |
-| 59 | **Team-building / assign available players workflow** | 🔴 Open | Director Deportivo needs a way to build teams from available players, see readiness/payment-status indicators, and assign players without exposing money amounts. This must connect sports ops and finance status cleanly. |
 | 60 | **Filter players pending a specific tuition month** | 🟡 In progress | First pass now lives on `/players` as an advanced filter by tuition month, driven by real pending `monthly_tuition` charges rather than aggregate balance only. Keep open for any dedicated sports-ops or call-center views beyond the current Jugadores implementation. |
-| 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for Nutritionist, Physio, and Psychologist appointments. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
+| 61 | **Specialist appointments products/categories** | 🔴 Open | Add new catalog products/categories for physiotherapy, psychology, and nutrition appointments for players. Keep this as a straightforward product-catalog/admin pass, not a new architecture track. |
 | 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, visible warning counts for active players excluded because they are missing gender, and the surrounding Jugadores filter bar has been cleaned up with a dedicated advanced-filters section. Keep this item open for broader list/export tooling beyond attendance rosters. |
-| 63 | **Attendance-sheet export** | ✅ Done | `/players` exports a formatted `.xlsx` workbook for manual attendance use. Sheets now use a fixed set of 16 predefined groups per campus (Little Dragons all-gender, FEM ranges, VAR by year) instead of one tab per birth year/gender. Multi-gender sheets show VARONIL/FEMENIL section headers; single-gender sheets go straight to level sections. Missing-gender players are excluded. |
+| 63 | **Attendance-sheet export** | 🟡 In progress | `/players` exports a formatted `.xlsx` workbook for manual attendance use. Sheets now use a fixed set of 16 predefined groups per campus (Little Dragons all-gender, FEM ranges, VAR by year) instead of one tab per birth year/gender. Multi-gender sheets show VARONIL/FEMENIL section headers; single-gender sheets go straight to level sections. Missing-gender players are excluded. Front-desk/admin follow-up now calls for another pass of fixes and workflow changes before closing this lane fully. |
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish aligned the player picker with Caja-style search plus `Buscar por categoría`, the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen, and the latest front-desk pass tightened mutation-state feedback, reduced workspace churn, and cleaned the main user-facing Contry copy. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
+| NEW | **Receipt encoding artifact cleanup** | 🔴 Open | Printed receipts are much better, but keep a low-priority follow-up pass for remaining accent / `Ñ` artifacts that still show up in edge cases. |
+| NEW | **Bajas tab UI polish** | 🔴 Open | Keep a small visual cleanup pass for the archive / `Bajas` surfaces now that the operational workflow is stable. |
 
 ---
 
