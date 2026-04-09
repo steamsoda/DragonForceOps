@@ -108,7 +108,7 @@ function MethodToggleGroup({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(108px,1fr))]">
       {PAYMENT_METHOD_OPTIONS.map((option) => {
         const active = value === option.value;
         return (
@@ -117,7 +117,7 @@ function MethodToggleGroup({
             type="button"
             disabled={disabled}
             onClick={() => onChange(option.value)}
-            className={`rounded-md border px-3 py-2 text-sm font-semibold leading-tight transition-colors ${
+            className={`rounded-md border px-3 py-2 text-sm font-semibold leading-tight whitespace-normal transition-colors ${
               paymentMethodTone(option.value, active)
             } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
           >

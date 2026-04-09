@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-04-08 (session 64)
+
+### Payment Method Button Wrap Fix
+
+- Adjusted the new method-button groups in Caja and `Regularización Contry` to auto-fit based on available card width instead of forcing a fixed column count.
+- This fixes the last clipping/wrapping issue where longer labels like `Transferencia` and `360Player` could overflow in narrower payment cards.
+
 ## 2026-04-08 (session 63)
 
 ### Payment Method Button Layout Polish
