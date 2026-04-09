@@ -100,6 +100,38 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: "other", label: "Otro" },
 ] as const;
 
+function paymentMethodTone(method: string, active: boolean) {
+  const tones: Record<string, { idle: string; selected: string }> = {
+    cash: {
+      idle: "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400",
+      selected: "border-emerald-600 bg-emerald-600 text-white shadow-sm",
+    },
+    card: {
+      idle: "border-sky-200 bg-sky-50 text-sky-800 hover:border-sky-400",
+      selected: "border-sky-600 bg-sky-600 text-white shadow-sm",
+    },
+    transfer: {
+      idle: "border-violet-200 bg-violet-50 text-violet-800 hover:border-violet-400",
+      selected: "border-violet-600 bg-violet-600 text-white shadow-sm",
+    },
+    stripe_360player: {
+      idle: "border-indigo-200 bg-indigo-50 text-indigo-800 hover:border-indigo-400",
+      selected: "border-indigo-600 bg-indigo-600 text-white shadow-sm",
+    },
+    other: {
+      idle: "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-400",
+      selected: "border-amber-500 bg-amber-500 text-white shadow-sm",
+    },
+  };
+
+  const tone = tones[method] ?? {
+    idle: "border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400",
+    selected: "border-portoBlue bg-portoBlue text-white shadow-sm",
+  };
+
+  return active ? tone.selected : tone.idle;
+}
+
 function PlayerProfileLink({ playerId, playerName }: { playerId: string; playerName: string }) {
   if (!playerId) {
     return <p className="text-lg font-semibold text-portoDark">{playerName}</p>;
@@ -124,16 +156,14 @@ function MethodToggleGroup({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
       {PAYMENT_METHOD_OPTIONS.map((option) => {
         const active = value === option.value;
         return (
           <label
             key={option.value}
-            className={`rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors ${
-              active
-                ? "border-portoBlue bg-portoBlue text-white"
-                : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
+            className={`rounded-lg border px-3 py-2 text-center text-sm font-semibold leading-tight transition-colors ${
+              paymentMethodTone(option.value, active)
             } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
           >
             <input
@@ -145,7 +175,7 @@ function MethodToggleGroup({
               onChange={() => onChange?.(option.value)}
               className="sr-only"
             />
-            {option.label}
+            <span className="block">{option.label}</span>
           </label>
         );
       })}
@@ -1121,7 +1151,7 @@ function PosEnrollmentPanel({
               </div>
             ) : (
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-end">
-                <label className="space-y-1 text-sm">
+                <div className="space-y-1 text-sm">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
                   <select
                     value={tuitionPeriod}
@@ -1134,7 +1164,7 @@ function PosEnrollmentPanel({
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
                 <div className="space-y-1 text-sm">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
                   <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-slate-300">
@@ -1439,7 +1469,7 @@ function PosEnrollmentPanel({
 
             {panelError && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{panelError}</p>}
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
               <label className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
                 <input
@@ -1452,10 +1482,10 @@ function PosEnrollmentPanel({
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
                 />
               </label>
-              <label className="space-y-1 text-sm">
+              <div className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
                 <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} disabled={isCheckoutPending} />
-              </label>
+              </div>
             </div>
 
             {allowedCampuses.length > 1 ? (
@@ -1505,7 +1535,7 @@ function PosEnrollmentPanel({
                     × Cancelar división
                   </button>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-3">
                   <label className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700 dark:text-slate-300">Monto 2</span>
                     <input
@@ -1518,10 +1548,10 @@ function PosEnrollmentPanel({
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
                     />
                   </label>
-                  <label className="space-y-1 text-sm">
+                  <div className="space-y-1 text-sm">
                     <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
                     <MethodToggleGroup value={paymentMethod2} onChange={setPaymentMethod2} disabled={isCheckoutPending} />
-                  </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -1885,7 +1915,7 @@ function EnrollmentPanel({
             <input type="hidden" name="targetChargeIds" value={targetChargeIds.join(",")} />
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
               <input
@@ -1898,10 +1928,10 @@ function EnrollmentPanel({
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
               />
             </label>
-            <label className="space-y-1 text-sm">
+            <div className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
               <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} name="method" disabled={isPending} />
-            </label>
+            </div>
           </div>
 
           {/* Split payment toggle + second row */}
@@ -1928,7 +1958,7 @@ function EnrollmentPanel({
                   × Cancelar división
                 </button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-3">
                 <label className="space-y-1 text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-300">Monto 2</span>
                   <input
@@ -1940,10 +1970,10 @@ function EnrollmentPanel({
                     className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
                   />
                 </label>
-                <label className="space-y-1 text-sm">
+                <div className="space-y-1 text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-300">Método 2</span>
                   <MethodToggleGroup value={paymentMethod2} onChange={setPaymentMethod2} name="method2" disabled={isPending} />
-                </label>
+                </div>
               </div>
             </div>
           )}

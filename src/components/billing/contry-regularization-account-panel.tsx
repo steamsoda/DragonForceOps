@@ -29,6 +29,38 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: "other", label: "Otro" },
 ] as const;
 
+function paymentMethodTone(method: string, active: boolean) {
+  const tones: Record<string, { idle: string; selected: string }> = {
+    cash: {
+      idle: "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400",
+      selected: "border-emerald-600 bg-emerald-600 text-white shadow-sm",
+    },
+    card: {
+      idle: "border-sky-200 bg-sky-50 text-sky-800 hover:border-sky-400",
+      selected: "border-sky-600 bg-sky-600 text-white shadow-sm",
+    },
+    transfer: {
+      idle: "border-violet-200 bg-violet-50 text-violet-800 hover:border-violet-400",
+      selected: "border-violet-600 bg-violet-600 text-white shadow-sm",
+    },
+    stripe_360player: {
+      idle: "border-indigo-200 bg-indigo-50 text-indigo-800 hover:border-indigo-400",
+      selected: "border-indigo-600 bg-indigo-600 text-white shadow-sm",
+    },
+    other: {
+      idle: "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-400",
+      selected: "border-amber-500 bg-amber-500 text-white shadow-sm",
+    },
+  };
+
+  const tone = tones[method] ?? {
+    idle: "border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400",
+    selected: "border-portoBlue bg-portoBlue text-white shadow-sm",
+  };
+
+  return active ? tone.selected : tone.idle;
+}
+
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
@@ -76,7 +108,7 @@ function MethodToggleGroup({
   disabled?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 xl:grid-cols-5">
       {PAYMENT_METHOD_OPTIONS.map((option) => {
         const active = value === option.value;
         return (
@@ -85,13 +117,11 @@ function MethodToggleGroup({
             type="button"
             disabled={disabled}
             onClick={() => onChange(option.value)}
-            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "border-portoBlue bg-portoBlue text-white"
-                : "border-slate-300 text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:text-slate-300"
+            className={`rounded-md border px-3 py-2 text-sm font-semibold leading-tight transition-colors ${
+              paymentMethodTone(option.value, active)
             } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
           >
-            {option.label}
+            <span className="block">{option.label}</span>
           </button>
         );
       })}
@@ -483,7 +513,7 @@ export function ContryRegularizationAccountPanel({
           ) : null}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="space-y-3">
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
             <input

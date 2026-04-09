@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-08 (session 63)
+
+### Payment Method Button Layout Polish
+
+- Polished the new payment-method button UI in Caja and `Regularización Contry` after front-desk testing showed the first pass felt cramped.
+- Moved method selection onto its own full-width row in Caja payment forms so the amount field no longer squeezes the method buttons.
+- Stacked the Contry historical-payment inputs vertically for the same reason: less clipping, clearer scanning, and less accidental method mistakes.
+- Added restrained method-specific button tones so each option is easier to distinguish at a glance without changing any payment semantics.
+
 ## 2026-04-08 (session 62)
 
 ### Payment Method Hardening
