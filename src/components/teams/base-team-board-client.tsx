@@ -8,7 +8,7 @@ import {
   createBaseTeamOnDemandAction,
 } from "@/server/actions/teams";
 import type { BaseTeamBoardData } from "@/lib/queries/teams";
-import { BASE_TEAM_LEVELS, TEAM_GENDER_LABELS } from "@/lib/teams/shared";
+import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
 
 type Props = {
   data: BaseTeamBoardData;
@@ -198,26 +198,23 @@ export function BaseTeamBoardClient({ data }: Props) {
 
         <article className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Equipos base</h2>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Equipos base reales</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              El jugador conserva un solo equipo base primario. Su nivel sigue el equipo asignado.
+              El tablero muestra primero los equipos que sí existen en este bloque. Los niveles faltantes quedan solo como sugerencia.
             </p>
           </div>
 
-          {BASE_TEAM_LEVELS.map((level) => {
-            const slot = data.slots.find((value) => value.level === level);
-            if (!slot) return null;
+          {data.slots.map((slot) => {
+            const level = slot.level;
             return (
               <div
-                key={level}
+                key={`${level}-${slot.team?.id ?? "slot"}`}
                 className={`rounded-lg border p-4 ${LEVEL_TONES[level] ?? "border-slate-200 bg-slate-50 text-slate-900"}`}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">{level}</h3>
-                    <p className="text-sm opacity-80">
-                      {slot.team ? slot.team.name : "Todavia no existe un equipo base para este nivel."}
-                    </p>
+                    <p className="text-sm opacity-80">{slot.team?.name ?? "Equipo base"}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs uppercase opacity-70">Plantilla</p>
@@ -225,57 +222,73 @@ export function BaseTeamBoardClient({ data }: Props) {
                   </div>
                 </div>
 
-                {slot.team ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2 text-xs opacity-80">
-                      <span>{TEAM_GENDER_LABELS[slot.team.gender ?? ""] ?? "Sin genero"}</span>
-                      <span>·</span>
-                      <span>{slot.team.birthYear ?? "Sin categoria"}</span>
-                      <span>·</span>
-                      <span>{slot.team.campusName}</span>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2 text-xs opacity-80">
+                    <span>{TEAM_GENDER_LABELS[slot.team?.gender ?? ""] ?? "Sin genero"}</span>
+                    <span>·</span>
+                    <span>{slot.team?.birthYear ?? "Sin categoria"}</span>
+                    <span>·</span>
+                    <span>{slot.team?.campusName ?? "Sin campus"}</span>
+                  </div>
 
-                    <div className="space-y-1">
-                      {slot.roster.slice(0, 5).map((player) => (
-                        <p key={player.enrollmentId} className="text-sm opacity-90">
-                          {player.playerName}
-                        </p>
-                      ))}
-                      {slot.roster.length > 5 ? (
-                        <p className="text-xs opacity-70">+ {slot.roster.length - 5} mas</p>
-                      ) : null}
-                    </div>
+                  <div className="space-y-1">
+                    {slot.roster.slice(0, 5).map((player) => (
+                      <p key={player.enrollmentId} className="text-sm opacity-90">
+                        {player.playerName}
+                      </p>
+                    ))}
+                    {slot.roster.length > 5 ? (
+                      <p className="text-xs opacity-70">+ {slot.roster.length - 5} mas</p>
+                    ) : null}
+                  </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={isPending || selectedCount === 0}
-                        onClick={() => handleMove(slot.team!.id, level)}
-                        className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {selectedCount > 0 ? `Mover ${selectedCount} aqui` : "Selecciona jugadores"}
-                      </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={isPending || selectedCount === 0 || !slot.team}
+                      onClick={() => slot.team && handleMove(slot.team.id, level)}
+                      className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {selectedCount > 0 ? `Mover ${selectedCount} aqui` : "Selecciona jugadores"}
+                    </button>
+                    {slot.team ? (
                       <Link
                         href={`/teams/${slot.team.id}`}
                         className="rounded-md border border-current px-3 py-2 text-sm font-medium hover:bg-white/40"
                       >
                         Ver equipo
                       </Link>
-                    </div>
+                    ) : null}
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => handleCreate(level)}
-                    className="rounded-md border border-current px-3 py-2 text-sm font-medium hover:bg-white/50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Crear equipo base {level}
-                  </button>
-                )}
+                </div>
               </div>
             );
           })}
+
+          {data.slots.length === 0 ? (
+            <p className="rounded-md border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              Todavia no existen equipos base en este bloque. Crea solo los que realmente necesites.
+            </p>
+          ) : null}
+
+          {data.suggestedLevels.length > 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700">
+              <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Niveles sugeridos</p>
+              <div className="flex flex-wrap gap-2">
+                {data.suggestedLevels.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => handleCreate(level)}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Crear {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </article>
       </section>
     </div>

@@ -200,6 +200,7 @@ export type BaseTeamBoardData = {
   selectedGender: string;
   players: BaseTeamBoardPlayer[];
   slots: BaseTeamBoardSlot[];
+  suggestedLevels: string[];
   selectedCampusName: string | null;
 };
 
@@ -503,6 +504,7 @@ export async function getBaseTeamBoardData(filters?: {
       selectedGender: "male",
       players: [],
       slots: BASE_TEAM_LEVELS.map((level) => ({ level, team: null, roster: [] })),
+      suggestedLevels: [],
       selectedCampusName: null,
     };
   }
@@ -642,21 +644,33 @@ export async function getBaseTeamBoardData(filters?: {
     playersByTeamId.set(player.currentTeamId, list);
   }
 
-  const slots: BaseTeamBoardSlot[] = BASE_TEAM_LEVELS.map((level) => {
-    const team =
-      baseTeams.find(
-        (candidate) =>
-          candidate.campusId === selectedCampusId &&
-          candidate.birthYear === selectedBirthYear &&
-          candidate.gender === selectedGender &&
-          candidate.level === level,
-      ) ?? null;
-    return {
-      level,
-      team,
-      roster: team ? (playersByTeamId.get(team.id) ?? []).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")) : [],
-    };
-  });
+  const matchingTeams = baseTeams
+    .filter(
+      (candidate) =>
+        candidate.campusId === selectedCampusId &&
+        candidate.birthYear === selectedBirthYear &&
+        candidate.gender === selectedGender,
+    )
+    .sort((a, b) => {
+      const leftIndex = BASE_TEAM_LEVELS.indexOf((a.level ?? "") as (typeof BASE_TEAM_LEVELS)[number]);
+      const rightIndex = BASE_TEAM_LEVELS.indexOf((b.level ?? "") as (typeof BASE_TEAM_LEVELS)[number]);
+      if (leftIndex !== rightIndex) {
+        const safeLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+        const safeRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+        return safeLeft - safeRight;
+      }
+      return a.name.localeCompare(b.name, "es-MX");
+    });
+
+  const slots: BaseTeamBoardSlot[] = matchingTeams.map((team) => ({
+    level: team.level ?? "Sin nivel",
+    team,
+    roster: (playersByTeamId.get(team.id) ?? []).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")),
+  }));
+
+  const suggestedLevels = BASE_TEAM_LEVELS.filter(
+    (level) => !matchingTeams.some((team) => team.level === level),
+  );
 
   return {
     campuses: context.campuses,
@@ -671,6 +685,7 @@ export async function getBaseTeamBoardData(filters?: {
     selectedGender,
     players,
     slots,
+    suggestedLevels,
     selectedCampusName: context.campuses.find((campus) => campus.id === selectedCampusId)?.name ?? null,
   };
 }

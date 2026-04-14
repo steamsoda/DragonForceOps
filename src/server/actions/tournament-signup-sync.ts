@@ -27,6 +27,7 @@ type EntryRow = {
   tournament_id: string;
   enrollment_id: string;
   charge_id: string | null;
+  entry_status: "confirmed" | "interested";
 };
 
 type SquadTeamRow = {
@@ -61,7 +62,7 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
       .returns<ChargeRow[]>(),
     admin
       .from("tournament_player_entries")
-      .select("id, tournament_id, enrollment_id, charge_id")
+      .select("id, tournament_id, enrollment_id, charge_id, entry_status")
       .eq("enrollment_id", enrollmentId)
       .returns<EntryRow[]>(),
   ]);
@@ -106,12 +107,13 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
     const existingEntry = existingByTournament.get(tournament.id);
 
     if (paidCharge) {
-      if (!existingEntry || existingEntry.charge_id !== paidCharge.id) {
+      if (!existingEntry || existingEntry.charge_id !== paidCharge.id || existingEntry.entry_status !== "confirmed") {
         await admin.from("tournament_player_entries").upsert(
           {
             tournament_id: tournament.id,
             enrollment_id: enrollmentId,
             charge_id: paidCharge.id,
+            entry_status: "confirmed",
             signed_up_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
@@ -122,7 +124,7 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
       continue;
     }
 
-    if (existingEntry) {
+    if (existingEntry?.entry_status === "confirmed") {
       await admin.from("tournament_player_entries").delete().eq("id", existingEntry.id);
       const teamIds = (squadTeams ?? [])
         .filter((row) => row.tournament_id === tournament.id)

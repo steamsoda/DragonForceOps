@@ -33,6 +33,7 @@ type SquadRow = {
   tournament_id: string;
   source_team_id: string;
   team_id: string;
+  label?: string;
   refuerzo_limit: number;
 };
 
@@ -58,17 +59,6 @@ function getBirthYear(birthDate: string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.getUTCFullYear();
 }
 
-function withinBirthWindow(
-  birthYear: number | null,
-  min: number | null,
-  max: number | null,
-) {
-  if (!birthYear) return false;
-  if (min !== null && birthYear < min) return false;
-  if (max !== null && birthYear > max) return false;
-  return true;
-}
-
 function normalizeRedirectTarget(target: string | null | undefined, fallback: string) {
   if (!target?.startsWith("/")) return fallback;
   return target;
@@ -89,6 +79,66 @@ function revalidateSportsSurfaces(tournamentId?: string) {
   revalidatePath("/tournaments");
   if (tournamentId) revalidatePath(`/tournaments/${tournamentId}`);
   revalidatePath("/teams");
+}
+
+async function ensureDefaultTournamentSquad(
+  admin: ReturnType<typeof createAdminClient>,
+  tournament: TournamentRow,
+  sourceLink: { id: string; source_team_id: string; default_squad_id: string | null },
+  sourceTeam: TeamRow,
+) {
+  if (sourceLink.default_squad_id) {
+    const existingDefault = await admin
+      .from("tournament_squads")
+      .select("id, tournament_id, source_team_id, team_id, refuerzo_limit, label")
+      .eq("id", sourceLink.default_squad_id)
+      .maybeSingle<SquadRow | null>();
+    if (existingDefault.data) return existingDefault.data;
+  }
+
+  const existingByLabel = await admin
+    .from("tournament_squads")
+    .select("id, tournament_id, source_team_id, team_id, refuerzo_limit, label")
+    .eq("tournament_id", tournament.id)
+    .eq("source_team_id", sourceTeam.id)
+    .eq("label", "Roster final")
+    .maybeSingle<SquadRow | null>();
+  if (existingByLabel.data) return existingByLabel.data;
+
+  const createdTeam = await admin
+    .from("teams")
+    .insert({
+      campus_id: tournament.campus_id,
+      name: `${sourceTeam.name} · Roster final`,
+      birth_year: sourceTeam.birth_year,
+      gender: sourceTeam.gender,
+      level: sourceTeam.level,
+      coach_id: sourceTeam.coach_id,
+      type: "competition",
+      season_label: tournament.name,
+      is_active: true,
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (createdTeam.error || !createdTeam.data) return null;
+
+  const createdSquad = await admin
+    .from("tournament_squads")
+    .insert({
+      tournament_id: tournament.id,
+      source_team_id: sourceTeam.id,
+      team_id: createdTeam.data.id,
+      label: "Roster final",
+      min_target_players: 0,
+      max_target_players: 30,
+      refuerzo_limit: 99,
+    })
+    .select("id, tournament_id, source_team_id, team_id, refuerzo_limit, label")
+    .single<SquadRow>();
+
+  if (createdSquad.error || !createdSquad.data) return null;
+  return createdSquad.data;
 }
 
 async function validateTournamentAccess(admin: ReturnType<typeof createAdminClient>, tournamentId: string, campusIds: string[]) {
@@ -431,10 +481,10 @@ export async function assignTournamentSquadPlayerAction(tournamentId: string, fo
       .maybeSingle<SquadRow | null>(),
     admin
       .from("tournament_player_entries")
-      .select("id")
+      .select("id, entry_status")
       .eq("tournament_id", tournamentId)
       .eq("enrollment_id", enrollmentId)
-      .maybeSingle<{ id: string } | null>(),
+      .maybeSingle<{ id: string; entry_status: "confirmed" | "interested" } | null>(),
     admin
       .from("enrollments")
       .select("id, player_id, players(birth_date)")
@@ -443,9 +493,8 @@ export async function assignTournamentSquadPlayerAction(tournamentId: string, fo
     admin.from("tournament_squads").select("team_id").eq("tournament_id", tournamentId).returns<Array<{ team_id: string }>>(),
   ]);
 
-  if (!squad || !entry || !enrollment) redirect(`${basePath}?err=assignment_not_allowed`);
+  if (!squad || !entry || entry.entry_status !== "confirmed" || !enrollment) redirect(`${basePath}?err=assignment_not_allowed`);
 
-  const birthYear = getBirthYear(enrollment.players?.birth_date);
   const { data: primaryAssignment } = await admin
     .from("team_assignments")
     .select("id, team_id")
@@ -454,9 +503,7 @@ export async function assignTournamentSquadPlayerAction(tournamentId: string, fo
     .is("end_date", null)
     .maybeSingle<{ id: string; team_id: string } | null>();
 
-  const eligibleRegular =
-    primaryAssignment?.team_id === squad.source_team_id &&
-    withinBirthWindow(birthYear, tournament.eligible_birth_year_min, tournament.eligible_birth_year_max);
+  const eligibleRegular = primaryAssignment?.team_id === squad.source_team_id;
 
   if (mode === "regular" && !eligibleRegular) redirect(`${basePath}?err=assignment_not_allowed`);
 
@@ -554,4 +601,236 @@ export async function removeTournamentSquadPlayerAction(tournamentId: string, as
 
   revalidateSportsSurfaces(tournamentId);
   redirect(`${basePath}?ok=player_unassigned`);
+}
+
+export async function updateTournamentSourceTeamSettingsAction(
+  tournamentId: string,
+  sourceLinkId: string,
+  formData: FormData,
+) {
+  const basePath = normalizeRedirectTarget(String(formData.get("returnTo") ?? "").trim(), `/tournaments/${tournamentId}`);
+  await assertDebugWritesAllowed(basePath);
+  const { admin, campusIds, user } = await getSportsActionContext("/unauthorized");
+  const tournament = await validateTournamentAccess(admin, tournamentId, campusIds);
+  if (!tournament) redirect("/unauthorized");
+
+  const participationMode =
+    String(formData.get("participationMode") ?? "").trim() === "invited" ? "invited" : "competitive";
+
+  const { data: sourceLink } = await admin
+    .from("tournament_source_teams")
+    .select("id, source_team_id, participation_mode")
+    .eq("id", sourceLinkId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle<{ id: string; source_team_id: string; participation_mode: string } | null>();
+  if (!sourceLink) redirect(`${basePath}?err=source_not_found`);
+
+  const { error } = await admin
+    .from("tournament_source_teams")
+    .update({ participation_mode: participationMode })
+    .eq("id", sourceLinkId);
+  if (error) redirect(`${basePath}?err=source_settings_failed`);
+
+  await writeAuditLog(admin, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "tournament.source_team_settings_updated",
+    tableName: "tournament_source_teams",
+    recordId: sourceLinkId,
+    afterData: {
+      tournament_id: tournamentId,
+      source_team_id: sourceLink.source_team_id,
+      participation_mode: participationMode,
+    },
+  });
+
+  revalidateSportsSurfaces(tournamentId);
+  redirect(`${basePath}?ok=source_settings_updated`);
+}
+
+export async function setTournamentInterestAction(
+  tournamentId: string,
+  sourceTeamId: string,
+  enrollmentId: string,
+  interested: boolean,
+  formData: FormData,
+) {
+  const basePath = normalizeRedirectTarget(String(formData.get("returnTo") ?? "").trim(), `/tournaments/${tournamentId}`);
+  await assertDebugWritesAllowed(basePath);
+  const { admin, campusIds, user } = await getSportsActionContext("/unauthorized");
+  const tournament = await validateTournamentAccess(admin, tournamentId, campusIds);
+  if (!tournament) redirect("/unauthorized");
+
+  const [{ data: sourceLink }, { data: primaryAssignment }, { data: existingEntry }] = await Promise.all([
+    admin
+      .from("tournament_source_teams")
+      .select("id")
+      .eq("tournament_id", tournamentId)
+      .eq("source_team_id", sourceTeamId)
+      .maybeSingle<{ id: string } | null>(),
+    admin
+      .from("team_assignments")
+      .select("id")
+      .eq("enrollment_id", enrollmentId)
+      .eq("team_id", sourceTeamId)
+      .eq("is_primary", true)
+      .is("end_date", null)
+      .maybeSingle<{ id: string } | null>(),
+    admin
+      .from("tournament_player_entries")
+      .select("id, entry_status")
+      .eq("tournament_id", tournamentId)
+      .eq("enrollment_id", enrollmentId)
+      .maybeSingle<{ id: string; entry_status: "confirmed" | "interested" } | null>(),
+  ]);
+
+  if (!sourceLink || !primaryAssignment) redirect(`${basePath}?err=interest_not_allowed`);
+
+  if (interested) {
+    if (!existingEntry || existingEntry.entry_status === "interested") {
+      const { error } = await admin.from("tournament_player_entries").upsert(
+        {
+          tournament_id: tournamentId,
+          enrollment_id: enrollmentId,
+          charge_id: null,
+          entry_status: "interested",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "tournament_id,enrollment_id" },
+      );
+      if (error) redirect(`${basePath}?err=interest_failed`);
+    }
+  } else if (existingEntry?.entry_status === "interested") {
+    const { error } = await admin.from("tournament_player_entries").delete().eq("id", existingEntry.id);
+    if (error) redirect(`${basePath}?err=interest_failed`);
+  }
+
+  await writeAuditLog(admin, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: interested ? "tournament.player_interest_marked" : "tournament.player_interest_cleared",
+    tableName: "tournament_player_entries",
+    recordId: existingEntry?.id ?? enrollmentId,
+    afterData: {
+      tournament_id: tournamentId,
+      source_team_id: sourceTeamId,
+      enrollment_id: enrollmentId,
+      interested,
+    },
+  });
+
+  revalidateSportsSurfaces(tournamentId);
+  redirect(`${basePath}?ok=interest_updated`);
+}
+
+export async function approveTournamentSourceRosterAction(
+  tournamentId: string,
+  sourceLinkId: string,
+  formData: FormData,
+) {
+  const basePath = normalizeRedirectTarget(String(formData.get("returnTo") ?? "").trim(), `/tournaments/${tournamentId}`);
+  await assertDebugWritesAllowed(basePath);
+  const { admin, campusIds, user } = await getSportsActionContext("/unauthorized");
+  const tournament = await validateTournamentAccess(admin, tournamentId, campusIds);
+  if (!tournament?.campus_id) redirect("/unauthorized");
+
+  const { data: sourceLink } = await admin
+    .from("tournament_source_teams")
+    .select("id, source_team_id, default_squad_id")
+    .eq("id", sourceLinkId)
+    .eq("tournament_id", tournamentId)
+    .maybeSingle<{ id: string; source_team_id: string; default_squad_id: string | null } | null>();
+  if (!sourceLink) redirect(`${basePath}?err=source_not_found`);
+
+  const sourceTeam = (
+    await admin
+      .from("teams")
+      .select("id, name, campus_id, birth_year, gender, level, coach_id, type")
+      .eq("id", sourceLink.source_team_id)
+      .maybeSingle<TeamRow | null>()
+  ).data;
+  if (!sourceTeam) redirect(`${basePath}?err=invalid_source_team`);
+
+  const defaultSquad = await ensureDefaultTournamentSquad(admin, tournament, sourceLink, sourceTeam);
+  if (!defaultSquad) redirect(`${basePath}?err=roster_approval_failed`);
+
+  const [{ data: sourceRoster }, { data: confirmedEntries }, { data: squadRows }] = await Promise.all([
+    admin
+      .from("team_assignments")
+      .select("enrollment_id")
+      .eq("team_id", sourceTeam.id)
+      .eq("is_primary", true)
+      .is("end_date", null)
+      .returns<Array<{ enrollment_id: string }>>(),
+    admin
+      .from("tournament_player_entries")
+      .select("enrollment_id")
+      .eq("tournament_id", tournamentId)
+      .eq("entry_status", "confirmed")
+      .returns<Array<{ enrollment_id: string }>>(),
+    admin
+      .from("tournament_squads")
+      .select("team_id")
+      .eq("tournament_id", tournamentId)
+      .eq("source_team_id", sourceTeam.id)
+      .returns<Array<{ team_id: string }>>(),
+  ]);
+
+  const sourceEnrollmentIds = new Set((sourceRoster ?? []).map((row) => row.enrollment_id));
+  const confirmedEnrollmentIds = (confirmedEntries ?? [])
+    .map((row) => row.enrollment_id)
+    .filter((enrollmentId) => sourceEnrollmentIds.has(enrollmentId));
+  const squadTeamIds = Array.from(new Set((squadRows ?? []).map((row) => row.team_id)));
+  const today = new Date().toISOString().split("T")[0];
+  const now = new Date().toISOString();
+
+  if (squadTeamIds.length > 0) {
+    await admin
+      .from("team_assignments")
+      .update({ end_date: today, updated_at: now })
+      .in("team_id", squadTeamIds)
+      .eq("is_primary", false)
+      .is("end_date", null);
+  }
+
+  if (confirmedEnrollmentIds.length > 0) {
+    const rows = confirmedEnrollmentIds.map((enrollmentId) => ({
+      enrollment_id: enrollmentId,
+      team_id: defaultSquad.team_id,
+      start_date: today,
+      is_primary: false,
+      role: "regular",
+      is_new_arrival: false,
+    }));
+    const { error: insertError } = await admin.from("team_assignments").insert(rows);
+    if (insertError) redirect(`${basePath}?err=roster_approval_failed`);
+  }
+
+  const { error: updateError } = await admin
+    .from("tournament_source_teams")
+    .update({
+      roster_status: "approved",
+      approved_at: now,
+      approved_by: user.id,
+      default_squad_id: defaultSquad.id,
+    })
+    .eq("id", sourceLinkId);
+  if (updateError) redirect(`${basePath}?err=roster_approval_failed`);
+
+  await writeAuditLog(admin, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "tournament.roster_approved",
+    tableName: "tournament_source_teams",
+    recordId: sourceLinkId,
+    afterData: {
+      tournament_id: tournamentId,
+      source_team_id: sourceTeam.id,
+      default_squad_id: defaultSquad.id,
+      confirmed_count: confirmedEnrollmentIds.length,
+    },
+  });
+
+  revalidateSportsSurfaces(tournamentId);
+  redirect(`${basePath}?ok=roster_approved`);
 }

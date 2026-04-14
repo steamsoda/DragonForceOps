@@ -10,7 +10,7 @@ const OK_MESSAGES: Record<string, string> = {
 
 const ERR_MESSAGES: Record<string, string> = {
   invalid_form: "Completa el formulario de la competencia.",
-  invalid_birth_range: "La ventana de categoria no es valida.",
+  invalid_birth_range: "La ventana de categoría no es válida.",
   invalid_product: "Selecciona un producto de copa o torneo.",
   create_failed: "No se pudo crear la competencia.",
 };
@@ -29,7 +29,7 @@ export default async function TournamentsPage({
   return (
     <PageShell
       title="Copas / Torneos"
-      subtitle="Configura competencias, equipos base y el tablero de armado deportivo."
+      subtitle="Configura competencias y luego bájalas a una vista compacta por categoría y equipo base."
       breadcrumbs={[{ label: "Copas / Torneos" }]}
       wide
     >
@@ -49,7 +49,7 @@ export default async function TournamentsPage({
           <div className="mb-4">
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Nueva competencia</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              El producto ligado es el ancla de pago. La inscripcion confirmada se reconoce cuando ese cargo queda pagado al 100%.
+              El producto ligado es el ancla de pago. La inscripción confirmada se reconoce cuando ese cargo queda pagado al 100%.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default async function TournamentsPage({
             </label>
 
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-200">Genero</span>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Género</span>
               <select
                 name="gender"
                 required
@@ -121,12 +121,12 @@ export default async function TournamentsPage({
             </label>
 
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-200">Cierre de inscripcion</span>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Cierre de inscripción</span>
               <input name="signupDeadline" type="date" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
             </label>
 
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-200">Categoria inicial</span>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Categoría inicial</span>
               <input
                 name="eligibleBirthYearMin"
                 inputMode="numeric"
@@ -136,7 +136,7 @@ export default async function TournamentsPage({
             </label>
 
             <label className="space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-200">Categoria final</span>
+              <span className="font-medium text-slate-700 dark:text-slate-200">Categoría final</span>
               <input
                 name="eligibleBirthYearMax"
                 inputMode="numeric"
@@ -184,16 +184,24 @@ export default async function TournamentsPage({
                     <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.sourceTeamCount}</p>
                   </div>
                   <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-800/70">
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Escuadras</p>
-                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.squadCount}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Categorías</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.categoryCount}</p>
                   </div>
                   <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-800/70">
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Inscritos</p>
                     <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.signedCount}</p>
                   </div>
                   <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-800/70">
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Pendientes de escuadra</p>
-                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.awaitingAssignmentCount}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Roster final</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.finalRosterCount}</p>
+                  </div>
+                  <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-800/70">
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Interesados</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.interestedCount}</p>
+                  </div>
+                  <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-800/70">
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipos aprobados</p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{tournament.approvedTeamCount}</p>
                   </div>
                 </div>
 
@@ -211,7 +219,7 @@ export default async function TournamentsPage({
 
           {tournaments.length === 0 ? (
             <p className="rounded-md border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-              Todavia no hay competencias configuradas.
+              Todavía no hay competencias configuradas.
             </p>
           ) : null}
         </section>

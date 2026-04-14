@@ -1,7 +1,7 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-09.
+Updated continuously. Last updated: 2026-04-10.
 
 Current preview release line: `v1.16.1`
 
@@ -19,6 +19,11 @@ Current preview release line: `v1.16.1`
      - squad-building on top of secondary team assignments
      - `/teams` is being rebuilt into the actual `Equipos Base` workflow instead of introducing a second roster model
      - competition gender is now explicit (`Varonil`, `Femenil`, `Mixto`)
+   - Julio discovery update:
+     - `Equipos Base` are the real operational starting point
+     - for a normal competition, the default roster should be `Equipo Base` filtered by fully paid signups
+     - the main dashboard should prioritize category/team signup progress, not giant competition-wide team lists
+     - keep open for a significant simplification pass before more sports build-out
 2. `#38` Copas / Torneos management
    - absorbed into the same preview sports lane so competitions, source teams, and squads are manageable from one surface
    - source-team attachment now needs to stay aligned with campus + gender + birth-year rules
@@ -32,12 +37,26 @@ Current preview release line: `v1.16.1`
    - add drill-downs for pending tuition by category/campus plus trend charts for payments and altas/bajas
 5. then return to medium-priority operational polish items such as attendance export follow-up, player-profile date cleanup, and uniforms/admin utility passes
 
+Time-sensitive reminders:
+
+- After the April 16, 2026 special tuition window, restore the monthly repricing cron from `1 6 16 * *` back to the normal `0 6 11 * *`.
+- Do not let this temporary schedule drift into May 2026 unnoticed.
+
 Notes:
 
 - front desk payment-control feedback has already landed:
   - `Método` selection is explicit button-based in Caja and `Regularización Contry`
   - normal live payments now route through `Caja` only
 - sports operations are now the top product priority because tournament organization is becoming operationally urgent
+- sports implementation should pause for a rules-discovery pass with Julio before more structural work lands:
+  - not all categorias need all equipos base
+  - some equipos base are mixed-year groups
+  - current Julio clarification: most competitions are still handled on an individual team basis, not as a single fixed `all invited` global mode
+  - the real exception set is narrower:
+    - players occasionally play one year up/down
+    - younger girls still play mixed until the academy split point
+    - some older girls teams are mixed-category
+    - some teams merge across levels/categories only when signup counts are too low
 - the next admin/front-desk follow-up bucket now includes:
   - attendance export fixes and workflow cleanup
   - compact local date/time formatting in player-facing admin views
@@ -150,9 +169,9 @@ Follow after the operational tracks above:
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 58 | **Director Deportivo dashboard** | 🟡 In progress | `v3` now exists on preview: campus-scoped `director_deportivo`, sports-only nav, dashboard cards, and the first pass of the real `Equipos Base` board on `/teams` so sports staff can work from the existing team model instead of a parallel roster system. |
-| 38 | **League/tournament tag + management tab** | 🟡 In progress | The preview competition model now includes linked products, signup cutoff, birth-year window, campus scoping, and explicit competition gender. Keep open for later league/cup refinements and richer scheduling/organization beyond the first sports-ops release. |
-| 59 | **Team-building / assign available players workflow** | 🟡 In progress | First pass lives inside the tournament detail workflow on preview: signed players can be assigned into competition squads as regular or refuerzo while keeping their normal primary team intact. Base-team placement on `/teams` is now the prerequisite roster source of truth. |
+| 58 | **Director Deportivo dashboard** | 🟡 In progress | `v4` is now implemented locally: the sports lane is category-first instead of competition-first, with campus + competition selectors and compact category cards that break down into base-team signup progress. Keep open for production validation and any remaining UX simplification once Julio works with real data. |
+| 38 | **League/tournament tag + management tab** | 🟡 In progress | The competition tab now works as configuration + team drilldown on top of the existing product-linked payment model. It supports campus/gender scope, paid-confirmed signups, team participation mode (`competitive` / `invited`), and manual `interested` planning state. Keep open for deeper competition-specific rules and better handling of mixed-year realities if sports ops needs them. |
+| 59 | **Team-building / assign available players workflow** | 🟡 In progress | The default workflow is now much lighter: `roster final` starts from the base team's confirmed signups and can be approved as a stable snapshot. Advanced squads still exist only as exception tools. Keep this item open for future manual override polish (year-up/year-down cases, low-signup merges, more deliberate final-roster editing). |
 | NEW | **Panel KPI drill-downs + trend charts** | 🔴 Open | Add interactive pending-tuition breakdowns by category/campus plus trend charts for payments and altas/bajas. Keep this paired with canonical finance-source checks so new dashboard surfaces do not introduce drift. |
 | 6  | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
 | 7  | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |
