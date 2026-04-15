@@ -6,6 +6,13 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendCard } from "@/components/dashboard/trend-card";
 import { PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
 
+function buildNewEnrollmentsHref(campusId: string, month: string) {
+  const params = new URLSearchParams();
+  if (campusId) params.set("campus", campusId);
+  if (month) params.set("month", month);
+  return `/dashboard/new-enrollments?${params.toString()}`;
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
@@ -52,7 +59,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
 
         <div className="grid gap-3 md:grid-cols-3">
           <KpiCard label="Alumnos con saldo" value={dashboard.enrollmentsWithBalance.toLocaleString("es-MX")} description="Inscripciones activas con adeudo pendiente" />
-          <KpiCard label="Nuevas inscripciones" value={dashboard.newEnrollmentsThisMonth.toLocaleString("es-MX")} description="Inscripciones creadas en el mes seleccionado" />
+          <KpiCard
+            label="Nuevas inscripciones"
+            value={dashboard.newEnrollmentsThisMonth.toLocaleString("es-MX")}
+            description="Inscripciones creadas en el mes seleccionado"
+            href={buildNewEnrollmentsHref(selectedCampusId, dashboard.selectedMonth)}
+          />
           <KpiCard label="Bajas del mes" value={dashboard.bajasThisMonth.toLocaleString("es-MX")} description="Inscripciones dadas de baja en el mes seleccionado" />
         </div>
 
