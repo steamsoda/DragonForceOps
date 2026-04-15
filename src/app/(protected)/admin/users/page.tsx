@@ -8,6 +8,7 @@ import { grantRoleAction, revokeRoleAction } from "@/server/actions/users";
 const ALL_ROLES = [
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
+  { code: "director_deportivo", label: "Director Deportivo" },
   { code: "front_desk", label: "Recepcion / Caja" },
   { code: "coach", label: "Coach" }
 ] as const;
@@ -107,8 +108,12 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   function GrantForm({ userId, existingRoles }: { userId: string; existingRoles: RoleAssignment[] }) {
     const existingKeys = new Set(existingRoles.map((role) => `${role.code}:${role.campusId ?? ""}`));
     const hasAssignableRoles =
-      ALL_ROLES.some((role) => role.code !== "front_desk" && !existingKeys.has(`${role.code}:`)) ||
-      (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`));
+      ALL_ROLES.some(
+        (role) =>
+          (role.code !== "front_desk" && role.code !== "director_deportivo" && !existingKeys.has(`${role.code}:`)) ||
+          ((role.code === "front_desk" || role.code === "director_deportivo") &&
+            (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
+      );
 
     if (!hasAssignableRoles) return null;
 
@@ -120,7 +125,9 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           className="rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800"
         >
           {ALL_ROLES.filter(
-            (role) => role.code !== "front_desk" || (campuses ?? []).some((campus) => !existingKeys.has(`front_desk:${campus.id}`))
+            (role) =>
+              (role.code !== "front_desk" && role.code !== "director_deportivo") ||
+              (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))
           ).map((role) => (
             <option key={role.code} value={role.code}>
               {role.label}
@@ -142,7 +149,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         <button type="submit" className="rounded bg-portoBlue px-2 py-1 text-xs font-medium text-white hover:bg-portoDark">
           Asignar
         </button>
-        <p className="text-[11px] text-slate-400">Para Recepcion / Caja el campus es obligatorio.</p>
+        <p className="text-[11px] text-slate-400">Para Recepcion / Caja y Director Deportivo el campus es obligatorio.</p>
       </form>
     );
   }

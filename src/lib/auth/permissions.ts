@@ -15,8 +15,10 @@ export type PermissionContext = {
   campusAccess: OperationalCampusAccess | null;
   isSuperAdmin: boolean;
   isDirector: boolean;
+  isSportsDirector: boolean;
   isFrontDesk: boolean;
   hasOperationalAccess: boolean;
+  hasSportsAccess: boolean;
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
@@ -28,6 +30,7 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
   const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
+  const isSportsDirector = isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
 
   return {
@@ -37,8 +40,10 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     campusAccess,
     isSuperAdmin,
     isDirector,
+    isSportsDirector,
     isFrontDesk,
     hasOperationalAccess: isDirector || isFrontDesk,
+    hasSportsAccess: isSportsDirector,
   };
 }
 
@@ -51,6 +56,12 @@ export async function requireOperationalContext(redirectTo = "/unauthorized") {
 export async function requireDirectorContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.isDirector) redirect(redirectTo);
+  return context;
+}
+
+export async function requireSportsDirectorContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasSportsAccess) redirect(redirectTo);
   return context;
 }
 

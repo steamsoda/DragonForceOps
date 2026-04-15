@@ -1,5 +1,100 @@
 # Devlog
 
+## 2026-04-10 (session 68)
+
+### April 2026 Tuition Repricing Reminder
+
+- Confirmed the temporary live production cron override for this month only:
+  - job: `reprice-pending-monthly-tuition`
+  - current schedule: `1 6 16 * *`
+  - active: `true`
+- Purpose: delay the normal day-11 pending-tuition repricing to the first minute of April 16, 2026.
+- Follow-up required immediately after that run:
+  - restore the normal monthly schedule to `0 6 11 * *`
+  - do not let the April override carry into May or later months by accident
+
+### Sports Lane Discovery Warning
+
+- Captured new sports-domain feedback after the first preview pass of `Equipos Base`, `Director Deportivo`, and `Copas / Torneos`.
+- Current conclusion:
+  - the technical base is still useful
+  - the operational model and UI assumptions are too rigid
+- Discovery items to resolve with Julio before more sports build-out:
+  - not all categorías need the full base-team ladder
+  - some equipos base are intentionally mixed-year groups
+  - some competitions are effectively `all invited` and should not be modeled as giant team-by-team selective boards
+- The roadmap now records this dependency explicitly so the sports lane gets redesigned against the real academy workflow instead of hardening the wrong shape.
+
+### Julio Discovery Follow-Up
+
+- Reviewed the 2026 teams/competitions reference sheet and a direct workflow clarification from Julio.
+- The CSV is structurally useful even though the export is noisy:
+  - campuses
+  - team/base-team names
+  - birth-year or mixed-year category ranges
+  - coach ownership
+  - month-by-month competition participation
+- Main clarified sports rule:
+  - `Equipo Base` is the real operational starting point
+  - for a normal competition, the default roster should just be `Equipo Base` filtered by fully paid signups
+- This significantly simplifies the expected sports UX:
+  - not giant competition-wide team registries by default
+  - instead, compact progress by categoría/team/campus, then drill down into signed vs missing players
+- Key exception patterns confirmed:
+  - some players may play one year above or below their usual group
+  - younger girls still play mixed until the academy split point
+  - some girls teams are mixed-category
+  - low signup counts can force merging across levels/categories
+- Open planning items now revolve around:
+  - a possible soft `interested` state
+  - roster approval/finalization by Julio
+  - rules for when signups are too many for one team but not enough for two comfortable teams
+
+## 2026-04-09 (session 67)
+
+### Director Deportivo + Competition Signups Dashboard v1
+
+- Added the first real sports-ops lane around a new campus-scoped `director_deportivo` role.
+- `director_deportivo` is now assignable from `Usuarios y Permisos`, behaves like a campus-scoped sports role, and has dedicated preview debug personas for:
+  - Linda Vista hub sports view
+  - Contry-only sports view
+- Added a dedicated sports navigation area:
+  - `Director Deportivo`
+  - `Copas / Torneos`
+- Extended the dormant tournament schema into the first operational competition model:
+  - tournaments now carry linked competition product, signup cutoff, and eligible birth-year window
+  - new `tournament_source_teams` table records the normal teams that define the eligible denominator
+  - new `tournament_squads` table records the actual competition squads, each mapped to a real `teams` row for secondary assignments
+  - `tournament_player_entries` now acts as the canonical paid-signup registry via linked `charge_id`
+- Implemented payment-driven competition signup sync:
+  - paying the linked product in `Caja` now marks the player as signed up
+  - refunds, reassignment away from the competition charge, and voided payments now remove the signup again
+  - if signup is removed, active competition-squad assignments for that tournament are also closed
+- Added the first sports management UI:
+  - `/tournaments`
+    - create competitions
+    - link product
+    - set campus/date window/signup cutoff/birth-year window
+    - review per-competition counts
+  - `/tournaments/[id]`
+    - edit competition settings
+    - attach source teams
+    - create multiple competition squads per source team with min/max + refuerzo limits
+    - assign signed players into squads as regular or refuerzo
+    - remove squad assignments
+  - `/director-deportivo`
+    - campus-scoped dashboard
+    - competition overview cards
+    - source-team progress like `10/25`
+    - signed-without-squad counts
+    - squad fill progress and refuerzo usage
+- Sports surfaces intentionally stay non-financial:
+  - they show signup/payment state signals only
+  - they do not expose cash sessions, charge amounts, refunds, or finance totals
+- Verification:
+  - `npm run build` passed
+  - `npm run typecheck` passed
+
 ## 2026-04-09 (session 66)
 
 ### Caja Handoff UI + Preload Polish
@@ -1787,6 +1882,84 @@
   - no migration was required
 
 ## 2026-04-06
+
+## 2026-04-09
+
+## 2026-04-14
+
+### Competition Signup Dashboard Emergency Patch (v1.16.3)
+- Added a temporary read-only page at `/sports-signups` for front desk and sports/admin staff to see confirmed competition signups at a glance.
+- The page groups active competition records into exactly 3 temporary families in app code:
+  - `Superliga Regia`
+  - `Rosa Power Cup`
+  - `CECAFF`
+- Counts are based only on `tournament_player_entries.entry_status = 'confirmed'`.
+- The dashboard stays intentionally non-financial:
+  - no amounts
+  - no receipts
+  - no folios
+  - no payment methods
+- Drilldown is:
+  - competition family
+  - campus
+  - birth year/category
+  - player list
+- Player rows show only operational fields:
+  - player name
+  - base team if available
+  - linked tournament names when the same family has more than one active tournament row
+- This was implemented as a lightweight visualizer only:
+  - no schema change
+  - no change to signup sync
+  - no change to deeper sports/team-building flows
+
+### Director Deportivo v4: Simplified Sports Ops Redesign (v1.16.2)
+- Kept the sports DB foundation from the earlier work:
+  - one `teams` model only
+  - primary assignment = `Equipo Base`
+  - secondary assignment = competition roster when needed
+  - fully paid Caja competition products remain the confirmed-signup source of truth
+- Rebuilt the sports query layer and screens around the real operational flow Julio described:
+  - `Director Deportivo` is now category-first instead of competition-first
+  - staff chooses campus + competition, then sees compact category progress with team breakdowns underneath
+  - `Copas / Torneos` now acts more like configuration plus drilldown, not the main daily working surface
+- Competition detail now defaults to the light workflow:
+  - attach base teams
+  - see confirmed / interested / missing players per selected team
+  - approve a final roster directly from confirmed signups
+  - keep late payments visible as candidates instead of silently rewriting an approved roster
+- Added the first lightweight sports-planning states on top of the existing schema:
+  - team participation mode = `competitive` or `invited`
+  - player interest state = `interested` vs paid `confirmed`
+  - roster approval state at the source-team link
+  - default approved roster squad stored separately from optional advanced squads
+- Preserved and repositioned the heavier squad mechanics:
+  - advanced squad creation still exists for true exception cases
+  - it no longer drives the default mental model for every competition
+- Relaxed `/teams` so it no longer renders the full fixed ladder as if every block must always have every level:
+  - the board now shows the real existing teams first
+  - missing standard levels are only suggested create-actions, not implied mandatory structure
+- This pass intentionally did **not** solve every sports-model edge case:
+  - mixed-year team structure is still constrained by the current base-team schema
+  - more nuanced final-roster exception flows can build on this simpler foundation later
+
+### Director Deportivo v3: Equipos Base on `/teams` + Competition Gender (v1.16.1)
+- Reworked the sports plan so the app no longer invents a second parallel base-team system.
+- `/teams` is now the operational `Equipos Base` board:
+  - choose campus, categoria, and genero
+  - see the real base-team ladder (`Little Dragons`, `B3`, `B2`, `B1`, `Selectivo`)
+  - create missing base teams on demand
+  - batch assign or move selected players into the chosen base team
+- The normal primary `team_assignment` remains the single roster truth for `Equipo Base`.
+- Player `Nivel` continues to follow the assigned primary base team, so team placement and player level do not drift apart.
+- Team pages were opened to the new sports role (`director_deportivo`) using the same app-layer permission model as the rest of the sports lane.
+- Competitions now also carry explicit gender scope (`Varonil`, `Femenil`, `Mixto`).
+- Tournament source-team attachment is now gender-aware, and sports views display competition/team gender explicitly.
+- No finance semantics changed:
+  - competition signups still come from fully paid linked Caja products
+  - escuadras still use secondary assignments
+  - base teams remain primary assignments
+
 
 ### Attendance Export — Logo Fix + Birth Year Dividers (v1.14.1)
 - Fixed logo stretching: switched from `tl+br` cell-range approach to `tl+ext` with fixed 60×40px dimensions matching the actual 1.51:1 PNG aspect ratio.

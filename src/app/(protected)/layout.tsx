@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { APP_ROLES, DIRECTOR_OR_ABOVE } from "@/lib/auth/roles";
+import { APP_ROLES, DIRECTOR_OR_ABOVE, SPORTS_STAFF_OR_ABOVE } from "@/lib/auth/roles";
 import { getDebugRecentUserIds, getDebugViewContext } from "@/lib/auth/debug-view";
 import { listDebuggableUsers } from "@/lib/auth/debug-users";
 import { version } from "../../../package.json";
@@ -19,6 +19,11 @@ const GESTION_SECTION: NavSection = {
     { href: "/dashboard", label: "Panel" },
     { href: "/pending", label: "Pendientes" },
   ],
+};
+
+const COMPETITION_SECTION: NavSection = {
+  label: "Competencias",
+  items: [{ href: "/sports-signups", label: "Inscripciones Torneos" }],
 };
 
 const FRONT_DESK_REPORTES_SECTION: NavSection = {
@@ -53,6 +58,15 @@ const ADMIN_SECTION: NavSection = {
   ],
 };
 
+const SPORTS_SECTION: NavSection = {
+  label: "Deportivo",
+  items: [
+    { href: "/teams", label: "Equipos Base" },
+    { href: "/director-deportivo", label: "Director Deportivo" },
+    { href: "/tournaments", label: "Copas / Torneos" },
+  ],
+};
+
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const debugContext = await getDebugViewContext();
   if (!debugContext) redirect("/login");
@@ -69,8 +83,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
+  const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk;
+  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -98,9 +113,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   };
 
   const sections: NavSection[] = [
-    staffSection,
-    GESTION_SECTION,
-    ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : [FRONT_DESK_REPORTES_SECTION]),
+    ...(isDirectorOrAbove || isFrontDesk ? [staffSection, GESTION_SECTION] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
+    ...(hasSportsAccess ? [SPORTS_SECTION] : []),
+    ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
 
@@ -382,6 +398,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                 <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
                 <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
                 <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
+                <Link href="/director-deportivo" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Director Deportivo</Link>
                 <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
                 <Link href="/receipts" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Recibos</Link>
                 <Link href="/admin/debug-view" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Panel debug</Link>

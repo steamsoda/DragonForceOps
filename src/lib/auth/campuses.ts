@@ -40,6 +40,7 @@ function chooseDefaultCampus(campuses: AccessibleCampus[]) {
 export type OperationalCampusAccess = {
   userId: string;
   isDirector: boolean;
+  isSportsDirector: boolean;
   isFrontDesk: boolean;
   isLegacyGlobalFrontDesk: boolean;
   campuses: AccessibleCampus[];
@@ -64,6 +65,8 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
   const isDirector = roleCodes.some((code) => code === "director_admin" || code === "superadmin");
+  const sportsDirectorRows = rows.filter((row) => row.app_roles?.code === "director_deportivo");
+  const isSportsDirector = sportsDirectorRows.length > 0;
   const frontDeskRows = rows.filter((row) => row.app_roles?.code === "front_desk");
   const isFrontDesk = frontDeskRows.length > 0;
   const isLegacyGlobalFrontDesk = frontDeskRows.some((row) => row.campus_id === null);
@@ -71,9 +74,9 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   let campuses: AccessibleCampus[] = [];
   if (isDirector || isLegacyGlobalFrontDesk) {
     campuses = allCampuses ?? [];
-  } else if (isFrontDesk) {
+  } else if (isFrontDesk || isSportsDirector) {
     const seen = new Set<string>();
-    campuses = frontDeskRows
+    campuses = [...frontDeskRows, ...sportsDirectorRows]
       .map((row) => row.campuses)
       .filter((campus): campus is NonNullable<RoleCampusRow["campuses"]> => Boolean(campus))
       .filter((campus) => {
@@ -89,6 +92,7 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   return {
     userId: debugContext.effective.id,
     isDirector,
+    isSportsDirector,
     isFrontDesk,
     isLegacyGlobalFrontDesk,
     campuses,

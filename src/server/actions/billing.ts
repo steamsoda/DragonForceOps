@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { parseMonterreyDateTimeInput } from "@/lib/time";
+import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 
 type TeamAssignmentRow = {
   enrollment_id: string;
@@ -593,6 +594,12 @@ export async function reassignPaymentAction(
     },
   });
 
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
   return { ok: true };
 }
@@ -663,6 +670,12 @@ export async function refundPaymentAction(
     },
   });
 
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
   return { ok: true };
 }
@@ -722,6 +735,12 @@ export async function voidPaymentAction(
     afterData: { enrollment_id: enrollmentId, amount: payment.amount, method: payment.method, reason }
   });
 
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
   revalidatePath(BASE);
   redirect(`${BASE}?ok=payment_voided`);
 }

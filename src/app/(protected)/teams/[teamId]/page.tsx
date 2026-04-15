@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsDirectorContext } from "@/lib/auth/permissions";
 import { getTeamDetail, listTeams } from "@/lib/queries/teams";
 import { TeamRosterClient } from "@/components/teams/team-roster-client";
+import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
 
-const GENDER_LABELS: Record<string, string> = { male: "Varonil", female: "Femenil" };
 const TYPE_LABELS: Record<string, string> = { competition: "Selectivo", class: "Clases" };
 const OK_MESSAGES: Record<string, string> = {
   created: "Equipo creado correctamente.",
@@ -28,7 +28,7 @@ export default async function TeamDetailPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  await requireDirectorContext("/unauthorized");
+  await requireSportsDirectorContext("/unauthorized");
 
   const [team, allTeams] = await Promise.all([
     getTeamDetail(teamId),
@@ -42,7 +42,7 @@ export default async function TeamDetailPage({
   return (
     <PageShell
       title={team.name}
-      subtitle={[team.campusName, team.birthYear, team.gender ? GENDER_LABELS[team.gender] : null, team.level].filter(Boolean).join(" · ")}
+      subtitle={[team.campusName, team.birthYear, team.gender ? TEAM_GENDER_LABELS[team.gender] : null, team.level].filter(Boolean).join(" · ")}
       breadcrumbs={[{ label: "Equipos", href: "/teams" }, { label: team.name }]}
     >
       <div className="space-y-6">
@@ -81,7 +81,7 @@ export default async function TeamDetailPage({
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Género</p>
                 <p className="font-medium text-slate-900 dark:text-slate-100">
-                  {team.gender ? (GENDER_LABELS[team.gender] ?? team.gender) : "-"}
+                  {team.gender ? (TEAM_GENDER_LABELS[team.gender] ?? team.gender) : "-"}
                 </p>
               </div>
               <div>

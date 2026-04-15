@@ -42,6 +42,18 @@ const DEBUG_PERSONA_PREFIX = "debug-persona:";
 
 const PERSONAS: DebugPersonaSpec[] = [
   {
+    key: "sports-lindavista",
+    email: "director.deportivo.lindavista.debug@preview",
+    roleCode: APP_ROLES.DIRECTOR_DEPORTIVO,
+    campusTarget: "all",
+  },
+  {
+    key: "sports-contry",
+    email: "director.deportivo.contry.debug@preview",
+    roleCode: APP_ROLES.DIRECTOR_DEPORTIVO,
+    campusTarget: "contry",
+  },
+  {
     key: "frontdesk-contry",
     email: "recepcion.contry.debug@preview",
     roleCode: APP_ROLES.FRONT_DESK,
@@ -98,6 +110,18 @@ function buildRoleRows(spec: DebugPersonaSpec, campuses: CampusRow[]): DebugRole
         app_roles: { code: spec.roleCode },
       },
     ];
+  }
+
+  if (spec.roleCode === APP_ROLES.DIRECTOR_DEPORTIVO) {
+    return resolvePersonaCampuses(spec.campusTarget, campuses).map((campus) => ({
+      campus_id: campus.id,
+      campuses: {
+        id: campus.id,
+        name: campus.name,
+        code: campus.code,
+      },
+      app_roles: { code: spec.roleCode },
+    }));
   }
 
   return resolvePersonaCampuses(spec.campusTarget, campuses).map((campus) => ({

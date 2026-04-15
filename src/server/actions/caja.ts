@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,7 @@ import {
 import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
+import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -1004,8 +1006,16 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   });
 
   await clearPendingFollowUpIfResolved(supabase, enrollmentId);
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
 
   await revalidatePaymentSurfaces(ledger);
+  if (affectedTournamentIds.length > 0) {
+    revalidatePath("/director-deportivo");
+    revalidatePath("/tournaments");
+    for (const tournamentId of affectedTournamentIds) {
+      revalidatePath(`/tournaments/${tournamentId}`);
+    }
+  }
   const refreshedLedger = await getEnrollmentLedger(enrollmentId);
 
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
