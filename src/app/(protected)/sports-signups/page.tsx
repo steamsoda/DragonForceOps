@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { PageShell } from "@/components/ui/page-shell";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { PageShell } from "@/components/ui/page-shell";
 import { getCompetitionSignupDashboardData } from "@/lib/queries/sports-signups";
 
 type SearchParams = Promise<{
@@ -18,7 +18,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   return (
     <PageShell
       title="Inscripciones Torneos"
-      subtitle="Visualizador temporal de jugadores con inscripción confirmada por competencia. Solo muestra conteos y jugadores, sin información financiera."
+      subtitle="Vista temporal de jugadores con productos de torneo totalmente pagados. Solo muestra conteos y jugadores, sin montos ni configuracion de torneos."
       breadcrumbs={[{ label: "Inscripciones Torneos" }]}
     >
       <div className="space-y-4">
@@ -55,7 +55,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
               key={family.key}
               label={family.label}
               value={family.totalConfirmed.toLocaleString("es-MX")}
-              description="Jugadores con inscripción confirmada"
+              description="Jugadores con producto pagado"
             />
           ))}
         </div>
@@ -63,29 +63,31 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
         <div className="space-y-4">
           {dashboard.families.map((family) => (
             <section key={family.key} className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{family.label}</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {family.totalConfirmed.toLocaleString("es-MX")} jugadores confirmados
-                  </p>
-                </div>
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{family.label}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {family.totalConfirmed.toLocaleString("es-MX")} jugadores con producto totalmente pagado
+                </p>
               </div>
 
               {family.campuses.length === 0 ? (
                 <p className="rounded-md border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  No hay jugadores confirmados en esta competencia con el filtro actual.
+                  No hay jugadores pagados en esta familia con el filtro actual.
                 </p>
               ) : (
                 <div className="space-y-3">
                   {family.campuses.map((campus) => (
-                    <details key={`${family.key}-${campus.campusId}`} className="rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700" open>
+                    <details
+                      key={`${family.key}-${campus.campusId}`}
+                      className="rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700"
+                      open
+                    >
                       <summary className="cursor-pointer list-none">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium text-slate-900 dark:text-slate-100">{campus.campusName}</p>
                             <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {campus.categories.length} categoría{campus.categories.length !== 1 ? "s" : ""}
+                              {campus.categories.length} categoria{campus.categories.length !== 1 ? "s" : ""}
                             </p>
                           </div>
                           <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -96,7 +98,10 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
 
                       <div className="mt-3 space-y-2">
                         {campus.categories.map((category) => (
-                          <details key={`${campus.campusId}-${category.key}`} className="rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-800/60">
+                          <details
+                            key={`${campus.campusId}-${category.key}`}
+                            className="rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-800/60"
+                          >
                             <summary className="cursor-pointer list-none">
                               <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -116,8 +121,8 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
                                 <thead>
                                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                     <th className="py-2 pr-3">Jugador</th>
-                                    <th className="py-2 pr-3">Equipo base</th>
-                                    <th className="py-2 pr-3">Torneos</th>
+                                    <th className="py-2 pr-3">Campus</th>
+                                    <th className="py-2 pr-3">Ano de nacimiento</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -127,10 +132,10 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
                                         {player.playerName}
                                       </td>
                                       <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
-                                        {player.baseTeamName ?? "Sin equipo base"}
+                                        {player.campusName}
                                       </td>
                                       <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
-                                        {player.tournaments.join(", ")}
+                                        {player.birthYear ?? "Sin dato"}
                                       </td>
                                     </tr>
                                   ))}
@@ -149,7 +154,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Fuente de verdad: solo `tournament_player_entries` con estado `confirmed`. No se muestran montos, pagos crudos ni información de corte.
+          Fuente de verdad: cargos positivos, no anulados, con asignaciones de pago suficientes para cubrir el monto completo.
         </p>
       </div>
     </PageShell>

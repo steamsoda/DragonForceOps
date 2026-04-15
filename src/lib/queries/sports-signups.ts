@@ -2,23 +2,6 @@ import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type TournamentRow = {
-  id: string;
-  name: string;
-  campus_id: string | null;
-  product_id: string | null;
-};
-
-type ProductRow = {
-  id: string;
-  name: string;
-};
-
-type EntryRow = {
-  tournament_id: string;
-  enrollment_id: string;
-};
-
 type EnrollmentRow = {
   id: string;
   player_id: string;
@@ -30,11 +13,24 @@ type EnrollmentRow = {
   } | null;
 };
 
-type TeamAssignmentRow = {
+type ChargeRow = {
+  id: string;
   enrollment_id: string;
-  teams: {
-    name: string | null;
-  } | null;
+  product_id: string | null;
+  description: string | null;
+  amount: number;
+  status: string;
+  created_at: string;
+};
+
+type ProductRow = {
+  id: string;
+  name: string;
+};
+
+type AllocationRow = {
+  charge_id: string;
+  amount: number;
 };
 
 const FAMILY_CONFIG = [
@@ -64,8 +60,8 @@ export type CompetitionSignupPlayerRow = {
   birthYear: number | null;
   campusId: string;
   campusName: string;
-  baseTeamName: string | null;
-  tournaments: string[];
+  familyKey: FamilyKey;
+  familyLabel: string;
 };
 
 export type CompetitionSignupCategoryGroup = {
@@ -109,10 +105,14 @@ function getBirthYear(value: string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.getUTCFullYear();
 }
 
-function getCompetitionFamily(tournamentName: string, productName: string | null): FamilyKey | null {
-  const haystack = `${normalizeText(tournamentName)} ${normalizeText(productName)}`;
+function getCompetitionFamily(productName: string | null, chargeDescription: string | null): FamilyKey | null {
+  const haystack = `${normalizeText(productName)} ${normalizeText(chargeDescription)}`;
   const match = FAMILY_CONFIG.find((family) => family.tokens.some((token) => haystack.includes(token)));
   return match?.key ?? null;
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function sortPlayerRows(players: CompetitionSignupPlayerRow[]) {
@@ -135,94 +135,95 @@ export async function getCompetitionSignupDashboardData(filters?: {
     filters?.campusId && campusAccess.campusIds.includes(filters.campusId) ? filters.campusId : "";
   const targetCampusIds = selectedCampusId ? [selectedCampusId] : campusAccess.campusIds;
 
-  const { data: tournaments } = await admin
-    .from("tournaments")
-    .select("id, name, campus_id, product_id")
-    .eq("is_active", true)
+  const { data: enrollments } = await admin
+    .from("enrollments")
+    .select("id, player_id, campus_id, players(first_name, last_name, birth_date)")
     .in("campus_id", targetCampusIds)
-    .returns<TournamentRow[]>();
+    .returns<EnrollmentRow[]>();
 
-  const activeTournaments = tournaments ?? [];
+  const availableEnrollments = enrollments ?? [];
+  if (availableEnrollments.length === 0) {
+    return {
+      campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
+      selectedCampusId,
+      families: FAMILY_CONFIG.map((family) => ({
+        key: family.key,
+        label: family.label,
+        totalConfirmed: 0,
+        campuses: [],
+      })),
+    };
+  }
+
+  const enrollmentIds = availableEnrollments.map((enrollment) => enrollment.id);
+  const { data: charges } = await admin
+    .from("charges")
+    .select("id, enrollment_id, product_id, description, amount, status, created_at")
+    .in("enrollment_id", enrollmentIds)
+    .neq("status", "void")
+    .returns<ChargeRow[]>();
+
+  const availableCharges = (charges ?? []).filter((charge) => charge.amount > 0);
   const productIds = Array.from(
-    new Set(activeTournaments.map((tournament) => tournament.product_id).filter((value): value is string => Boolean(value))),
+    new Set(availableCharges.map((charge) => charge.product_id).filter((value): value is string => Boolean(value))),
   );
 
-  const { data: products } = productIds.length
-    ? await admin.from("products").select("id, name").in("id", productIds).returns<ProductRow[]>()
-    : { data: [] as ProductRow[] };
-
-  const productNameById = new Map((products ?? []).map((product) => [product.id, product.name]));
-  const matchedTournaments = activeTournaments
-    .map((tournament) => ({
-      ...tournament,
-      familyKey: getCompetitionFamily(tournament.name, tournament.product_id ? productNameById.get(tournament.product_id) ?? null : null),
-    }))
-    .filter((tournament): tournament is TournamentRow & { familyKey: FamilyKey } => Boolean(tournament.familyKey));
-
-  const tournamentIds = matchedTournaments.map((tournament) => tournament.id);
-  const { data: entries } = tournamentIds.length
-    ? await admin
-        .from("tournament_player_entries")
-        .select("tournament_id, enrollment_id")
-        .eq("entry_status", "confirmed")
-        .in("tournament_id", tournamentIds)
-        .returns<EntryRow[]>()
-    : { data: [] as EntryRow[] };
-
-  const uniqueEnrollmentIds = Array.from(new Set((entries ?? []).map((entry) => entry.enrollment_id)));
-  const [{ data: enrollments }, { data: teamAssignments }] = await Promise.all([
-    uniqueEnrollmentIds.length
+  const [{ data: products }, { data: allocations }] = await Promise.all([
+    productIds.length
+      ? admin.from("products").select("id, name").in("id", productIds).returns<ProductRow[]>()
+      : Promise.resolve({ data: [] as ProductRow[] }),
+    availableCharges.length
       ? admin
-          .from("enrollments")
-          .select("id, player_id, campus_id, players(first_name, last_name, birth_date)")
-          .in("id", uniqueEnrollmentIds)
-          .returns<EnrollmentRow[]>()
-      : Promise.resolve({ data: [] as EnrollmentRow[] }),
-    uniqueEnrollmentIds.length
-      ? admin
-          .from("team_assignments")
-          .select("enrollment_id, teams(name)")
-          .in("enrollment_id", uniqueEnrollmentIds)
-          .eq("is_primary", true)
-          .is("end_date", null)
-          .returns<TeamAssignmentRow[]>()
-      : Promise.resolve({ data: [] as TeamAssignmentRow[] }),
+          .from("payment_allocations")
+          .select("charge_id, amount")
+          .in("charge_id", availableCharges.map((charge) => charge.id))
+          .returns<AllocationRow[]>()
+      : Promise.resolve({ data: [] as AllocationRow[] }),
   ]);
 
+  const productNameById = new Map((products ?? []).map((product) => [product.id, product.name]));
+  const allocationTotals = new Map<string, number>();
+  for (const allocation of allocations ?? []) {
+    allocationTotals.set(
+      allocation.charge_id,
+      roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
+    );
+  }
+
   const campusNameById = new Map(campusAccess.campuses.map((campus) => [campus.id, campus.name]));
-  const enrollmentById = new Map((enrollments ?? []).map((enrollment) => [enrollment.id, enrollment]));
-  const baseTeamByEnrollmentId = new Map((teamAssignments ?? []).map((row) => [row.enrollment_id, row.teams?.name ?? null]));
-  const tournamentById = new Map(matchedTournaments.map((tournament) => [tournament.id, tournament]));
+  const enrollmentById = new Map(availableEnrollments.map((enrollment) => [enrollment.id, enrollment]));
 
   const families = FAMILY_CONFIG.map<CompetitionSignupFamilyGroup>((family) => {
     const playerAccumulator = new Map<string, CompetitionSignupPlayerRow>();
 
-    for (const entry of entries ?? []) {
-      const tournament = tournamentById.get(entry.tournament_id);
-      if (!tournament || tournament.familyKey !== family.key) continue;
-      const enrollment = enrollmentById.get(entry.enrollment_id);
-      if (!enrollment || !targetCampusIds.includes(enrollment.campus_id)) continue;
+    for (const charge of availableCharges) {
+      const totalAllocated = allocationTotals.get(charge.id) ?? 0;
+      if (totalAllocated + 0.009 < charge.amount) continue;
 
-      const existing = playerAccumulator.get(enrollment.id);
+      const familyKey = getCompetitionFamily(
+        charge.product_id ? productNameById.get(charge.product_id) ?? null : null,
+        charge.description,
+      );
+      if (familyKey !== family.key) continue;
+
+      const enrollment = enrollmentById.get(charge.enrollment_id);
+      if (!enrollment) continue;
+
+      if (playerAccumulator.has(enrollment.id)) continue;
+
       const playerName = enrollment.players
         ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
         : "Jugador";
-      const birthYear = getBirthYear(enrollment.players?.birth_date);
-
-      if (existing) {
-        if (!existing.tournaments.includes(tournament.name)) existing.tournaments.push(tournament.name);
-        continue;
-      }
 
       playerAccumulator.set(enrollment.id, {
         enrollmentId: enrollment.id,
         playerId: enrollment.player_id,
         playerName,
-        birthYear,
+        birthYear: getBirthYear(enrollment.players?.birth_date),
         campusId: enrollment.campus_id,
         campusName: campusNameById.get(enrollment.campus_id) ?? "Campus",
-        baseTeamName: baseTeamByEnrollmentId.get(enrollment.id) ?? null,
-        tournaments: [tournament.name],
+        familyKey: family.key,
+        familyLabel: family.label,
       });
     }
 
@@ -240,11 +241,12 @@ export async function getCompetitionSignupDashboardData(filters?: {
       campusGroup.confirmedCount += 1;
 
       const categoryKey = player.birthYear !== null ? String(player.birthYear) : "sin_categoria";
-      const categoryLabel = player.birthYear !== null ? `Cat. ${player.birthYear}` : "Sin categoría";
-      const category = campusGroup.categories.find((item) => item.key === categoryKey);
-      if (category) {
-        category.confirmedCount += 1;
-        category.players.push(player);
+      const categoryLabel = player.birthYear !== null ? `Cat. ${player.birthYear}` : "Sin categoria";
+      const existingCategory = campusGroup.categories.find((category) => category.key === categoryKey);
+
+      if (existingCategory) {
+        existingCategory.confirmedCount += 1;
+        existingCategory.players.push(player);
       } else {
         campusGroup.categories.push({
           key: categoryKey,
@@ -264,10 +266,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
         categories: campusGroup.categories
           .map((category) => ({
             ...category,
-            players: sortPlayerRows(category.players).map((player) => ({
-              ...player,
-              tournaments: [...player.tournaments].sort((a, b) => a.localeCompare(b, "es-MX")),
-            })),
+            players: sortPlayerRows(category.players),
           }))
           .sort((a, b) => {
             if (a.birthYear === null && b.birthYear === null) return a.label.localeCompare(b.label, "es-MX");
