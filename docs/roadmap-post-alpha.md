@@ -62,6 +62,8 @@ Notes:
   - compact local date/time formatting in player-facing admin views
   - uniform-size auto-sync into `Ficha técnica`
   - nutrition tracking workflow discovery
+  - product KPI clarity so `cargos registrados` vs `pagados completos` cannot be confused on product/admin surfaces
+  - stronger `Regularización Contry` guardrails for competition products so staff do not leave orphaned tournament charges behind without the corresponding historical payment
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
 - Release policy:
@@ -174,6 +176,8 @@ Follow after the operational tracks above:
 | 59 | **Team-building / assign available players workflow** | 🟡 In progress | The default workflow is now much lighter: `roster final` starts from the base team's confirmed signups and can be approved as a stable snapshot. Advanced squads still exist only as exception tools. Keep this item open for future manual override polish (year-up/year-down cases, low-signup merges, more deliberate final-roster editing). |
 | NEW | **Urgency 0: autopopulate equipos base from current `Nivel`** | 🔴 Open | Next sports cleanup task. Add a guided seeding/backfill flow that assigns players into matching base teams from their current `Nivel` only when the match is unambiguous (campus + birth year + gender + level), and leaves ambiguous cases for manual review. This should be a controlled backfill tool, not a background auto-reassignment system. |
 | NEW | **Temporary competition-signup visualizer for front desk** | ✅ Done | Added `/sports-signups` as a lightweight operational dashboard for confirmed signups grouped into `Superliga Regia`, `Rosa Power Cup`, and `CECAFF`, with drilldown by campus and birth year/category. It is intentionally read-only and non-financial. |
+| NEW | **Product KPI charged-vs-paid clarity** | 🔴 Open | Tighten product/admin KPI language and breakdowns so staff cannot read raw charge volume as fully paid player count. Extend the reconciliation pattern from the tournament-product troubleshooting pass into the broader product surfaces where `vendido`/`pagado` ambiguity can still create operational mistakes. |
+| NEW | **Regularización Contry competition-charge guardrails** | 🔴 Open | Reduce the chance that front desk creates competition charges in `Regularización Contry` without posting the matching historical payment. Scope should focus on operational guardrails and clearer workflow shaping, not on changing the underlying finance model. |
 | NEW | **Panel KPI drill-downs + trend charts** | 🔴 Open | Add interactive pending-tuition breakdowns by category/campus plus trend charts for payments and altas/bajas. Keep this paired with canonical finance-source checks so new dashboard surfaces do not introduce drift. |
 | 6  | **Alphabetical sort in Caja category drill-down** | ✅ Done | `ORDER BY p.last_name, p.first_name` in `list_caja_players_by_campus_year` RPC |
 | 7  | **Categoría + Campus on receipt** | ✅ Done | `birthYear` added to `ReceiptData`; `Categ.: {birthYear}` line in `buildReceipt()` |

@@ -1,5 +1,33 @@
 # Devlog
 
+## 2026-04-15 (session 69)
+
+### Inscripciones Torneos Board Redesign (v1.16.9)
+
+- Reworked `/sports-signups` from the older stacked drilldown report into a campus-first control board.
+- The page now follows the front-desk sketch more closely:
+  - large campus buttons at the top
+  - three competition-family summary cards that also act as selectors
+  - one detailed competition board shown at a time underneath
+  - category cards with visible `pagados / elegibles` progress and direct player-name lists
+- The detailed board is now organized by category card instead of nested campus/category accordions.
+- Added a first eligibility-aware denominator so category progress is no longer just a paid-count view:
+  - `Superliga Regia`: mixed on 2015+ categories, varonil-only on older categories
+  - `Rosa Power Cup`: femenil-only
+  - `CECAFF`: temporarily treated as mixed until sports ops defines stricter eligibility
+- This pass changes the page shape and progress math only:
+  - still read-only
+  - still product-payment based
+  - still no finance amounts or tournament-config dependency
+
+### Product KPI Clarity + Contry Guardrails Follow-Up Logged
+
+- Added two explicit roadmap follow-ups after the tournament-payment reconciliation pass:
+  - clarify product/admin KPI language so raw charge counts are not mistaken for fully paid player counts
+  - harden `Regularización Contry` around competition products so staff are less likely to create orphaned tournament charges without the matching historical payment
+- This is roadmap/documentation tracking only for now.
+- No app behavior changed in this pass.
+
 ## 2026-04-10 (session 68)
 
 ### April 2026 Tuition Repricing Reminder
