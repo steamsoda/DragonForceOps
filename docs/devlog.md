@@ -2,6 +2,16 @@
 
 ## 2026-04-15 (session 69)
 
+### Sports Signups Responsiveness + Panel KPI Drilldown (v1.16.10)
+
+- Removed the sluggish full-page round-trip feel from `/sports-signups`.
+- The tournament-signups page still loads its data from the server, but campus and competition-family switching now happens client-side from one preloaded payload instead of reloading the route on every click.
+- This keeps the same payment-based source of truth while making the board feel much more immediate during front-desk use.
+- Added a first drilldown path for the `Nuevas inscripciones` KPI on `Panel`.
+  - the KPI is now clickable
+  - it opens a dedicated detail page with the actual enrollments counted for the selected campus/month
+  - the detail page includes player, campus, status, created timestamp, and enrollment date
+
 ### Inscripciones Torneos Board Redesign (v1.16.9)
 
 - Reworked `/sports-signups` from the older stacked drilldown report into a campus-first control board.

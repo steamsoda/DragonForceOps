@@ -1,4 +1,6 @@
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
+import { getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -56,6 +58,17 @@ export type DashboardData = {
   historicalCatchupAmount: number;
   historicalCatchupCount: number;
   selectedMonth: string;
+};
+
+export type DashboardNewEnrollmentRow = {
+  enrollmentId: string;
+  playerId: string;
+  playerName: string;
+  campusId: string;
+  campusName: string;
+  status: string;
+  createdAt: string;
+  inscriptionDate: string;
 };
 
 type DashboardRpcRow = {
@@ -137,5 +150,73 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     historicalCatchupAmount: toNumber(data.historical_catchup_amount),
     historicalCatchupCount: Number(data.historical_catchup_count ?? 0),
     selectedMonth: data.selected_month,
+  };
+}
+
+export async function listDashboardNewEnrollments(filters: DashboardFilters) {
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campusIds.length === 0) {
+    return {
+      selectedMonth: filters.month ?? "",
+      rows: [] as DashboardNewEnrollmentRow[],
+    };
+  }
+
+  const selectedCampusIds = filters.campusId
+    ? canAccessCampus(campusAccess, filters.campusId)
+      ? [filters.campusId]
+      : []
+    : campusAccess.campusIds;
+
+  if (selectedCampusIds.length === 0) {
+    return {
+      selectedMonth: filters.month ?? "",
+      rows: [] as DashboardNewEnrollmentRow[],
+    };
+  }
+
+  const selectedMonth = filters.month ?? getMonterreyMonthString();
+  const monthBounds = getMonterreyMonthBounds(selectedMonth);
+  const supabase = await createClient();
+
+  type EnrollmentRow = {
+    id: string;
+    player_id: string;
+    status: string;
+    created_at: string;
+    inscription_date: string;
+    campus_id: string;
+    campuses: {
+      name: string | null;
+    } | null;
+    players: {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
+  };
+
+  const { data } = await supabase
+    .from("enrollments")
+    .select("id, player_id, status, created_at, inscription_date, campus_id, campuses(name), players(first_name, last_name)")
+    .in("campus_id", selectedCampusIds)
+    .gte("created_at", monthBounds.start)
+    .lt("created_at", monthBounds.end)
+    .order("created_at", { ascending: false })
+    .returns<EnrollmentRow[]>();
+
+  const rows = (data ?? []).map((row) => ({
+    enrollmentId: row.id,
+    playerId: row.player_id,
+    playerName: `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.replace(/\s+/g, " ").trim() || "Jugador",
+    campusId: row.campus_id,
+    campusName: row.campuses?.name ?? "Campus",
+    status: row.status,
+    createdAt: row.created_at,
+    inscriptionDate: row.inscription_date,
+  }));
+
+  return {
+    selectedMonth,
+    rows,
   };
 }
