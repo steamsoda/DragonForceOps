@@ -5,6 +5,7 @@ import { requireDirectorContext } from "@/lib/auth/permissions";
 import {
   getProductDetail,
   getProductKpis,
+  getProductReconciliation,
   getProductSizeStats,
   getProductRecentSales
 } from "@/lib/queries/products";
@@ -29,6 +30,11 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function formatReconciliationReason(reason: "not_fully_paid" | "duplicate_fully_paid_charge_same_enrollment") {
+  if (reason === "duplicate_fully_paid_charge_same_enrollment") return "Cargo duplicado pagado";
+  return "Cargo sin pagar";
+}
+
 export default async function ProductDetailPage({
   params,
   searchParams
@@ -49,7 +55,10 @@ export default async function ProductDetailPage({
 
   if (!product) notFound();
 
-  const kpis = await getProductKpis(productId, product.currency);
+  const [kpis, reconciliation] = await Promise.all([
+    getProductKpis(productId, product.currency),
+    getProductReconciliation(productId),
+  ]);
   const errorMessage = query.err ? (ERROR_MESSAGES[query.err] ?? "Ocurrió un error.") : null;
   const updateAction = updateProductAction.bind(null, productId);
   const deleteAction = deleteProductAction.bind(null, productId);
@@ -152,16 +161,77 @@ export default async function ProductDetailPage({
 
         {/* ── KPI tiles ── */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiTile label="Unidades vendidas" value={kpis.unitsSold.toString()} />
-          <KpiTile label="Ingresos totales" value={formatMoney(kpis.totalRevenue, kpis.currency)} highlight />
-          <KpiTile label="Ventas este mes" value={kpis.unitsThisMonth.toString()} />
-          <KpiTile label="Ingresos este mes" value={formatMoney(kpis.revenueThisMonth, kpis.currency)} highlight />
+          <KpiTile label="Cargos registrados" value={kpis.unitsSold.toString()} />
+          <KpiTile label="Monto cargado total" value={formatMoney(kpis.totalRevenue, kpis.currency)} highlight />
+          <KpiTile label="Cargos este mes" value={kpis.unitsThisMonth.toString()} />
+          <KpiTile label="Monto cargado este mes" value={formatMoney(kpis.revenueThisMonth, kpis.currency)} highlight />
+          <KpiTile label="Jugadores con cargo" value={reconciliation.uniqueEnrollmentsWithCharge.toString()} />
+          <KpiTile label="Jugadores totalmente pagados" value={reconciliation.uniqueEnrollmentsFullyPaid.toString()} highlight />
+          <KpiTile label="Cargos sin pagar" value={reconciliation.notFullyPaidChargeRows.toString()} />
+          <KpiTile label="Brecha vs pagados" value={reconciliation.rawVsDashboardGap.toString()} />
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <h2 className="mb-2 text-sm font-semibold text-amber-900">Conciliación del producto</h2>
+          <p className="text-sm text-amber-900">
+            Esta vista separa <span className="font-semibold">cargos registrados</span> de <span className="font-semibold">jugadores totalmente pagados</span>.
+            El KPI del producto cuenta cargos no anulados. El dashboard de inscripciones cuenta un jugador solo si al menos un cargo del producto quedó cubierto al 100%.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <MiniStat label="Filas de cargo pagadas al 100%" value={reconciliation.fullyPaidChargeRows.toString()} />
+            <MiniStat label="Duplicados pagados" value={reconciliation.duplicateFullyPaidChargeRows.toString()} />
+            <MiniStat label="Jugadores pagados únicos" value={reconciliation.uniqueEnrollmentsFullyPaid.toString()} />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Diferencias que explican la brecha {reconciliation.issues.length > 0 ? `(${reconciliation.issues.length})` : ""}
+          </h2>
+          {reconciliation.issues.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400">
+              No hay diferencias entre cargos registrados y jugadores pagados para este producto.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <table className="w-full text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50 dark:bg-slate-800">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Motivo</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cargo</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Asignado</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Faltante</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {reconciliation.issues.map((issue) => (
+                    <tr key={issue.chargeId} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{formatReconciliationReason(issue.reason)}</td>
+                      <td className="px-4 py-2.5">
+                        <Link href={`/enrollments/${issue.enrollmentId}/charges`} className="font-medium text-portoBlue hover:underline">
+                          {issue.playerName}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{issue.campusName}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700 dark:text-slate-300">{formatMoney(issue.amount, product.currency)}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700 dark:text-slate-300">{formatMoney(issue.allocatedAmount, product.currency)}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-rose-700">{formatMoney(issue.missingAmount, product.currency)}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-500 dark:text-slate-400">{formatDate(issue.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* ── Size × goalkeeper breakdown ── */}
         {product.hasSizes && sizeStats.length > 0 && (
           <div>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Ventas por talla</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Cargos por talla</h2>
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <table className="w-full text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50 dark:bg-slate-800">
@@ -211,7 +281,7 @@ export default async function ProductDetailPage({
           </h2>
           {recentSales.length === 0 ? (
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-8 text-center text-sm text-slate-400">
-              Sin ventas registradas para este producto.
+              Sin cargos registrados para este producto.
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
@@ -289,6 +359,15 @@ function KpiTile({ label, value, highlight }: { label: string; value: string; hi
       <p className={`mt-1 text-xl font-bold ${highlight ? "text-portoBlue" : "text-slate-800 dark:text-slate-200"}`}>
         {value}
       </p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-white/80 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{label}</p>
+      <p className="mt-1 text-lg font-bold text-amber-950">{value}</p>
     </div>
   );
 }
