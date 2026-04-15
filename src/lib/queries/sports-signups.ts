@@ -2,30 +2,26 @@ import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type EnrollmentRow = {
-  id: string;
-  player_id: string;
-  campus_id: string;
-  players: {
-    first_name: string;
-    last_name: string;
-    birth_date: string | null;
-  } | null;
-};
-
 type ChargeRow = {
   id: string;
   enrollment_id: string;
-  product_id: string | null;
   description: string | null;
   amount: number;
   status: string;
   created_at: string;
-};
-
-type ProductRow = {
-  id: string;
-  name: string;
+  products: {
+    name: string | null;
+  } | null;
+  enrollments: {
+    id: string;
+    player_id: string;
+    campus_id: string;
+    players: {
+      first_name: string;
+      last_name: string;
+      birth_date: string | null;
+    } | null;
+  } | null;
 };
 
 type AllocationRow = {
@@ -119,6 +115,58 @@ function sortPlayerRows(players: CompetitionSignupPlayerRow[]) {
   return [...players].sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
 }
 
+async function loadChargeRows(admin: ReturnType<typeof createAdminClient>, campusIds: string[]) {
+  const pageSize = 1000;
+  const rows: ChargeRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await admin
+      .from("charges")
+      .select(
+        "id, enrollment_id, description, amount, status, created_at, products(name), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date))"
+      )
+      .neq("status", "void")
+      .gt("amount", 0)
+      .in("enrollments.campus_id", campusIds)
+      .order("created_at", { ascending: true })
+      .range(from, to)
+      .returns<ChargeRow[]>();
+
+    if (error) throw error;
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  return rows;
+}
+
+async function loadAllocationTotals(admin: ReturnType<typeof createAdminClient>, chargeIds: string[]) {
+  const chunkSize = 500;
+  const allocationTotals = new Map<string, number>();
+
+  for (let index = 0; index < chargeIds.length; index += chunkSize) {
+    const chunk = chargeIds.slice(index, index + chunkSize);
+    const { data, error } = await admin
+      .from("payment_allocations")
+      .select("charge_id, amount")
+      .in("charge_id", chunk)
+      .returns<AllocationRow[]>();
+
+    if (error) throw error;
+
+    for (const allocation of data ?? []) {
+      allocationTotals.set(
+        allocation.charge_id,
+        roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
+      );
+    }
+  }
+
+  return allocationTotals;
+}
+
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
 }): Promise<CompetitionSignupDashboardData | null> {
@@ -135,14 +183,8 @@ export async function getCompetitionSignupDashboardData(filters?: {
     filters?.campusId && campusAccess.campusIds.includes(filters.campusId) ? filters.campusId : "";
   const targetCampusIds = selectedCampusId ? [selectedCampusId] : campusAccess.campusIds;
 
-  const { data: enrollments } = await admin
-    .from("enrollments")
-    .select("id, player_id, campus_id, players(first_name, last_name, birth_date)")
-    .in("campus_id", targetCampusIds)
-    .returns<EnrollmentRow[]>();
-
-  const availableEnrollments = enrollments ?? [];
-  if (availableEnrollments.length === 0) {
+  const availableCharges = await loadChargeRows(admin, targetCampusIds);
+  if (availableCharges.length === 0) {
     return {
       campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
       selectedCampusId,
@@ -155,43 +197,12 @@ export async function getCompetitionSignupDashboardData(filters?: {
     };
   }
 
-  const enrollmentIds = availableEnrollments.map((enrollment) => enrollment.id);
-  const { data: charges } = await admin
-    .from("charges")
-    .select("id, enrollment_id, product_id, description, amount, status, created_at")
-    .in("enrollment_id", enrollmentIds)
-    .neq("status", "void")
-    .returns<ChargeRow[]>();
-
-  const availableCharges = (charges ?? []).filter((charge) => charge.amount > 0);
-  const productIds = Array.from(
-    new Set(availableCharges.map((charge) => charge.product_id).filter((value): value is string => Boolean(value))),
+  const allocationTotals = await loadAllocationTotals(
+    admin,
+    availableCharges.map((charge) => charge.id),
   );
 
-  const [{ data: products }, { data: allocations }] = await Promise.all([
-    productIds.length
-      ? admin.from("products").select("id, name").in("id", productIds).returns<ProductRow[]>()
-      : Promise.resolve({ data: [] as ProductRow[] }),
-    availableCharges.length
-      ? admin
-          .from("payment_allocations")
-          .select("charge_id, amount")
-          .in("charge_id", availableCharges.map((charge) => charge.id))
-          .returns<AllocationRow[]>()
-      : Promise.resolve({ data: [] as AllocationRow[] }),
-  ]);
-
-  const productNameById = new Map((products ?? []).map((product) => [product.id, product.name]));
-  const allocationTotals = new Map<string, number>();
-  for (const allocation of allocations ?? []) {
-    allocationTotals.set(
-      allocation.charge_id,
-      roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
-    );
-  }
-
   const campusNameById = new Map(campusAccess.campuses.map((campus) => [campus.id, campus.name]));
-  const enrollmentById = new Map(availableEnrollments.map((enrollment) => [enrollment.id, enrollment]));
 
   const families = FAMILY_CONFIG.map<CompetitionSignupFamilyGroup>((family) => {
     const playerAccumulator = new Map<string, CompetitionSignupPlayerRow>();
@@ -200,13 +211,10 @@ export async function getCompetitionSignupDashboardData(filters?: {
       const totalAllocated = allocationTotals.get(charge.id) ?? 0;
       if (totalAllocated + 0.009 < charge.amount) continue;
 
-      const familyKey = getCompetitionFamily(
-        charge.product_id ? productNameById.get(charge.product_id) ?? null : null,
-        charge.description,
-      );
+      const familyKey = getCompetitionFamily(charge.products?.name ?? null, charge.description);
       if (familyKey !== family.key) continue;
 
-      const enrollment = enrollmentById.get(charge.enrollment_id);
+      const enrollment = charge.enrollments;
       if (!enrollment) continue;
 
       if (playerAccumulator.has(enrollment.id)) continue;
