@@ -21,3 +21,7 @@ docs/Reference Docs/
 
 # Supabase CLI temp files
 supabase/.temp/
+.vercel
+
+# QZ Tray private key — never commit
+qz-private.pem

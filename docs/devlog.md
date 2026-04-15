@@ -2,6 +2,18 @@
 
 ## 2026-04-15 (session 69)
 
+### Dashboard Auto-Filters + Neutral Login Landing (v1.16.13)
+
+- Removed the extra `Aplicar` / `Limpiar` step from the `Panel` campus filters.
+- `Todos`, `Linda Vista`, and `Contry` now change the dashboard immediately on click, and the month picker also updates the view directly on change.
+- Added a neutral protected landing page at `/inicio` and changed auth redirects so logged-in staff no longer land on `Panel` by default.
+- Added an operational-only route guard on:
+  - `/dashboard`
+  - `/dashboard/new-enrollments`
+- Result:
+  - sports-only users such as `director_deportivo` no longer see the financial dashboard by default
+  - if they try to open those dashboard routes directly, they are sent to `/inicio`
+
 ### Panel Campus Buttons + Contry Charge-to-Payment Guardrail (v1.16.12)
 
 - Hid the sidebar `Deportivo` section for all users while the sports workflow is being redesigned.

@@ -15,7 +15,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) redirect("/dashboard");
+    if (user) redirect("/inicio");
   } catch {
     // Supabase config error — fall through and show login
   }

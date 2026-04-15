@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { listCampuses } from "@/lib/queries/players";
 import { listDashboardNewEnrollments } from "@/lib/queries/dashboard";
 import { formatDateMonterrey, formatDateTimeMonterrey } from "@/lib/time";
@@ -20,6 +21,7 @@ export default async function DashboardNewEnrollmentsPage({
 }: {
   searchParams: SearchParams;
 }) {
+  await requireOperationalContext("/inicio");
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const requestedMonth = params.month;

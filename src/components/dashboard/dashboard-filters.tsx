@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type CampusOption = {
   id: string;
@@ -12,50 +14,60 @@ type DashboardFiltersProps = {
 };
 
 export function DashboardFilters({ campuses, selectedCampusId, selectedMonth }: DashboardFiltersProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const campusOptions = [{ id: "", name: "Todos" }, ...campuses];
 
+  function updateFilters(nextCampusId: string, nextMonth: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextCampusId) {
+      params.set("campus", nextCampusId);
+    } else {
+      params.delete("campus");
+    }
+
+    if (nextMonth) {
+      params.set("month", nextMonth);
+    } else {
+      params.delete("month");
+    }
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }
+
   return (
-    <form className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+    <div className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Campus</p>
         <div className="grid gap-2 md:grid-cols-3">
           {campusOptions.map((campus) => (
-            <label key={campus.id || "all"} className="cursor-pointer">
-              <input
-                type="radio"
-                name="campus"
-                value={campus.id}
-                defaultChecked={selectedCampusId === campus.id}
-                className="peer sr-only"
-              />
-              <span className="flex min-h-12 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 peer-checked:border-portoBlue peer-checked:bg-portoBlue peer-checked:text-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500">
+            <button
+              key={campus.id || "all"}
+              type="button"
+              onClick={() => updateFilters(campus.id, selectedMonth)}
+              className={`flex min-h-12 items-center justify-center rounded-lg border px-4 py-3 text-sm font-semibold transition-colors ${
+                selectedCampusId === campus.id
+                  ? "border-portoBlue bg-portoBlue text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500"
+              }`}
+            >
                 {campus.name}
-              </span>
-            </label>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Mes</p>
         <input
           type="month"
-          name="month"
-          defaultValue={selectedMonth}
+          value={selectedMonth}
+          onChange={(event) => updateFilters(selectedCampusId, event.target.value)}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
         />
-        <button
-          type="submit"
-          className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-        >
-          Aplicar
-        </button>
-        <Link
-          href="/dashboard"
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
-        >
-          Limpiar
-        </Link>
       </div>
-    </form>
+    </div>
   );
 }

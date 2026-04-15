@@ -5,6 +5,7 @@ import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendCard } from "@/components/dashboard/trend-card";
 import { PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 
 function buildNewEnrollmentsHref(campusId: string, month: string) {
   const params = new URLSearchParams();
@@ -27,6 +28,7 @@ type SearchParams = Promise<{
 }>;
 
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireOperationalContext("/inicio");
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const requestedMonth = params.month;
