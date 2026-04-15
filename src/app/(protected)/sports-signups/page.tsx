@@ -22,6 +22,12 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
       breadcrumbs={[{ label: "Inscripciones Torneos" }]}
     >
       <div className="space-y-4">
+        {dashboard.loadError ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+            {dashboard.loadError}
+          </div>
+        ) : null}
+
         <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_auto_auto]">
           <select
             name="campus"
