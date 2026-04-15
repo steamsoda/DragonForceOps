@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-10.
+Updated continuously. Last updated: 2026-04-15.
 
-Current preview release line: `v1.16.1`
+Current preview release line: `v1.16.13`
 
 ---
 
@@ -47,6 +47,13 @@ Notes:
 - front desk payment-control feedback has already landed:
   - `Método` selection is explicit button-based in Caja and `Regularización Contry`
   - normal live payments now route through `Caja` only
+  - `Panel` campus filters now react immediately without extra apply/clear buttons
+- auth/navigation guardrail now in place:
+  - logged-in staff land on `/inicio` instead of the financial dashboard by default
+  - sports-only users are blocked from `/dashboard` and redirected to `/inicio`
+- the `Deportivo` sidebar section is intentionally hidden for now while the sports workflow is being simplified
+  - the sports routes still exist for direct testing/admin access
+  - this is a navigation hide, not a rollback of the sports lane
 - sports operations are now the top product priority because tournament organization is becoming operationally urgent
 - sports implementation should pause for a rules-discovery pass with Julio before more structural work lands:
   - not all categorias need all equipos base

@@ -58,15 +58,6 @@ const ADMIN_SECTION: NavSection = {
   ],
 };
 
-const SPORTS_SECTION: NavSection = {
-  label: "Deportivo",
-  items: [
-    { href: "/teams", label: "Equipos Base" },
-    { href: "/director-deportivo", label: "Director Deportivo" },
-    { href: "/tournaments", label: "Copas / Torneos" },
-  ],
-};
-
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const debugContext = await getDebugViewContext();
   if (!debugContext) redirect("/login");
@@ -115,7 +106,6 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection, GESTION_SECTION] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
-    ...(hasSportsAccess ? [SPORTS_SECTION] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
@@ -398,7 +388,6 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                 <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
                 <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
                 <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
-                <Link href="/director-deportivo" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Director Deportivo</Link>
                 <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
                 <Link href="/receipts" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Recibos</Link>
                 <Link href="/admin/debug-view" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Panel debug</Link>
