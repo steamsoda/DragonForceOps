@@ -1,6 +1,8 @@
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 type ChargeRow = {
   id: string;
@@ -116,7 +118,7 @@ function sortPlayerRows(players: CompetitionSignupPlayerRow[]) {
   return [...players].sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
 }
 
-async function loadChargeRows(admin: ReturnType<typeof createAdminClient>, campusIds: string[]) {
+async function loadChargeRows(admin: SupabaseServerClient, campusIds: string[]) {
   const pageSize = 1000;
   const rows: ChargeRow[] = [];
 
@@ -143,7 +145,7 @@ async function loadChargeRows(admin: ReturnType<typeof createAdminClient>, campu
   return rows;
 }
 
-async function loadAllocationTotals(admin: ReturnType<typeof createAdminClient>, chargeIds: string[]) {
+async function loadAllocationTotals(admin: SupabaseServerClient, chargeIds: string[]) {
   const chunkSize = 500;
   const allocationTotals = new Map<string, number>();
 
@@ -179,7 +181,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) return null;
 
-  const admin = createAdminClient();
+  const admin = permissionContext.supabase;
   const selectedCampusId =
     filters?.campusId && campusAccess.campusIds.includes(filters.campusId) ? filters.campusId : "";
   const targetCampusIds = selectedCampusId ? [selectedCampusId] : campusAccess.campusIds;
