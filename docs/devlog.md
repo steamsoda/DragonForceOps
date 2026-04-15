@@ -2,6 +2,17 @@
 
 ## 2026-04-15 (session 69)
 
+### Nuke Player Name-Match Fix (v1.16.11)
+
+- Fixed the `Eliminar todo` safeguard for nuking players.
+- Root cause:
+  - the server action was comparing the typed confirmation against a hidden `expected_name` field from the page
+  - the comparison was too strict and could fail on harmless formatting differences such as whitespace or Unicode/accent normalization
+- The nuke action now:
+  - fetches the current player name directly from the server
+  - compares against that fresh value instead of trusting a hidden form field
+  - normalizes whitespace, case, and accent composition before deciding whether the name matches
+
 ### Sports Signups Responsiveness + Panel KPI Drilldown (v1.16.10)
 
 - Removed the sluggish full-page round-trip feel from `/sports-signups`.

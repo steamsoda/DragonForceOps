@@ -26,6 +26,15 @@ async function assertSuperadmin(
   return (data ?? []).some((r) => r.app_roles?.code === "superadmin");
 }
 
+function normalizeConfirmationName(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("es-MX");
+}
+
 // ── Reverse audit log entry ────────────────────────────────────────────────────
 
 export async function reverseAuditLogEntryAction(formData: FormData): Promise<void> {
@@ -94,7 +103,6 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
 export async function nukePlayerAction(formData: FormData): Promise<void> {
   const playerId    = formData.get("player_id")?.toString().trim()    ?? "";
   const confirmName = formData.get("confirm_name")?.toString().trim() ?? "";
-  const expectedName = formData.get("expected_name")?.toString().trim() ?? "";
 
   if (!playerId) redirect("/players?err=invalid");
   await assertDebugWritesAllowed(`/players/${playerId}/nuke`);
@@ -104,10 +112,6 @@ export async function nukePlayerAction(formData: FormData): Promise<void> {
   if (userError || !user) redirect(`/players/${playerId}/nuke?err=unauthenticated`);
   if (!(await assertSuperadmin(supabase, user.id))) redirect(`/players/${playerId}/nuke?err=unauthorized`);
 
-  if (!confirmName || confirmName.toLowerCase() !== expectedName.toLowerCase()) {
-    redirect(`/players/${playerId}/nuke?err=name_mismatch`);
-  }
-
   const { data: player } = await supabase
     .from("players")
     .select("id, first_name, last_name")
@@ -115,6 +119,11 @@ export async function nukePlayerAction(formData: FormData): Promise<void> {
     .maybeSingle<{ id: string; first_name: string; last_name: string }>();
 
   if (!player) redirect(`/players/${playerId}/nuke?err=player_not_found`);
+
+  const actualName = `${player.first_name} ${player.last_name}`;
+  if (!confirmName || normalizeConfirmationName(confirmName) !== normalizeConfirmationName(actualName)) {
+    redirect(`/players/${playerId}/nuke?err=name_mismatch`);
+  }
 
   // Write audit trail BEFORE deleting (so the record exists)
   await writeAuditLog(supabase, {
