@@ -2,6 +2,23 @@
 
 ## 2026-04-15 (session 69)
 
+### Panel Campus Buttons + Contry Charge-to-Payment Guardrail (v1.16.12)
+
+- Hid the sidebar `Deportivo` section for all users while the sports workflow is being redesigned.
+- Important:
+  - the sports routes still exist
+  - this is a navigation hide, not a feature deletion
+  - the roadmap keeps the sports lane visible so it does not get forgotten
+- Replaced the `Panel` campus dropdown with larger explicit campus buttons:
+  - `Todos`
+  - `Linda Vista`
+  - `Contry`
+- Tightened `Regularización Contry` so the add-charge path is less error-prone for front desk:
+  - catalog charges now use the configured product amount only
+  - the editable `Monto` field was removed from the Contry charge-creation card
+  - after creating a charge or advance tuition, the screen now opens an immediate historical-payment prompt for that exact new charge
+  - this keeps the finance model unchanged, but makes it much harder to leave a newly created Contry charge unpaid by accident
+
 ### Nuke Player Name-Match Fix (v1.16.11)
 
 - Fixed the `Eliminar todo` safeguard for nuking players.

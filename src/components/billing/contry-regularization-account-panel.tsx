@@ -88,6 +88,12 @@ function getActionErrorMessage(code: string) {
 
 type AddChargeMode = "product" | "tuition";
 
+type ImmediateChargePaymentPrompt = {
+  chargeId: string;
+  chargeDescription: string;
+  amount: string;
+};
+
 function getInitialDateTimeLocal() {
   const now = new Date();
   const year = now.getFullYear();
@@ -145,7 +151,6 @@ export function ContryRegularizationAccountPanel({
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentPaidAt, setPaymentPaidAt] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
-  const [chargeAmount, setChargeAmount] = useState("");
   const [chargeSize, setChargeSize] = useState("");
   const [goalkeeper, setGoalkeeper] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState("");
@@ -154,6 +159,10 @@ export function ContryRegularizationAccountPanel({
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [immediatePaymentPrompt, setImmediatePaymentPrompt] = useState<ImmediateChargePaymentPrompt | null>(null);
+  const [immediatePaymentMethod, setImmediatePaymentMethod] = useState("");
+  const [immediatePaymentNotes, setImmediatePaymentNotes] = useState("");
+  const [immediatePaymentPaidAt, setImmediatePaymentPaidAt] = useState("");
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -166,6 +175,10 @@ export function ContryRegularizationAccountPanel({
     setPendingMessage(null);
     setPaymentPaidAt("");
     setPaymentMethod("");
+    setImmediatePaymentPrompt(null);
+    setImmediatePaymentMethod("");
+    setImmediatePaymentNotes("");
+    setImmediatePaymentPaidAt("");
   }, [initialLedger]);
 
   useEffect(() => {
@@ -202,6 +215,25 @@ export function ContryRegularizationAccountPanel({
     setSelectedChargeIds((current) =>
       current.includes(chargeId) ? current.filter((id) => id !== chargeId) : [...current, chargeId],
     );
+  }
+
+  function openImmediatePaymentPrompt(newChargeId: string | undefined, nextLedger?: EnrollmentLedger | null) {
+    if (!newChargeId) return;
+
+    const promptCharge = nextLedger?.charges.find((charge) => charge.id === newChargeId);
+    if (!promptCharge || promptCharge.pendingAmount <= 0 || promptCharge.status === "void") {
+      setImmediatePaymentPrompt(null);
+      return;
+    }
+
+    setImmediatePaymentPrompt({
+      chargeId: promptCharge.id,
+      chargeDescription: promptCharge.description,
+      amount: promptCharge.pendingAmount.toFixed(2),
+    });
+    setImmediatePaymentMethod("");
+    setImmediatePaymentNotes("");
+    setImmediatePaymentPaidAt("");
   }
 
   async function refreshWorkspace(options?: { refreshContext?: boolean }) {
@@ -253,15 +285,53 @@ export function ContryRegularizationAccountPanel({
       setPaymentAmount(nextLedger && nextLedger.totals.balance > 0 ? nextLedger.totals.balance.toFixed(2) : "");
       setPaymentNotes("");
       setPaymentPaidAt("");
+      setImmediatePaymentPrompt(null);
+      setImmediatePaymentMethod("");
+      setImmediatePaymentNotes("");
+      setImmediatePaymentPaidAt("");
       setSuccessPaymentId(result.paymentId);
       setPendingMessage(null);
       setSuccessMessage("Pago histórico registrado correctamente para Contry.");
     });
   }
 
+  function submitImmediateChargePayment() {
+    if (!immediatePaymentPrompt) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setSuccessPaymentId(null);
+    setPendingMessage("Registrando el pago del cargo reci\u00e9n agregado...");
+
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("amount", immediatePaymentPrompt.amount);
+      formData.set("method", immediatePaymentMethod);
+      if (immediatePaymentNotes.trim()) formData.set("notes", immediatePaymentNotes.trim());
+      if (immediatePaymentPaidAt.trim()) formData.set("paidAt", immediatePaymentPaidAt.trim());
+      formData.set("targetChargeIds", immediatePaymentPrompt.chargeId);
+
+      const result = await postContryHistoricalPaymentAction(ledger.enrollment.id, contryCampusId, formData);
+      if (!result.ok) {
+        setPendingMessage(null);
+        setErrorMessage(getActionErrorMessage(result.error));
+        return;
+      }
+
+      const nextLedger = await refreshWorkspace({ refreshContext: true });
+      setSelectedChargeIds((current) => current.filter((chargeId) => chargeId !== immediatePaymentPrompt.chargeId));
+      setPaymentAmount(nextLedger && nextLedger.totals.balance > 0 ? nextLedger.totals.balance.toFixed(2) : "");
+      setImmediatePaymentPrompt(null);
+      setImmediatePaymentMethod("");
+      setImmediatePaymentNotes("");
+      setImmediatePaymentPaidAt("");
+      setSuccessPaymentId(result.paymentId);
+      setPendingMessage(null);
+      setSuccessMessage("Cargo y pago hist\u00f3rico registrados correctamente.");
+    });
+  }
+
   function selectProduct(product: CajaProduct) {
     setSelectedProduct(product);
-    setChargeAmount(product.defaultAmount != null ? product.defaultAmount.toFixed(2) : "");
     setChargeSize("");
     setGoalkeeper(false);
     setErrorMessage(null);
@@ -269,6 +339,10 @@ export function ContryRegularizationAccountPanel({
 
   function submitProductCharge() {
     if (!selectedProduct) return;
+    if (selectedProduct.defaultAmount == null) {
+      setErrorMessage("Este producto no tiene monto fijo configurado. Config\u00faralo en Productos antes de usarlo en Regularizaci\u00f3n Contry.");
+      return;
+    }
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
@@ -277,7 +351,6 @@ export function ContryRegularizationAccountPanel({
     startTransition(async () => {
       const formData = new FormData();
       formData.set("productId", selectedProduct.id);
-      if (chargeAmount) formData.set("amount", chargeAmount);
       if (chargeSize) formData.set("size", chargeSize);
       if (goalkeeper) formData.set("goalkeeper", "1");
 
@@ -288,15 +361,15 @@ export function ContryRegularizationAccountPanel({
         return;
       }
 
-      await refreshWorkspace();
+      const nextLedger = await refreshWorkspace();
       if (result.newChargeId) {
         setSelectedChargeIds((current) => Array.from(new Set([...current, result.newChargeId!])));
       }
+      openImmediatePaymentPrompt(result.newChargeId, nextLedger);
       setSelectedProduct(null);
-      setChargeAmount("");
       setChargeSize("");
       setGoalkeeper(false);
-      setSuccessMessage("Cargo agregado correctamente.");
+      setSuccessMessage("Cargo agregado correctamente. Registra el pago hist\u00f3rico enseguida para no dejarlo pendiente.");
       setPendingMessage(null);
     });
   }
@@ -316,10 +389,11 @@ export function ContryRegularizationAccountPanel({
         return;
       }
 
-      await refreshWorkspace({ refreshContext: true });
+      const nextLedger = await refreshWorkspace({ refreshContext: true });
       if (result.newChargeId) {
         setSelectedChargeIds((current) => Array.from(new Set([...current, result.newChargeId!])));
       }
+      openImmediatePaymentPrompt(result.newChargeId, nextLedger);
       setSuccessMessage("Mensualidad agregada correctamente.");
       setPendingMessage(null);
     });
@@ -616,7 +690,9 @@ export function ContryRegularizationAccountPanel({
                         >
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{product.name}</p>
                           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            {product.defaultAmount != null ? formatMoney(product.defaultAmount, ledger.enrollment.currency) : "Precio libre"}
+                            {product.defaultAmount != null
+                              ? formatMoney(product.defaultAmount, ledger.enrollment.currency)
+                              : "Monto fijo pendiente de configurar"}
                           </p>
                         </button>
                       );
@@ -629,6 +705,17 @@ export function ContryRegularizationAccountPanel({
             {selectedProduct ? (
               <div className="space-y-3 rounded-xl border border-portoBlue bg-portoBlue/5 p-4">
                 <p className="font-semibold text-slate-800 dark:text-slate-200">{selectedProduct.name}</p>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Monto fijo</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedProduct.defaultAmount != null
+                      ? formatMoney(selectedProduct.defaultAmount, ledger.enrollment.currency)
+                      : "Configura este precio en Productos para usarlo aqu\u00ed"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Regularizaci\u00f3n Contry usa el importe del cat\u00e1logo. El monto no se edita en esta pantalla.
+                  </p>
+                </div>
                 {selectedProduct.hasSizes ? (
                   <div className="space-y-3">
                     <div>
@@ -666,23 +753,10 @@ export function ContryRegularizationAccountPanel({
                   </div>
                 ) : null}
 
-                <label className="block space-y-1 text-sm">
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={chargeAmount}
-                    disabled={isPending}
-                    onChange={(event) => setChargeAmount(event.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
-                  />
-                </label>
-
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    disabled={isPending || !chargeAmount}
+                    disabled={isPending || selectedProduct.defaultAmount == null}
                     onClick={submitProductCharge}
                     className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
                   >
@@ -729,6 +803,89 @@ export function ContryRegularizationAccountPanel({
             </button>
           </div>
         )}
+
+        {immediatePaymentPrompt ? (
+          <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cobrar cargo recién agregado</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Registra el pago histórico ahora para que este cargo no se quede pendiente por error.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-emerald-200 bg-white px-3 py-3 dark:border-emerald-900 dark:bg-slate-900">
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{immediatePaymentPrompt.chargeDescription}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Monto a cubrir: {formatMoney(Number(immediatePaymentPrompt.amount), ledger.enrollment.currency)}
+              </p>
+            </div>
+
+            <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
+              <MethodToggleGroup value={immediatePaymentMethod} disabled={isPending} onChange={setImmediatePaymentMethod} />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Notas</span>
+              <input
+                type="text"
+                value={immediatePaymentNotes}
+                disabled={isPending}
+                onChange={(event) => setImmediatePaymentNotes(event.target.value)}
+                placeholder="Referencia, nota del papel, etc."
+                className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+              />
+            </label>
+
+            <div className="space-y-2">
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora real del pago</span>
+                <input
+                  type="datetime-local"
+                  required
+                  value={immediatePaymentPaidAt}
+                  disabled={isPending}
+                  onChange={(event) => setImmediatePaymentPaidAt(event.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                />
+              </label>
+              {!immediatePaymentPaidAt ? (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setImmediatePaymentPaidAt(getInitialDateTimeLocal())}
+                  className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Usar fecha y hora actual
+                </button>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={isPending || !immediatePaymentMethod || !immediatePaymentPaidAt}
+                onClick={submitImmediateChargePayment}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isPending ? "Registrando…" : "Registrar pago ahora"}
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setImmediatePaymentPrompt(null);
+                  setImmediatePaymentMethod("");
+                  setImmediatePaymentNotes("");
+                  setImmediatePaymentPaidAt("");
+                }}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Dejar pendiente
+              </button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-2">
