@@ -21,6 +21,11 @@ const GESTION_SECTION: NavSection = {
   ],
 };
 
+const COMPETITION_SECTION: NavSection = {
+  label: "Competencias",
+  items: [{ href: "/sports-signups", label: "Inscripciones Torneos" }],
+};
+
 const FRONT_DESK_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
@@ -109,6 +114,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection, GESTION_SECTION] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
     ...(hasSportsAccess ? [SPORTS_SECTION] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),

@@ -1887,6 +1887,32 @@
 
 ## 2026-04-14
 
+### Competition Signup Dashboard Emergency Patch (v1.16.3)
+- Added a temporary read-only page at `/sports-signups` for front desk and sports/admin staff to see confirmed competition signups at a glance.
+- The page groups active competition records into exactly 3 temporary families in app code:
+  - `Superliga Regia`
+  - `Rosa Power Cup`
+  - `CECAFF`
+- Counts are based only on `tournament_player_entries.entry_status = 'confirmed'`.
+- The dashboard stays intentionally non-financial:
+  - no amounts
+  - no receipts
+  - no folios
+  - no payment methods
+- Drilldown is:
+  - competition family
+  - campus
+  - birth year/category
+  - player list
+- Player rows show only operational fields:
+  - player name
+  - base team if available
+  - linked tournament names when the same family has more than one active tournament row
+- This was implemented as a lightweight visualizer only:
+  - no schema change
+  - no change to signup sync
+  - no change to deeper sports/team-building flows
+
 ### Director Deportivo v4: Simplified Sports Ops Redesign (v1.16.2)
 - Kept the sports DB foundation from the earlier work:
   - one `teams` model only
