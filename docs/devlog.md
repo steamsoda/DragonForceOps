@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-16 (session 76)
+
+### Superadmin-Only Perf Debug Gate + Future Perf Monitor Note (v1.16.22)
+
+- Restricted the temporary `perf=1` diagnostics path for `Inscripciones Torneos` to `superadmin` only.
+- The query instrumentation was already server-side; this pass now also gates the UI path so non-superadmin users do not carry the perf flag through the category-card links or see the timing panel by accident.
+- Logged a future follow-up to build a broader app-level performance monitor/debug surface instead of leaving route-by-route diagnostics as the long-term approach.
+
 ## 2026-04-16 (session 75)
 
 ### Inscripciones Torneos Detail Perf Debug Mode (v1.16.21)

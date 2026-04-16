@@ -9,13 +9,19 @@ type Props = {
   dashboard: CompetitionSignupDashboardData;
   initialCompetitionId: string;
   canExportCsv: boolean;
+  canUsePerfDebug: boolean;
 };
 
-export function SportsSignupsBoard({ dashboard, initialCompetitionId, canExportCsv }: Props) {
+export function SportsSignupsBoard({
+  dashboard,
+  initialCompetitionId,
+  canExportCsv,
+  canUsePerfDebug,
+}: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
   const searchParams = useSearchParams();
-  const perfEnabled = searchParams.get("perf") === "1";
+  const perfEnabled = canUsePerfDebug && searchParams.get("perf") === "1";
 
   const selectedBoard = useMemo(
     () =>

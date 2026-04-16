@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getCompetitionSignupCategoryDetailData } from "@/lib/queries/sports-signups";
 
 type SearchParams = Promise<{
@@ -16,14 +17,15 @@ export default async function SportsSignupsDetailPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
+  const permissionContext = await getPermissionContext();
   const detail = await getCompetitionSignupCategoryDetailData({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",
     birthYear: params.birthYear ?? "",
-    perf: params.perf === "1",
+    perf: permissionContext?.isSuperAdmin === true && params.perf === "1",
   });
 
-  if (!detail) redirect("/unauthorized");
+  if (!detail || !permissionContext) redirect("/unauthorized");
 
   return (
     <PageShell
