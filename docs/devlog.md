@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-04-16 (session 72)
+
+### Inscripciones Torneos Product-Driven Selector + Nivel Drilldown (v1.16.18)
+
+- Reworked `Inscripciones Torneos` so the top `Competencias` selector is no longer tied only to the older hardcoded three-family board.
+- The board now reads competition entries from the actual competition-product layer first:
+  - active/inactive competition products of type `tournament` / `cup` / `league` now appear as their own selector cards
+  - paid counts are grouped by the specific product instead of only the older family buckets
+  - a small legacy CECAFF fallback remains so older non-product charge cases do not disappear during the transition
+- Added a category drilldown flow from the main board:
+  - clicking a category card now opens a dedicated detail page
+  - the detail page groups the paid players by resolved `Nivel`
+  - `Nivel` follows the existing app rule: primary team level first, then player-level fallback
+- Updated the tournament-signups CSV export to match the new product-driven flow:
+  - export now follows the currently selected competition + campus
+  - columns now focus on operational reconciliation:
+    - `Jugador`
+    - `Ano nacimiento`
+    - `Campus`
+    - `Nivel`
+    - `Equipo base`
+  - export remains `superadmin`-only
+
 ## 2026-04-16 (session 71)
 
 ### Inscripciones Torneos Width Pass + CSV Access Tightening (v1.16.17)

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { getCompetitionSignupExportData } from "@/lib/queries/sports-signups";
+import {
+  getCompetitionSignupExportData,
+  type CompetitionSignupExportRow,
+} from "@/lib/queries/sports-signups";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -12,14 +15,23 @@ function escapeCsv(value: string) {
   return value;
 }
 
-function toCsv(rows: Awaited<ReturnType<typeof getCompetitionSignupExportData>>) {
+function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function toCsv(rows: CompetitionSignupExportRow[]) {
   const headers = [
     "Jugador",
     "Ano nacimiento",
     "Campus",
-    "SLR",
-    "RPC",
-    "CECAFF",
+    "Nivel",
+    "Equipo base",
   ];
 
   const lines = [headers.join(",")];
@@ -29,9 +41,8 @@ function toCsv(rows: Awaited<ReturnType<typeof getCompetitionSignupExportData>>)
         escapeCsv(row.playerName),
         row.birthYear?.toString() ?? "",
         escapeCsv(row.campusName),
-        escapeCsv(row.superligaRegia),
-        escapeCsv(row.rosaPowerCup),
-        escapeCsv(row.cecaff),
+        escapeCsv(row.level),
+        escapeCsv(row.teamName),
       ].join(","),
     );
   }
@@ -66,14 +77,18 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const campusId = searchParams.get("campus")?.trim() ?? "";
-  const rows = await getCompetitionSignupExportData({ campusId });
-  if (rows === null) {
+  const competitionId = searchParams.get("competition")?.trim() ?? "";
+  if (!campusId || !competitionId) {
+    return NextResponse.json({ message: "Faltan filtros requeridos." }, { status: 400 });
+  }
+
+  const exportData = await getCompetitionSignupExportData({ campusId, competitionId });
+  if (!exportData) {
     return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }
 
-  const csv = toCsv(rows);
-  const suffix = campusId ? `-${campusId}` : "-todos";
-  const filename = `inscripciones-torneos${suffix}-${formatDateForFilename(new Date())}.csv`;
+  const csv = toCsv(exportData.rows);
+  const filename = `inscripciones-${slugify(exportData.competitionLabel)}-${slugify(exportData.campusName)}-${formatDateForFilename(new Date())}.csv`;
 
   return new NextResponse(csv, {
     status: 200,

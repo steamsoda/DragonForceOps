@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.17`
+Current preview release line: `v1.16.18`
 
 ---
 
@@ -77,6 +77,7 @@ Notes:
   - player-based tournament-signups CSV export is now live from `Inscripciones Torneos` for quick Excel reconciliation against external tracking sheets
   - `Inscripciones Torneos` desktop layout is now widened so the board uses more of the available window instead of leaving a large empty right-side gutter
   - tournament-signups CSV export is intentionally restricted to `superadmin` only
+  - `Inscripciones Torneos` now supports category-card drilldown into a separate `Nivel`-grouped view, and the top competition selector is shifting toward actual competition products instead of only the original three hardcoded family buckets
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
 - Release policy:

@@ -3,13 +3,12 @@ import { SportsSignupsBoard } from "@/components/sports/sports-signups-board";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import {
-  type FamilyKey,
   getCompetitionSignupDashboardData,
 } from "@/lib/queries/sports-signups";
 
 type SearchParams = Promise<{
   campus?: string;
-  family?: string;
+  competition?: string;
 }>;
 
 export default async function SportsSignupsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -17,13 +16,14 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   const permissionContext = await getPermissionContext();
   const dashboard = await getCompetitionSignupDashboardData({
     campusId: params.campus ?? "",
+    competitionId: params.competition ?? "",
   });
 
   if (!dashboard || !permissionContext) redirect("/unauthorized");
 
-  const initialFamilyKey = dashboard.campusBoards[0]?.families.some((family) => family.key === params.family)
-    ? (params.family as FamilyKey)
-    : (dashboard.campusBoards[0]?.families[0]?.key ?? "superliga_regia");
+  const initialCompetitionId = dashboard.competitionOptions.some((option) => option.id === params.competition)
+    ? (params.competition as string)
+    : (dashboard.competitionOptions[0]?.id ?? "");
 
   return (
     <PageShell
@@ -34,7 +34,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
     >
       <SportsSignupsBoard
         dashboard={dashboard}
-        initialFamilyKey={initialFamilyKey}
+        initialCompetitionId={initialCompetitionId}
         canExportCsv={permissionContext.isSuperAdmin}
       />
     </PageShell>
