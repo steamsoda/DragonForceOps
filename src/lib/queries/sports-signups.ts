@@ -118,6 +118,15 @@ export type CompetitionSignupDashboardData = {
   loadError: string | null;
 };
 
+export type CompetitionSignupExportRow = {
+  playerName: string;
+  birthYear: number | null;
+  campusName: string;
+  superligaRegia: string;
+  rosaPowerCup: string;
+  cecaff: string;
+};
+
 function normalizeText(value: string | null | undefined) {
   return (value ?? "")
     .normalize("NFD")
@@ -348,6 +357,32 @@ function buildCampusBoard(
   };
 }
 
+function getFamilyStatus(
+  charges: ChargeRow[],
+  allocationTotals: Map<string, number>,
+  familyKey: FamilyKey,
+) {
+  let fullyPaidCount = 0;
+  let pendingCount = 0;
+
+  for (const charge of charges) {
+    const detectedFamily = getCompetitionFamily(charge.products?.name ?? null, charge.description);
+    if (detectedFamily !== familyKey) continue;
+
+    const totalAllocated = allocationTotals.get(charge.id) ?? 0;
+    if (totalAllocated + 0.009 >= charge.amount) {
+      fullyPaidCount += 1;
+    } else {
+      pendingCount += 1;
+    }
+  }
+
+  if (fullyPaidCount > 1) return "Duplicado";
+  if (fullyPaidCount === 1) return "Pagado";
+  if (pendingCount > 0) return "Pendiente";
+  return "";
+}
+
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
 }): Promise<CompetitionSignupDashboardData | null> {
@@ -426,5 +461,72 @@ export async function getCompetitionSignupDashboardData(filters?: {
       ...emptyDashboard,
       loadError: "No se pudieron cargar las inscripciones de torneos.",
     };
+  }
+}
+
+export async function getCompetitionSignupExportData(filters?: {
+  campusId?: string | null;
+}): Promise<CompetitionSignupExportRow[] | null> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
+    return null;
+  }
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campuses.length === 0) return null;
+
+  const allowedCampusIds =
+    filters?.campusId && campusAccess.campusIds.includes(filters.campusId)
+      ? [filters.campusId]
+      : campusAccess.campusIds;
+
+  try {
+    const admin = permissionContext.supabase;
+    const [availableCharges, activeEnrollments] = await Promise.all([
+      loadChargeRows(admin, allowedCampusIds),
+      loadActiveEnrollments(admin, allowedCampusIds),
+    ]);
+    const allocationTotals = await loadAllocationTotals(
+      admin,
+      availableCharges.map((charge) => charge.id),
+    );
+
+    const chargesByEnrollment = new Map<string, ChargeRow[]>();
+    for (const charge of availableCharges) {
+      const current = chargesByEnrollment.get(charge.enrollment_id) ?? [];
+      current.push(charge);
+      chargesByEnrollment.set(charge.enrollment_id, current);
+    }
+
+    return [...activeEnrollments]
+      .map((enrollment) => {
+        const playerName = enrollment.players
+          ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
+          : "Jugador";
+        const birthYear = getBirthYear(enrollment.players?.birth_date);
+        const campusName =
+          campusAccess.campuses.find((campus) => campus.id === enrollment.campus_id)?.name ?? "Campus";
+        const enrollmentCharges = chargesByEnrollment.get(enrollment.id) ?? [];
+
+        return {
+          playerName,
+          birthYear,
+          campusName,
+          superligaRegia: getFamilyStatus(enrollmentCharges, allocationTotals, "superliga_regia"),
+          rosaPowerCup: getFamilyStatus(enrollmentCharges, allocationTotals, "rosa_power_cup"),
+          cecaff: getFamilyStatus(enrollmentCharges, allocationTotals, "cecaff"),
+        };
+      })
+      .sort((a, b) => {
+        const campusCompare = a.campusName.localeCompare(b.campusName, "es-MX");
+        if (campusCompare !== 0) return campusCompare;
+        const yearA = a.birthYear ?? 0;
+        const yearB = b.birthYear ?? 0;
+        if (yearA !== yearB) return yearB - yearA;
+        return a.playerName.localeCompare(b.playerName, "es-MX");
+      });
+  } catch (error) {
+    console.error("sports-signups export query failed", error);
+    return [];
   }
 }
