@@ -73,6 +73,10 @@ type LegacyBucketConfig = {
   tokens: string[];
 };
 
+type ParsedCompetitionBucket =
+  | { type: "product"; productId: string }
+  | { type: "legacy"; legacyKey: string };
+
 const LEGACY_BUCKETS: readonly LegacyBucketConfig[] = [
   {
     key: "cecaff",
@@ -206,6 +210,24 @@ function detectLegacyBucket(productName: string | null, chargeDescription: strin
   return LEGACY_BUCKETS.find((bucket) => bucket.tokens.some((token) => haystack.includes(token))) ?? null;
 }
 
+function getLegacyBucketByKey(key: string) {
+  return LEGACY_BUCKETS.find((bucket) => bucket.key === key) ?? null;
+}
+
+function parseCompetitionBucketId(competitionId: string): ParsedCompetitionBucket | null {
+  if (competitionId.startsWith("product:")) {
+    const productId = competitionId.slice("product:".length).trim();
+    return productId ? { type: "product", productId } : null;
+  }
+
+  if (competitionId.startsWith("legacy:")) {
+    const legacyKey = competitionId.slice("legacy:".length).trim();
+    return legacyKey ? { type: "legacy", legacyKey } : null;
+  }
+
+  return null;
+}
+
 function getCompetitionBucketId(
   charge: Pick<ChargeRow, "product_id" | "products" | "description">,
   productBucketIds: Set<string>,
@@ -299,6 +321,42 @@ async function loadChargeRows(admin: SupabaseServerClient, campusIds: string[]) 
   return rows;
 }
 
+async function loadChargeRowsForCampus(
+  admin: SupabaseServerClient,
+  campusId: string,
+  filter?: ParsedCompetitionBucket | null,
+) {
+  const pageSize = 1000;
+  const rows: ChargeRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    let query = admin
+      .from("charges")
+      .select(
+        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+      )
+      .neq("status", "void")
+      .gt("amount", 0)
+      .eq("enrollments.campus_id", campusId)
+      .order("created_at", { ascending: true })
+      .range(from, to);
+
+    if (filter?.type === "product") {
+      query = query.eq("product_id", filter.productId);
+    }
+
+    const { data, error } = await query.returns<ChargeRow[]>();
+    if (error) throw error;
+
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  return rows;
+}
+
 async function loadActiveEnrollments(admin: SupabaseServerClient, campusIds: string[]) {
   const pageSize = 1000;
   const rows: ActiveEnrollmentRow[] = [];
@@ -310,6 +368,30 @@ async function loadActiveEnrollments(admin: SupabaseServerClient, campusIds: str
       .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender, level)")
       .eq("status", "active")
       .in("campus_id", campusIds)
+      .order("start_date", { ascending: false })
+      .range(from, to)
+      .returns<ActiveEnrollmentRow[]>();
+
+    if (error) throw error;
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  return rows;
+}
+
+async function loadActiveEnrollmentsForCampus(admin: SupabaseServerClient, campusId: string) {
+  const pageSize = 1000;
+  const rows: ActiveEnrollmentRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await admin
+      .from("enrollments")
+      .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender, level)")
+      .eq("status", "active")
+      .eq("campus_id", campusId)
       .order("start_date", { ascending: false })
       .range(from, to)
       .returns<ActiveEnrollmentRow[]>();
@@ -569,6 +651,77 @@ async function getCompetitionSignupBaseData() {
   };
 }
 
+async function loadCompetitionProductById(admin: SupabaseServerClient, productId: string) {
+  const { data, error } = await admin
+    .from("products")
+    .select("id, name, charge_types(code)")
+    .eq("id", productId)
+    .maybeSingle<CompetitionProductRow | null>();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getCompetitionSignupDetailBaseData(filters: {
+  campusId?: string | null;
+  competitionId?: string | null;
+}) {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
+    return null;
+  }
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess || campusAccess.campuses.length === 0) return null;
+
+  const campusId =
+    filters.campusId && campusAccess.campusIds.includes(filters.campusId)
+      ? filters.campusId
+      : null;
+  if (!campusId) return null;
+
+  const parsedBucket = parseCompetitionBucketId((filters.competitionId ?? "").trim());
+  if (!parsedBucket) return null;
+
+  const admin = permissionContext.supabase;
+  let competitionLabel = "Competencia";
+  const productBucketIds = new Set<string>();
+
+  if (parsedBucket.type === "product") {
+    const product = await loadCompetitionProductById(admin, parsedBucket.productId);
+    if (!product || !isCompetitionProduct(product)) return null;
+    competitionLabel = product.name;
+    productBucketIds.add(product.id);
+  } else {
+    const legacyBucket = getLegacyBucketByKey(parsedBucket.legacyKey);
+    if (!legacyBucket) return null;
+    competitionLabel = legacyBucket.label;
+  }
+
+  const [charges, activeEnrollments] = await Promise.all([
+    loadChargeRowsForCampus(admin, campusId, parsedBucket),
+    loadActiveEnrollmentsForCampus(admin, campusId),
+  ]);
+
+  const allocationTotals = await loadAllocationTotals(
+    admin,
+    charges.map((charge) => charge.id),
+  );
+
+  return {
+    admin,
+    campusAccess,
+    campusId,
+    competitionId: (filters.competitionId ?? "").trim(),
+    competitionLabel,
+    parsedBucket,
+    charges,
+    activeEnrollments,
+    allocationTotals,
+    productBucketIds,
+  };
+}
+
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
@@ -652,26 +805,23 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   competitionId?: string | null;
   birthYear?: string | null;
 }): Promise<CompetitionSignupCategoryDetailData | null> {
-  const baseData = await getCompetitionSignupBaseData();
+  const baseData = await getCompetitionSignupDetailBaseData({
+    campusId: filters.campusId,
+    competitionId: filters.competitionId,
+  });
   if (!baseData) return null;
 
   const {
     admin,
     campusAccess,
+    campusId,
+    competitionId,
+    competitionLabel,
     charges,
+    activeEnrollments,
     allocationTotals,
-    competitionOptions,
     productBucketIds,
   } = baseData;
-
-  const campusId =
-    filters.campusId && campusAccess.campusIds.includes(filters.campusId)
-      ? filters.campusId
-      : null;
-  if (!campusId) return null;
-
-  const competitionId = resolveSelectedCompetitionId(filters.competitionId, competitionOptions);
-  if (!competitionId) return null;
 
   const birthYearValue = (filters.birthYear ?? "").trim();
   const birthYear =
@@ -700,7 +850,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     return rowBirthYear === birthYear;
   });
 
-  const categoryActiveEnrollments = baseData.activeEnrollments.filter((enrollment) => {
+  const categoryActiveEnrollments = activeEnrollments.filter((enrollment) => {
     if (enrollment.campus_id !== campusId) return false;
     return getBirthYear(enrollment.players?.birth_date) === birthYear;
   });
@@ -776,9 +926,6 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
 
     unpaidLevelMap.set(level, group);
   }
-
-  const competitionLabel =
-    competitionOptions.find((option) => option.id === competitionId)?.label ?? "Competencia";
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
 
@@ -810,99 +957,20 @@ export async function getCompetitionSignupExportData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
 }): Promise<CompetitionSignupExportData | null> {
-  const detailData = await getCompetitionSignupCategoryDetailData({
+  const baseData = await getCompetitionSignupDetailBaseData({
     campusId: filters?.campusId,
     competitionId: filters?.competitionId,
-    birthYear: "sin_categoria",
   });
-
-  if (!detailData) {
-    const baseData = await getCompetitionSignupBaseData();
-    if (!baseData) return null;
-
-    const campusId =
-      filters?.campusId && baseData.campusAccess.campusIds.includes(filters.campusId)
-        ? filters.campusId
-        : null;
-    const competitionId = resolveSelectedCompetitionId(filters?.competitionId, baseData.competitionOptions);
-    if (!campusId || !competitionId) return null;
-
-    const campusName =
-      baseData.campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
-    const competitionLabel =
-      baseData.competitionOptions.find((option) => option.id === competitionId)?.label ?? "Competencia";
-
-    const matchingCharges = baseData.charges.filter((charge) => {
-      if (charge.enrollments?.campus_id !== campusId) return false;
-      if ((baseData.allocationTotals.get(charge.id) ?? 0) + 0.009 < charge.amount) return false;
-      return getCompetitionBucketId(charge, baseData.productBucketIds) === competitionId;
-    });
-
-    const confirmedChargeByEnrollment = new Map<string, ChargeRow>();
-    for (const charge of matchingCharges) {
-      if (!confirmedChargeByEnrollment.has(charge.enrollment_id)) {
-        confirmedChargeByEnrollment.set(charge.enrollment_id, charge);
-      }
-    }
-
-    const enrollmentIds = [...confirmedChargeByEnrollment.keys()];
-    const teamByEnrollment = await loadPrimaryTeamAssignments(baseData.admin, enrollmentIds);
-
-    const rows = [...confirmedChargeByEnrollment.values()]
-      .map((charge) => {
-        const enrollment = charge.enrollments;
-        const team = enrollment ? (teamByEnrollment.get(enrollment.id) ?? null) : null;
-        const playerName = enrollment?.players
-          ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
-          : "Jugador";
-
-        return {
-          playerName,
-          birthYear: getBirthYear(enrollment?.players?.birth_date),
-          campusName,
-          level: normalizeLevel(team?.level ?? enrollment?.players?.level),
-          teamName: team?.name?.trim() || "-",
-        };
-      })
-      .sort((a, b) => {
-        const yearA = a.birthYear ?? 0;
-        const yearB = b.birthYear ?? 0;
-        if (yearA !== yearB) return yearB - yearA;
-        const levelDiff = compareLevels(a.level, b.level);
-        if (levelDiff !== 0) return levelDiff;
-        return a.playerName.localeCompare(b.playerName, "es-MX");
-      });
-
-    return {
-      competitionId,
-      competitionLabel,
-      campusId,
-      campusName,
-      rows,
-    };
-  }
-
-  const baseData = await getCompetitionSignupBaseData();
   if (!baseData) return null;
 
-  const campusId =
-    filters?.campusId && baseData.campusAccess.campusIds.includes(filters.campusId)
-      ? filters.campusId
-      : null;
-  if (!campusId) return null;
-
-  const competitionId = resolveSelectedCompetitionId(filters?.competitionId, baseData.competitionOptions);
-  if (!competitionId) return null;
-
+  const { admin, campusAccess, campusId, competitionId, competitionLabel, charges, allocationTotals, productBucketIds } = baseData;
   const campusName =
-    baseData.campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
-  const competitionLabel =
-    baseData.competitionOptions.find((option) => option.id === competitionId)?.label ?? "Competencia";
+    campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
 
-  const matchingCharges = baseData.charges.filter((charge) => {
+  const matchingCharges = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
-    if ((baseData.allocationTotals.get(charge.id) ?? 0) + 0.009 < charge.amount) return false;
-    return getCompetitionBucketId(charge, baseData.productBucketIds) === competitionId;
+    if ((allocationTotals.get(charge.id) ?? 0) + 0.009 < charge.amount) return false;
+    return getCompetitionBucketId(charge, productBucketIds) === competitionId;
   });
 
   const confirmedChargeByEnrollment = new Map<string, ChargeRow>();
@@ -913,7 +981,7 @@ export async function getCompetitionSignupExportData(filters?: {
   }
 
   const enrollmentIds = [...confirmedChargeByEnrollment.keys()];
-  const teamByEnrollment = await loadPrimaryTeamAssignments(baseData.admin, enrollmentIds);
+  const teamByEnrollment = await loadPrimaryTeamAssignments(admin, enrollmentIds);
 
   const rows = [...confirmedChargeByEnrollment.values()]
     .map((charge) => {
