@@ -18,6 +18,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   const dashboard = await getCompetitionSignupDashboardData({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",
+    perf: permissionContext?.isSuperAdmin === true && params.perf === "1",
   });
 
   if (!dashboard || !permissionContext) redirect("/unauthorized");

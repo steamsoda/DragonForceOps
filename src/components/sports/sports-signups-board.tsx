@@ -47,6 +47,30 @@ export function SportsSignupsBoard({
         </div>
       ) : null}
 
+      {perfEnabled && dashboard.perf ? (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 dark:border-amber-700 dark:bg-amber-950/30">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">Debug perf activo</p>
+            <p className="text-sm text-amber-900 dark:text-amber-200">
+              Tiempo total servidor: {dashboard.perf.totalMs} ms
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {dashboard.perf.steps.map((step) => (
+              <div
+                key={step.label}
+                className="rounded-xl border border-amber-300 bg-white px-3 py-2 dark:border-amber-700 dark:bg-slate-950/60"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  {step.label}
+                </p>
+                <p className="text-xl font-semibold text-slate-950 dark:text-slate-50">{step.durationMs} ms</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
