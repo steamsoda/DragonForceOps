@@ -9,6 +9,7 @@ import {
 type SearchParams = Promise<{
   campus?: string;
   competition?: string;
+  perf?: string;
 }>;
 
 export default async function SportsSignupsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -36,6 +37,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
         dashboard={dashboard}
         initialCompetitionId={initialCompetitionId}
         canExportCsv={permissionContext.isSuperAdmin}
+        canUsePerfDebug={permissionContext.isSuperAdmin && params.perf === "1"}
       />
     </PageShell>
   );
