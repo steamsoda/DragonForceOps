@@ -1,17 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { CompetitionSignupDashboardData, FamilyKey } from "@/lib/queries/sports-signups";
+import type { CompetitionSignupDashboardData } from "@/lib/queries/sports-signups";
 
 type Props = {
   dashboard: CompetitionSignupDashboardData;
-  initialFamilyKey: FamilyKey;
+  initialCompetitionId: string;
   canExportCsv: boolean;
 };
 
-export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }: Props) {
+export function SportsSignupsBoard({ dashboard, initialCompetitionId, canExportCsv }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
-  const [selectedFamilyKey, setSelectedFamilyKey] = useState<FamilyKey>(initialFamilyKey);
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
 
   const selectedBoard = useMemo(
     () =>
@@ -21,12 +22,12 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
     [dashboard.campusBoards, selectedCampusId],
   );
 
-  const selectedFamily = useMemo(
+  const selectedCompetition = useMemo(
     () =>
-      selectedBoard?.families.find((family) => family.key === selectedFamilyKey) ??
-      selectedBoard?.families[0] ??
+      selectedBoard?.competitions.find((competition) => competition.id === selectedCompetitionId) ??
+      selectedBoard?.competitions[0] ??
       null,
-    [selectedBoard, selectedFamilyKey],
+    [selectedBoard, selectedCompetitionId],
   );
 
   return (
@@ -42,16 +43,16 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
             Campus
           </p>
-          {canExportCsv ? (
+          {canExportCsv && selectedCompetition ? (
             <a
-              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}`}
+              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Exportar CSV
             </a>
           ) : null}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:max-w-4xl">
+        <div className="grid gap-3 sm:grid-cols-2">
           {dashboard.campuses.map((campus) => {
             const isSelected = campus.id === selectedCampusId;
             return (
@@ -77,14 +78,14 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
           Competencias
         </p>
-        <div className="grid gap-3 md:grid-cols-3">
-          {(selectedBoard?.families ?? []).map((family) => {
-            const isSelected = family.key === selectedFamily?.key;
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {(selectedBoard?.competitions ?? []).map((competition) => {
+            const isSelected = competition.id === selectedCompetition?.id;
             return (
               <button
-                key={family.key}
+                key={competition.id}
                 type="button"
-                onClick={() => setSelectedFamilyKey(family.key)}
+                onClick={() => setSelectedCompetitionId(competition.id)}
                 className={[
                   "rounded-xl border p-4 text-left transition",
                   isSelected
@@ -92,15 +93,15 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
                     : "border-slate-200 bg-slate-100 text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
                 ].join(" ")}
               >
-                <p className="text-sm font-semibold uppercase tracking-wide">{family.label}</p>
-                <p className="mt-3 text-4xl font-bold">{family.totalConfirmed.toLocaleString("es-MX")}</p>
+                <p className="text-sm font-semibold uppercase tracking-wide">{competition.label}</p>
+                <p className="mt-3 text-4xl font-bold">{competition.totalConfirmed.toLocaleString("es-MX")}</p>
                 <p
                   className={[
                     "mt-1 text-xs",
                     isSelected ? "text-white/80" : "text-slate-500 dark:text-slate-400",
                   ].join(" ")}
                 >
-                  Jugadores con producto totalmente pagado
+                  Jugadores con inscripcion pagada
                 </p>
               </button>
             );
@@ -108,74 +109,73 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
         </div>
       </section>
 
-      {selectedBoard && selectedFamily ? (
+      {selectedBoard && selectedCompetition ? (
         <section className="rounded-2xl border border-slate-200 bg-slate-100 p-5 dark:border-slate-700 dark:bg-slate-900/60">
           <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                 {selectedBoard.campusName}
               </p>
-              <h2 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{selectedFamily.label}</h2>
+              <h2 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{selectedCompetition.label}</h2>
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-300">
               <span className="font-semibold text-slate-950 dark:text-slate-100">
-                {selectedFamily.totalConfirmed.toLocaleString("es-MX")}
+                {selectedCompetition.totalConfirmed.toLocaleString("es-MX")}
               </span>{" "}
               pagados confirmados
-              {selectedFamily.totalEligible > 0 ? (
-                <>
-                  {" · "}
-                  <span className="font-semibold text-slate-950 dark:text-slate-100">
-                    {selectedFamily.totalEligible.toLocaleString("es-MX")}
-                  </span>{" "}
-                  elegibles
-                </>
-              ) : null}
             </div>
           </div>
 
-          {selectedFamily.categories.length === 0 ? (
+          {selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
-              No hay categorías activas o jugadores pagados para esta competencia en el campus seleccionado.
+              No hay categorias activas o jugadores pagados para esta competencia en el campus seleccionado.
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              {selectedFamily.categories.map((category) => (
-                <article
-                  key={`${selectedFamily.key}-${category.key}`}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950/70"
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+              {selectedCompetition.categories.map((category) => (
+                <Link
+                  key={`${selectedCompetition.id}-${category.key}`}
+                  href={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}`}
+                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-portoBlue hover:shadow-md dark:border-slate-700 dark:bg-slate-950/70"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{category.label}</h3>
                       <p className="mt-1 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Pagados / elegibles
+                        Pagados / activos cat.
                       </p>
                     </div>
                     <p className="text-2xl font-semibold text-slate-950 dark:text-slate-50">
-                      {category.confirmedCount}/{category.eligibleCount}
+                      {category.confirmedCount}/{category.activeCount}
                     </p>
                   </div>
 
                   <div className="mt-4 min-h-56 space-y-1 text-sm text-slate-700 dark:text-slate-200">
                     {category.players.length > 0 ? (
-                      category.players.map((player) => (
-                        <p key={player.enrollmentId} className="leading-5">
-                          {player.playerName}
-                        </p>
-                      ))
+                      <>
+                        {category.players.slice(0, 12).map((player) => (
+                          <p key={player.enrollmentId} className="leading-5">
+                            {player.playerName}
+                          </p>
+                        ))}
+                        {category.players.length > 12 ? (
+                          <p className="pt-1 text-xs font-medium uppercase tracking-wide text-portoBlue">
+                            Ver por nivel
+                          </p>
+                        ) : null}
+                      </>
                     ) : (
                       <p className="text-sm italic text-slate-400 dark:text-slate-500">Sin jugadores pagados.</p>
                     )}
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
         </section>
       ) : (
         <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          No hay familias de competencia disponibles.
+          No hay competencias disponibles.
         </div>
       )}
 

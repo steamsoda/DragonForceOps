@@ -1,5 +1,60 @@
 # Devlog
 
+## 2026-04-16 (session 73)
+
+### Inscripciones Torneos Detail View: Unpaid Players by Nivel (v1.16.19)
+
+- Extended the category detail page in `Inscripciones Torneos` so it now shows both:
+  - paid players
+  - not-paid players
+- The unpaid list is built from the same category/campus active roster minus the confirmed paid competition entries, so staff can compare both sides directly in one screen.
+- Both sections are grouped by resolved `Nivel` using the same app rule:
+  - primary team level first
+  - player-level fallback second
+- The detail page now shows a quick summary count for:
+  - paid confirmed players
+  - not-paid players
+
+## 2026-04-16 (session 72)
+
+### Inscripciones Torneos Product-Driven Selector + Nivel Drilldown (v1.16.18)
+
+- Reworked `Inscripciones Torneos` so the top `Competencias` selector is no longer tied only to the older hardcoded three-family board.
+- The board now reads competition entries from the actual competition-product layer first:
+  - active/inactive competition products of type `tournament` / `cup` / `league` now appear as their own selector cards
+  - paid counts are grouped by the specific product instead of only the older family buckets
+  - a small legacy CECAFF fallback remains so older non-product charge cases do not disappear during the transition
+- Added a category drilldown flow from the main board:
+  - clicking a category card now opens a dedicated detail page
+  - the detail page groups the paid players by resolved `Nivel`
+  - `Nivel` follows the existing app rule: primary team level first, then player-level fallback
+- Updated the tournament-signups CSV export to match the new product-driven flow:
+  - export now follows the currently selected competition + campus
+  - columns now focus on operational reconciliation:
+    - `Jugador`
+    - `Ano nacimiento`
+    - `Campus`
+    - `Nivel`
+    - `Equipo base`
+  - export remains `superadmin`-only
+
+## 2026-04-16 (session 71)
+
+### Inscripciones Torneos Width Pass + CSV Access Tightening (v1.16.17)
+
+- Pushed the `Inscripciones Torneos` board to use more of the available desktop width instead of sitting inside an unnecessarily narrow content column.
+- Applied the width change only to this page:
+  - enabled the wider `PageShell` mode on `/sports-signups`
+  - removed the extra max-width cap from the campus selector row
+  - expanded the category-card grid so large screens can show more cards per row
+- Tightened the CSV export to `superadmin` only:
+  - the `Exportar CSV` button is now hidden for other roles
+  - the export route also enforces the same permission server-side instead of relying on the button hide alone
+- Operational release-note:
+  - moving forward, any repo-tracked implementation change should go straight to `preview`
+  - docs-only passes may stay as reference-only updates until the next implementation push if needed
+  - `docs/devlog.md` and `docs/roadmap-post-alpha.md` should be updated on every implementation pass
+
 ## 2026-04-16 (session 70)
 
 ### Tournament Signups CSV Export (v1.16.15)
