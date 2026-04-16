@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { PageShell } from "@/components/ui/page-shell";
 import { SportsSignupsBoard } from "@/components/sports/sports-signups-board";
+import { PageShell } from "@/components/ui/page-shell";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import {
   type FamilyKey,
   getCompetitionSignupDashboardData,
@@ -13,11 +14,12 @@ type SearchParams = Promise<{
 
 export default async function SportsSignupsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const permissionContext = await getPermissionContext();
   const dashboard = await getCompetitionSignupDashboardData({
     campusId: params.campus ?? "",
   });
 
-  if (!dashboard) redirect("/unauthorized");
+  if (!dashboard || !permissionContext) redirect("/unauthorized");
 
   const initialFamilyKey = dashboard.campusBoards[0]?.families.some((family) => family.key === params.family)
     ? (params.family as FamilyKey)
@@ -26,10 +28,14 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   return (
     <PageShell
       title="Inscripciones Torneos"
-      subtitle="Vista operativa por campus y por producto de torneo pagado. Solo muestra jugadores confirmados y avance por categoría."
+      subtitle="Vista operativa por campus y por producto de torneo pagado. Solo muestra jugadores confirmados y avance por categoria."
       breadcrumbs={[{ label: "Inscripciones Torneos" }]}
     >
-      <SportsSignupsBoard dashboard={dashboard} initialFamilyKey={initialFamilyKey} />
+      <SportsSignupsBoard
+        dashboard={dashboard}
+        initialFamilyKey={initialFamilyKey}
+        canExportCsv={permissionContext.isSuperAdmin}
+      />
     </PageShell>
   );
 }

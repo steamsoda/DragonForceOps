@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getCompetitionSignupExportData } from "@/lib/queries/sports-signups";
 import { createClient } from "@/lib/supabase/server";
 
@@ -56,6 +57,11 @@ export async function GET(request: Request) {
 
   if (error || !user) {
     return NextResponse.json({ message: "No autenticado." }, { status: 401 });
+  }
+
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isSuperAdmin) {
+    return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
