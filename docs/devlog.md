@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-04-16 (session 71)
+
+### Inscripciones Torneos Width Pass + CSV Access Tightening (v1.16.17)
+
+- Pushed the `Inscripciones Torneos` board to use more of the available desktop width instead of sitting inside an unnecessarily narrow content column.
+- Applied the width change only to this page:
+  - enabled the wider `PageShell` mode on `/sports-signups`
+  - removed the extra max-width cap from the campus selector row
+  - expanded the category-card grid so large screens can show more cards per row
+- Tightened the CSV export to `superadmin` only:
+  - the `Exportar CSV` button is now hidden for other roles
+  - the export route also enforces the same permission server-side instead of relying on the button hide alone
+- Operational release-note:
+  - moving forward, any repo-tracked implementation change should go straight to `preview`
+  - docs-only passes may stay as reference-only updates until the next implementation push if needed
+  - `docs/devlog.md` and `docs/roadmap-post-alpha.md` should be updated on every implementation pass
+
 ## 2026-04-16 (session 70)
 
 ### Tournament Signups CSV Export (v1.16.15)

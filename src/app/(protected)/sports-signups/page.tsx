@@ -30,6 +30,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
       title="Inscripciones Torneos"
       subtitle="Vista operativa por campus y por producto de torneo pagado. Solo muestra jugadores confirmados y avance por categoria."
       breadcrumbs={[{ label: "Inscripciones Torneos" }]}
+      wide
     >
       <SportsSignupsBoard
         dashboard={dashboard}

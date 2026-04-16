@@ -51,7 +51,7 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
             </a>
           ) : null}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:max-w-4xl">
+        <div className="grid gap-3 sm:grid-cols-2">
           {dashboard.campuses.map((campus) => {
             const isSelected = campus.id === selectedCampusId;
             return (
@@ -139,7 +139,7 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey, canExportCsv }
               No hay categorías activas o jugadores pagados para esta competencia en el campus seleccionado.
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
               {selectedFamily.categories.map((category) => (
                 <article
                   key={`${selectedFamily.key}-${category.key}`}
