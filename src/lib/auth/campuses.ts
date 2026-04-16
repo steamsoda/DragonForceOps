@@ -41,6 +41,7 @@ export type OperationalCampusAccess = {
   userId: string;
   isDirector: boolean;
   isSportsDirector: boolean;
+  isGlobalSportsDirector: boolean;
   isFrontDesk: boolean;
   isLegacyGlobalFrontDesk: boolean;
   campuses: AccessibleCampus[];
@@ -67,12 +68,13 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   const isDirector = roleCodes.some((code) => code === "director_admin" || code === "superadmin");
   const sportsDirectorRows = rows.filter((row) => row.app_roles?.code === "director_deportivo");
   const isSportsDirector = sportsDirectorRows.length > 0;
+  const isGlobalSportsDirector = sportsDirectorRows.some((row) => row.campus_id === null);
   const frontDeskRows = rows.filter((row) => row.app_roles?.code === "front_desk");
   const isFrontDesk = frontDeskRows.length > 0;
   const isLegacyGlobalFrontDesk = frontDeskRows.some((row) => row.campus_id === null);
 
   let campuses: AccessibleCampus[] = [];
-  if (isDirector || isLegacyGlobalFrontDesk) {
+  if (isDirector || isLegacyGlobalFrontDesk || isGlobalSportsDirector) {
     campuses = allCampuses ?? [];
   } else if (isFrontDesk || isSportsDirector) {
     const seen = new Set<string>();
@@ -93,6 +95,7 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
     userId: debugContext.effective.id,
     isDirector,
     isSportsDirector,
+    isGlobalSportsDirector,
     isFrontDesk,
     isLegacyGlobalFrontDesk,
     campuses,

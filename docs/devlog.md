@@ -2,6 +2,19 @@
 
 ## 2026-04-15 (session 69)
 
+### Sports Role Access + Intake Submit Guard + Contry Refresh Trim (v1.16.14)
+
+- Fixed `director_deportivo` role assignment so it can now be granted either:
+  - to a specific campus
+  - or as `Todos` by leaving campus empty in `Usuarios y Permisos`
+- Fixed campus resolution so a `director_deportivo` role without campus scope is treated as global sports access instead of ending up with an empty campus-access set.
+- Added an immediate submit lock to the new-player intake form:
+  - once staff submits `Crear registro y abrir Caja`, the button switches to `Creando...`
+  - repeated clicks in the same submit attempt are blocked client-side to reduce accidental duplicate player creation during slow responses
+- Trimmed one unnecessary post-payment Contry workspace reload:
+  - historical-payment posting in `Regularización Contry` no longer refetches the charge-context payload when only the ledger needs to refresh
+  - this is a small app-layer performance cleanup, not a full backend optimization pass
+
 ### Dashboard Auto-Filters + Neutral Login Landing (v1.16.13)
 
 - Removed the extra `Aplicar` / `Limpiar` step from the `Panel` campus filters.

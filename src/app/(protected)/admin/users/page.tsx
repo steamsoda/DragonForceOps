@@ -111,7 +111,10 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
       ALL_ROLES.some(
         (role) =>
           (role.code !== "front_desk" && role.code !== "director_deportivo" && !existingKeys.has(`${role.code}:`)) ||
-          ((role.code === "front_desk" || role.code === "director_deportivo") &&
+          (role.code === "director_deportivo" &&
+            (!existingKeys.has(`${role.code}:`) ||
+              (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
+          (role.code === "front_desk" &&
             (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
       );
 
@@ -127,7 +130,11 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           {ALL_ROLES.filter(
             (role) =>
               (role.code !== "front_desk" && role.code !== "director_deportivo") ||
-              (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))
+              (role.code === "director_deportivo" &&
+                (!existingKeys.has(`${role.code}:`) ||
+                  (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
+              (role.code === "front_desk" &&
+                (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
           ).map((role) => (
             <option key={role.code} value={role.code}>
               {role.label}
@@ -149,7 +156,9 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         <button type="submit" className="rounded bg-portoBlue px-2 py-1 text-xs font-medium text-white hover:bg-portoDark">
           Asignar
         </button>
-        <p className="text-[11px] text-slate-400">Para Recepcion / Caja y Director Deportivo el campus es obligatorio.</p>
+        <p className="text-[11px] text-slate-400">
+          Recepcion / Caja requiere campus. Director Deportivo puede usar campus especÃ­fico o `Sin campus` para `Todos`.
+        </p>
       </form>
     );
   }
