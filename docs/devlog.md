@@ -1,5 +1,30 @@
 # Devlog
 
+## 2026-04-16 (session 70)
+
+### Tournament Signups CSV Export (v1.16.15)
+
+- Added a CSV export to `Inscripciones Torneos`.
+- The export is player-centered instead of payment-ledger-centered so it is easier to compare against external Excel tracking sheets.
+- Current CSV columns:
+  - `Jugador`
+  - `Año nacimiento`
+  - `Campus`
+  - `SLR`
+  - `RPC`
+  - `CECAFF`
+- Status values per competition family:
+  - `Pagado`
+  - `Pendiente`
+  - `Duplicado`
+  - blank when no matching charge exists
+- Source of truth matches the current tournament-signups board:
+  - positive charge
+  - not void
+  - family detected from product/description tokens
+  - `Pagado` only when allocations fully cover the charge amount
+- The export is filtered by the currently selected campus on the page.
+
 ## 2026-04-15 (session 69)
 
 ### Sports Role Access + Intake Submit Guard + Contry Refresh Trim (v1.16.14)

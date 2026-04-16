@@ -37,9 +37,17 @@ export function SportsSignupsBoard({ dashboard, initialFamilyKey }: Props) {
       ) : null}
 
       <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-          Campus
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            Campus
+          </p>
+          <a
+            href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}`}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Exportar CSV
+          </a>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:max-w-4xl">
           {dashboard.campuses.map((campus) => {
             const isSelected = campus.id === selectedCampusId;
