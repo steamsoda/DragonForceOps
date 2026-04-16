@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-16 (session 78)
+
+### Inscripciones Torneos Board Query Narrowing (v1.16.24)
+
+- Optimized the main `Inscripciones Torneos` board query without changing any finance/signup rules.
+- The board no longer starts from all positive non-void charges across accessible campuses and filters them later in app code.
+- It now:
+  - loads competition products first
+  - loads only competition-relevant charge rows for the board
+  - keeps the legacy description fallback path for temporary buckets like `CECAFF`
+  - computes allocation totals only for that reduced charge set
+- This is a low-risk read-path optimization only:
+  - no schema changes
+  - no payment/reporting semantic changes
+  - no change to the fully-paid source-of-truth rule
+
 ## 2026-04-16 (session 77)
 
 ### Inscripciones Torneos Main-Board Perf Debug (v1.16.23)

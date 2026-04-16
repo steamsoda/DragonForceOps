@@ -349,6 +349,71 @@ async function loadChargeRows(admin: SupabaseServerClient, campusIds: string[]) 
   return rows;
 }
 
+async function loadBoardCompetitionChargeRows(
+  admin: SupabaseServerClient,
+  campusIds: string[],
+  competitionProductIds: string[],
+) {
+  const pageSize = 1000;
+  const rowsById = new Map<string, ChargeRow>();
+
+  if (competitionProductIds.length > 0) {
+    for (let from = 0; ; from += pageSize) {
+      const to = from + pageSize - 1;
+      const { data, error } = await admin
+        .from("charges")
+        .select(
+          "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+        )
+        .neq("status", "void")
+        .gt("amount", 0)
+        .in("enrollments.campus_id", campusIds)
+        .in("product_id", competitionProductIds)
+        .order("created_at", { ascending: true })
+        .range(from, to)
+        .returns<ChargeRow[]>();
+
+      if (error) throw error;
+
+      const batch = data ?? [];
+      for (const row of batch) {
+        rowsById.set(row.id, row);
+      }
+      if (batch.length < pageSize) break;
+    }
+  }
+
+  for (const bucket of LEGACY_BUCKETS) {
+    for (const token of bucket.tokens) {
+      for (let from = 0; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const { data, error } = await admin
+          .from("charges")
+          .select(
+            "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+          )
+          .neq("status", "void")
+          .gt("amount", 0)
+          .in("enrollments.campus_id", campusIds)
+          .ilike("description", `%${token}%`)
+          .order("created_at", { ascending: true })
+          .range(from, to)
+          .returns<ChargeRow[]>();
+
+        if (error) throw error;
+
+        const batch = data ?? [];
+        for (const row of batch) {
+          rowsById.set(row.id, row);
+        }
+        if (batch.length < pageSize) break;
+      }
+    }
+  }
+
+  return [...rowsById.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
 async function loadChargeRowsForCampus(
   admin: SupabaseServerClient,
   campusId: string,
@@ -654,19 +719,22 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const admin = permissionContext.supabase;
   const campusIds = campusAccess.campusIds;
   const productsStartedAt = Date.now();
-  const productsPromise = loadCompetitionProducts(admin);
+  const products = await loadCompetitionProducts(admin);
+  if (perf) {
+    recordPerfStep(perf, "load products", productsStartedAt);
+  }
+
+  const competitionProductIds = products.map((product) => product.id);
   const chargesStartedAt = Date.now();
-  const chargesPromise = loadChargeRows(admin, campusIds);
+  const chargesPromise = loadBoardCompetitionChargeRows(admin, campusIds, competitionProductIds);
   const enrollmentsStartedAt = Date.now();
   const activeEnrollmentsPromise = loadActiveEnrollments(admin, campusIds);
-  const [products, charges, activeEnrollments] = await Promise.all([
-    productsPromise,
+  const [charges, activeEnrollments] = await Promise.all([
     chargesPromise,
     activeEnrollmentsPromise,
   ]);
   if (perf) {
-    recordPerfStep(perf, "load products", productsStartedAt);
-    recordPerfStep(perf, "load charges", chargesStartedAt);
+    recordPerfStep(perf, "load competition charges", chargesStartedAt);
     recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
   }
 

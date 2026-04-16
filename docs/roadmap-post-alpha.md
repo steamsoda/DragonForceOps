@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.23`
+Current preview release line: `v1.16.24`
 
 ---
 
@@ -79,6 +79,7 @@ Notes:
   - tournament-signups CSV export is intentionally restricted to `superadmin` only
   - `Inscripciones Torneos` now supports category-card drilldown into a separate `Nivel`-grouped view, and the top competition selector is shifting toward actual competition products instead of only the original three hardcoded family buckets
   - temporary `perf=1` diagnostics now exist on both the main `Inscripciones Torneos` board and the category-detail route for `superadmin`, so we can measure whether slowness lives in DB fetches or app-side aggregation before making deeper query/index changes
+  - the first board-optimization pass is now in: the main `Inscripciones Torneos` view loads competition-relevant charges first instead of starting from all positive charges and filtering most of them away in app code
   - future hardening item: build a small app-wide superadmin performance monitor so one-off route diagnostics do not remain scattered forever
   - the category drilldown now also shows the not-paid side of the same category roster, grouped by `Nivel`, so front desk can compare paid vs pending players in one place
   - the category detail route has now been narrowed to selected campus/competition data only so opening a `CAT` card does not pay the cost of the full multi-campus sports-signups dataset
