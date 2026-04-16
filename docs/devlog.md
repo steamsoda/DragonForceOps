@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-16 (session 74)
+
+### Inscripciones Torneos Detail Query Narrowing (v1.16.20)
+
+- Optimized the `Inscripciones Torneos` category-detail route so it no longer loads the full multi-campus sports-signups base dataset before filtering.
+- The detail screen now loads only what it actually needs:
+  - the selected campus
+  - the selected competition bucket
+  - active enrollments for that campus
+  - matching charges for that campus/competition
+  - the relevant primary team assignments for the visible roster
+- This keeps the visible behavior the same while reducing unnecessary query width and payload size when opening a category card.
+- Also removed a wasteful export code path that was doing extra detail-query work before rebuilding the actual export rows anyway.
+
 ## 2026-04-16 (session 73)
 
 ### Inscripciones Torneos Detail View: Unpaid Players by Nivel (v1.16.19)
