@@ -154,7 +154,9 @@ export type CompetitionSignupCategoryDetailData = {
   birthYear: number | null;
   categoryLabel: string;
   totalConfirmed: number;
-  levelGroups: CompetitionSignupDetailLevelGroup[];
+  totalUnpaid: number;
+  paidLevelGroups: CompetitionSignupDetailLevelGroup[];
+  unpaidLevelGroups: CompetitionSignupDetailLevelGroup[];
 };
 
 export type CompetitionSignupExportRow = {
@@ -698,10 +700,20 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     return rowBirthYear === birthYear;
   });
 
-  const enrollmentIds = filteredEntries.map((charge) => charge.enrollment_id);
+  const categoryActiveEnrollments = baseData.activeEnrollments.filter((enrollment) => {
+    if (enrollment.campus_id !== campusId) return false;
+    return getBirthYear(enrollment.players?.birth_date) === birthYear;
+  });
+
+  const enrollmentIds = Array.from(
+    new Set([
+      ...filteredEntries.map((charge) => charge.enrollment_id),
+      ...categoryActiveEnrollments.map((enrollment) => enrollment.id),
+    ]),
+  );
   const teamByEnrollment = await loadPrimaryTeamAssignments(admin, enrollmentIds);
 
-  const levelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
+  const paidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
 
   for (const charge of filteredEntries) {
     const enrollment = charge.enrollments;
@@ -714,7 +726,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
       : "Jugador";
 
     const group =
-      levelMap.get(level) ??
+      paidLevelMap.get(level) ??
       {
         level,
         playerCount: 0,
@@ -730,7 +742,39 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
       teamName: team?.name?.trim() || "-",
     });
 
-    levelMap.set(level, group);
+    paidLevelMap.set(level, group);
+  }
+
+  const paidEnrollmentIds = new Set(filteredEntries.map((charge) => charge.enrollment_id));
+  const unpaidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
+
+  for (const enrollment of categoryActiveEnrollments) {
+    if (paidEnrollmentIds.has(enrollment.id)) continue;
+
+    const team = teamByEnrollment.get(enrollment.id) ?? null;
+    const level = normalizeLevel(team?.level ?? enrollment.players?.level);
+    const playerName = enrollment.players
+      ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
+      : "Jugador";
+
+    const group =
+      unpaidLevelMap.get(level) ??
+      {
+        level,
+        playerCount: 0,
+        players: [],
+      };
+
+    group.playerCount += 1;
+    group.players.push({
+      enrollmentId: enrollment.id,
+      playerId: enrollment.player_id,
+      playerName,
+      level,
+      teamName: team?.name?.trim() || "-",
+    });
+
+    unpaidLevelMap.set(level, group);
   }
 
   const competitionLabel =
@@ -746,8 +790,15 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     birthYear,
     categoryLabel,
     totalConfirmed: filteredEntries.length,
-    levelGroups: sortLevelGroups(
-      Array.from(levelMap.values()).map((group) => ({
+    totalUnpaid: categoryActiveEnrollments.length - filteredEntries.length,
+    paidLevelGroups: sortLevelGroups(
+      Array.from(paidLevelMap.values()).map((group) => ({
+        ...group,
+        players: sortPlayerRows(group.players),
+      })),
+    ),
+    unpaidLevelGroups: sortLevelGroups(
+      Array.from(unpaidLevelMap.values()).map((group) => ({
         ...group,
         players: sortPlayerRows(group.players),
       })),

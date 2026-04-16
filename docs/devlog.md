@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-04-16 (session 73)
+
+### Inscripciones Torneos Detail View: Unpaid Players by Nivel (v1.16.19)
+
+- Extended the category detail page in `Inscripciones Torneos` so it now shows both:
+  - paid players
+  - not-paid players
+- The unpaid list is built from the same category/campus active roster minus the confirmed paid competition entries, so staff can compare both sides directly in one screen.
+- Both sections are grouped by resolved `Nivel` using the same app rule:
+  - primary team level first
+  - player-level fallback second
+- The detail page now shows a quick summary count for:
+  - paid confirmed players
+  - not-paid players
+
 ## 2026-04-16 (session 72)
 
 ### Inscripciones Torneos Product-Driven Selector + Nivel Drilldown (v1.16.18)
