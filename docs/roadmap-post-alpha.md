@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.20`
+Current preview release line: `v1.16.21`
 
 ---
 
@@ -80,6 +80,7 @@ Notes:
   - `Inscripciones Torneos` now supports category-card drilldown into a separate `Nivel`-grouped view, and the top competition selector is shifting toward actual competition products instead of only the original three hardcoded family buckets
   - the category drilldown now also shows the not-paid side of the same category roster, grouped by `Nivel`, so front desk can compare paid vs pending players in one place
   - the category detail route has now been narrowed to selected campus/competition data only so opening a `CAT` card does not pay the cost of the full multi-campus sports-signups dataset
+  - temporary `perf=1` diagnostics are now available on the category detail route so remaining latency can be measured step-by-step before further optimization work
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
 - Release policy:

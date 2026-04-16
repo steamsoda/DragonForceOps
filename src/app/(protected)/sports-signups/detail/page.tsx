@@ -7,6 +7,7 @@ type SearchParams = Promise<{
   campus?: string;
   competition?: string;
   birthYear?: string;
+  perf?: string;
 }>;
 
 export default async function SportsSignupsDetailPage({
@@ -19,6 +20,7 @@ export default async function SportsSignupsDetailPage({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",
     birthYear: params.birthYear ?? "",
+    perf: params.perf === "1",
   });
 
   if (!detail) redirect("/unauthorized");
@@ -54,6 +56,26 @@ export default async function SportsSignupsDetailPage({
             Volver al tablero
           </Link>
         </div>
+
+        {detail.perf ? (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="font-semibold">Debug perf activo</p>
+            <p className="mt-1">
+              Tiempo total servidor: <span className="font-semibold">{detail.perf.totalMs} ms</span>
+            </p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {detail.perf.steps.map((step) => (
+                <div
+                  key={step.label}
+                  className="rounded-lg border border-amber-200 bg-white px-3 py-2 dark:border-amber-800 dark:bg-slate-900/50"
+                >
+                  <p className="text-xs uppercase tracking-wide text-amber-800 dark:text-amber-200">{step.label}</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{step.durationMs} ms</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-3">

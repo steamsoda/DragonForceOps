@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-16 (session 75)
+
+### Inscripciones Torneos Detail Perf Debug Mode (v1.16.21)
+
+- Added a temporary debug mode for the `Inscripciones Torneos` category detail route.
+- Usage:
+  - open `/sports-signups?perf=1`
+  - click any `CAT` card
+  - the detail page will show a server-side timing panel with step-by-step durations
+- Current measured steps include:
+  - load product
+  - load charges
+  - load active enrollments
+  - load allocation totals
+  - load team assignments
+  - build level groups
+- This is intended to make backend latency visible directly in the UI while diagnosing the remaining slowness on category-card navigation.
+
 ## 2026-04-16 (session 74)
 
 ### Inscripciones Torneos Detail Query Narrowing (v1.16.20)

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { CompetitionSignupDashboardData } from "@/lib/queries/sports-signups";
 
@@ -13,6 +14,8 @@ type Props = {
 export function SportsSignupsBoard({ dashboard, initialCompetitionId, canExportCsv }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
+  const searchParams = useSearchParams();
+  const perfEnabled = searchParams.get("perf") === "1";
 
   const selectedBoard = useMemo(
     () =>
@@ -135,7 +138,7 @@ export function SportsSignupsBoard({ dashboard, initialCompetitionId, canExportC
               {selectedCompetition.categories.map((category) => (
                 <Link
                   key={`${selectedCompetition.id}-${category.key}`}
-                  href={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}`}
+                  href={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${perfEnabled ? "&perf=1" : ""}`}
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-portoBlue hover:shadow-md dark:border-slate-700 dark:bg-slate-950/70"
                 >
                   <div className="flex items-start justify-between gap-3">

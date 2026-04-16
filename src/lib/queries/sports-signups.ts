@@ -161,6 +161,10 @@ export type CompetitionSignupCategoryDetailData = {
   totalUnpaid: number;
   paidLevelGroups: CompetitionSignupDetailLevelGroup[];
   unpaidLevelGroups: CompetitionSignupDetailLevelGroup[];
+  perf?: {
+    totalMs: number;
+    steps: Array<{ label: string; durationMs: number }>;
+  };
 };
 
 export type CompetitionSignupExportRow = {
@@ -270,6 +274,26 @@ function compareLevels(left: string, right: string) {
 
 function sortLevelGroups(groups: CompetitionSignupDetailLevelGroup[]) {
   return [...groups].sort((a, b) => compareLevels(a.level, b.level));
+}
+
+function startPerf(enabled: boolean) {
+  return {
+    enabled,
+    startedAt: enabled ? Date.now() : 0,
+    steps: [] as Array<{ label: string; durationMs: number }>,
+  };
+}
+
+function recordPerfStep(
+  perf: ReturnType<typeof startPerf>,
+  label: string,
+  startedAt: number,
+) {
+  if (!perf.enabled) return;
+  perf.steps.push({
+    label,
+    durationMs: Date.now() - startedAt,
+  });
 }
 
 async function loadCompetitionProducts(admin: SupabaseServerClient) {
@@ -665,7 +689,9 @@ async function loadCompetitionProductById(admin: SupabaseServerClient, productId
 async function getCompetitionSignupDetailBaseData(filters: {
   campusId?: string | null;
   competitionId?: string | null;
+  perf?: boolean;
 }) {
+  const perf = startPerf(Boolean(filters.perf));
   const permissionContext = await getPermissionContext();
   if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
@@ -688,7 +714,9 @@ async function getCompetitionSignupDetailBaseData(filters: {
   const productBucketIds = new Set<string>();
 
   if (parsedBucket.type === "product") {
+    const productStartedAt = Date.now();
     const product = await loadCompetitionProductById(admin, parsedBucket.productId);
+    recordPerfStep(perf, "load product", productStartedAt);
     if (!product || !isCompetitionProduct(product)) return null;
     competitionLabel = product.name;
     productBucketIds.add(product.id);
@@ -698,15 +726,23 @@ async function getCompetitionSignupDetailBaseData(filters: {
     competitionLabel = legacyBucket.label;
   }
 
+  const chargesStartedAt = Date.now();
+  const chargesPromise = loadChargeRowsForCampus(admin, campusId, parsedBucket);
+  const enrollmentsStartedAt = Date.now();
+  const enrollmentsPromise = loadActiveEnrollmentsForCampus(admin, campusId);
   const [charges, activeEnrollments] = await Promise.all([
-    loadChargeRowsForCampus(admin, campusId, parsedBucket),
-    loadActiveEnrollmentsForCampus(admin, campusId),
+    chargesPromise,
+    enrollmentsPromise,
   ]);
+  recordPerfStep(perf, "load charges", chargesStartedAt);
+  recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
 
+  const allocationsStartedAt = Date.now();
   const allocationTotals = await loadAllocationTotals(
     admin,
     charges.map((charge) => charge.id),
   );
+  recordPerfStep(perf, "load allocation totals", allocationsStartedAt);
 
   return {
     admin,
@@ -719,6 +755,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
     activeEnrollments,
     allocationTotals,
     productBucketIds,
+    perf,
   };
 }
 
@@ -804,10 +841,12 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   campusId?: string | null;
   competitionId?: string | null;
   birthYear?: string | null;
+  perf?: boolean;
 }): Promise<CompetitionSignupCategoryDetailData | null> {
   const baseData = await getCompetitionSignupDetailBaseData({
     campusId: filters.campusId,
     competitionId: filters.competitionId,
+    perf: filters.perf,
   });
   if (!baseData) return null;
 
@@ -821,6 +860,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     activeEnrollments,
     allocationTotals,
     productBucketIds,
+    perf,
   } = baseData;
 
   const birthYearValue = (filters.birthYear ?? "").trim();
@@ -855,6 +895,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     return getBirthYear(enrollment.players?.birth_date) === birthYear;
   });
 
+  const levelResolutionStartedAt = Date.now();
   const enrollmentIds = Array.from(
     new Set([
       ...filteredEntries.map((charge) => charge.enrollment_id),
@@ -862,7 +903,9 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     ]),
   );
   const teamByEnrollment = await loadPrimaryTeamAssignments(admin, enrollmentIds);
+  recordPerfStep(perf, "load team assignments", levelResolutionStartedAt);
 
+  const groupingStartedAt = Date.now();
   const paidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
 
   for (const charge of filteredEntries) {
@@ -928,6 +971,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   }
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
+  recordPerfStep(perf, "build level groups", groupingStartedAt);
 
   return {
     competitionId,
@@ -950,6 +994,12 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
         players: sortPlayerRows(group.players),
       })),
     ),
+    perf: perf.enabled
+      ? {
+          totalMs: Date.now() - perf.startedAt,
+          steps: perf.steps,
+        }
+      : undefined,
   };
 }
 
