@@ -134,6 +134,10 @@ export type CompetitionSignupDashboardData = {
   competitionOptions: CompetitionSignupBucket[];
   campusBoards: CompetitionSignupCampusBoard[];
   loadError: string | null;
+  perf?: {
+    totalMs: number;
+    steps: Array<{ label: string; durationMs: number }>;
+  };
 };
 
 export type CompetitionSignupDetailPlayerRow = {
@@ -637,7 +641,8 @@ function resolveSelectedCompetitionId(
   return competitionOptions[0]?.id ?? "";
 }
 
-async function getCompetitionSignupBaseData() {
+async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof startPerf> }) {
+  const perf = options?.perf;
   const permissionContext = await getPermissionContext();
   if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
@@ -648,16 +653,31 @@ async function getCompetitionSignupBaseData() {
 
   const admin = permissionContext.supabase;
   const campusIds = campusAccess.campusIds;
+  const productsStartedAt = Date.now();
+  const productsPromise = loadCompetitionProducts(admin);
+  const chargesStartedAt = Date.now();
+  const chargesPromise = loadChargeRows(admin, campusIds);
+  const enrollmentsStartedAt = Date.now();
+  const activeEnrollmentsPromise = loadActiveEnrollments(admin, campusIds);
   const [products, charges, activeEnrollments] = await Promise.all([
-    loadCompetitionProducts(admin),
-    loadChargeRows(admin, campusIds),
-    loadActiveEnrollments(admin, campusIds),
+    productsPromise,
+    chargesPromise,
+    activeEnrollmentsPromise,
   ]);
+  if (perf) {
+    recordPerfStep(perf, "load products", productsStartedAt);
+    recordPerfStep(perf, "load charges", chargesStartedAt);
+    recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
+  }
 
+  const allocationsStartedAt = Date.now();
   const allocationTotals = await loadAllocationTotals(
     admin,
     charges.map((charge) => charge.id),
   );
+  if (perf) {
+    recordPerfStep(perf, "load allocation totals", allocationsStartedAt);
+  }
 
   const competitionOptions = buildCompetitionBuckets(products, charges);
   const productBucketIds = new Set(
@@ -762,8 +782,10 @@ async function getCompetitionSignupDetailBaseData(filters: {
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
+  perf?: boolean;
 }): Promise<CompetitionSignupDashboardData | null> {
-  const baseData = await getCompetitionSignupBaseData();
+  const perf = startPerf(Boolean(filters?.perf));
+  const baseData = await getCompetitionSignupBaseData({ perf });
   if (!baseData) return null;
 
   const {
@@ -792,9 +814,16 @@ export async function getCompetitionSignupDashboardData(filters?: {
       competitions: buildEmptyCompetitions(competitionOptions),
     })),
     loadError: null,
+    perf: perf.enabled
+      ? {
+          totalMs: Date.now() - perf.startedAt,
+          steps: perf.steps,
+        }
+      : undefined,
   };
 
   try {
+    const chargesByCampusStartedAt = Date.now();
     const chargesByCampus = new Map<string, ChargeRow[]>();
     for (const charge of charges) {
       const campusId = charge.enrollments?.campus_id;
@@ -803,14 +832,18 @@ export async function getCompetitionSignupDashboardData(filters?: {
       current.push(charge);
       chargesByCampus.set(campusId, current);
     }
+    recordPerfStep(perf, "group charges by campus", chargesByCampusStartedAt);
 
+    const activeEnrollmentsByCampusStartedAt = Date.now();
     const activeEnrollmentsByCampus = new Map<string, ActiveEnrollmentRow[]>();
     for (const enrollment of activeEnrollments) {
       const current = activeEnrollmentsByCampus.get(enrollment.campus_id) ?? [];
       current.push(enrollment);
       activeEnrollmentsByCampus.set(enrollment.campus_id, current);
     }
+    recordPerfStep(perf, "group active enrollments by campus", activeEnrollmentsByCampusStartedAt);
 
+    const campusBoardsStartedAt = Date.now();
     const campusBoards = campusAccess.campuses.map((campus) =>
       buildCampusBoard(
         campus.id,
@@ -822,17 +855,30 @@ export async function getCompetitionSignupDashboardData(filters?: {
         productBucketIds,
       ),
     );
+    recordPerfStep(perf, "build campus boards", campusBoardsStartedAt);
 
     return {
       ...emptyDashboard,
       competitionOptions,
       campusBoards,
+      perf: perf.enabled
+        ? {
+            totalMs: Date.now() - perf.startedAt,
+            steps: perf.steps,
+          }
+        : undefined,
     };
   } catch (error) {
     console.error("sports-signups query failed", error);
     return {
       ...emptyDashboard,
       loadError: "No se pudieron cargar las inscripciones de torneos.",
+      perf: perf.enabled
+        ? {
+            totalMs: Date.now() - perf.startedAt,
+            steps: perf.steps,
+          }
+        : undefined,
     };
   }
 }

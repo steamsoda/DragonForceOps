@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-04-16 (session 77)
+
+### Inscripciones Torneos Main-Board Perf Debug (v1.16.23)
+
+- Extended the temporary `perf=1` diagnostics to the main `Inscripciones Torneos` board, still gated to `superadmin` only.
+- The top page now reports total server time plus the main board-load steps:
+  - load products
+  - load charges
+  - load active enrollments
+  - load allocation totals
+  - group charges by campus
+  - group active enrollments by campus
+  - build campus boards
+- This gives a direct measurement of the slow first page load before making DB/index changes, so the next performance pass can target the actual bottleneck instead of guessing.
+
 ## 2026-04-16 (session 76)
 
 ### Superadmin-Only Perf Debug Gate + Future Perf Monitor Note (v1.16.22)
