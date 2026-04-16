@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-15.
 
-Current preview release line: `v1.16.13`
+Current preview release line: `v1.16.14`
 
 ---
 
@@ -51,6 +51,9 @@ Notes:
 - auth/navigation guardrail now in place:
   - logged-in staff land on `/inicio` instead of the financial dashboard by default
   - sports-only users are blocked from `/dashboard` and redirected to `/inicio`
+- sports access/admin follow-up:
+  - `director_deportivo` now supports both campus-specific scope and `Todos`
+  - accidental duplicate player creation during slow intake submits now has a client-side submit lock, but keep a stronger idempotency/back-end duplicate-prevention pass on the backlog if real-world repeats continue
 - the `Deportivo` sidebar section is intentionally hidden for now while the sports workflow is being simplified
   - the sports routes still exist for direct testing/admin access
   - this is a navigation hide, not a rollback of the sports lane

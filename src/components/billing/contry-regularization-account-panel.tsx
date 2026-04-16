@@ -280,7 +280,7 @@ export function ContryRegularizationAccountPanel({
         return;
       }
 
-      const nextLedger = await refreshWorkspace({ refreshContext: true });
+      const nextLedger = await refreshWorkspace();
       setSelectedChargeIds([]);
       setPaymentAmount(nextLedger && nextLedger.totals.balance > 0 ? nextLedger.totals.balance.toFixed(2) : "");
       setPaymentNotes("");
@@ -317,7 +317,7 @@ export function ContryRegularizationAccountPanel({
         return;
       }
 
-      const nextLedger = await refreshWorkspace({ refreshContext: true });
+      const nextLedger = await refreshWorkspace();
       setSelectedChargeIds((current) => current.filter((chargeId) => chargeId !== immediatePaymentPrompt.chargeId));
       setPaymentAmount(nextLedger && nextLedger.totals.balance > 0 ? nextLedger.totals.balance.toFixed(2) : "");
       setImmediatePaymentPrompt(null);

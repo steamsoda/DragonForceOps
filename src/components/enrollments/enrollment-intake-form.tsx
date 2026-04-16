@@ -138,6 +138,7 @@ export function EnrollmentIntakeForm({
   const [addGameUniform, setAddGameUniform] = useState(false);
   const [gameUniformSize, setGameUniformSize] = useState("");
   const [gameUniformIsGoalkeeper, setGameUniformIsGoalkeeper] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const birthDate = useMemo(() => parseDateOnlyInput(birthDateText), [birthDateText]);
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -155,7 +156,7 @@ export function EnrollmentIntakeForm({
   const inscriptionAmount = isReturning ? selectedReturnOption.amount : (quote?.inscriptionAmount ?? 0);
   const monthlyAmount = quote?.tuitionAmount ?? 0;
   const startDay = startDate ? Number(startDate.slice(8, 10)) : null;
-  const submitDisabled = !quote || !campusId || !birthDate || !startDate;
+  const submitDisabled = !quote || !campusId || !birthDate || !startDate || isSubmitting;
 
   useEffect(() => {
     if (!deferredFirstName || !deferredLastName || !deferredBirthDate) {
@@ -190,7 +191,17 @@ export function EnrollmentIntakeForm({
   }, [deferredBirthDate, deferredFirstName, deferredLastName]);
 
   return (
-    <form action={createEnrollmentIntakeAction} className="space-y-6">
+    <form
+      action={createEnrollmentIntakeAction}
+      className="space-y-6"
+      onSubmit={(event) => {
+        if (isSubmitting) {
+          event.preventDefault();
+          return;
+        }
+        setIsSubmitting(true);
+      }}
+    >
       <input type="hidden" name="pricingPlanCode" value={planCode} />
       <input type="hidden" name="campusId" value={campusId} />
       <input type="hidden" name="startDate" value={startDate ?? ""} />
@@ -820,7 +831,7 @@ export function EnrollmentIntakeForm({
             disabled={submitDisabled}
             className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Crear registro y abrir Caja
+            {isSubmitting ? "Creando..." : "Crear registro y abrir Caja"}
           </button>
           <Link href="/players" className="text-sm text-portoBlue hover:underline">
             Cancelar y volver a Jugadores

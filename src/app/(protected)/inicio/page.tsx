@@ -42,8 +42,7 @@ export default async function InicioPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-900/60">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Bienvenido</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-            Usa este inicio como entrada rápida. Muestra solamente los accesos útiles para tu rol y evita abrir el
-            dashboard financiero por defecto cuando no corresponde.
+            Usa este inicio como entrada rápida.
           </p>
         </section>
 
