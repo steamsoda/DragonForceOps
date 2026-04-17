@@ -1,5 +1,6 @@
 import { parseDateOnlyInput } from "@/lib/time";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
+import { isScholarshipStatus, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 
 export type ParsedEnrollmentInput = {
   campusId: string;
@@ -60,6 +61,8 @@ export type ParsedEnrollmentEditInput = {
   notes: string | null;
   dropoutReason: DropoutReason | null;
   dropoutNotes: string | null;
+  scholarshipStatus: ScholarshipStatus | null;
+  scholarshipStatusProvided: boolean;
 };
 
 export type ParsedEnrollmentDropoutInput = {
@@ -85,6 +88,13 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
     ? (dropoutReasonRaw as DropoutReason)
     : null;
   const dropoutNotes = String(formData.get("dropoutNotes") ?? "").trim() || null;
+  const scholarshipStatusProvided = formData.has("scholarshipStatus");
+  let scholarshipStatus: ScholarshipStatus | null = null;
+  if (scholarshipStatusProvided) {
+    const scholarshipStatusRaw = String(formData.get("scholarshipStatus") ?? "").trim();
+    if (!isScholarshipStatus(scholarshipStatusRaw)) return null;
+    scholarshipStatus = scholarshipStatusRaw;
+  }
 
   // Dropout reason required when ending/cancelling
   const isEnding = status === "ended" || status === "cancelled";
@@ -96,7 +106,9 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
     campusId,
     notes,
     dropoutReason,
-    dropoutNotes
+    dropoutNotes,
+    scholarshipStatus,
+    scholarshipStatusProvided,
   };
 }
 

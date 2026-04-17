@@ -3,13 +3,19 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getEnrollmentEditContext } from "@/lib/queries/enrollments";
 import { EnrollmentEditForm } from "@/components/enrollments/enrollment-edit-form";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { updateEnrollmentAction } from "@/server/actions/enrollments";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del formulario son invalidos.",
   unauthenticated: "Tu sesion no es valida. Vuelve a iniciar sesion.",
   not_found: "No se encontro la inscripcion.",
-  update_failed: "No se pudo guardar el cambio. Intenta de nuevo."
+  update_failed: "No se pudo guardar el cambio. Intenta de nuevo.",
+  scholarship_forbidden: "Solo direccion puede cambiar la beca.",
+  scholarship_allocated_pending_charges:
+    "No se puede cambiar la beca porque ya hay mensualidades pendientes con pago asignado.",
+  scholarship_rate_not_found: "No se pudo calcular la mensualidad correspondiente a la beca.",
+  scholarship_sync_failed: "No se pudo actualizar la beca y las mensualidades pendientes."
 };
 
 export default async function EnrollmentEditPage({
@@ -21,7 +27,10 @@ export default async function EnrollmentEditPage({
 }) {
   const { playerId, enrollmentId } = await params;
   const query = await searchParams;
-  const context = await getEnrollmentEditContext(enrollmentId);
+  const [context, permissionContext] = await Promise.all([
+    getEnrollmentEditContext(enrollmentId),
+    getPermissionContext(),
+  ]);
 
   if (!context) notFound();
 
@@ -64,6 +73,7 @@ export default async function EnrollmentEditPage({
         <EnrollmentEditForm
           enrollment={context.enrollment}
           campuses={context.campuses}
+          canManageScholarship={permissionContext?.isDirector === true}
           action={submit}
         />
       </div>

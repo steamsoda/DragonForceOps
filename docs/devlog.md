@@ -1,5 +1,45 @@
 # Devlog
 
+## 2026-04-16 (session 80)
+
+### Scholarship Workflow v1: Full + Half Tuition Scholarships (v1.16.25)
+
+- Replaced the old backend-only `has_scholarship` path with a real enrollment scholarship workflow centered on `scholarship_status = none | half | full`.
+- Added director-only scholarship control to `Editar inscripción` with the operational states:
+  - `Sin beca`
+  - `Media beca`
+  - `Beca completa`
+- Scholarship updates now sync only **pending monthly tuition from the current month forward**:
+  - `Media beca` reprices eligible pending tuition to 50%
+  - `Beca completa` voids eligible pending tuition rows instead of rewriting history
+  - `Beca completa -> Sin beca / Media beca` can recreate the current month tuition if it is missing and not omitted by an incident
+  - any current/future pending tuition row that already has payment allocations blocks the scholarship change with a clear operational error
+  - current-month scholarship sync preserves the correct Monterrey day pricing window instead of forcing day-1 tuition after the repricing cutoff
+- Updated runtime monthly tuition logic to use the new scholarship status:
+  - SQL `generate_monthly_charges(...)`
+  - SQL `reprice_pending_monthly_tuition(...)`
+  - TS fallback `generateMonthlyChargesCore(...)`
+- Kept `has_scholarship` mirrored for compatibility in this pass:
+  - `full` -> `true`
+  - `none` / `half` -> `false`
+- Porto mensual reporting now separates:
+  - `Beca completa`
+  - `Media beca`
+- Admin mensualidades wording was adjusted so operations text now matches the new rule: full scholarship is skipped; half scholarship still generates tuition at 50%.
+
+## 2026-04-16 (session 79)
+
+### Roadmap Note: App-Wide Performance / Indexing Pass
+
+- Logged a separate roadmap follow-up for a broader app performance hardening pass.
+- Current state:
+  - `Inscripciones Torneos` improved materially after narrowing the board query
+  - current performance is acceptable enough to move on to higher-priority product fixes
+- Future rule recorded explicitly:
+  - use measured timings first
+  - prefer query narrowing before indexing
+  - add only minimal, justified indexes in production-safe fashion
+
 ## 2026-04-16 (session 78)
 
 ### Inscripciones Torneos Board Query Narrowing (v1.16.24)

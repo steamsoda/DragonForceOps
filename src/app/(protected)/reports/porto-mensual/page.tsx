@@ -265,14 +265,19 @@ export default async function PortoMensualPage({ searchParams }: { searchParams:
             {/* ── 3. Jugadores activos ── */}
             <section className="space-y-3">
               <SectionTitle>Jugadores Activos al Fin del Mes</SectionTitle>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <StatCard label="Total activos" value={data.activos.total} />
                 <StatCard label="Varonil" value={data.activos.varonil} />
                 <StatCard label="Femenil" value={data.activos.femenil} />
                 <StatCard
-                  label="Becados"
+                  label="Beca completa"
                   value={data.activos.becados}
                   sub="Incluidos en total, sin cargo de mensualidad"
+                />
+                <StatCard
+                  label="Media beca"
+                  value={data.activos.mediaBeca}
+                  sub="Incluidos en total, cobra 50% de mensualidad"
                 />
               </div>
             </section>

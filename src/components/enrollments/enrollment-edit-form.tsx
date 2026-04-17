@@ -1,13 +1,17 @@
+import { getScholarshipStatusLabel, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
+
 type EnrollmentEditFormProps = {
   enrollment: {
     status: string;
     endDate: string | null;
     campusId: string;
     notes: string | null;
+    scholarshipStatus: ScholarshipStatus;
     dropoutReason?: string | null;
     dropoutNotes?: string | null;
   };
   campuses: Array<{ id: string; code: string; name: string }>;
+  canManageScholarship: boolean;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -28,7 +32,7 @@ const DROPOUT_REASON_LABELS: Record<string, string> = {
   family_health: "Motivos de salud de familiares",
   player_health: "Motivos de salud del alumno",
   schedule_conflict: "Incompatibilidad de horarios",
-  coach_communication: "Fallos en la comunicación — comunicación del entrenador",
+  coach_communication: "Fallos en la comunicación - comunicación del entrenador",
   wants_competition: "Quiere pasar a un contexto de competición",
   lack_of_information: "Falta de información",
   pedagogy: "Falta de pedagogía",
@@ -47,7 +51,7 @@ const DROPOUT_REASON_LABELS: Record<string, string> = {
   low_peer_attendance: "Por poca asistencia de compañeros",
   changed_sport: "Cambio de deporte",
   did_not_return: "Ya no regresó",
-  temporary_leave: "Baja por algún tiempo — piensa regresar",
+  temporary_leave: "Baja por algún tiempo - piensa regresar",
   moved_to_another_academy: "Cambio a otra academia de fútbol",
   school_schedule_conflict: "Complicaciones con horarios de la escuela",
   coach_change: "Por cambio de profes",
@@ -57,7 +61,12 @@ const DROPOUT_REASON_LABELS: Record<string, string> = {
 
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm";
 
-export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentEditFormProps) {
+export function EnrollmentEditForm({
+  enrollment,
+  campuses,
+  canManageScholarship,
+  action,
+}: EnrollmentEditFormProps) {
   return (
     <form action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <div className="grid gap-3 md:grid-cols-2">
@@ -106,10 +115,33 @@ export function EnrollmentEditForm({ enrollment, campuses, action }: EnrollmentE
         />
       </label>
 
-      {/* Dropout section — always rendered so server can validate when ending */}
+      {canManageScholarship ? (
+        <div className="space-y-3 rounded-md border border-sky-100 bg-sky-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Beca de mensualidad</p>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-300">Estatus de beca</span>
+            <select
+              name="scholarshipStatus"
+              defaultValue={enrollment.scholarshipStatus}
+              className={inputClass}
+            >
+              {(["none", "half", "full"] as const).map((status) => (
+                <option key={status} value={status}>
+                  {getScholarshipStatusLabel(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-xs text-slate-600">
+            <span className="font-medium">Media beca</span> = cobra 50% de mensualidad.{" "}
+            <span className="font-medium">Beca completa</span> = no genera mensualidad.
+          </p>
+        </div>
+      ) : null}
+
       <div className="space-y-3 rounded-md border border-amber-100 bg-amber-50 p-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-          Motivo de baja — requerido si el estatus es Baja o Cancelado
+          Motivo de baja - requerido si el estatus es Baja o Cancelado
         </p>
         <label className="space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Motivo</span>

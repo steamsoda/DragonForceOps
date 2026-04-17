@@ -6,13 +6,188 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
-import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
+import { applyScholarshipToAmount, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
+import {
+  fetchPricingPlanVersionsByCode,
+  formatPeriodMonthLabel,
+  getEnrollmentPricingQuote,
+  quoteAdvanceTuitionFromVersions,
+  quoteTuitionForDayFromVersions,
+} from "@/lib/pricing/plans";
 import { parseEnrollmentDropoutData, parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
-import { parseDateOnlyInput } from "@/lib/time";
+import { getMonterreyDateString, getMonterreyMonthString, parseDateOnlyInput } from "@/lib/time";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 type ChargeTypeRow = { id: string; code: string };
+type EnrollmentScholarshipChargeRow = {
+  id: string;
+  period_month: string | null;
+  amount: number;
+  pricing_rule_id: string | null;
+};
+type EnrollmentScholarshipRow = {
+  id: string;
+  campus_id: string;
+  status: string;
+  scholarship_status: ScholarshipStatus;
+  pricing_plan_id: string;
+  pricing_plans: { plan_code: string; currency: string | null } | null;
+};
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function lastDayOfMonth(periodMonth: string) {
+  const [yearStr, monthStr] = periodMonth.split("-");
+  const date = new Date(Date.UTC(Number(yearStr), Number(monthStr), 0, 12, 0, 0));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+async function syncPendingTuitionForScholarshipChange(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  {
+    enrollment,
+    chargeTypeId,
+    nextScholarshipStatus,
+    userId,
+  }: {
+    enrollment: EnrollmentScholarshipRow;
+    chargeTypeId: string;
+    nextScholarshipStatus: ScholarshipStatus;
+    userId: string;
+  },
+) {
+  const currentPeriodMonth = `${getMonterreyMonthString()}-01`;
+  const currentDayOfMonth = Number(getMonterreyDateString().slice(8, 10));
+  const { data: pendingCharges, error: pendingChargesError } = await supabase
+    .from("charges")
+    .select("id, period_month, amount, pricing_rule_id")
+    .eq("enrollment_id", enrollment.id)
+    .eq("charge_type_id", chargeTypeId)
+    .eq("status", "pending")
+    .gte("period_month", currentPeriodMonth)
+    .returns<EnrollmentScholarshipChargeRow[]>();
+
+  if (pendingChargesError) return { ok: false as const, error: "scholarship_sync_failed" };
+
+  const chargeIds = (pendingCharges ?? []).map((charge) => charge.id);
+  if (chargeIds.length > 0) {
+    const { data: allocations, error: allocationsError } = await supabase
+      .from("payment_allocations")
+      .select("charge_id")
+      .in("charge_id", chargeIds)
+      .limit(1);
+
+    if (allocationsError) return { ok: false as const, error: "scholarship_sync_failed" };
+    if ((allocations ?? []).length > 0) {
+      return { ok: false as const, error: "scholarship_allocated_pending_charges" };
+    }
+  }
+
+  if (nextScholarshipStatus === "full") {
+    if (chargeIds.length === 0) {
+      return { ok: true as const, affectedCount: 0 };
+    }
+
+    const { error: voidError } = await supabase
+      .from("charges")
+      .update({
+        status: "void",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", chargeIds);
+
+    if (voidError) return { ok: false as const, error: "scholarship_sync_failed" };
+    return { ok: true as const, affectedCount: chargeIds.length };
+  }
+
+  const planCode = enrollment.pricing_plans?.plan_code ?? null;
+  if (!planCode) return { ok: false as const, error: "scholarship_rate_not_found" };
+
+  const pricingVersions = await fetchPricingPlanVersionsByCode(supabase, planCode);
+  if (pricingVersions.length === 0) {
+    return { ok: false as const, error: "scholarship_rate_not_found" };
+  }
+
+  for (const charge of pendingCharges ?? []) {
+    if (!charge.period_month) continue;
+    const quote =
+      charge.period_month === currentPeriodMonth
+        ? quoteTuitionForDayFromVersions(pricingVersions, charge.period_month, currentDayOfMonth)
+        : quoteAdvanceTuitionFromVersions(pricingVersions, charge.period_month);
+    if (!quote) return { ok: false as const, error: "scholarship_rate_not_found" };
+
+    const nextAmount = applyScholarshipToAmount(quote.amount, nextScholarshipStatus);
+    if (roundMoney(charge.amount) === nextAmount && charge.pricing_rule_id === quote.pricingRuleId) {
+      continue;
+    }
+
+    const { error: updateChargeError } = await supabase
+      .from("charges")
+      .update({
+        amount: nextAmount,
+        pricing_rule_id: quote.pricingRuleId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", charge.id);
+
+    if (updateChargeError) return { ok: false as const, error: "scholarship_sync_failed" };
+  }
+
+  const { data: currentMonthCharge, error: currentMonthChargeError } = await supabase
+    .from("charges")
+    .select("id")
+    .eq("enrollment_id", enrollment.id)
+    .eq("charge_type_id", chargeTypeId)
+    .eq("period_month", currentPeriodMonth)
+    .neq("status", "void")
+    .maybeSingle<{ id: string } | null>();
+
+  if (currentMonthChargeError) return { ok: false as const, error: "scholarship_sync_failed" };
+
+  if (!currentMonthCharge) {
+    const { count: omittedCount, error: incidentError } = await supabase
+      .from("enrollment_incidents")
+      .select("*", { count: "exact", head: true })
+      .eq("enrollment_id", enrollment.id)
+      .eq("omit_period_month", currentPeriodMonth)
+      .is("cancelled_at", null);
+
+    if (incidentError) return { ok: false as const, error: "scholarship_sync_failed" };
+
+    if ((omittedCount ?? 0) === 0) {
+      const currentMonthQuote = quoteTuitionForDayFromVersions(
+        pricingVersions,
+        currentPeriodMonth,
+        currentDayOfMonth,
+      );
+      if (!currentMonthQuote) return { ok: false as const, error: "scholarship_rate_not_found" };
+
+      const { error: insertChargeError } = await supabase
+        .from("charges")
+        .insert({
+          enrollment_id: enrollment.id,
+          charge_type_id: chargeTypeId,
+          period_month: currentPeriodMonth,
+          description: `Mensualidad ${formatPeriodMonthLabel(currentPeriodMonth)}`,
+          amount: applyScholarshipToAmount(currentMonthQuote.amount, nextScholarshipStatus),
+          currency: enrollment.pricing_plans?.currency ?? currentMonthQuote.plan.currency ?? "MXN",
+          status: "pending",
+          due_date: lastDayOfMonth(currentPeriodMonth),
+          pricing_rule_id: currentMonthQuote.pricingRuleId,
+          created_by: userId,
+        });
+
+      if (insertChargeError) return { ok: false as const, error: "scholarship_sync_failed" };
+      return { ok: true as const, affectedCount: chargeIds.length + 1 };
+    }
+  }
+
+  return { ok: true as const, affectedCount: chargeIds.length };
+}
 
 function redirectWithError(
   playerId: string,
@@ -223,6 +398,7 @@ export async function updateEnrollmentAction(
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return redirectWithEditError(enrollmentId, playerId, "unauthenticated");
+  const permissionContext = await getPermissionContext();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || !canAccessCampus(campusAccess, parsed.campusId)) {
     return redirectWithEditError(enrollmentId, playerId, "invalid_form");
@@ -230,10 +406,10 @@ export async function updateEnrollmentAction(
 
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, campus_id")
+    .select("id, campus_id, status, scholarship_status, pricing_plan_id, pricing_plans(plan_code, currency)")
     .eq("id", enrollmentId)
     .eq("player_id", playerId)
-    .maybeSingle<{ id: string; campus_id: string }>();
+    .maybeSingle<EnrollmentScholarshipRow | null>();
 
   if (!enrollment) return redirectWithEditError(enrollmentId, playerId, "not_found");
   if (!canAccessCampus(campusAccess, enrollment.campus_id)) {
@@ -248,12 +424,51 @@ export async function updateEnrollmentAction(
     endDate = null;
   }
 
+  let nextScholarshipStatus = enrollment.scholarship_status;
+  let scholarshipChanged = false;
+  let scholarshipAffectedCount = 0;
+  if (parsed.scholarshipStatusProvided) {
+    if (!permissionContext?.isDirector) {
+      return redirectWithEditError(enrollmentId, playerId, "scholarship_forbidden");
+    }
+    nextScholarshipStatus = parsed.scholarshipStatus ?? enrollment.scholarship_status;
+    scholarshipChanged = nextScholarshipStatus !== enrollment.scholarship_status;
+  }
+
+  if (scholarshipChanged && parsed.status === "active") {
+    const { data: chargeType, error: chargeTypeError } = await supabase
+      .from("charge_types")
+      .select("id")
+      .eq("code", "monthly_tuition")
+      .eq("is_active", true)
+      .maybeSingle<{ id: string } | null>();
+
+    if (chargeTypeError || !chargeType) {
+      return redirectWithEditError(enrollmentId, playerId, "scholarship_rate_not_found");
+    }
+
+    const syncResult = await syncPendingTuitionForScholarshipChange(supabase, {
+      enrollment,
+      chargeTypeId: chargeType.id,
+      nextScholarshipStatus,
+      userId: user.id,
+    });
+
+    if (!syncResult.ok) {
+      return redirectWithEditError(enrollmentId, playerId, syncResult.error);
+    }
+
+    scholarshipAffectedCount = syncResult.affectedCount;
+  }
+
   const { error } = await supabase
     .from("enrollments")
     .update({
       status: parsed.status,
       end_date: endDate,
       campus_id: parsed.campusId,
+      scholarship_status: nextScholarshipStatus,
+      has_scholarship: nextScholarshipStatus === "full",
       notes: parsed.notes,
       dropout_reason: parsed.dropoutReason,
       dropout_notes: parsed.dropoutNotes,
@@ -280,10 +495,34 @@ export async function updateEnrollmentAction(
     action,
     tableName: "enrollments",
     recordId: enrollmentId,
-    afterData: { status: parsed.status, end_date: endDate, dropout_reason: parsed.dropoutReason },
+    afterData: {
+      status: parsed.status,
+      end_date: endDate,
+      scholarship_status: nextScholarshipStatus,
+      dropout_reason: parsed.dropoutReason,
+    },
   });
 
+  if (scholarshipChanged) {
+    await writeAuditLog(supabase, {
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      action: "enrollment.scholarship_updated",
+      tableName: "enrollments",
+      recordId: enrollmentId,
+      beforeData: { scholarship_status: enrollment.scholarship_status },
+      afterData: {
+        scholarship_status: nextScholarshipStatus,
+        affected_pending_tuition_rows: scholarshipAffectedCount,
+      },
+    });
+  }
+
   revalidatePath(`/players/${playerId}`);
+  revalidatePath("/players");
+  revalidatePath("/pending");
+  revalidatePath("/admin/mensualidades");
+  revalidatePath("/reports/porto-mensual");
   redirect(`/players/${playerId}`);
 }
 

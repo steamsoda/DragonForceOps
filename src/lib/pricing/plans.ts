@@ -86,6 +86,8 @@ export type AdvanceTuitionQuote = {
   periodMonth: string;
 };
 
+export type TuitionQuoteForDay = AdvanceTuitionQuote;
+
 export type AdvanceTuitionOption = {
   periodMonth: string;
   label: string;
@@ -219,12 +221,20 @@ export function quoteAdvanceTuitionFromVersions(
   versions: PricingPlanVersionSnapshot[],
   periodMonth: string
 ): AdvanceTuitionQuote | null {
+  return quoteTuitionForDayFromVersions(versions, periodMonth, 1);
+}
+
+export function quoteTuitionForDayFromVersions(
+  versions: PricingPlanVersionSnapshot[],
+  periodMonth: string,
+  day: number
+): TuitionQuoteForDay | null {
   const periodDate = periodMonthToDate(periodMonth);
   const version = resolvePricingPlanVersionForDate(versions, periodDate);
   if (!version) return null;
 
-  const earlyRule = pickTuitionRuleForDay(version.tuitionRules, 1);
-  if (!earlyRule) return null;
+  const tuitionRule = pickTuitionRuleForDay(version.tuitionRules, day);
+  if (!tuitionRule) return null;
 
   return {
     plan: {
@@ -235,8 +245,8 @@ export function quoteAdvanceTuitionFromVersions(
       effectiveStart: version.effectiveStart,
       effectiveEnd: version.effectiveEnd,
     },
-    amount: earlyRule.amount,
-    pricingRuleId: earlyRule.id,
+    amount: tuitionRule.amount,
+    pricingRuleId: tuitionRule.id,
     periodMonth: periodDate,
   };
 }

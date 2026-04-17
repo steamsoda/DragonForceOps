@@ -257,6 +257,7 @@ type EnrollmentEditRow = {
   end_date: string | null;
   notes: string | null;
   campus_id: string;
+  scholarship_status: "none" | "half" | "full";
   dropout_reason: string | null;
   dropout_notes: string | null;
   campuses: { id: string; name: string; code: string } | null;
@@ -273,6 +274,7 @@ export type EnrollmentEditContext = {
     campusId: string;
     campusName: string;
     playerName: string;
+    scholarshipStatus: "none" | "half" | "full";
     dropoutReason: string | null;
     dropoutNotes: string | null;
   };
@@ -302,7 +304,7 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
   const [enrollmentResult, campusResult] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, notes, campus_id, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
+      .select("id, status, start_date, end_date, notes, campus_id, scholarship_status, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentEditRow | null>(),
@@ -328,6 +330,7 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
       campusId: e.campus_id,
       campusName: e.campuses?.name ?? "-",
       playerName: `${e.players?.first_name ?? ""} ${e.players?.last_name ?? ""}`.trim(),
+      scholarshipStatus: e.scholarship_status,
       dropoutReason: e.dropout_reason,
       dropoutNotes: e.dropout_notes
     },
