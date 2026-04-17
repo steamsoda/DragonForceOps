@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
+import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
 import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
@@ -58,12 +60,17 @@ export default async function ChargesPage({
 }) {
   const { enrollmentId } = await params;
   const query = await searchParams;
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const [ledger, permissionContext] = await Promise.all([
+    getEnrollmentLedger(enrollmentId),
+    getPermissionContext(),
+  ]);
 
   if (!ledger) notFound();
 
-  const permissionContext = await getPermissionContext();
   const isDirector = permissionContext?.isDirector ?? false;
+  const diagnostics = permissionContext?.isSuperAdmin
+    ? await getEnrollmentFinanceDiagnostics(enrollmentId, permissionContext)
+    : null;
 
   const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
 
@@ -137,6 +144,10 @@ export default async function ChargesPage({
           totalPayments={ledger.totals.totalPayments}
           balance={ledger.totals.balance}
         />
+
+        {diagnostics ? (
+          <EnrollmentFinanceDiagnosticPanel enrollmentId={enrollmentId} diagnostics={diagnostics} />
+        ) : null}
 
         <EnrollmentIncidentsSection
           rows={ledger.incidents}
