@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.33`
+Current preview release line: `v1.16.34`
 
 ---
 
@@ -121,6 +121,10 @@ Notes:
   - uniform-size auto-sync into `Ficha técnica`
   - nutrition tracking workflow discovery
   - product KPI clarity so `cargos registrados` vs `pagados completos` cannot be confused on product/admin surfaces
+  - product detail admin utility pass now landed on preview:
+    - `Ultimas ventas` supports simple `Anterior / Siguiente` paging
+    - count KPI cards now drill into dedicated per-product detail pages
+    - money-total KPI cards remain summary-only in v1
   - stronger `Regularización Contry` guardrails for competition products so staff do not leave orphaned tournament charges behind without the corresponding historical payment
   - player-based tournament-signups CSV export is now live from `Inscripciones Torneos` for quick Excel reconciliation against external tracking sheets
   - `Inscripciones Torneos` desktop layout is now widened so the board uses more of the available window instead of leaving a large empty right-side gutter

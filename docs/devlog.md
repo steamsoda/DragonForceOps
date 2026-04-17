@@ -1,5 +1,29 @@
 # Devlog
 
+## 2026-04-17 (session 90)
+
+### Product Detail Paging + KPI Drilldowns (v1.16.34)
+
+- Extended the product detail page with real paging on `Ultimas ventas`.
+  - the sales ledger is no longer hard-capped to the newest 25 rows only
+  - it now supports `Anterior / Siguiente` paging in blocks of 25 using the product route query string
+- Added a new product drilldown route for the count KPI cards.
+- The following KPI cards are now clickable:
+  - `Cargos registrados`
+  - `Cargos este mes`
+  - `Jugadores con cargo`
+  - `Jugadores totalmente pagados`
+  - `Cargos sin pagar`
+  - `Brecha vs pagados`
+- The money-total cards remain summary-only in this first pass:
+  - `Monto cargado total`
+  - `Monto cargado este mes`
+- The new drilldown page stays director-only and uses paged tables scoped to one product.
+- Metric semantics were kept aligned with the existing product page:
+  - `Jugadores totalmente pagados` follows the same reconciliation logic already used on the product screen
+  - `Brecha vs pagados` drills into the same reconciliation-issue rows instead of inventing a second gap definition
+- No schema change or accounting change was introduced in this pass.
+
 ## 2026-04-17 (session 89)
 
 ### Inscripciones Torneos Quick Export Copy Cleanup (v1.16.33)
