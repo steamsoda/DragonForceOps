@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-04-17 (session 89)
+
+### Inscripciones Torneos Quick Export Copy Cleanup (v1.16.33)
+
+- Tightened the new `Inscripciones Torneos` quick-export formatting after first UI review.
+- `Copiar texto` no longer includes the `pagados / activos` ratio line.
+  - copied text now uses:
+    - competition
+    - campus
+    - category
+    - player list only
+- `Exportar PNG` no longer shows the `pagados / activos` ratio block.
+  - the right-side stat now shows only the confirmed paid-player count as:
+    - `1 Jugador`
+    - `10 Jugadores`
+- No counting logic changed; this is output-format polish only.
+
 ## 2026-04-17 (session 88)
 
 ### Inscripciones Torneos Card Visibility + Quick Export (v1.16.32)

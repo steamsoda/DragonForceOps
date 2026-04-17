@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.32`
+Current preview release line: `v1.16.33`
 
 ---
 
@@ -142,6 +142,9 @@ Notes:
   - each category card now includes quick operational export actions for all page users:
     - `Exportar PNG`
     - `Copiar texto`
+  - quick-export output was immediately tightened after first front-desk review:
+    - copied text now omits the `pagados / activos` ratio line
+    - PNG export now shows only the paid-player count as `N Jugadores`
   - the existing superadmin-only CSV export remains unchanged as the broader reconciliation/export path
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass

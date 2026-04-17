@@ -47,7 +47,7 @@ function buildCategoryCopyText({
   const lines = [
     competitionLabel,
     campusName,
-    `${category.label} - ${category.confirmedCount}/${category.activeCount} pagados/activos`,
+    category.label,
     "",
     ...(category.players.length > 0 ? category.players.map((player) => player.playerName) : ["Sin jugadores pagados."]),
   ];
@@ -83,8 +83,8 @@ function buildCategoryExportSvg({
             <div style="margin-top:12px;font-size:18px;font-weight:700;color:#0f172a;">${escapeXml(competitionLabel)}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:40px;font-weight:800;line-height:1.05;color:#0f172a;">${category.confirmedCount}/${category.activeCount}</div>
-            <div style="margin-top:10px;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Pagados / activos</div>
+            <div style="font-size:40px;font-weight:800;line-height:1.05;color:#0f172a;">${category.confirmedCount}</div>
+            <div style="margin-top:10px;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">${category.confirmedCount === 1 ? "Jugador" : "Jugadores"}</div>
           </div>
         </div>
         <div style="margin-top:24px;display:grid;grid-template-columns:repeat(${columnCount}, minmax(0, 1fr));gap:18px;align-items:start;">
