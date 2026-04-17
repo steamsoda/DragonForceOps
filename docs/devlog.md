@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-16 (session 83)
+
+### Contry Historical Tuition Workflow: Clarification Pass (v1.16.27)
+
+- Tightened the `Regularización Contry` UI after live testing exposed a workflow misunderstanding:
+  - the generic `Registrar pago histórico` form still posts payments only
+  - it does **not** recalculate an existing monthly tuition amount from the historical payment date
+- Added an explicit warning when staff selects a monthly tuition charge in the historical payment form:
+  - first use `Agregar nuevo cargo > Mensualidad` to create or reprice the monthly tuition with the real historical datetime
+  - then post the historical payment
+- Added a helper note on the `Mensualidad` selector clarifying that the final tuition amount is resolved when the monthly action is saved with the historical datetime, not from the generic payment form.
+
 ## 2026-04-16 (session 82)
 
 ### Contry Historical Tuition Workflow v1 (v1.16.26)

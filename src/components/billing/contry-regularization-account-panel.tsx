@@ -215,6 +215,14 @@ export function ContryRegularizationAccountPanel({
     [pendingCharges, selectedChargeIds],
   );
 
+  const selectedMonthlyChargeCount = useMemo(
+    () =>
+      pendingCharges.filter(
+        (charge) => selectedChargeIds.includes(charge.id) && charge.typeCode === "monthly_tuition",
+      ).length,
+    [pendingCharges, selectedChargeIds],
+  );
+
   function setQuickAmount(value: number) {
     setPaymentAmount(value > 0 ? value.toFixed(2) : "");
   }
@@ -566,6 +574,12 @@ export function ContryRegularizationAccountPanel({
           </p>
         </div>
 
+        {selectedMonthlyChargeCount > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+            Este formulario no recalcula mensualidades. Si necesitas ajustar la tarifa por fecha hist\u00f3rica, usa primero <span className="font-semibold">Agregar nuevo cargo &gt; Mensualidad</span> y luego registra el pago.
+          </div>
+        ) : null}
+
         {ledger.totals.balance > 0 ? (
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Saldo pendiente actual: <span className="font-semibold text-rose-600">{formatMoney(ledger.totals.balance, ledger.enrollment.currency)}</span>.
@@ -813,6 +827,9 @@ export function ContryRegularizationAccountPanel({
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                El importe final se recalcula cuando guardas la mensualidad usando la fecha hist\u00f3rica capturada abajo.
+              </p>
             </label>
 
             <label className="block space-y-1 text-sm">
