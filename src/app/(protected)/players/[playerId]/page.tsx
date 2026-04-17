@@ -9,6 +9,8 @@ import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
+import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
+import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
@@ -257,6 +259,10 @@ export default async function PlayerDetailPage({
   const primaryGuardian = player.guardians[0] ?? null;
   const uniformSummary = getUniformSummary(uniformOrders);
   const profileBalance = activeLedger?.totals.balance ?? activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0;
+  const financeDiagnostics =
+    isSuperAdmin && activeEnrollmentId
+      ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
+      : null;
   const balanceTone =
     profileBalance > 0
       ? "amber"
@@ -621,6 +627,14 @@ export default async function PlayerDetailPage({
                 totalPayments={activeLedger.totals.totalPayments}
                 balance={activeLedger.totals.balance}
               />
+
+              {financeDiagnostics ? (
+                <EnrollmentFinanceDiagnosticPanel
+                  enrollmentId={activeEnrollmentId ?? activeLedger.enrollment.id}
+                  diagnostics={financeDiagnostics}
+                  compact
+                />
+              ) : null}
 
               <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-600 dark:text-slate-400">

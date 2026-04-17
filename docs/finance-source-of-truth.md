@@ -84,6 +84,23 @@ Purpose:
 - compare canonical live balance vs dashboard pending KPI
 - list enrollment-level mismatches if they exist
 
+### Enrollment-level diagnostic panel
+
+Surfaces:
+
+- active account block on `/players/[id]`
+- dedicated account page on `/enrollments/[id]/charges`
+
+Access:
+
+- superadmin only
+- read-only
+
+Purpose:
+
+- explain one enrollment’s canonical balance and anomaly flags without changing anything
+- identify likely root causes such as unapplied credit, duplicate monthly tuition rows, suspicious refund/allocation state, and other correction-relevant account issues before using future repair tools
+
 ### SQL verification functions
 
 - `public.get_finance_reconciliation_summary(...)`

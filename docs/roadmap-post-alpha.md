@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.27`
+Current preview release line: `v1.16.28`
 
 ---
 
@@ -87,6 +87,11 @@ Notes:
     - write-offs should be modeled as explicit balance adjustments, not fake posted payments
     - unknown historical payment facts should not become invented posted payments
     - if the real payment facts are missing, use a non-cash adjustment instead
+  - enrollment/account finance diagnostic panel is now in progress on preview:
+    - superadmin-only and read-only
+    - mounted on both the enrollment account page and the active-account block in player profile
+    - collapsed by default
+    - explains canonical balance, unapplied credit, duplicate monthly tuition rows, suspicious refunds/allocations, and correction-relevant anomaly flags before the repair toolkit exists
   - scholarship workflow is now in progress on preview:
     - enrollment-level `Sin beca / Media beca / Beca completa`
     - director-only control from `Editar inscripción`

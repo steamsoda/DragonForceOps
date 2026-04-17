@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-04-16 (session 84)
+
+### Enrollment Finance Diagnostic Panel v1 (v1.16.28)
+
+- Added a new superadmin-only, read-only `Diagnóstico financiero` panel on both account surfaces:
+  - the dedicated enrollment account page
+  - the active-account block inside player profile
+- The panel is collapsed by default and explains one enrollment’s finance state without mutating anything.
+- Added a new shared account-level diagnostic query layer that combines:
+  - canonical live balance from `v_enrollment_balances`
+  - ledger-visible charge/payment rows
+  - allocation-derived credit math
+  - refund context
+- The panel now highlights the main account-level root causes we need before building correction tools:
+  - posted payments with no allocations
+  - partially allocated posted payments
+  - suspicious refunded payments
+  - duplicate same-period monthly tuition rows
+  - overapplied or voided-yet-allocated charges
+  - canonical-vs-operational balance drift
+- This is intentionally diagnostic only:
+  - no repair buttons
+  - no schema change
+  - no alternate finance truth
+- `/admin/finance-sanity` remains the global drift page; this new panel is the enrollment-level root-cause view that the later constrained correction toolkit will work from.
+
 ## 2026-04-16 (session 83)
 
 ### Contry Historical Tuition Workflow: Clarification Pass (v1.16.27)
