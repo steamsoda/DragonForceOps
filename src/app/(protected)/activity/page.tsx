@@ -18,7 +18,10 @@ const ACTION_LABELS: Record<string, string> = {
   "payment.reassigned": "Concepto cambiado",
   "payment.refunded": "Reembolso registrado",
   "charge.created": "Cargo creado",
+  "charge.corrective_created": "Cargo correctivo creado",
   "charge.voided": "Cargo anulado",
+  "balance_adjustment.created": "Ajuste de saldo registrado",
+  "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
   "enrollment_incident.cancelled": "Incidencia cancelada",
   "enrollment_incident.replaced": "Incidencia reemplazada",
@@ -84,10 +87,18 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
       .filter(Boolean)
       .join(" | ");
   }
-  if (action === "charge.created") {
+  if (action === "charge.created" || action === "charge.corrective_created" || action === "balance_adjustment.created") {
     const amount = data.amount as number | undefined;
     const desc = data.description as string | undefined;
     if (desc) return `${desc}${amount !== undefined ? ` | $${amount.toLocaleString("es-MX")}` : ""}`;
+  }
+  if (action === "payment_allocations.repaired") {
+    const selectedPayments = Array.isArray(data.selected_payment_ids) ? data.selected_payment_ids.length : 0;
+    const selectedCharges = Array.isArray(data.selected_charge_ids) ? data.selected_charge_ids.length : 0;
+    const reason = typeof data.reason === "string" ? data.reason : null;
+    return [selectedPayments > 0 ? `${selectedPayments} pagos` : null, selectedCharges > 0 ? `${selectedCharges} cargos` : null, reason]
+      .filter(Boolean)
+      .join(" | ");
   }
   if (action.startsWith("enrollment_incident")) {
     const type = data.incident_type as string | undefined;

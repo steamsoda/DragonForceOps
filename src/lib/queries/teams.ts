@@ -206,7 +206,7 @@ export type BaseTeamBoardData = {
 
 // ── Charge type codes that are auto-managed — exclude from bulk charge form ──
 
-const EXCLUDED_CODES = new Set(["monthly_tuition", "inscription", "early_bird_discount"]);
+const EXCLUDED_CODES = new Set(["monthly_tuition", "inscription", "early_bird_discount", "corrective_charge", "balance_adjustment"]);
 
 type SportsTeamContext = {
   campusIds: string[];
