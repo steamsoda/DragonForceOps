@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-17 (session 87)
+
+### Director Deportivo Self-Access Fix (v1.16.31)
+
+- Fixed a real access hole affecting `director_deportivo` users at login/protected-layout bootstrap.
+- Root cause:
+  - sports directors could be assigned correctly in `user_roles`
+  - but they were missing the self-read RLS needed to load:
+    - their own `user_roles`
+    - referenced `app_roles`
+    - active `campuses`
+  - result: the app could authenticate them, then still see zero effective roles and send them to `unauthorized`
+- Added the missing DB policies so authenticated `director_deportivo` users can read the minimal auth/reference data needed to resolve their own campus scope.
+- This is a narrow auth bootstrap fix only:
+  - no finance changes
+  - no sports workflow changes
+  - no permission expansion into admin/finance surfaces
+
 ## 2026-04-17 (session 86)
 
 ### Correction Toolkit Diagnostics Hotfix (v1.16.30)

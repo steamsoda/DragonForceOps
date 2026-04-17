@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.30`
+Current preview release line: `v1.16.31`
 
 ---
 
@@ -54,6 +54,9 @@ Notes:
 - sports access/admin follow-up:
   - `director_deportivo` now supports both campus-specific scope and `Todos`
   - accidental duplicate player creation during slow intake submits now has a client-side submit lock, but keep a stronger idempotency/back-end duplicate-prevention pass on the backlog if real-world repeats continue
+  - immediate auth follow-up now landed:
+    - `director_deportivo` users also need self-read access to their own role/campus reference data during protected-layout bootstrap
+    - otherwise login can succeed while the app still resolves them as role-less and blocks entry
 - the `Deportivo` sidebar section is intentionally hidden for now while the sports workflow is being simplified
   - the sports routes still exist for direct testing/admin access
   - this is a navigation hide, not a rollback of the sports lane
