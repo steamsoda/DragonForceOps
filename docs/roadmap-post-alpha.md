@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.29`
+Current preview release line: `v1.16.30`
 
 ---
 
@@ -102,6 +102,9 @@ Notes:
       - `Reparar asignaciones`
     - repair artifacts stay visible in the normal ledger with corrective / no-caja labeling
     - allocation repair uses an explicit payment-to-charge matrix and runs atomically
+  - immediate follow-up hotfix now landed for the new toolkit diagnostics:
+    - negative `Ajuste de saldo` rows must count as non-cash balance reducers in derived-account diagnostics
+    - they should not trigger fake `Cargo sobreaplicado` or fake drift alerts by themselves
   - scholarship workflow is now in progress on preview:
     - enrollment-level `Sin beca / Media beca / Beca completa`
     - director-only control from `Editar inscripción`

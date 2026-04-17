@@ -155,7 +155,12 @@ export async function getEnrollmentFinanceDiagnostics(
       .filter((charge) => charge.status !== "void")
       .reduce((sum, charge) => sum + charge.pendingAmount, 0),
   );
-  const derivedOperationalBalance = roundMoney(pendingChargeTotal - unappliedPostedAmount);
+  const netChargeExposureTotal = roundMoney(
+    ledger.charges
+      .filter((charge) => charge.status !== "void")
+      .reduce((sum, charge) => sum + (charge.amount - charge.allocatedAmount), 0),
+  );
+  const derivedOperationalBalance = roundMoney(netChargeExposureTotal - unappliedPostedAmount);
   const derivedBalanceDrift = roundMoney(canonicalBalance - derivedOperationalBalance);
 
   const paymentDiagnostics: EnrollmentFinancePaymentDiagnostic[] = [];
@@ -263,12 +268,28 @@ export async function getEnrollmentFinanceDiagnostics(
       continue;
     }
 
-    if (charge.status !== "void" && charge.allocatedAmount - charge.amount > 0.01) {
+    if (charge.status !== "void" && charge.amount > 0.01 && charge.allocatedAmount - charge.amount > 0.01) {
       chargeDiagnostics.push({
         chargeId: charge.id,
         severity: "needs_correction",
         title: "Cargo sobreaplicado",
         detail: "El monto aplicado supera el monto total del cargo.",
+        description: charge.description,
+        periodMonth: charge.periodMonth,
+        amount: charge.amount,
+        allocatedAmount: charge.allocatedAmount,
+        pendingAmount: charge.pendingAmount,
+        status: charge.status,
+      });
+      continue;
+    }
+
+    if (charge.status !== "void" && charge.amount < -0.01 && charge.allocatedAmount > 0.01) {
+      chargeDiagnostics.push({
+        chargeId: charge.id,
+        severity: "needs_correction",
+        title: "Ajuste no caja con asignaciones",
+        detail: "Un ajuste negativo no debería recibir pagos aplicados.",
         description: charge.description,
         periodMonth: charge.periodMonth,
         amount: charge.amount,
@@ -340,7 +361,7 @@ export async function getEnrollmentFinanceDiagnostics(
       key: "derived-balance-drift",
       severity: "needs_correction",
       title: "Saldo can\u00f3nico distinto del saldo operativo derivado",
-      detail: "La suma de cargos pendientes y cr\u00e9ditos no aplicados no coincide con el saldo can\u00f3nico de la inscripci\u00f3n.",
+      detail: "La suma neta de cargos visibles, ajustes y crédito no aplicado no coincide con el saldo can\u00f3nico de la inscripción.",
     });
   }
 
@@ -386,7 +407,7 @@ export async function getEnrollmentFinanceDiagnostics(
       key: "drift",
       tone: "rose",
       label: "Drift operativo",
-      detail: "El saldo can\u00f3nico no coincide con el saldo sugerido por cargos pendientes y cr\u00e9ditos visibles.",
+      detail: "El saldo can\u00f3nico no coincide con el saldo operativo neto sugerido por cargos, ajustes visibles y crédito no aplicado.",
     });
   }
 

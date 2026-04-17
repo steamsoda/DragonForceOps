@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-17 (session 86)
+
+### Correction Toolkit Diagnostics Hotfix (v1.16.30)
+
+- Fixed a diagnostic false-positive exposed by live testing with `Ajuste de saldo`.
+- Root cause:
+  - the account diagnostic layer was deriving its operational balance from only visible pending charge amounts
+  - a negative non-cash balance adjustment was therefore ignored in the derived balance
+  - the same negative line could also be misread as a `Cargo sobreaplicado`
+- The diagnostic query now:
+  - derives operational balance from the full net visible charge exposure (`amount - allocated`) instead of only positive pending amounts
+  - keeps unapplied posted payments as separate visible credit
+  - stops flagging negative adjustment rows as overapplied just because their amount is below zero
+  - adds a more precise safeguard instead: a negative adjustment with real payment allocations is now the anomaly
+- Result:
+  - a valid negative `Ajuste de saldo` that brings an account to zero should no longer create fake drift or fake overapplied-charge warnings
+  - the canonical balance model remains unchanged
+  - this was a read-path hotfix only, with no schema or accounting change
+
 ## 2026-04-17 (session 85)
 
 ### Constrained Correction Toolkit v1 (v1.16.29)
