@@ -8,6 +8,7 @@ import type {
   EnrollmentFinancePaymentDiagnostic,
   EnrollmentFinanceSummaryFlag,
 } from "@/lib/queries/enrollment-finance-diagnostics";
+import { EnrollmentFinanceCorrectionToolkit } from "@/components/billing/enrollment-finance-correction-toolkit";
 
 function formatMoney(amount: number, currency = "MXN") {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
@@ -158,10 +159,46 @@ export function EnrollmentFinanceDiagnosticPanel({
   enrollmentId,
   diagnostics,
   compact = false,
+  toolkit,
 }: {
   enrollmentId: string;
   diagnostics: EnrollmentFinanceDiagnostics;
   compact?: boolean;
+  toolkit?: {
+    currency: string;
+    charges: Array<{
+      id: string;
+      typeCode: string;
+      typeName: string;
+      description: string;
+      amount: number;
+      currency: string;
+      status: string;
+      allocatedAmount: number;
+      pendingAmount: number;
+      isCorrection: boolean;
+      correctionKind: "corrective_charge" | "balance_adjustment" | null;
+      isNonCash: boolean;
+    }>;
+    payments: Array<{
+      id: string;
+      paidAt: string;
+      method: string;
+      amount: number;
+      allocatedAmount: number;
+      status: string;
+      refundStatus: "not_refunded" | "refunded";
+      sourceCharges: Array<{
+        chargeId: string;
+        description: string;
+        amount: number;
+        allocatedAmount: number;
+      }>;
+    }>;
+    createCorrectiveChargeAction: (formData: FormData) => Promise<void>;
+    createBalanceAdjustmentAction: (formData: FormData) => Promise<void>;
+    repairPaymentAllocationsAction: (formData: FormData) => Promise<void>;
+  };
 }) {
   const health = healthTone(diagnostics.health);
   const allAlerts = [
@@ -190,6 +227,16 @@ export function EnrollmentFinanceDiagnosticPanel({
       detail: item.detail,
     })),
   ];
+  const prefilledPaymentIds = diagnostics.paymentDiagnostics.map((item) => item.paymentId);
+  const prefilledChargeIds = Array.from(
+    new Set([
+      ...diagnostics.chargeDiagnostics.map((item) => item.chargeId),
+      ...diagnostics.monthlyTuitionWarnings.flatMap((item) => item.chargeIds),
+      ...(toolkit?.payments ?? [])
+        .filter((payment) => prefilledPaymentIds.includes(payment.id))
+        .flatMap((payment) => payment.sourceCharges.map((charge) => charge.chargeId)),
+    ]),
+  );
 
   return (
     <details className={`rounded-xl border bg-white dark:bg-slate-900 ${health.border} ${compact ? "p-0" : "p-0"}`}>
@@ -295,6 +342,20 @@ export function EnrollmentFinanceDiagnosticPanel({
             </div>
           )}
         </DiagnosticSection>
+
+        {toolkit ? (
+          <EnrollmentFinanceCorrectionToolkit
+            currency={toolkit.currency}
+            canonicalBalance={diagnostics.canonicalBalance}
+            charges={toolkit.charges}
+            payments={toolkit.payments}
+            prefilledPaymentIds={prefilledPaymentIds}
+            prefilledChargeIds={prefilledChargeIds}
+            createCorrectiveChargeAction={toolkit.createCorrectiveChargeAction}
+            createBalanceAdjustmentAction={toolkit.createBalanceAdjustmentAction}
+            repairPaymentAllocationsAction={toolkit.repairPaymentAllocationsAction}
+          />
+        ) : null}
       </div>
     </details>
   );

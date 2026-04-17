@@ -46,6 +46,9 @@ type ChargeRow = {
   } | null;
 };
 
+const CORRECTION_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
+const REPAIR_ONLY_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
+
 type PaymentRow = {
   id: string;
   paid_at: string;
@@ -126,6 +129,9 @@ export type EnrollmentLedger = {
     createdAt: string;
     allocatedAmount: number;
     pendingAmount: number;
+    isCorrection: boolean;
+    correctionKind: "corrective_charge" | "balance_adjustment" | null;
+    isNonCash: boolean;
   }>;
   payments: Array<{
     id: string;
@@ -323,7 +329,15 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
         periodMonth: row.period_month,
         createdAt: row.created_at,
         allocatedAmount,
-        pendingAmount: Math.max(row.amount - allocatedAmount, 0)
+        pendingAmount: Math.max(row.amount - allocatedAmount, 0),
+        isCorrection: CORRECTION_CHARGE_TYPE_CODES.has(row.charge_types?.code ?? ""),
+        correctionKind:
+          row.charge_types?.code === "corrective_charge" || row.charge_types?.code === "balance_adjustment"
+            ? row.charge_types.code
+            : null,
+        isNonCash:
+          row.charge_types?.code === "balance_adjustment" ||
+          (row.charge_types?.code === "corrective_charge" && row.status === "posted"),
       };
     }),
     payments: (payments ?? []).map((row) => {
@@ -452,6 +466,6 @@ export async function getEnrollmentChargeFormContext(enrollmentId: string) {
       id: row.id,
       code: row.code,
       name: row.name
-    }))
+    })).filter((row) => !REPAIR_ONLY_CHARGE_TYPE_CODES.has(row.code))
   };
 }

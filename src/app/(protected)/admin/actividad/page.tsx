@@ -25,7 +25,10 @@ const ACTION_LABELS: Record<string, string> = {
   "payment.refunded": "Reembolso registrado",
   "payment.voided": "Cobro anulado",
   "charge.created": "Cargo creado",
+  "charge.corrective_created": "Cargo correctivo creado",
   "charge.voided": "Cargo anulado",
+  "balance_adjustment.created": "Ajuste de saldo registrado",
+  "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
   "enrollment_incident.cancelled": "Incidencia cancelada",
   "enrollment_incident.replaced": "Incidencia reemplazada",
@@ -41,7 +44,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ACTION_OPTIONS = [
   "payment.posted", "payment.reassigned", "payment.refunded", "payment.voided",
-  "charge.created", "charge.voided",
+  "charge.created", "charge.corrective_created", "charge.voided", "balance_adjustment.created", "payment_allocations.repaired",
   "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
   "monthly_charges.generated", "player.nuked", "pending_follow_up.updated"
@@ -96,10 +99,18 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
     const reason = data.reason as string | undefined;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, refundMethod, reason].filter(Boolean).join(" Â· ");
   }
-  if (action === "charge.created" || action === "charge.voided") {
+  if (action === "charge.created" || action === "charge.corrective_created" || action === "charge.voided" || action === "balance_adjustment.created") {
     const desc = data.description as string | undefined;
     const amount = data.amount as number | undefined;
     return [desc, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null].filter(Boolean).join(" · ");
+  }
+  if (action === "payment_allocations.repaired") {
+    const selectedPayments = Array.isArray(data.selected_payment_ids) ? data.selected_payment_ids.length : 0;
+    const selectedCharges = Array.isArray(data.selected_charge_ids) ? data.selected_charge_ids.length : 0;
+    const reason = typeof data.reason === "string" ? data.reason : null;
+    return [selectedPayments > 0 ? `${selectedPayments} pagos` : null, selectedCharges > 0 ? `${selectedCharges} cargos` : null, reason]
+      .filter(Boolean)
+      .join(" · ");
   }
   if (action.startsWith("enrollment_incident")) {
     const type = data.incident_type as string | undefined;

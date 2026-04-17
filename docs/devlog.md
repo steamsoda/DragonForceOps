@@ -1,5 +1,50 @@
 # Devlog
 
+## 2026-04-17 (session 85)
+
+### Constrained Correction Toolkit v1 (v1.16.29)
+
+- Extended the superadmin-only `Diagnóstico financiero` panel into a real account-level repair surface on both:
+  - the dedicated enrollment account page
+  - the active-account block inside player profile
+- Added a new `Toolkit de corrección` section under diagnostics with exactly 3 constrained tools:
+  - `Cargo correctivo`
+  - `Ajuste de saldo`
+  - `Reparar asignaciones`
+- Added dedicated repair-only charge categories backed by `charges` instead of fake payment history:
+  - `corrective_charge`
+  - `balance_adjustment`
+- `Cargo correctivo` can now create one enrollment-scoped corrective line as either:
+  - `Pendiente`
+  - `Registrado no caja`
+- `Ajuste de saldo` can now create one enrollment-scoped non-cash balance adjustment without creating:
+  - payment rows
+  - receipts
+  - Caja / cash-session side effects
+- Added an atomic SQL repair path for `Reparar asignaciones`:
+  - one enrollment only
+  - posted, non-refunded payments only
+  - non-void destination charges only
+  - explicit payment-to-charge amount matrix
+  - payment totals must close exactly
+  - destination charges cannot end overapplied
+  - full before/after allocation map is returned for audit logging
+- Tightened the repair lane to the intended authority model:
+  - app layer is `superadmin` only
+  - the SQL allocation-repair function now also enforces `superadmin` directly
+  - function execute is granted only to `authenticated`
+- Ledger/admin visibility follow-through:
+  - corrective/non-cash charge rows now carry explicit labels in the normal charges ledger
+  - new audit actions were added to both activity views:
+    - `charge.corrective_created`
+    - `balance_adjustment.created`
+    - `payment_allocations.repaired`
+- Guardrails:
+  - no fake posted payments
+  - no receipt generation
+  - no Caja totals affected by non-cash repairs
+  - no cross-enrollment repair path in this v1
+
 ## 2026-04-16 (session 84)
 
 ### Enrollment Finance Diagnostic Panel v1 (v1.16.28)

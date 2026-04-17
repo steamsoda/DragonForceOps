@@ -12,6 +12,11 @@ import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-inci
 import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import {
+  createBalanceAdjustmentAction,
+  createCorrectiveChargeAction,
+  repairPaymentAllocationsAction,
+} from "@/server/actions/finance-corrections";
+import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
@@ -107,6 +112,27 @@ const DROPOUT_LABELS: Record<string, string> = {
   coach_change: "Cambio de profe",
   cold_weather: "Clima frio",
   other: "Otros",
+};
+
+const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
+  unauthorized: "No tienes permiso para usar el toolkit de corrección.",
+  enrollment_not_found: "No se encontró la cuenta seleccionada.",
+  correction_invalid_form: "Completa todos los datos requeridos para el cargo correctivo.",
+  correction_charge_type_missing: "No se encontró el tipo de cargo correctivo.",
+  correction_insert_failed: "No se pudo crear el cargo correctivo.",
+  balance_adjustment_invalid_form: "Completa todos los datos requeridos para el ajuste de saldo.",
+  balance_adjustment_type_missing: "No se encontró el tipo de ajuste de saldo.",
+  balance_adjustment_insert_failed: "No se pudo registrar el ajuste de saldo.",
+  allocation_repair_invalid_form: "Completa la matriz, el motivo y las notas para reparar asignaciones.",
+  payment_selection_required: "Selecciona al menos un pago para reparar asignaciones.",
+  charge_selection_required: "Selecciona al menos un cargo destino para reparar asignaciones.",
+  invalid_payment_selection: "Alguno de los pagos seleccionados ya no es elegible para reparación.",
+  invalid_charge_selection: "Alguno de los cargos seleccionados ya no es válido para reparación.",
+  invalid_allocation_payload: "La matriz de asignaciones no es válida.",
+  invalid_allocation_amount: "La matriz contiene montos inválidos.",
+  payment_total_mismatch: "Cada pago seleccionado debe cerrar exactamente con su monto.",
+  charge_overapplied: "La matriz dejaría uno o más cargos sobreaplicados.",
+  allocation_repair_failed: "No se pudo reparar las asignaciones. Intenta de nuevo.",
 };
 
 function SummaryChip({
@@ -283,7 +309,14 @@ export default async function PlayerDetailPage({
               ? "Cambio de concepto aplicado correctamente."
               : sp.ok === "payment_refunded"
                 ? "Reembolso registrado correctamente."
+                : sp.ok === "corrective_charge_created"
+                  ? "Cargo correctivo creado correctamente."
+                  : sp.ok === "balance_adjustment_created"
+                    ? "Ajuste de saldo registrado correctamente."
+                    : sp.ok === "payment_allocations_repaired"
+                      ? "Asignaciones reparadas correctamente."
           : null;
+  const errorMessage = sp.err ? ACCOUNT_ERROR_MESSAGES[sp.err] ?? "No se pudo completar la corrección solicitada." : null;
 
   const createIncident = activeEnrollmentId ? createEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
@@ -301,6 +334,11 @@ export default async function PlayerDetailPage({
         {successMessage ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
             {successMessage}
+          </div>
+        ) : null}
+        {errorMessage ? (
+          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
+            {errorMessage}
           </div>
         ) : null}
 
@@ -633,6 +671,26 @@ export default async function PlayerDetailPage({
                   enrollmentId={activeEnrollmentId ?? activeLedger.enrollment.id}
                   diagnostics={financeDiagnostics}
                   compact
+                  toolkit={{
+                    currency: activeLedger.enrollment.currency,
+                    charges: activeLedger.charges,
+                    payments: activeLedger.payments,
+                    createCorrectiveChargeAction: createCorrectiveChargeAction.bind(
+                      null,
+                      activeEnrollmentId ?? activeLedger.enrollment.id,
+                      `/players/${player.id}`,
+                    ),
+                    createBalanceAdjustmentAction: createBalanceAdjustmentAction.bind(
+                      null,
+                      activeEnrollmentId ?? activeLedger.enrollment.id,
+                      `/players/${player.id}`,
+                    ),
+                    repairPaymentAllocationsAction: repairPaymentAllocationsAction.bind(
+                      null,
+                      activeEnrollmentId ?? activeLedger.enrollment.id,
+                      `/players/${player.id}`,
+                    ),
+                  }}
                 />
               ) : null}
 

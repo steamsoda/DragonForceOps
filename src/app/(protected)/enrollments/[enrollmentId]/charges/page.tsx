@@ -16,6 +16,11 @@ import {
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
+import {
+  createBalanceAdjustmentAction,
+  createCorrectiveChargeAction,
+  repairPaymentAllocationsAction,
+} from "@/server/actions/finance-corrections";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del pago son invalidos. Revisa monto y metodo.",
@@ -44,6 +49,22 @@ const errorMessages: Record<string, string> = {
   incident_cancel_failed: "No se pudo cancelar la incidencia.",
   incident_replace_failed: "No se pudo reemplazar la incidencia.",
   incident_inactive_enrollment: "Solo se pueden registrar incidencias en inscripciones activas.",
+  correction_invalid_form: "Completa todos los datos requeridos para el cargo correctivo.",
+  correction_charge_type_missing: "No se encontró el tipo de cargo correctivo.",
+  correction_insert_failed: "No se pudo crear el cargo correctivo.",
+  balance_adjustment_invalid_form: "Completa todos los datos requeridos para el ajuste de saldo.",
+  balance_adjustment_type_missing: "No se encontró el tipo de ajuste de saldo.",
+  balance_adjustment_insert_failed: "No se pudo registrar el ajuste de saldo.",
+  allocation_repair_invalid_form: "Completa la matriz, el motivo y las notas para reparar asignaciones.",
+  payment_selection_required: "Selecciona al menos un pago para reparar asignaciones.",
+  charge_selection_required: "Selecciona al menos un cargo destino para reparar asignaciones.",
+  invalid_payment_selection: "Alguno de los pagos seleccionados ya no es elegible para reparación.",
+  invalid_charge_selection: "Alguno de los cargos seleccionados ya no es válido para reparación.",
+  invalid_allocation_payload: "La matriz de asignaciones no es válida.",
+  invalid_allocation_amount: "La matriz contiene montos inválidos.",
+  payment_total_mismatch: "Cada pago seleccionado debe cerrar exactamente con su monto.",
+  charge_overapplied: "La matriz dejaría uno o más cargos sobreaplicados.",
+  allocation_repair_failed: "No se pudo reparar las asignaciones. Intenta de nuevo.",
 };
 
 function getCurrentMonthValue() {
@@ -103,6 +124,12 @@ export default async function ChargesPage({
       ? "Cambio de concepto aplicado correctamente."
       : query.ok === "payment_refunded"
       ? "Reembolso registrado correctamente."
+      : query.ok === "corrective_charge_created"
+      ? "Cargo correctivo creado correctamente."
+      : query.ok === "balance_adjustment_created"
+      ? "Ajuste de saldo registrado correctamente."
+      : query.ok === "payment_allocations_repaired"
+      ? "Asignaciones reparadas correctamente."
       : null;
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
 
@@ -146,7 +173,30 @@ export default async function ChargesPage({
         />
 
         {diagnostics ? (
-          <EnrollmentFinanceDiagnosticPanel enrollmentId={enrollmentId} diagnostics={diagnostics} />
+          <EnrollmentFinanceDiagnosticPanel
+            enrollmentId={enrollmentId}
+            diagnostics={diagnostics}
+            toolkit={{
+              currency: ledger.enrollment.currency,
+              charges: ledger.charges,
+              payments: ledger.payments,
+              createCorrectiveChargeAction: createCorrectiveChargeAction.bind(
+                null,
+                enrollmentId,
+                `/enrollments/${enrollmentId}/charges`,
+              ),
+              createBalanceAdjustmentAction: createBalanceAdjustmentAction.bind(
+                null,
+                enrollmentId,
+                `/enrollments/${enrollmentId}/charges`,
+              ),
+              repairPaymentAllocationsAction: repairPaymentAllocationsAction.bind(
+                null,
+                enrollmentId,
+                `/enrollments/${enrollmentId}/charges`,
+              ),
+            }}
+          />
         ) : null}
 
         <EnrollmentIncidentsSection

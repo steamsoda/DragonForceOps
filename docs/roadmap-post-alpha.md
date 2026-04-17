@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-16.
+Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.28`
+Current preview release line: `v1.16.29`
 
 ---
 
@@ -92,6 +92,16 @@ Notes:
     - mounted on both the enrollment account page and the active-account block in player profile
     - collapsed by default
     - explains canonical balance, unapplied credit, duplicate monthly tuition rows, suspicious refunds/allocations, and correction-relevant anomaly flags before the repair toolkit exists
+  - constrained correction toolkit is now in progress on preview as the next step under that same diagnostic surface:
+    - superadmin-only
+    - single-enrollment scoped
+    - no fake posted payments
+    - three explicit tools only:
+      - `Cargo correctivo`
+      - `Ajuste de saldo`
+      - `Reparar asignaciones`
+    - repair artifacts stay visible in the normal ledger with corrective / no-caja labeling
+    - allocation repair uses an explicit payment-to-charge matrix and runs atomically
   - scholarship workflow is now in progress on preview:
     - enrollment-level `Sin beca / Media beca / Beca completa`
     - director-only control from `Editar inscripción`
