@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.24`
+Current preview release line: `v1.16.27`
 
 ---
 
@@ -68,6 +68,33 @@ Notes:
     - some older girls teams are mixed-category
     - some teams merge across levels/categories only when signup counts are too low
 - the next admin/front-desk follow-up bucket now includes:
+  - new top-priority finance correction lane, to execute in this order:
+    - `Urgent`: Contry historical tuition workflow
+    - `Urgent`: enrollment/account finance diagnostic panel for `superadmin`
+    - `After that`: constrained correction toolkit
+    - `Only later`: broader cleanup of front-desk correction UX
+  - concrete product rules now locked for that lane:
+    - Contry historical tuition stays a two-step historical workflow:
+      - first create or reprice the monthly tuition charge
+      - then post the historical payment
+    - the Contry tuition amount must resolve from the real historical datetime, not from today's pricing window
+    - if the target month already exists and has no allocations, reprice that same row instead of creating a duplicate
+    - if the target month already has allocations or multiple active monthly rows, block and send it to the later diagnostic/correction lane
+    - superadmin repair tools should prefer:
+      - `Cargo correctivo`
+      - `Ajuste de saldo`
+      - `Reparar asignaciones`
+    - write-offs should be modeled as explicit balance adjustments, not fake posted payments
+    - unknown historical payment facts should not become invented posted payments
+    - if the real payment facts are missing, use a non-cash adjustment instead
+  - scholarship workflow is now in progress on preview:
+    - enrollment-level `Sin beca / Media beca / Beca completa`
+    - director-only control from `Editar inscripción`
+    - only pending current/future monthly tuition is touched
+    - `Media beca` = 50% mensualidad
+    - `Beca completa` = sin mensualidad
+    - scholarship changes block if affected pending tuition already has allocations
+    - Porto mensual reporting will track `Beca completa` and `Media beca` separately
   - attendance export fixes and workflow cleanup
   - compact local date/time formatting in player-facing admin views
   - uniform-size auto-sync into `Ficha técnica`
@@ -80,6 +107,11 @@ Notes:
   - `Inscripciones Torneos` now supports category-card drilldown into a separate `Nivel`-grouped view, and the top competition selector is shifting toward actual competition products instead of only the original three hardcoded family buckets
   - temporary `perf=1` diagnostics now exist on both the main `Inscripciones Torneos` board and the category-detail route for `superadmin`, so we can measure whether slowness lives in DB fetches or app-side aggregation before making deeper query/index changes
   - the first board-optimization pass is now in: the main `Inscripciones Torneos` view loads competition-relevant charges first instead of starting from all positive charges and filtering most of them away in app code
+  - broader performance/indexing pass remains open as a separate hardening lane:
+    - review the slowest operational pages across the app, not just `Inscripciones Torneos`
+    - use measured timings first, then add only minimal justified indexes
+    - prefer query-shape cleanup before adding write-cost-heavy DB indexes
+    - keep index creation production-safe and targeted
   - future hardening item: build a small app-wide superadmin performance monitor so one-off route diagnostics do not remain scattered forever
   - the category drilldown now also shows the not-paid side of the same category roster, grouped by `Nivel`, so front desk can compare paid vs pending players in one place
   - the category detail route has now been narrowed to selected campus/competition data only so opening a `CAT` card does not pay the cost of the full multi-campus sports-signups dataset

@@ -8,6 +8,7 @@ import { getEnrollmentLedger } from "@/lib/queries/billing";
 import {
   getAdvanceTuitionOptions,
   getAdvanceTuitionQuote,
+  getAdvanceTuitionQuoteForHistoricalDateTime,
   normalizePeriodMonth,
   formatPeriodMonthLabel,
 } from "@/lib/pricing/plans";
@@ -15,6 +16,7 @@ import { parsePaymentFormData } from "@/lib/validations/payment";
 import { writeAuditLog } from "@/lib/audit";
 import { applyEarlyBirdDiscountIfEligible } from "@/server/actions/payments";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
+import { applyScholarshipToAmount, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
@@ -23,7 +25,7 @@ import {
   syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
-import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
+import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
@@ -92,7 +94,7 @@ export type CajaChargeResult =
   | { ok: false; error: string };
 
 export type CajaAdvanceTuitionResult =
-  | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string }
+  | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string; mode: "created" | "repriced" }
   | { ok: false; error: string };
 
 export type CajaCartItemInput =
@@ -112,7 +114,15 @@ export type CajaCartItemInput =
 type EnrollmentPlanLookup = {
   id: string;
   status: string;
+  scholarship_status: ScholarshipStatus;
   pricing_plans: { currency: string; plan_code: string } | null;
+};
+
+type ExistingTuitionChargeLookup = {
+  id: string;
+  status: string;
+  amount: number;
+  pricing_rule_id: string | null;
 };
 
 function parseOptionalMoney(value: unknown): number | null {
@@ -186,17 +196,25 @@ async function createResolvedAdvanceTuitionCharge(
     periodMonth,
     userId,
     requiredCampusId,
+    historicalPricingDateTimeRaw,
   }: {
     enrollmentId: string;
     periodMonth: string;
     userId: string;
     requiredCampusId?: string;
+    historicalPricingDateTimeRaw?: string;
   }
 ) {
   const normalizedPeriodMonth = normalizePeriodMonth(periodMonth);
+  let historicalPricingDate: string | null = null;
+  if (historicalPricingDateTimeRaw != null) {
+    const historicalPricingDateTime = parseMonterreyDateTimeInput(historicalPricingDateTimeRaw);
+    if (!historicalPricingDateTime) return { ok: false as const, error: "historical_pricing_date_invalid" };
+    historicalPricingDate = getMonterreyDateString(historicalPricingDateTime);
+  }
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, status, pricing_plans(currency, plan_code)")
+    .select("id, status, scholarship_status, pricing_plans(currency, plan_code)")
     .eq("id", enrollmentId)
     .maybeSingle()
     .returns<EnrollmentPlanLookup | null>();
@@ -218,6 +236,9 @@ async function createResolvedAdvanceTuitionCharge(
 
   const planCode = enrollment.pricing_plans?.plan_code;
   if (!planCode) return { ok: false as const, error: "tuition_rate_not_found" };
+  if (enrollment.scholarship_status === "full") {
+    return { ok: false as const, error: "tuition_full_scholarship" };
+  }
 
   const ledgerCheck = await getEnrollmentLedger(enrollmentId);
   if (!ledgerCheck) return { ok: false as const, error: "ledger_failed" };
@@ -232,18 +253,68 @@ async function createResolvedAdvanceTuitionCharge(
   );
   if (hasArrears) return { ok: false as const, error: "prior_month_arrears" };
 
-  const [chargeTypeResult, tuitionQuote] = await Promise.all([
+  const existingPeriodCharges = ledgerCheck.charges.filter(
+    (charge) =>
+      charge.typeCode === "monthly_tuition" &&
+      charge.status !== "void" &&
+      charge.periodMonth === normalizedPeriodMonth,
+  );
+  if (existingPeriodCharges.length > 1) {
+    return { ok: false as const, error: "tuition_period_multiple" };
+  }
+
+  const [chargeTypeResult, tuitionQuote, existingCharge] = await Promise.all([
     supabase
       .from("charge_types")
       .select("id")
       .eq("code", "monthly_tuition")
       .maybeSingle()
       .returns<{ id: string } | null>(),
-    getAdvanceTuitionQuote(supabase, { planCode, periodMonth: normalizedPeriodMonth }),
+    historicalPricingDate
+      ? getAdvanceTuitionQuoteForHistoricalDateTime(supabase, {
+          planCode,
+          periodMonth: normalizedPeriodMonth,
+          historicalDate: historicalPricingDate,
+        })
+      : getAdvanceTuitionQuote(supabase, { planCode, periodMonth: normalizedPeriodMonth }),
+    existingPeriodCharges.length === 1
+      ? supabase
+          .from("charges")
+          .select("id, status, amount, pricing_rule_id")
+          .eq("id", existingPeriodCharges[0].id)
+          .maybeSingle()
+          .returns<ExistingTuitionChargeLookup | null>()
+      : Promise.resolve({ data: null as ExistingTuitionChargeLookup | null }),
   ]);
 
   if (!chargeTypeResult.data) return { ok: false as const, error: "charge_type_not_found" };
   if (!tuitionQuote) return { ok: false as const, error: "tuition_rate_not_found" };
+  const resolvedAmount = applyScholarshipToAmount(tuitionQuote.amount, enrollment.scholarship_status);
+
+  if (existingCharge?.data) {
+    if (existingPeriodCharges[0].allocatedAmount > 0.009) {
+      return { ok: false as const, error: "tuition_existing_allocated" };
+    }
+
+    const { error: updateError } = await supabase
+      .from("charges")
+      .update({
+        amount: resolvedAmount,
+        pricing_rule_id: tuitionQuote.pricingRuleId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingCharge.data.id);
+
+    if (updateError) return { ok: false as const, error: "charge_update_failed" };
+
+    return {
+      ok: true as const,
+      newChargeId: existingCharge.data.id,
+      amount: resolvedAmount,
+      description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`,
+      mode: "repriced" as const,
+    };
+  }
 
   const { data: newCharge, error: chargeError } = await supabase
     .from("charges")
@@ -252,7 +323,7 @@ async function createResolvedAdvanceTuitionCharge(
       charge_type_id: chargeTypeResult.data.id,
       period_month: normalizedPeriodMonth,
       description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`,
-      amount: tuitionQuote.amount,
+      amount: resolvedAmount,
       currency: tuitionQuote.plan.currency ?? enrollment.pricing_plans?.currency ?? "MXN",
       status: "pending",
       pricing_rule_id: tuitionQuote.pricingRuleId,
@@ -269,8 +340,9 @@ async function createResolvedAdvanceTuitionCharge(
   return {
     ok: true as const,
     newChargeId: newCharge.id,
-    amount: tuitionQuote.amount,
+    amount: resolvedAmount,
     description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`,
+    mode: "created" as const,
   };
 }
 
@@ -593,6 +665,7 @@ export async function createAdvanceTuitionAction(
   enrollmentId: string,
   periodMonth: string, // "YYYY-MM"
   requiredCampusId?: string,
+  historicalPricingDateTimeRaw?: string,
 ): Promise<CajaAdvanceTuitionResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   if (!periodMonth) {
@@ -603,33 +676,35 @@ export async function createAdvanceTuitionAction(
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
-  const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
-    enrollmentId,
-    periodMonth,
-    userId: user.id,
-    requiredCampusId,
-  });
-  if (!tuitionResult.ok) return tuitionResult;
+    const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
+      enrollmentId,
+      periodMonth,
+      userId: user.id,
+      requiredCampusId,
+      historicalPricingDateTimeRaw,
+    });
+    if (!tuitionResult.ok) return tuitionResult;
 
-  await writeAuditLog(supabase, {
-    actorUserId: user.id,
-    actorEmail: user.email ?? null,
-    action: "charge.created",
-    tableName: "charges",
-    recordId: tuitionResult.newChargeId,
-    afterData: {
-      enrollment_id: enrollmentId,
-      description: tuitionResult.description,
-      amount: tuitionResult.amount,
-      source: "caja-advance-tuition"
-    }
-  });
+    await writeAuditLog(supabase, {
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      action: tuitionResult.mode === "repriced" ? "charge.updated" : "charge.created",
+      tableName: "charges",
+      recordId: tuitionResult.newChargeId,
+      afterData: {
+        enrollment_id: enrollmentId,
+        description: tuitionResult.description,
+        amount: tuitionResult.amount,
+        source: "caja-advance-tuition",
+        mode: tuitionResult.mode,
+      }
+    });
 
-  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
-  if (!updatedData) return { ok: false, error: "reload_failed" };
+    const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+    if (!updatedData) return { ok: false, error: "reload_failed" };
 
-  return { ok: true, updatedData, newChargeId: tuitionResult.newChargeId };
-}
+    return { ok: true, updatedData, newChargeId: tuitionResult.newChargeId, mode: tuitionResult.mode };
+  }
 
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
 

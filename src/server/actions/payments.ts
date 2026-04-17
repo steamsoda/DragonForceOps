@@ -8,8 +8,8 @@ import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { listPlayers } from "@/lib/queries/players";
 import { createClient } from "@/lib/supabase/server";
-import { getAdvanceTuitionOptions } from "@/lib/pricing/plans";
-import { formatDateMonterrey, formatTimeMonterrey, parseMonterreyDateTimeInput } from "@/lib/time";
+import { formatPeriodMonthLabel, getAdvanceTuitionOptions } from "@/lib/pricing/plans";
+import { formatDateMonterrey, formatTimeMonterrey, getMonterreyMonthString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { redirect } from "next/navigation";
 import {
@@ -75,7 +75,7 @@ export type ContryRegularizationDrilldownMeta = {
 };
 
 export type ContryRegularizationChargeContext = {
-  advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
+  advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number; alreadyExists: boolean }>;
 };
 
 type SharedPostedPayment = {
@@ -348,20 +348,50 @@ export async function getContryRegularizationChargeContextAction(
     .returns<{ pricing_plans: { plan_code: string } | null } | null>();
 
   const planCode = enrollmentPlan?.pricing_plans?.plan_code;
+  const currentPeriodMonth = `${getMonterreyMonthString()}-01`;
   const existingPeriods = ledger.charges
     .filter((charge) => charge.typeCode === "monthly_tuition" && charge.status !== "void" && charge.periodMonth)
     .map((charge) => charge.periodMonth!);
+  const existingCurrentOrFuturePeriods = [...new Set(
+    ledger.charges
+      .filter(
+        (charge) =>
+          charge.typeCode === "monthly_tuition" &&
+          charge.status !== "void" &&
+          !!charge.periodMonth &&
+          charge.periodMonth >= currentPeriodMonth,
+      )
+      .map((charge) => charge.periodMonth!),
+  )].sort();
 
   const advanceTuitionOptions = planCode
     ? await getAdvanceTuitionOptions(supabase, { planCode, existingPeriodMonths: existingPeriods })
     : [];
+  const mergedOptions = new Map<string, { periodMonth: string; label: string; amount: number; alreadyExists: boolean }>();
 
-  return {
-    advanceTuitionOptions: advanceTuitionOptions.map((option) => ({
+  for (const periodMonth of existingCurrentOrFuturePeriods) {
+    mergedOptions.set(periodMonth, {
+      periodMonth,
+      label: `${formatPeriodMonthLabel(periodMonth)} · cargo existente`,
+      amount: ledger.charges.find(
+        (charge) => charge.typeCode === "monthly_tuition" && charge.status !== "void" && charge.periodMonth === periodMonth,
+      )?.amount ?? 0,
+      alreadyExists: true,
+    });
+  }
+
+  for (const option of advanceTuitionOptions) {
+    if (mergedOptions.has(option.periodMonth)) continue;
+    mergedOptions.set(option.periodMonth, {
       periodMonth: option.periodMonth,
       label: option.label,
       amount: option.amount,
-    })),
+      alreadyExists: false,
+    });
+  }
+
+  return {
+    advanceTuitionOptions: Array.from(mergedOptions.values()).sort((a, b) => a.periodMonth.localeCompare(b.periodMonth)),
   };
 }
 

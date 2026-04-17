@@ -81,6 +81,11 @@ function getActionErrorMessage(code: string) {
     prior_month_arrears: "Hay mensualidades anteriores pendientes.",
     duplicate_period: "Ya existe una mensualidad para ese periodo.",
     charge_type_not_found: "Falta configuración del tipo de cargo.",
+    historical_pricing_date_invalid: "Captura una fecha y hora hist\u00f3rica v\u00e1lida para calcular la mensualidad.",
+    tuition_existing_allocated: "La mensualidad de ese periodo ya tiene pagos aplicados. Corr\u00edgela manualmente antes de cambiarla.",
+    tuition_period_multiple: "Hay varias mensualidades activas para ese periodo. Revisa la cuenta antes de continuar.",
+    charge_update_failed: "No se pudo actualizar la mensualidad existente.",
+    tuition_full_scholarship: "Esta inscripci\u00f3n tiene beca completa. No corresponde crear mensualidad.",
     debug_read_only: "El modo de solo lectura bloquea cambios.",
   };
   return messages[code] ?? "Ocurrió un error. Intenta de nuevo.";
@@ -92,6 +97,7 @@ type ImmediateChargePaymentPrompt = {
   chargeId: string;
   chargeDescription: string;
   amount: string;
+  pricingDateTime: string | null;
 };
 
 function getInitialDateTimeLocal() {
@@ -154,6 +160,7 @@ export function ContryRegularizationAccountPanel({
   const [chargeSize, setChargeSize] = useState("");
   const [goalkeeper, setGoalkeeper] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState("");
+  const [tuitionPricingPaidAt, setTuitionPricingPaidAt] = useState("");
   const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("product");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
@@ -179,6 +186,7 @@ export function ContryRegularizationAccountPanel({
     setImmediatePaymentMethod("");
     setImmediatePaymentNotes("");
     setImmediatePaymentPaidAt("");
+    setTuitionPricingPaidAt("");
   }, [initialLedger]);
 
   useEffect(() => {
@@ -207,6 +215,14 @@ export function ContryRegularizationAccountPanel({
     [pendingCharges, selectedChargeIds],
   );
 
+  const selectedMonthlyChargeCount = useMemo(
+    () =>
+      pendingCharges.filter(
+        (charge) => selectedChargeIds.includes(charge.id) && charge.typeCode === "monthly_tuition",
+      ).length,
+    [pendingCharges, selectedChargeIds],
+  );
+
   function setQuickAmount(value: number) {
     setPaymentAmount(value > 0 ? value.toFixed(2) : "");
   }
@@ -217,7 +233,11 @@ export function ContryRegularizationAccountPanel({
     );
   }
 
-  function openImmediatePaymentPrompt(newChargeId: string | undefined, nextLedger?: EnrollmentLedger | null) {
+  function openImmediatePaymentPrompt(
+    newChargeId: string | undefined,
+    nextLedger?: EnrollmentLedger | null,
+    defaultPaidAt?: string,
+  ) {
     if (!newChargeId) return;
 
     const promptCharge = nextLedger?.charges.find((charge) => charge.id === newChargeId);
@@ -230,10 +250,11 @@ export function ContryRegularizationAccountPanel({
       chargeId: promptCharge.id,
       chargeDescription: promptCharge.description,
       amount: promptCharge.pendingAmount.toFixed(2),
+      pricingDateTime: defaultPaidAt ?? null,
     });
     setImmediatePaymentMethod("");
     setImmediatePaymentNotes("");
-    setImmediatePaymentPaidAt("");
+    setImmediatePaymentPaidAt(defaultPaidAt ?? "");
   }
 
   async function refreshWorkspace(options?: { refreshContext?: boolean }) {
@@ -375,14 +396,19 @@ export function ContryRegularizationAccountPanel({
   }
 
   function submitAdvanceTuition() {
-    if (!tuitionPeriod) return;
+    if (!tuitionPeriod || !tuitionPricingPaidAt) return;
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
-    setPendingMessage("Agregando la mensualidad adelantada...");
+    setPendingMessage("Calculando la mensualidad con la fecha real y actualizando la cuenta...");
 
     startTransition(async () => {
-      const result = await createAdvanceTuitionAction(ledger.enrollment.id, tuitionPeriod, contryCampusId);
+      const result = await createAdvanceTuitionAction(
+        ledger.enrollment.id,
+        tuitionPeriod,
+        contryCampusId,
+        tuitionPricingPaidAt,
+      );
       if (!result.ok) {
         setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
@@ -393,8 +419,12 @@ export function ContryRegularizationAccountPanel({
       if (result.newChargeId) {
         setSelectedChargeIds((current) => Array.from(new Set([...current, result.newChargeId!])));
       }
-      openImmediatePaymentPrompt(result.newChargeId, nextLedger);
-      setSuccessMessage("Mensualidad agregada correctamente.");
+      openImmediatePaymentPrompt(result.newChargeId, nextLedger, tuitionPricingPaidAt);
+      setSuccessMessage(
+        result.mode === "repriced"
+          ? "Mensualidad actualizada con la fecha hist\u00f3rica indicada."
+          : "Mensualidad agregada correctamente con la fecha hist\u00f3rica indicada.",
+      );
       setPendingMessage(null);
     });
   }
@@ -543,6 +573,12 @@ export function ContryRegularizationAccountPanel({
             Esta captura sigue siendo solo para Regularización Contry. No imprime automáticamente y no se vincula a la sesión de caja.
           </p>
         </div>
+
+        {selectedMonthlyChargeCount > 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+            Este formulario no recalcula mensualidades. Si necesitas ajustar la tarifa por fecha hist\u00f3rica, usa primero <span className="font-semibold">Agregar nuevo cargo &gt; Mensualidad</span> y luego registra el pago.
+          </div>
+        ) : null}
 
         {ledger.totals.balance > 0 ? (
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -777,7 +813,7 @@ export function ContryRegularizationAccountPanel({
         ) : (
           <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
             <label className="block space-y-1 text-sm">
-              <span className="font-medium text-slate-700 dark:text-slate-300">Mensualidad adelantada</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">Mensualidad</span>
               <select
                 value={tuitionPeriod}
                 disabled={isPending}
@@ -791,11 +827,46 @@ export function ContryRegularizationAccountPanel({
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                El importe final se recalcula cuando guardas la mensualidad usando la fecha hist\u00f3rica capturada abajo.
+              </p>
             </label>
+
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium text-slate-700 dark:text-slate-300">Fecha y hora real para calcular la mensualidad</span>
+              <input
+                type="datetime-local"
+                required
+                value={tuitionPricingPaidAt}
+                disabled={isPending}
+                onChange={(event) => setTuitionPricingPaidAt(event.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Esta fecha define si la mensualidad toma tarifa temprana o tarifa normal para ese periodo.
+              </p>
+            </label>
+
+            {!tuitionPricingPaidAt ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => setTuitionPricingPaidAt(getInitialDateTimeLocal())}
+                className="w-fit rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Usar fecha y hora actual
+              </button>
+            ) : null}
+
+            {tuitionPeriod && chargeContext?.advanceTuitionOptions.some((option) => option.periodMonth.slice(0, 7) === tuitionPeriod && option.alreadyExists) ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                Ya existe una mensualidad activa para este periodo. Si no tiene pagos aplicados, se ajustar\u00e1 ese mismo cargo en lugar de crear uno nuevo.
+              </div>
+            ) : null}
 
             <button
               type="button"
-              disabled={isPending || !tuitionPeriod}
+              disabled={isPending || !tuitionPeriod || !tuitionPricingPaidAt}
               onClick={submitAdvanceTuition}
               className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
             >
@@ -818,6 +889,11 @@ export function ContryRegularizationAccountPanel({
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Monto a cubrir: {formatMoney(Number(immediatePaymentPrompt.amount), ledger.enrollment.currency)}
               </p>
+              {immediatePaymentPrompt.pricingDateTime ? (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Mensualidad calculada con la fecha real: {immediatePaymentPrompt.pricingDateTime.replace("T", " ")}
+                </p>
+              ) : null}
             </div>
 
             <label className="space-y-1 text-sm">

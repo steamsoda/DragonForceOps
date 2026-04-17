@@ -55,7 +55,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
                 <span className="font-semibold">{created} cargo{created !== 1 ? "s" : ""} generado{created !== 1 ? "s" : ""}.</span>
                 {skipped > 0 ? (
                   <span className="ml-1">
-                    Omitidas: {skippedExistingCharge} por cargo existente, {skippedScholarship} con beca, {skippedByIncident} por incidencia
+                    Omitidas: {skippedExistingCharge} por cargo existente, {skippedScholarship} con beca completa, {skippedByIncident} por incidencia
                     {skippedOther > 0 ? ` y ${skippedOther} por otras causas` : ""}.
                   </span>
                 ) : null}
@@ -64,8 +64,8 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
               <span>
                 No se generaron cargos nuevos.
                 {skipped > 0
-                  ? ` Omitidas: ${skippedExistingCharge} por cargo existente, ${skippedScholarship} con beca, ${skippedByIncident} por incidencia${skippedOther > 0 ? ` y ${skippedOther} por otras causas` : ""}.`
-                  : " Todas las inscripciones activas ya tenían una condición que impidió generar cargos."}
+                  ? ` Omitidas: ${skippedExistingCharge} por cargo existente, ${skippedScholarship} con beca completa, ${skippedByIncident} por incidencia${skippedOther > 0 ? ` y ${skippedOther} por otras causas` : ""}.`
+                  : " Todas las inscripciones activas ya tenian una condicion que impidio generar cargos."}
               </span>
             )}
           </div>
@@ -88,7 +88,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
               className="block w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm"
             />
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Se generarán cargos de mensualidad para las inscripciones activas que no tengan beca, cargo existente ni una incidencia con omisión para ese mes.
+              Se generaran cargos de mensualidad para las inscripciones activas que no tengan beca completa, cargo existente ni una incidencia con omision para ese mes.
             </p>
           </div>
 
@@ -103,11 +103,11 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
         <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
           <p className="font-medium text-slate-700 dark:text-slate-300">Notas</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>La operación usa la versión de tarifa vigente para el mes seleccionado.</li>
-            <li>La operación es segura de repetir, no crea duplicados.</li>
-            <li>Solo afecta inscripciones con estatus <strong>activo</strong> y sin beca (<code>has_scholarship = false</code>).</li>
-            <li>Las incidencias con omisión activa para ese mes también se respetan automáticamente.</li>
-            <li>Este botón es para uso manual (meses atrasados, pruebas). El día 1 de cada mes los cargos se generan <strong>automáticamente</strong> a las 06:00 UTC vía pg_cron en Supabase.</li>
+            <li>La operacion usa la version de tarifa vigente para el mes seleccionado.</li>
+            <li>La operacion es segura de repetir, no crea duplicados.</li>
+            <li>Solo omite inscripciones con estatus <strong>activo</strong> y <strong>beca completa</strong>; la media beca genera mensualidad al 50%.</li>
+            <li>Las incidencias con omision activa para ese mes tambien se respetan automaticamente.</li>
+            <li>Este boton es para uso manual (meses atrasados, pruebas). El dia 1 de cada mes los cargos se generan <strong>automaticamente</strong> a las 06:00 UTC via pg_cron en Supabase.</li>
           </ul>
         </div>
       </div>

@@ -1,5 +1,93 @@
 # Devlog
 
+## 2026-04-16 (session 83)
+
+### Contry Historical Tuition Workflow: Clarification Pass (v1.16.27)
+
+- Tightened the `Regularización Contry` UI after live testing exposed a workflow misunderstanding:
+  - the generic `Registrar pago histórico` form still posts payments only
+  - it does **not** recalculate an existing monthly tuition amount from the historical payment date
+- Added an explicit warning when staff selects a monthly tuition charge in the historical payment form:
+  - first use `Agregar nuevo cargo > Mensualidad` to create or reprice the monthly tuition with the real historical datetime
+  - then post the historical payment
+- Added a helper note on the `Mensualidad` selector clarifying that the final tuition amount is resolved when the monthly action is saved with the historical datetime, not from the generic payment form.
+
+## 2026-04-16 (session 82)
+
+### Contry Historical Tuition Workflow v1 (v1.16.26)
+
+- Patched `Regularización Contry` so `Mensualidad` now uses the exact historical datetime captured by staff to resolve the tuition rate for the selected period.
+- The Contry tuition action is no longer "always create a new row":
+  - if the target period has no active tuition charge, it creates one
+  - if the target period already has exactly one active tuition charge with no allocations, it reprices that same row in place
+  - if the target period has allocations, it blocks instead of mutating money under posted history
+  - if the target period already has multiple active tuition rows, it blocks and surfaces a correction-needed error
+- The historical rate resolver is durable for any selected tuition period, not just the April cleanup:
+  - it resolves the pricing-plan version from the captured historical datetime
+  - then applies scholarship rules on top of that resolved tuition amount
+  - `Media beca` uses 50% of the historical tuition amount
+  - `Beca completa` blocks Contry tuition creation/repricing for that period
+- Contry charge context now includes current/future monthly tuition periods that already exist, so staff can explicitly pick an existing period and reprice it when it is still clean.
+- The immediate payment prompt stays intact, but now prefills the same historical datetime used to calculate the tuition charge and shows that context back to the operator.
+- This pass keeps the Contry workflow as a small durable fix on top of the existing two-step process:
+  - create/reprice tuition first
+  - then post the historical payment
+  - no accounting rewrite and no schema change
+
+## 2026-04-16 (session 81)
+
+### Roadmap Note: Finance Correction Lane
+
+- Logged the new top-priority finance correction sequence in the roadmap so the work lands in the right order:
+  - `Urgent`: Contry historical tuition workflow
+  - `Urgent`: enrollment/account finance diagnostic panel for `superadmin`
+  - `After that`: constrained correction toolkit
+  - `Only later`: broader cleanup of front-desk correction UX
+- Locked product guidance for that lane:
+  - Contry historical tuition should become a one-step create+pay historical monthly tuition flow that resolves pricing from the real payment datetime
+  - write-offs should use explicit balance adjustments, not fake posted payments
+  - missing payment facts should use non-cash adjustment tools instead of invented payment history
+
+## 2026-04-16 (session 80)
+
+### Scholarship Workflow v1: Full + Half Tuition Scholarships (v1.16.25)
+
+- Replaced the old backend-only `has_scholarship` path with a real enrollment scholarship workflow centered on `scholarship_status = none | half | full`.
+- Added director-only scholarship control to `Editar inscripción` with the operational states:
+  - `Sin beca`
+  - `Media beca`
+  - `Beca completa`
+- Scholarship updates now sync only **pending monthly tuition from the current month forward**:
+  - `Media beca` reprices eligible pending tuition to 50%
+  - `Beca completa` voids eligible pending tuition rows instead of rewriting history
+  - `Beca completa -> Sin beca / Media beca` can recreate the current month tuition if it is missing and not omitted by an incident
+  - any current/future pending tuition row that already has payment allocations blocks the scholarship change with a clear operational error
+  - current-month scholarship sync preserves the correct Monterrey day pricing window instead of forcing day-1 tuition after the repricing cutoff
+- Updated runtime monthly tuition logic to use the new scholarship status:
+  - SQL `generate_monthly_charges(...)`
+  - SQL `reprice_pending_monthly_tuition(...)`
+  - TS fallback `generateMonthlyChargesCore(...)`
+- Kept `has_scholarship` mirrored for compatibility in this pass:
+  - `full` -> `true`
+  - `none` / `half` -> `false`
+- Porto mensual reporting now separates:
+  - `Beca completa`
+  - `Media beca`
+- Admin mensualidades wording was adjusted so operations text now matches the new rule: full scholarship is skipped; half scholarship still generates tuition at 50%.
+
+## 2026-04-16 (session 79)
+
+### Roadmap Note: App-Wide Performance / Indexing Pass
+
+- Logged a separate roadmap follow-up for a broader app performance hardening pass.
+- Current state:
+  - `Inscripciones Torneos` improved materially after narrowing the board query
+  - current performance is acceptable enough to move on to higher-priority product fixes
+- Future rule recorded explicitly:
+  - use measured timings first
+  - prefer query narrowing before indexing
+  - add only minimal, justified indexes in production-safe fashion
+
 ## 2026-04-16 (session 78)
 
 ### Inscripciones Torneos Board Query Narrowing (v1.16.24)

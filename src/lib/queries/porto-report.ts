@@ -94,7 +94,7 @@ export type PortoDatosGenerales = {
   periodLastDay: string;
   nuevasInscripciones: { total: number; varonil: number; femenil: number };
   retiros: { total: number; reasons: { reason: string; count: number }[] };
-  activos: { total: number; varonil: number; femenil: number; becados: number };
+  activos: { total: number; varonil: number; femenil: number; becados: number; mediaBeca: number };
   deudores: { count: number; pendienteMxn: number };
 };
 
@@ -134,7 +134,8 @@ export async function getPortoDatosGenerales(
       total: obj("activos").total as number,
       varonil: obj("activos").varonil as number,
       femenil: obj("activos").femenil as number,
-      becados: obj("activos").becados as number
+      becados: obj("activos").becados as number,
+      mediaBeca: obj("activos").media_beca as number
     },
     deudores: {
       count: obj("deudores").count as number,

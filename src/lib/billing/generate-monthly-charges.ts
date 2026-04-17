@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { applyScholarshipToAmount, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 
 export const MONTH_NAMES_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -23,6 +24,7 @@ export type GenerateResult = {
 type ActiveEnrollmentRow = {
   id: string;
   pricing_plan_id: string;
+  scholarship_status: ScholarshipStatus;
   pricing_plans: { currency: string } | null;
 };
 
@@ -64,16 +66,16 @@ export async function generateMonthlyChargesCore(
 
   const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("id, pricing_plan_id, pricing_plans(currency)")
+    .select("id, pricing_plan_id, scholarship_status, pricing_plans(currency)")
     .eq("status", "active")
-    .eq("has_scholarship", false);
+    .neq("scholarship_status", "full");
 
   const activeEnrollments = (enrollments ?? []) as unknown as ActiveEnrollmentRow[];
   const { count: scholarshipCount } = await supabase
     .from("enrollments")
     .select("*", { count: "exact", head: true })
     .eq("status", "active")
-    .eq("has_scholarship", true);
+    .eq("scholarship_status", "full");
 
   if (activeEnrollments.length === 0) {
     return {
@@ -156,7 +158,7 @@ export async function generateMonthlyChargesCore(
         charge_type_id: chargeType.id,
         period_month: periodMonth,
         description,
-        amount: selectedRule.amount,
+        amount: applyScholarshipToAmount(selectedRule.amount, enrollment.scholarship_status),
         currency: enrollment.pricing_plans?.currency ?? "MXN",
         status: "pending",
         due_date: dueDate,
