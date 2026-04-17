@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.31`
+Current preview release line: `v1.16.33`
 
 ---
 
@@ -138,6 +138,14 @@ Notes:
   - the category detail route has now been narrowed to selected campus/competition data only so opening a `CAT` card does not pay the cost of the full multi-campus sports-signups dataset
   - temporary `perf=1` diagnostics are now available on the category detail route so remaining latency can be measured step-by-step before further optimization work
   - current `perf=1` diagnostics should remain superadmin-only while they are temporary
+  - `Inscripciones Torneos` category cards now show the full paid roster directly on the main board instead of truncating at 12 names
+  - each category card now includes quick operational export actions for all page users:
+    - `Exportar PNG`
+    - `Copiar texto`
+  - quick-export output was immediately tightened after first front-desk review:
+    - copied text now omits the `pagados / activos` ratio line
+    - PNG export now shows only the paid-player count as `N Jugadores`
+  - the existing superadmin-only CSV export remains unchanged as the broader reconciliation/export path
 - stock control and supplier batch entities remain intentionally out of v1
 - do not mix tournaments or broader sports-management work into the uniforms rollout pass
 - Release policy:
