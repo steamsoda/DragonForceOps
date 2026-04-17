@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-16.
 
-Current preview release line: `v1.16.25`
+Current preview release line: `v1.16.26`
 
 ---
 
@@ -68,6 +68,25 @@ Notes:
     - some older girls teams are mixed-category
     - some teams merge across levels/categories only when signup counts are too low
 - the next admin/front-desk follow-up bucket now includes:
+  - new top-priority finance correction lane, to execute in this order:
+    - `Urgent`: Contry historical tuition workflow
+    - `Urgent`: enrollment/account finance diagnostic panel for `superadmin`
+    - `After that`: constrained correction toolkit
+    - `Only later`: broader cleanup of front-desk correction UX
+  - concrete product rules now locked for that lane:
+    - Contry historical tuition stays a two-step historical workflow:
+      - first create or reprice the monthly tuition charge
+      - then post the historical payment
+    - the Contry tuition amount must resolve from the real historical datetime, not from today's pricing window
+    - if the target month already exists and has no allocations, reprice that same row instead of creating a duplicate
+    - if the target month already has allocations or multiple active monthly rows, block and send it to the later diagnostic/correction lane
+    - superadmin repair tools should prefer:
+      - `Cargo correctivo`
+      - `Ajuste de saldo`
+      - `Reparar asignaciones`
+    - write-offs should be modeled as explicit balance adjustments, not fake posted payments
+    - unknown historical payment facts should not become invented posted payments
+    - if the real payment facts are missing, use a non-cash adjustment instead
   - scholarship workflow is now in progress on preview:
     - enrollment-level `Sin beca / Media beca / Beca completa`
     - director-only control from `Editar inscripción`

@@ -1,5 +1,41 @@
 # Devlog
 
+## 2026-04-16 (session 82)
+
+### Contry Historical Tuition Workflow v1 (v1.16.26)
+
+- Patched `Regularización Contry` so `Mensualidad` now uses the exact historical datetime captured by staff to resolve the tuition rate for the selected period.
+- The Contry tuition action is no longer "always create a new row":
+  - if the target period has no active tuition charge, it creates one
+  - if the target period already has exactly one active tuition charge with no allocations, it reprices that same row in place
+  - if the target period has allocations, it blocks instead of mutating money under posted history
+  - if the target period already has multiple active tuition rows, it blocks and surfaces a correction-needed error
+- The historical rate resolver is durable for any selected tuition period, not just the April cleanup:
+  - it resolves the pricing-plan version from the captured historical datetime
+  - then applies scholarship rules on top of that resolved tuition amount
+  - `Media beca` uses 50% of the historical tuition amount
+  - `Beca completa` blocks Contry tuition creation/repricing for that period
+- Contry charge context now includes current/future monthly tuition periods that already exist, so staff can explicitly pick an existing period and reprice it when it is still clean.
+- The immediate payment prompt stays intact, but now prefills the same historical datetime used to calculate the tuition charge and shows that context back to the operator.
+- This pass keeps the Contry workflow as a small durable fix on top of the existing two-step process:
+  - create/reprice tuition first
+  - then post the historical payment
+  - no accounting rewrite and no schema change
+
+## 2026-04-16 (session 81)
+
+### Roadmap Note: Finance Correction Lane
+
+- Logged the new top-priority finance correction sequence in the roadmap so the work lands in the right order:
+  - `Urgent`: Contry historical tuition workflow
+  - `Urgent`: enrollment/account finance diagnostic panel for `superadmin`
+  - `After that`: constrained correction toolkit
+  - `Only later`: broader cleanup of front-desk correction UX
+- Locked product guidance for that lane:
+  - Contry historical tuition should become a one-step create+pay historical monthly tuition flow that resolves pricing from the real payment datetime
+  - write-offs should use explicit balance adjustments, not fake posted payments
+  - missing payment facts should use non-cash adjustment tools instead of invented payment history
+
 ## 2026-04-16 (session 80)
 
 ### Scholarship Workflow v1: Full + Half Tuition Scholarships (v1.16.25)

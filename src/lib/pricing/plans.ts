@@ -428,6 +428,41 @@ export async function getAdvanceTuitionQuote(
   return quoteAdvanceTuitionFromVersions(versions, periodMonth);
 }
 
+export async function getAdvanceTuitionQuoteForHistoricalDateTime(
+  supabase: SupabaseClient,
+  {
+    planCode,
+    periodMonth,
+    historicalDate,
+  }: {
+    planCode: string;
+    periodMonth: string;
+    historicalDate: string;
+  }
+) {
+  const versions = await fetchPricingPlanVersionsByCode(supabase, planCode);
+  const day = getDayOfMonth(historicalDate);
+  const version = resolvePricingPlanVersionForDate(versions, historicalDate);
+  if (!version) return null;
+
+  const tuitionRule = pickTuitionRuleForDay(version.tuitionRules, day);
+  if (!tuitionRule) return null;
+
+  return {
+    plan: {
+      id: version.id,
+      name: version.name,
+      currency: version.currency,
+      planCode: version.planCode,
+      effectiveStart: version.effectiveStart,
+      effectiveEnd: version.effectiveEnd,
+    },
+    amount: tuitionRule.amount,
+    pricingRuleId: tuitionRule.id,
+    periodMonth: normalizePeriodMonth(periodMonth),
+  };
+}
+
 export function getDefaultEnrollmentStartDate() {
   return getMonterreyDateString();
 }
