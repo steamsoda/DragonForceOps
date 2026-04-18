@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.35`
+Current preview release line: `v1.16.36`
 
 ---
 
@@ -80,6 +80,11 @@ Notes:
   - anomaly state changes now write `finance.anomaly_detected` / `finance.anomaly_resolved` into `audit_logs`
   - `/admin/finance-sanity` now includes active anomaly review plus recent anomaly events
   - v1 remains superadmin-facing and diagnostic only
+  - first live triage follow-up now landed:
+    - charge voids now release allocations before marking the charge `void`
+    - global anomaly review is now stricter about what counts as a real active anomaly, so normal carry-forward credit states stop flooding the queue
+  - next step for this lane:
+    - inspect the remaining post-hotfix anomaly queue and decide which legacy accounts need toolkit repair vs targeted one-off cleanup
 - year-of-birth + account navigation polish has started landing:
   - dedicated enrollment account page now shows linked player context and functional breadcrumbs
   - `RegularizaciÃ³n Contry` selected-account header now keeps birth year visible

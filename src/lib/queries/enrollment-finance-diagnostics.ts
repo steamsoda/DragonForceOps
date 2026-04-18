@@ -278,16 +278,6 @@ export async function getEnrollmentFinanceDiagnostics(
         refundAmount,
         reassignBlockedReason: payment.reassignBlockedReason,
       });
-      anomalies.push(
-        createAnomaly({
-          key: `payment-without-allocations:${payment.id}`,
-          code: "payment_without_allocations",
-          severity: "warning",
-          title,
-          detail,
-          paymentIds: [payment.id],
-        }),
-      );
       continue;
     }
 
@@ -306,16 +296,6 @@ export async function getEnrollmentFinanceDiagnostics(
         refundAmount,
         reassignBlockedReason: payment.reassignBlockedReason,
       });
-      anomalies.push(
-        createAnomaly({
-          key: `payment-partial-allocation:${payment.id}`,
-          code: "payment_partial_allocation",
-          severity: "warning",
-          title,
-          detail,
-          paymentIds: [payment.id],
-        }),
-      );
       continue;
     }
 
@@ -334,17 +314,6 @@ export async function getEnrollmentFinanceDiagnostics(
         refundAmount,
         reassignBlockedReason: payment.reassignBlockedReason,
       });
-      anomalies.push(
-        createAnomaly({
-          key: `payment-reassign-delicate:${payment.id}`,
-          code: "payment_reassign_delicate",
-          severity: "warning",
-          title,
-          detail: reassignDetail,
-          paymentIds: [payment.id],
-          chargeIds: payment.sourceCharges.map((charge) => charge.chargeId),
-        }),
-      );
     }
   }
 
@@ -558,15 +527,6 @@ export async function getEnrollmentFinanceDiagnostics(
       title,
       detail,
     });
-    anomalies.push(
-      createAnomaly({
-        key: "unapplied-credit",
-        code: "unapplied_credit",
-        severity: "warning",
-        title,
-        detail,
-      }),
-    );
   }
 
   const issueCount =

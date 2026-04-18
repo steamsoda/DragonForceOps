@@ -804,6 +804,21 @@ export async function voidChargeAction(
   if (!charge) redirect(`${BASE}?err=charge_not_found`);
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
 
+  const { data: releasedAllocations, error: releaseLookupError } = await supabase
+    .from("payment_allocations")
+    .select("payment_id, amount")
+    .eq("charge_id", chargeId)
+    .returns<Array<{ payment_id: string; amount: number }>>();
+
+  if (releaseLookupError) redirect(`${BASE}?err=void_failed`);
+
+  const { error: releaseAllocationsError } = await supabase
+    .from("payment_allocations")
+    .delete()
+    .eq("charge_id", chargeId);
+
+  if (releaseAllocationsError) redirect(`${BASE}?err=void_failed`);
+
   const { error } = await supabase
     .from("charges")
     .update({ status: "void" })
@@ -817,9 +832,22 @@ export async function voidChargeAction(
     action: "charge.voided",
     tableName: "charges",
     recordId: chargeId,
-    afterData: { enrollment_id: enrollmentId, description: charge.description, amount: charge.amount, reason }
+    afterData: {
+      enrollment_id: enrollmentId,
+      description: charge.description,
+      amount: charge.amount,
+      reason,
+      released_allocation_count: releasedAllocations?.length ?? 0,
+      released_allocation_amount: (releasedAllocations ?? []).reduce((sum, row) => sum + row.amount, 0),
+    }
   });
 
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
   revalidatePath(BASE);
   await writeEnrollmentAnomalyAuditTrail({
     enrollmentId,
@@ -875,6 +903,13 @@ export async function batchVoidBajaChargesAction(formData: FormData): Promise<vo
   if (pendingCharges.length === 0) redirect(`${BASE}?err=no_pending_charges`);
 
   const chargeIds = pendingCharges.map((c) => c.id);
+
+  const { error: releaseAllocationsError } = await supabase
+    .from("payment_allocations")
+    .delete()
+    .in("charge_id", chargeIds);
+
+  if (releaseAllocationsError) redirect(`${BASE}?err=void_failed`);
 
   const { error: voidError } = await supabase
     .from("charges")

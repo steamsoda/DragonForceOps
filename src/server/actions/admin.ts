@@ -74,6 +74,7 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
       afterData: { enrollment_id: enrollmentId, reason: "Revertido desde Auditoría — superadmin" }
     });
   } else if (log.action === "charge.created") {
+    await supabase.from("payment_allocations").delete().eq("charge_id", recordId);
     const { error } = await supabase.from("charges").update({ status: "void" }).eq("id", recordId);
     if (error) redirect("/admin/actividad?err=reverse_failed");
     await writeAuditLog(supabase, {

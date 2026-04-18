@@ -1,5 +1,34 @@
 # Devlog
 
+## 2026-04-17 (session 93)
+
+### Finance Sanity Triage: Charge-Void Fix + Monitoring Noise Reduction (v1.16.36)
+
+- Investigated the first live wave of `Sanidad financiera` results after enabling anomaly monitoring.
+- Confirmed one real bug in the ledger mutation path:
+  - `voidChargeAction` was marking a charge as `void` without releasing its `payment_allocations`
+  - this directly created the `Cargo anulado con pagos aplicados` state and could also cascade into derived-balance drift
+- Fixed charge-void behavior so future voided charges now release their allocations before the charge is voided.
+- Applied the same defensive release step to:
+  - batch void of pending charges for bajas
+  - reversing `charge.created` from audit/admin tools
+- Added tournament-signup revalidation to charge-void handling, so voiding a competition charge does not leave sports signup state stale.
+- Tightened the global anomaly monitor to reduce false alarm volume:
+  - these states still appear inside the per-account diagnostic panel as operational warnings
+  - but they no longer populate the top-level active-anomaly queue or anomaly audit events by themselves:
+    - `Pago registrado sin asignaciones`
+    - `Pago parcialmente asignado`
+    - `Pago con estructura de asignacion delicada`
+    - `Credito no aplicado`
+- Updated `Sanidad financiera` banner copy so the page distinguishes:
+  - real balance drift
+  - broader financial anomalies
+- Result:
+  - future charge-void mistakes should stop creating the same corruption pattern
+  - the global sanity page should now skew much more toward true correction-needed accounts instead of normal carry-forward credit situations
+- Existing damaged accounts were not auto-repaired in this pass.
+  - those still need either toolkit repair or a targeted cleanup pass once we inspect the remaining queue after this hotfix
+
 ## 2026-04-17 (session 92)
 
 ### Account Surfaces + Finance Drift Monitoring (v1.16.35)
