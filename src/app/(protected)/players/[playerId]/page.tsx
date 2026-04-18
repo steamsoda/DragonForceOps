@@ -716,7 +716,7 @@ export default async function PlayerDetailPage({
                     defaultMonth={getCurrentMonthValue()}
                   />
                 ) : null}
-              <div className="grid gap-5 xl:grid-cols-2">
+              <div className="grid gap-5">
                 <section className="space-y-2">
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos</h4>
                   <ChargesLedgerTable rows={activeLedger.charges} voidChargeAction={voidCharge} />

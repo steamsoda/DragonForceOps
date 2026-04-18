@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.34`
+Current preview release line: `v1.16.35`
 
 ---
 
@@ -74,6 +74,19 @@ Time-sensitive reminders:
 - Do not let this temporary schedule drift into May 2026 unnoticed.
 
 Notes:
+
+- finance drift monitoring is now active as a real hardening lane:
+  - shared anomaly snapshots drive the enrollment diagnostic panel, mutation-triggered anomaly auditing, and `/admin/finance-sanity`
+  - anomaly state changes now write `finance.anomaly_detected` / `finance.anomaly_resolved` into `audit_logs`
+  - `/admin/finance-sanity` now includes active anomaly review plus recent anomaly events
+  - v1 remains superadmin-facing and diagnostic only
+- year-of-birth + account navigation polish has started landing:
+  - dedicated enrollment account page now shows linked player context and functional breadcrumbs
+  - `RegularizaciÃ³n Contry` selected-account header now keeps birth year visible
+- player-account ledger visibility polish is now active:
+  - shared charges/payments tables are being compressed into stacked cells so actions stay visible without normal horizontal scrolling
+  - player profile active-account ledger now stacks vertically instead of forcing charges/payments into a cramped side-by-side layout
+  - keep one follow-up polish pass open if smaller laptop widths still crowd these surfaces in live use
 
 - front desk payment-control feedback has already landed:
   - `Método` selection is explicit button-based in Caja and `Regularización Contry`

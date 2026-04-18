@@ -434,10 +434,20 @@ export function ContryRegularizationAccountPanel({
       <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{ledger.enrollment.playerName}</p>
+            {ledger.enrollment.playerId ? (
+              <Link
+                href={`/players/${ledger.enrollment.playerId}`}
+                className="text-lg font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100"
+              >
+                {ledger.enrollment.playerName}
+              </Link>
+            ) : (
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{ledger.enrollment.playerName}</p>
+            )}
             <p className="text-sm text-slate-600 dark:text-slate-400">
               {ledger.enrollment.campusName} ({ledger.enrollment.campusCode}) | Inscripción {ledger.enrollment.id}
             </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Cat. {ledger.enrollment.birthYear ?? "-"}</p>
           </div>
           <Link
             href={`/enrollments/${ledger.enrollment.id}/charges`}

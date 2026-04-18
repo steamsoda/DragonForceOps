@@ -4,7 +4,7 @@ type Breadcrumb = { label: string; href?: string };
 
 type PageShellProps = {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   children?: React.ReactNode;
   breadcrumbs?: Breadcrumb[];
   wide?: boolean;
@@ -35,7 +35,7 @@ export function PageShell({ title, subtitle, children, breadcrumbs, wide = false
           </nav>
         )}
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
-        {subtitle ? <p className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</p> : null}
+        {subtitle ? <div className="text-sm text-slate-600 dark:text-slate-400">{subtitle}</div> : null}
       </header>
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-4 print:overflow-visible print:rounded-none print:border-0 print:bg-white print:p-0 print:shadow-none">
         {children}
