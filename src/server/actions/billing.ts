@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { parseMonterreyDateTimeInput } from "@/lib/time";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
+import { normalizeRemainingPostedCreditAllocations } from "@/server/actions/payment-allocation-normalization";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 
 type TeamAssignmentRow = {
@@ -744,13 +745,22 @@ export async function voidPaymentAction(
 
   if (voidError) redirect(`${BASE}?err=void_failed`);
 
+  const normalizationResult = await normalizeRemainingPostedCreditAllocations(supabase, enrollmentId);
+
   await writeAuditLog(supabase, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
     action: "payment.voided",
     tableName: "payments",
     recordId: paymentId,
-    afterData: { enrollment_id: enrollmentId, amount: payment.amount, method: payment.method, reason }
+    afterData: {
+      enrollment_id: enrollmentId,
+      amount: payment.amount,
+      method: payment.method,
+      reason,
+      rebalanced_allocation_count: normalizationResult.insertedAllocationCount,
+      rebalanced_allocation_amount: normalizationResult.insertedAllocationAmount,
+    }
   });
 
   const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);

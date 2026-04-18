@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-04-18 (session 94)
+
+### Payment Void Rebalance Follow-Up + Cleanup Planning (v1.16.37)
+
+- Investigated a second real finance mutation bug reported after the charge-void fix:
+  - annulling a payment released that payment's own `payment_allocations`
+  - but any other posted credit still left on the same account was not immediately re-applied
+  - result: some accounts could keep canonical balance correct while still showing operational anomalies like:
+    - `Pago parcialmente asignado`
+    - `Credito no aplicado`
+    - charges feeling pending even though the account-level balance was already covered
+- Added a shared post-void credit-normalization helper:
+  - after a payment is voided, remaining posted non-refunded credit on the enrollment is swept back onto pending charges in FIFO order
+  - the helper prefers the payment's previous source charges first when they are still eligible, then falls back to the normal pending-charge order
+- Applied the same safeguard to both payment-void entry points:
+  - normal `voidPaymentAction`
+  - superadmin audit-log reversal of `payment.posted`
+- Added audit metadata to both flows so finance cleanup can see how much allocation was automatically rebalanced after the void.
+- Validation:
+  - `npm run typecheck` passed
+- Important limitation:
+  - this patch prevents new payment-annulment cases from drifting the same way
+  - it does not auto-repair older damaged accounts that were already left in a broken mixed-credit state before this fix
+- Cleanup-planning note:
+  - the local workspace credentials currently point to the preview Supabase project, not the production dataset that contains the 19 live anomaly accounts from the screenshot
+  - those screenshot enrollment IDs do not exist in the DB accessible from this workspace, so the real cleanup pass still needs production data access or an exported target-account list from prod
+
 ## 2026-04-17 (session 93)
 
 ### Finance Sanity Triage: Charge-Void Fix + Monitoring Noise Reduction (v1.16.36)

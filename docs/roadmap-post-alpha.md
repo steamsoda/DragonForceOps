@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-17.
+Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.36`
+Current preview release line: `v1.16.37`
 
 ---
 
@@ -19,6 +19,9 @@ Current preview release line: `v1.16.36`
      - duplicate same-period tuition rows
      - overapplied charge math
      - suspicious void/refund/reassignment side effects
+   - session 94 follow-up:
+     - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
+     - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
    - goal: catch problematic accounts early and give `superadmin` a system-level way to review new drift instead of only discovering it manually profile by profile
 2. Year-of-birth + account-navigation regression pass
    - reopen the old "year of birth visible everywhere" goal as a targeted follow-up on the surfaces still missing it:
