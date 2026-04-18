@@ -6,6 +6,7 @@ import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { writeAuditLog } from "@/lib/audit";
 import { canAccessEnrollmentRecord, getPermissionContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 
 type RepairAllocationPlanRow = {
   paymentId: string;
@@ -141,6 +142,7 @@ export async function createCorrectiveChargeAction(
   }
 
   const { supabase, ledger, user } = await getCorrectionContext(enrollmentId, returnTo);
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   const correctiveChargeTypeId = await getChargeTypeIdByCode(supabase, "corrective_charge");
   if (!correctiveChargeTypeId) redirectWithStatus(returnTo, "err", "correction_charge_type_missing");
 
@@ -178,6 +180,13 @@ export async function createCorrectiveChargeAction(
     },
   });
 
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "charge.corrective_created",
+    before: anomalyBefore,
+  });
   await revalidateCorrectionSurfaces(enrollmentId, ledger.enrollment.playerId);
   redirectWithStatus(returnTo, "ok", "corrective_charge_created");
 }
@@ -201,6 +210,7 @@ export async function createBalanceAdjustmentAction(
   }
 
   const { supabase, ledger, user } = await getCorrectionContext(enrollmentId, returnTo);
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   const balanceAdjustmentTypeId = await getChargeTypeIdByCode(supabase, "balance_adjustment");
   if (!balanceAdjustmentTypeId) redirectWithStatus(returnTo, "err", "balance_adjustment_type_missing");
 
@@ -238,6 +248,13 @@ export async function createBalanceAdjustmentAction(
     },
   });
 
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "balance_adjustment.created",
+    before: anomalyBefore,
+  });
   await revalidateCorrectionSurfaces(enrollmentId, ledger.enrollment.playerId);
   redirectWithStatus(returnTo, "ok", "balance_adjustment_created");
 }
@@ -262,6 +279,7 @@ export async function repairPaymentAllocationsAction(
   }
 
   const { supabase, ledger, user } = await getCorrectionContext(enrollmentId, returnTo);
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   const { data, error } = await supabase.rpc("repair_payment_allocations", {
     p_enrollment_id: enrollmentId,
     p_payment_ids: selectedPaymentIds,
@@ -290,6 +308,13 @@ export async function repairPaymentAllocationsAction(
     },
   });
 
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "payment_allocations.repaired",
+    before: anomalyBefore,
+  });
   await revalidateCorrectionSurfaces(enrollmentId, ledger.enrollment.playerId);
   redirectWithStatus(returnTo, "ok", "payment_allocations_repaired");
 }

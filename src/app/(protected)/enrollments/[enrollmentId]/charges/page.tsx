@@ -93,7 +93,23 @@ export default async function ChargesPage({
     ? await getEnrollmentFinanceDiagnostics(enrollmentId, permissionContext)
     : null;
 
-  const subtitle = `${ledger.enrollment.playerName} | ${ledger.enrollment.campusName} (${ledger.enrollment.campusCode})`;
+  const subtitle = (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {ledger.enrollment.playerId ? (
+        <Link href={`/players/${ledger.enrollment.playerId}`} className="font-medium text-portoBlue hover:underline">
+          {ledger.enrollment.playerName}
+        </Link>
+      ) : (
+        <span className="font-medium text-slate-700 dark:text-slate-200">{ledger.enrollment.playerName}</span>
+      )}
+      <span aria-hidden="true">·</span>
+      <span>Cat. {ledger.enrollment.birthYear ?? "-"}</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        {ledger.enrollment.campusName} ({ledger.enrollment.campusCode})
+      </span>
+    </span>
+  );
 
   const createIncident = createEnrollmentIncidentAction.bind(null, enrollmentId);
   const cancelIncident = cancelEnrollmentIncidentAction.bind(null, enrollmentId);
@@ -134,7 +150,17 @@ export default async function ChargesPage({
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
 
   return (
-    <PageShell title="Cargos y cuenta" subtitle={subtitle}>
+    <PageShell
+      title="Cargos y cuenta"
+      subtitle={subtitle}
+      breadcrumbs={[
+        { label: "Jugadores", href: "/players" },
+        ...(ledger.enrollment.playerId
+          ? [{ label: ledger.enrollment.playerName, href: `/players/${ledger.enrollment.playerId}` }]
+          : [{ label: ledger.enrollment.playerName }]),
+        { label: "Cargos y cuenta" },
+      ]}
+    >
       <div className="space-y-5">
         {successMessage ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

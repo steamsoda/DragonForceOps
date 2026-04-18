@@ -1,5 +1,38 @@
 # Devlog
 
+## 2026-04-17 (session 92)
+
+### Account Surfaces + Finance Drift Monitoring (v1.16.35)
+
+- Extended the finance diagnostics work into a shared anomaly-monitoring lane.
+- Added a machine-readable enrollment anomaly snapshot layer and reused it across:
+  - enrollment `Diagnostico financiero`
+  - mutation-triggered anomaly checks
+  - `/admin/finance-sanity`
+- Wired anomaly state-change auditing into the risky enrollment finance mutations:
+  - charge void
+  - payment void
+  - refund
+  - payment reassignment
+  - Caja charge / advance tuition flows
+  - Contry historical payment posting
+  - superadmin correction-toolkit actions
+- New audit events now record when anomaly state changes:
+  - `finance.anomaly_detected`
+  - `finance.anomaly_resolved`
+- Expanded `/admin/finance-sanity` beyond pure balance drift:
+  - active anomaly review by enrollment
+  - recent anomaly event feed
+  - filters for campus, anomaly code, and severity
+- Kept the monitoring lane diagnostic-only:
+  - no finance semantic change
+  - `v_enrollment_balances` remains the live-balance truth
+- Landed the bundled account-surface polish pass:
+  - dedicated enrollment account page now shows linked player context and functional breadcrumbs
+  - `Regularizacion Contry` selected-account header now keeps birth year visible
+  - player profile active-account ledger now stacks vertically for usable width
+  - shared charge/payment tables were compacted so core action buttons stay visible more often without side-scrolling
+
 ## 2026-04-17 (session 91)
 
 ### Roadmap Refresh: Drift Monitoring, Account Polish, Sports Rethink, Attendance Priority

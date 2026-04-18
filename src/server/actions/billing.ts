@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { parseMonterreyDateTimeInput } from "@/lib/time";
+import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 
 type TeamAssignmentRow = {
@@ -544,6 +545,7 @@ export async function reassignPaymentAction(
   const supabase = workflowContext.supabase;
   const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
   if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
   const paymentSnapshot = await supabase
     .from("payments")
@@ -601,6 +603,13 @@ export async function reassignPaymentAction(
     revalidatePath(`/tournaments/${tournamentId}`);
   }
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: workflowContext.user.id,
+    actorEmail: workflowContext.user.email,
+    triggerAction: "payment.reassigned",
+    before: anomalyBefore,
+  });
   return { ok: true };
 }
 
@@ -619,6 +628,7 @@ export async function refundPaymentAction(
   if (!parsed.ok) return { ok: false, error: parsed.error };
 
   const supabase = workflowContext.supabase;
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   const { data: paymentRow } = await supabase
     .from("payments")
     .select("id, amount, method")
@@ -677,6 +687,13 @@ export async function refundPaymentAction(
     revalidatePath(`/tournaments/${tournamentId}`);
   }
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: workflowContext.user.id,
+    actorEmail: workflowContext.user.email,
+    triggerAction: "payment.refunded",
+    before: anomalyBefore,
+  });
   return { ok: true };
 }
 
@@ -697,7 +714,7 @@ export async function voidPaymentAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-  await requireDirectorContext(`${BASE}?err=unauthorized`);
+  const permissionContext = await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Verify payment belongs to this enrollment and is posted
   const { data: payment } = await supabase
@@ -709,6 +726,7 @@ export async function voidPaymentAction(
     .maybeSingle<{ id: string; status: string; amount: number; method: string }>();
 
   if (!payment) redirect(`${BASE}?err=payment_not_found`);
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
 
   // Delete allocations first (frees the charges back to pending)
   const { error: allocError } = await supabase
@@ -742,6 +760,14 @@ export async function voidPaymentAction(
     revalidatePath(`/tournaments/${tournamentId}`);
   }
   revalidatePath(BASE);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "payment.voided",
+    before: anomalyBefore,
+    permissionContext,
+  });
   redirect(`${BASE}?ok=payment_voided`);
 }
 
@@ -764,7 +790,7 @@ export async function voidChargeAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-  await requireDirectorContext(`${BASE}?err=unauthorized`);
+  const permissionContext = await requireDirectorContext(`${BASE}?err=unauthorized`);
 
   // Verify charge belongs to this enrollment and is pending
   const { data: charge } = await supabase
@@ -776,6 +802,7 @@ export async function voidChargeAction(
     .maybeSingle<{ id: string; status: string; amount: number; description: string }>();
 
   if (!charge) redirect(`${BASE}?err=charge_not_found`);
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
 
   const { error } = await supabase
     .from("charges")
@@ -794,6 +821,14 @@ export async function voidChargeAction(
   });
 
   revalidatePath(BASE);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "charge.voided",
+    before: anomalyBefore,
+    permissionContext,
+  });
   redirect(`${BASE}?ok=charge_voided`);
 }
 

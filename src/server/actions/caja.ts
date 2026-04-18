@@ -29,6 +29,7 @@ import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parse
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
+import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -447,6 +448,7 @@ export async function postCajaChargeAction(
   const isTuition = product.charge_types?.code === "monthly_tuition";
   const isUniform = product.charge_types?.code === "uniform_training" || product.charge_types?.code === "uniform_game";
   let createdChargeId: string | undefined;
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   if (isTuition) {
     if (!periodMonthRaw) return { ok: false, error: "invalid_form" };
 
@@ -539,6 +541,13 @@ export async function postCajaChargeAction(
       }
 
       if (skipReload) {
+        await writeEnrollmentAnomalyAuditTrail({
+          enrollmentId,
+          actorUserId: user.id,
+          actorEmail: user.email ?? null,
+          triggerAction: "charge.created.caja",
+          before: anomalyBefore,
+        });
         return { ok: true, newChargeId: newCharge.id };
       }
 
@@ -549,11 +558,26 @@ export async function postCajaChargeAction(
   }
 
   if (skipReload) {
+    await writeEnrollmentAnomalyAuditTrail({
+      enrollmentId,
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      triggerAction: "charge.created.caja",
+      before: anomalyBefore,
+    });
     return { ok: true, newChargeId: createdChargeId };
   }
 
   const updatedData = await getEnrollmentForCajaAction(enrollmentId);
   if (!updatedData) return { ok: false, error: "reload_failed" };
+
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "charge.created.caja",
+    before: anomalyBefore,
+  });
 
   return { ok: true, updatedData, newChargeId: createdChargeId };
 }
@@ -675,6 +699,7 @@ export async function createAdvanceTuitionAction(
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
     const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
       enrollmentId,
@@ -702,6 +727,15 @@ export async function createAdvanceTuitionAction(
 
     const updatedData = await getEnrollmentForCajaAction(enrollmentId);
     if (!updatedData) return { ok: false, error: "reload_failed" };
+
+    await writeEnrollmentAnomalyAuditTrail({
+      enrollmentId,
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      triggerAction:
+        tuitionResult.mode === "repriced" ? "charge.updated.caja_advance_tuition" : "charge.created.caja_advance_tuition",
+      before: anomalyBefore,
+    });
 
     return { ok: true, updatedData, newChargeId: tuitionResult.newChargeId, mode: tuitionResult.mode };
   }

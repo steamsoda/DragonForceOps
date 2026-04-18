@@ -1,4 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext, type PermissionContext } from "@/lib/auth/permissions";
+import {
+  ENROLLMENT_FINANCE_ANOMALY_CODES,
+  FINANCE_ANOMALY_AUDIT_ACTIONS,
+  type EnrollmentFinanceAnomaly,
+  type EnrollmentFinanceAnomalyCode,
+  type EnrollmentFinanceAnomalyEvent,
+  type EnrollmentFinanceAnomalySeverity,
+} from "@/lib/finance/enrollment-anomalies";
+import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 
 function toNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
@@ -29,6 +38,15 @@ type FinanceReconciliationDriftRow = {
   balance_drift: number | string | null;
 };
 
+type AuditLogRow = {
+  id: string;
+  event_at: string;
+  action: string;
+  table_name: string | null;
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
+};
+
 export type FinanceSanitySummary = {
   canonicalPendingBalance: number;
   canonicalEnrollmentsWithBalance: number;
@@ -52,23 +70,145 @@ export type FinanceSanityDriftRow = {
   balanceDrift: number;
 };
 
+export type FinanceSanityActiveAnomalyRow = {
+  enrollmentId: string;
+  playerId: string | null;
+  playerName: string;
+  birthYear: number | null;
+  campusId: string;
+  campusName: string;
+  canonicalBalance: number;
+  derivedBalance: number;
+  anomalyCount: number;
+  highestSeverity: EnrollmentFinanceAnomalySeverity;
+  anomalies: EnrollmentFinanceAnomaly[];
+};
+
 export type FinanceSanityData = {
   summary: FinanceSanitySummary;
   driftRows: FinanceSanityDriftRow[];
+  activeAnomalyRows: FinanceSanityActiveAnomalyRow[];
+  recentAnomalyEvents: EnrollmentFinanceAnomalyEvent[];
   isHealthy: boolean;
 };
 
-export async function getFinanceSanityData(campusId?: string): Promise<FinanceSanityData> {
-  const supabase = await createClient();
+const RECENT_FINANCE_ACTIVITY_ACTIONS = [
+  "payment.created",
+  "payment.created.historical_regularization_contry",
+  "charge.created",
+  "charge.created.caja",
+  "charge.created.caja_advance_tuition",
+  "charge.updated",
+  "charge.updated.caja_advance_tuition",
+  "charge.voided",
+  "payment.voided",
+  "payment.refunded",
+  "payment.reassigned",
+  "charge.corrective_created",
+  "balance_adjustment.created",
+  "payment_allocations.repaired",
+] as const;
 
-  const [{ data: summaryRow, error: summaryError }, { data: driftRows, error: driftError }] = await Promise.all([
-    supabase
-      .rpc("get_finance_reconciliation_summary", { p_campus_id: campusId ?? null })
-      .maybeSingle<FinanceReconciliationSummaryRow>(),
-    supabase
-      .rpc("list_finance_reconciliation_drift", { p_campus_id: campusId ?? null, p_limit: 50 })
-      .returns<FinanceReconciliationDriftRow[]>(),
-  ]);
+function getEnrollmentIdFromAuditRow(row: AuditLogRow) {
+  const afterEnrollmentId = typeof row.after_data?.enrollment_id === "string" ? row.after_data.enrollment_id : null;
+  if (afterEnrollmentId) return afterEnrollmentId;
+  return typeof row.before_data?.enrollment_id === "string" ? row.before_data.enrollment_id : null;
+}
+
+function normalizeSeverity(value: unknown): EnrollmentFinanceAnomalySeverity | null {
+  return value === "warning" || value === "needs_correction" ? value : null;
+}
+
+function normalizeAnomalyCode(value: unknown): EnrollmentFinanceAnomalyCode | null {
+  return typeof value === "string" && ENROLLMENT_FINANCE_ANOMALY_CODES.includes(value as EnrollmentFinanceAnomalyCode)
+    ? (value as EnrollmentFinanceAnomalyCode)
+    : null;
+}
+
+function parseAnomalyEvent(row: AuditLogRow): EnrollmentFinanceAnomalyEvent | null {
+  if (
+    row.action !== FINANCE_ANOMALY_AUDIT_ACTIONS.detected &&
+    row.action !== FINANCE_ANOMALY_AUDIT_ACTIONS.resolved
+  ) {
+    return null;
+  }
+
+  const payload = row.after_data ?? {};
+  const enrollmentId = typeof payload.enrollment_id === "string" ? payload.enrollment_id : null;
+  const code = normalizeAnomalyCode(payload.code);
+  const severity = normalizeSeverity(payload.severity);
+  if (!enrollmentId || !code || !severity) return null;
+
+  return {
+    id: row.id,
+    action: row.action,
+    eventAt: row.event_at,
+    enrollmentId,
+    playerId: typeof payload.player_id === "string" ? payload.player_id : null,
+    playerName: typeof payload.player_name === "string" ? payload.player_name : "-",
+    birthYear: typeof payload.birth_year === "number" ? payload.birth_year : null,
+    campusId: typeof payload.campus_id === "string" ? payload.campus_id : null,
+    campusName: typeof payload.campus_name === "string" ? payload.campus_name : "-",
+    code,
+    severity,
+    title: typeof payload.title === "string" ? payload.title : code,
+    detail: typeof payload.detail === "string" ? payload.detail : "",
+    triggerAction: typeof payload.trigger_action === "string" ? payload.trigger_action : null,
+  };
+}
+
+function filterAnomalies(
+  anomalies: EnrollmentFinanceAnomaly[],
+  anomalyCode?: EnrollmentFinanceAnomalyCode,
+  severity?: EnrollmentFinanceAnomalySeverity,
+) {
+  return anomalies.filter((anomaly) => {
+    if (anomalyCode && anomaly.code !== anomalyCode) return false;
+    if (severity && anomaly.severity !== severity) return false;
+    return true;
+  });
+}
+
+function getHighestSeverity(anomalies: EnrollmentFinanceAnomaly[]): EnrollmentFinanceAnomalySeverity {
+  return anomalies.some((anomaly) => anomaly.severity === "needs_correction") ? "needs_correction" : "warning";
+}
+
+export async function getFinanceSanityData(
+  campusId?: string,
+  filters?: {
+    anomalyCode?: EnrollmentFinanceAnomalyCode;
+    severity?: EnrollmentFinanceAnomalySeverity;
+  },
+  permissionContext?: PermissionContext | null,
+): Promise<FinanceSanityData> {
+  const context = permissionContext ?? (await getPermissionContext());
+  if (!context?.isSuperAdmin) {
+    throw new Error("finance_sanity_requires_superadmin");
+  }
+
+  const supabase = context.supabase;
+  const [{ data: summaryRow, error: summaryError }, { data: driftRows, error: driftError }, { data: auditRows, error: auditError }] =
+    await Promise.all([
+      supabase
+        .rpc("get_finance_reconciliation_summary", { p_campus_id: campusId ?? null })
+        .maybeSingle<FinanceReconciliationSummaryRow>(),
+      supabase
+        .rpc("list_finance_reconciliation_drift", { p_campus_id: campusId ?? null, p_limit: 50 })
+        .returns<FinanceReconciliationDriftRow[]>(),
+      supabase
+        .from("audit_logs")
+        .select("id, event_at, action, table_name, before_data, after_data")
+        .or(
+          [
+            `action.eq.${FINANCE_ANOMALY_AUDIT_ACTIONS.detected}`,
+            `action.eq.${FINANCE_ANOMALY_AUDIT_ACTIONS.resolved}`,
+            ...RECENT_FINANCE_ACTIVITY_ACTIONS.map((action) => `action.eq.${action}`),
+          ].join(","),
+        )
+        .order("event_at", { ascending: false })
+        .limit(250)
+        .returns<AuditLogRow[]>(),
+    ]);
 
   if (summaryError) {
     throw new Error(`finance_sanity_summary_failed:${summaryError.message}`);
@@ -76,6 +216,10 @@ export async function getFinanceSanityData(campusId?: string): Promise<FinanceSa
 
   if (driftError) {
     throw new Error(`finance_sanity_drift_failed:${driftError.message}`);
+  }
+
+  if (auditError) {
+    throw new Error(`finance_sanity_audit_failed:${auditError.message}`);
   }
 
   const summary: FinanceSanitySummary = {
@@ -91,9 +235,7 @@ export async function getFinanceSanityData(campusId?: string): Promise<FinanceSa
     dashboardVsCanonicalCountDrift: Number(summaryRow?.dashboard_vs_canonical_count_drift ?? 0),
   };
 
-  const driftList = Array.isArray(driftRows) ? driftRows : [];
-
-  const normalizedDriftRows: FinanceSanityDriftRow[] = driftList.map((row: FinanceReconciliationDriftRow) => ({
+  const normalizedDriftRows: FinanceSanityDriftRow[] = (Array.isArray(driftRows) ? driftRows : []).map((row) => ({
     enrollmentId: row.enrollment_id,
     playerId: row.player_id,
     playerName: row.player_name ?? "-",
@@ -103,16 +245,74 @@ export async function getFinanceSanityData(campusId?: string): Promise<FinanceSa
     balanceDrift: toNumber(row.balance_drift),
   }));
 
+  const recentAnomalyEvents = (Array.isArray(auditRows) ? auditRows : [])
+    .map(parseAnomalyEvent)
+    .filter((row): row is EnrollmentFinanceAnomalyEvent => row !== null)
+    .filter((row) => {
+      if (campusId && row.campusId !== campusId) return false;
+      if (filters?.anomalyCode && row.code !== filters.anomalyCode) return false;
+      if (filters?.severity && row.severity !== filters.severity) return false;
+      return true;
+    })
+    .slice(0, 30);
+
+  const candidateEnrollmentIds = Array.from(
+    new Set(
+      [
+        ...normalizedDriftRows.map((row) => row.enrollmentId),
+        ...recentAnomalyEvents.map((row) => row.enrollmentId),
+        ...(Array.isArray(auditRows) ? auditRows : [])
+          .map(getEnrollmentIdFromAuditRow)
+          .filter((value): value is string => Boolean(value)),
+      ].filter(Boolean),
+    ),
+  ).slice(0, 40);
+
+  const diagnosticsList = await Promise.all(
+    candidateEnrollmentIds.map((enrollmentId) => getEnrollmentFinanceDiagnostics(enrollmentId, context)),
+  );
+
+  const activeAnomalyRows: FinanceSanityActiveAnomalyRow[] = diagnosticsList
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .map((row) => {
+      const filteredAnomalies = filterAnomalies(row.anomalies, filters?.anomalyCode, filters?.severity);
+      return {
+        enrollmentId: row.enrollment.enrollmentId,
+        playerId: row.enrollment.playerId,
+        playerName: row.enrollment.playerName,
+        birthYear: row.enrollment.birthYear,
+        campusId: row.enrollment.campusId,
+        campusName: row.enrollment.campusName,
+        canonicalBalance: row.canonicalBalance,
+        derivedBalance: row.ledgerTotals.derivedOperationalBalance,
+        anomalyCount: filteredAnomalies.length,
+        highestSeverity: getHighestSeverity(filteredAnomalies),
+        anomalies: filteredAnomalies,
+      };
+    })
+    .filter((row) => row.anomalies.length > 0)
+    .filter((row) => !campusId || row.campusId === campusId)
+    .sort((left, right) => {
+      const severityRank = (value: EnrollmentFinanceAnomalySeverity) => (value === "needs_correction" ? 0 : 1);
+      const severityDiff = severityRank(left.highestSeverity) - severityRank(right.highestSeverity);
+      if (severityDiff !== 0) return severityDiff;
+      if (right.anomalyCount !== left.anomalyCount) return right.anomalyCount - left.anomalyCount;
+      return left.playerName.localeCompare(right.playerName, "es-MX");
+    });
+
   const isHealthy =
     Math.abs(summary.pendingVsCanonicalBalanceDrift) < 0.01 &&
     Math.abs(summary.dashboardVsCanonicalBalanceDrift) < 0.01 &&
     summary.pendingVsCanonicalCountDrift === 0 &&
     summary.dashboardVsCanonicalCountDrift === 0 &&
-    normalizedDriftRows.length === 0;
+    normalizedDriftRows.length === 0 &&
+    activeAnomalyRows.length === 0;
 
   return {
     summary,
     driftRows: normalizedDriftRows,
+    activeAnomalyRows,
+    recentAnomalyEvents,
     isHealthy,
   };
 }

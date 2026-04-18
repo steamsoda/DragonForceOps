@@ -12,6 +12,7 @@ import { formatPeriodMonthLabel, getAdvanceTuitionOptions } from "@/lib/pricing/
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyMonthString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { redirect } from "next/navigation";
+import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import {
   fetchPaymentFolio,
   linkCashPaymentsToOpenSession,
@@ -143,6 +144,7 @@ async function postEnrollmentPaymentInternal(
 
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return { ok: false, error: "unauthenticated" };
@@ -256,6 +258,16 @@ async function postEnrollmentPaymentInternal(
 
   await revalidatePaymentSurfaces(ledger);
   for (const path of mode.extraRevalidatePaths ?? []) revalidatePath(path);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction:
+      mode.auditSource === "historical_regularization_contry"
+        ? "payment.created.historical_regularization_contry"
+        : "payment.created",
+    before: anomalyBefore,
+  });
   const chargesPaid = allocations.map((a) => {
     const charge = ledger.charges.find((c) => c.id === a.chargeId);
     return { description: charge?.description ?? "Cargo", amount: a.amount };
