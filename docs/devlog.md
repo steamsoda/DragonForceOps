@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-17 (session 91)
+
+### Roadmap Refresh: Drift Monitoring, Account Polish, Sports Rethink, Attendance Priority
+
+- Logged the next planning/priority updates coming out of live front-desk and admin usage.
+- Added a new finance hardening follow-up centered on proactive drift/anomaly monitoring.
+  - this is the next layer above the existing diagnostic tools
+  - goal: surface suspicious ledger states earlier instead of only finding them account by account
+- Reopened a targeted UI polish pass for the remaining account surfaces that still lost the year-of-birth context.
+  - first named gaps:
+    - enrollment `Cargos y Cuentas`
+    - `Regularización Contry`
+  - same pass should also restore obvious navigation back to player profile from account views and make breadcrumbs more consistently actionable
+- Logged a broader sports-product rethink note:
+  - the temporary `Inscripciones Torneos` board has matched real operations better than the heavier hidden competition-management surfaces
+  - future sports planning should extend from that successful paid-signups flow toward schedules, results, and calendar operations
+- Bumped attendance discovery/build-up as the next major planning lane after the current urgent fixes, instead of leaving it as a distant later-phase item.
+
 ## 2026-04-17 (session 90)
 
 ### Product Detail Paging + KPI Drilldowns (v1.16.34)
