@@ -31,6 +31,17 @@ export type ProductKpis = {
   currency: string;
 };
 
+export const PRODUCT_METRIC_KEYS = [
+  "charges_registered",
+  "charges_this_month",
+  "players_with_charge",
+  "players_fully_paid",
+  "charges_unpaid",
+  "reconciliation_gap",
+] as const;
+
+export type ProductMetricKey = (typeof PRODUCT_METRIC_KEYS)[number];
+
 export type ProductReconciliationIssue = {
   reason: "not_fully_paid" | "duplicate_fully_paid_charge_same_enrollment";
   enrollmentId: string;
@@ -75,6 +86,67 @@ export type ProductSale = {
   currency: string;
 };
 
+export type ProductPagedSales = {
+  rows: ProductSale[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+export type ProductMetricChargeRow = {
+  chargeId: string;
+  enrollmentId: string;
+  playerName: string;
+  campusName: string;
+  description: string;
+  amount: number;
+  currency: string;
+  createdAt: string;
+};
+
+export type ProductMetricPlayerRow = {
+  enrollmentId: string;
+  playerName: string;
+  campusName: string;
+  chargeCount: number;
+  latestChargeAt: string;
+};
+
+export type ProductMetricIssueRow = ProductReconciliationIssue;
+
+export type ProductMetricPageData =
+  | {
+      metric: "charges_registered" | "charges_this_month";
+      rows: ProductMetricChargeRow[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      hasPreviousPage: boolean;
+      hasNextPage: boolean;
+    }
+  | {
+      metric: "players_with_charge" | "players_fully_paid";
+      rows: ProductMetricPlayerRow[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      hasPreviousPage: boolean;
+      hasNextPage: boolean;
+    }
+  | {
+      metric: "charges_unpaid" | "reconciliation_gap";
+      rows: ProductMetricIssueRow[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      hasPreviousPage: boolean;
+      hasNextPage: boolean;
+    };
+
+const PRODUCT_PAGE_SIZE = 25;
+
 function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -84,6 +156,69 @@ function getBirthYear(value: string | null | undefined) {
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
+
+function getCurrentMonthStartIso() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+function normalizePage(page: number | string | null | undefined) {
+  const parsed = Number(page);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
+}
+
+function buildPageMeta(totalCount: number, page: number, pageSize = PRODUCT_PAGE_SIZE) {
+  const safePage = normalizePage(page);
+  const offset = (safePage - 1) * pageSize;
+  return {
+    safePage,
+    pageSize,
+    offset,
+    from: offset,
+    to: offset + pageSize - 1,
+    hasPreviousPage: safePage > 1,
+    hasNextPage: offset + pageSize < totalCount,
+  };
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize = PRODUCT_PAGE_SIZE) {
+  const safePage = normalizePage(page);
+  const offset = (safePage - 1) * pageSize;
+  const pagedRows = rows.slice(offset, offset + pageSize);
+
+  return {
+    rows: pagedRows,
+    page: safePage,
+    pageSize,
+    totalCount: rows.length,
+    hasPreviousPage: safePage > 1,
+    hasNextPage: offset + pageSize < rows.length,
+  };
+}
+
+function getProductMetricLabel(metric: ProductMetricKey) {
+  switch (metric) {
+    case "charges_registered":
+      return "Cargos registrados";
+    case "charges_this_month":
+      return "Cargos este mes";
+    case "players_with_charge":
+      return "Jugadores con cargo";
+    case "players_fully_paid":
+      return "Jugadores totalmente pagados";
+    case "charges_unpaid":
+      return "Cargos sin pagar";
+    case "reconciliation_gap":
+      return "Brecha vs pagados";
+  }
+}
+
+export function isProductMetricKey(value: string | null | undefined): value is ProductMetricKey {
+  return PRODUCT_METRIC_KEYS.includes((value ?? "") as ProductMetricKey);
+}
+
+export { getProductMetricLabel };
 
 // ── Catalog query (all products incl. inactive, grouped for admin view) ───────
 
@@ -192,8 +327,7 @@ export async function getProductKpis(productId: string, currency: string): Promi
   }
   const supabase = await createClient();
 
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const monthStart = getCurrentMonthStartIso();
 
   type ChargeRow = { amount: number; created_at: string };
 
@@ -267,9 +401,18 @@ export async function getProductSizeStats(productId: string): Promise<ProductSiz
 
 // ── Recent sales ──────────────────────────────────────────────────────────────
 
-export async function getProductRecentSales(productId: string): Promise<ProductSale[]> {
+export async function getProductRecentSalesPage(productId: string, page = 1): Promise<ProductPagedSales> {
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return [];
+  if (!permissionContext?.isDirector) {
+    return {
+      rows: [],
+      page: 1,
+      pageSize: PRODUCT_PAGE_SIZE,
+      totalCount: 0,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    };
+  }
   const supabase = await createClient();
 
   type Row = {
@@ -286,18 +429,20 @@ export async function getProductRecentSales(productId: string): Promise<ProductS
     } | null;
   };
 
-  const { data } = await supabase
+  const safePage = normalizePage(page);
+
+  const { data, count } = await supabase
     .from("charges")
-    .select("id, description, amount, size, is_goalkeeper, created_at, currency, enrollments(id, players(first_name, last_name))")
+    .select("id, description, amount, size, is_goalkeeper, created_at, currency, enrollments(id, players(first_name, last_name))", {
+      count: "exact",
+    })
     .eq("product_id", productId)
     .neq("status", "void")
     .order("created_at", { ascending: false })
-    .limit(25)
+    .range((safePage - 1) * PRODUCT_PAGE_SIZE, safePage * PRODUCT_PAGE_SIZE - 1)
     .returns<Row[]>();
 
-  if (!data) return [];
-
-  return data.map((row) => ({
+  const rows = (data ?? []).map((row) => ({
     chargeId: row.id,
     description: row.description,
     amount: row.amount,
@@ -310,6 +455,17 @@ export async function getProductRecentSales(productId: string): Promise<ProductS
     enrollmentId: row.enrollments?.id ?? "",
     currency: row.currency
   }));
+
+  const pageMeta = buildPageMeta(count ?? 0, safePage, PRODUCT_PAGE_SIZE);
+
+  return {
+    rows,
+    page: pageMeta.safePage,
+    pageSize: pageMeta.pageSize,
+    totalCount: count ?? 0,
+    hasPreviousPage: pageMeta.hasPreviousPage,
+    hasNextPage: pageMeta.hasNextPage,
+  };
 }
 
 export async function getProductReconciliation(productId: string): Promise<ProductReconciliation> {
@@ -474,4 +630,210 @@ export async function getProductReconciliation(productId: string): Promise<Produ
     rawVsDashboardGap: chargeRows.length - fullyPaidEnrollmentIds.size,
     issues,
   };
+}
+
+type ProductChargeDrilldownRow = {
+  id: string;
+  description: string;
+  amount: number;
+  currency: string;
+  created_at: string;
+  enrollment_id: string;
+  enrollments: {
+    campuses: { name: string | null } | null;
+    players: { first_name: string | null; last_name: string | null } | null;
+  } | null;
+};
+
+async function getProductChargeRowsForMetric(
+  productId: string,
+  filter: "all" | "this_month",
+  page: number,
+): Promise<ProductMetricPageData & { metric: "charges_registered" | "charges_this_month" }> {
+  const supabase = await createClient();
+  const safePage = normalizePage(page);
+  const monthStart = getCurrentMonthStartIso();
+
+  let query = supabase
+    .from("charges")
+    .select(
+      "id, description, amount, currency, created_at, enrollment_id, enrollments(campuses(name), players(first_name, last_name))",
+      { count: "exact" },
+    )
+    .eq("product_id", productId)
+    .neq("status", "void")
+    .order("created_at", { ascending: false });
+
+  if (filter === "this_month") {
+    query = query.gte("created_at", monthStart);
+  }
+
+  const { data, count } = await query
+    .range((safePage - 1) * PRODUCT_PAGE_SIZE, safePage * PRODUCT_PAGE_SIZE - 1)
+    .returns<ProductChargeDrilldownRow[]>();
+  const pageMeta = buildPageMeta(count ?? 0, safePage, PRODUCT_PAGE_SIZE);
+
+  return {
+    metric: filter === "this_month" ? "charges_this_month" : "charges_registered",
+    rows: (data ?? []).map((row) => ({
+      chargeId: row.id,
+      enrollmentId: row.enrollment_id,
+      playerName: row.enrollments?.players
+        ? `${row.enrollments.players.first_name ?? ""} ${row.enrollments.players.last_name ?? ""}`.trim() || "Jugador"
+        : "Jugador",
+      campusName: row.enrollments?.campuses?.name ?? "Campus",
+      description: row.description,
+      amount: row.amount,
+      currency: row.currency,
+      createdAt: row.created_at,
+    })),
+    totalCount: count ?? 0,
+    page: pageMeta.safePage,
+    pageSize: pageMeta.pageSize,
+    hasPreviousPage: pageMeta.hasPreviousPage,
+    hasNextPage: pageMeta.hasNextPage,
+  };
+}
+
+async function getProductPlayerRowsForMetric(
+  productId: string,
+  filter: "all" | "fully_paid",
+  page: number,
+): Promise<ProductMetricPageData & { metric: "players_with_charge" | "players_fully_paid" }> {
+  const supabase = await createClient();
+
+  type ChargeRow = {
+    id: string;
+    amount: number;
+    created_at: string;
+    enrollment_id: string;
+    enrollments: {
+      campuses: { name: string | null } | null;
+      players: { first_name: string | null; last_name: string | null } | null;
+    } | null;
+  };
+
+  const { data: charges } = await supabase
+    .from("charges")
+    .select("id, amount, created_at, enrollment_id, enrollments(campuses(name), players(first_name, last_name))")
+    .eq("product_id", productId)
+    .neq("status", "void")
+    .returns<ChargeRow[]>();
+
+  const positiveCharges = (charges ?? []).filter((charge) => charge.amount > 0);
+  const allocationTotals = new Map<string, number>();
+
+  if (filter === "fully_paid" && positiveCharges.length > 0) {
+    for (let index = 0; index < positiveCharges.length; index += 500) {
+      const chargeIds = positiveCharges.slice(index, index + 500).map((charge) => charge.id);
+      const { data: allocations } = await supabase
+        .from("payment_allocations")
+        .select("charge_id, amount")
+        .in("charge_id", chargeIds)
+        .returns<Array<{ charge_id: string; amount: number }>>();
+
+      for (const allocation of allocations ?? []) {
+        allocationTotals.set(
+          allocation.charge_id,
+          roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
+        );
+      }
+    }
+  }
+
+  const enrollmentMap = new Map<string, ProductMetricPlayerRow>();
+  for (const charge of charges ?? []) {
+    if (filter === "fully_paid") {
+      if (charge.amount <= 0) continue;
+      const allocatedAmount = allocationTotals.get(charge.id) ?? 0;
+      if (allocatedAmount + 0.009 < charge.amount) continue;
+    }
+
+    const existing = enrollmentMap.get(charge.enrollment_id);
+    const playerName = charge.enrollments?.players
+      ? `${charge.enrollments.players.first_name ?? ""} ${charge.enrollments.players.last_name ?? ""}`.trim() || "Jugador"
+      : "Jugador";
+    const campusName = charge.enrollments?.campuses?.name ?? "Campus";
+
+    if (existing) {
+      existing.chargeCount += 1;
+      if (charge.created_at > existing.latestChargeAt) {
+        existing.latestChargeAt = charge.created_at;
+      }
+      continue;
+    }
+
+    enrollmentMap.set(charge.enrollment_id, {
+      enrollmentId: charge.enrollment_id,
+      playerName,
+      campusName,
+      chargeCount: 1,
+      latestChargeAt: charge.created_at,
+    });
+  }
+
+  const rows = Array.from(enrollmentMap.values()).sort((left, right) => {
+    if (left.latestChargeAt !== right.latestChargeAt) {
+      return right.latestChargeAt.localeCompare(left.latestChargeAt);
+    }
+    return left.playerName.localeCompare(right.playerName, "es-MX");
+  });
+
+  const paged = paginateRows(rows, page, PRODUCT_PAGE_SIZE);
+  return {
+    metric: filter === "fully_paid" ? "players_fully_paid" : "players_with_charge",
+    rows: paged.rows,
+    totalCount: paged.totalCount,
+    page: paged.page,
+    pageSize: paged.pageSize,
+    hasPreviousPage: paged.hasPreviousPage,
+    hasNextPage: paged.hasNextPage,
+  };
+}
+
+async function getProductIssueRowsForMetric(
+  productId: string,
+  filter: "unpaid" | "gap",
+  page: number,
+): Promise<ProductMetricPageData & { metric: "charges_unpaid" | "reconciliation_gap" }> {
+  const reconciliation = await getProductReconciliation(productId);
+  const filteredIssues =
+    filter === "unpaid"
+      ? reconciliation.issues.filter((issue) => issue.reason === "not_fully_paid")
+      : reconciliation.issues;
+  const paged = paginateRows(filteredIssues, page, PRODUCT_PAGE_SIZE);
+
+  return {
+    metric: filter === "unpaid" ? "charges_unpaid" : "reconciliation_gap",
+    rows: paged.rows,
+    totalCount: paged.totalCount,
+    page: paged.page,
+    pageSize: paged.pageSize,
+    hasPreviousPage: paged.hasPreviousPage,
+    hasNextPage: paged.hasNextPage,
+  };
+}
+
+export async function getProductMetricPageData(
+  productId: string,
+  metric: ProductMetricKey,
+  page = 1,
+): Promise<ProductMetricPageData | null> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return null;
+
+  switch (metric) {
+    case "charges_registered":
+      return getProductChargeRowsForMetric(productId, "all", page);
+    case "charges_this_month":
+      return getProductChargeRowsForMetric(productId, "this_month", page);
+    case "players_with_charge":
+      return getProductPlayerRowsForMetric(productId, "all", page);
+    case "players_fully_paid":
+      return getProductPlayerRowsForMetric(productId, "fully_paid", page);
+    case "charges_unpaid":
+      return getProductIssueRowsForMetric(productId, "unpaid", page);
+    case "reconciliation_gap":
+      return getProductIssueRowsForMetric(productId, "gap", page);
+  }
 }

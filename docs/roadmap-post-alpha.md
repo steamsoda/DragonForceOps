@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-17.
 
-Current preview release line: `v1.16.33`
+Current preview release line: `v1.16.34`
 
 ---
 
@@ -11,7 +11,38 @@ Current preview release line: `v1.16.33`
 
 ### Immediate Sequence
 
-1. `#58` Director Deportivo dashboard
+1. Finance drift monitoring + anomaly logging
+   - add a dedicated monitoring lane for ledger/account drift discovered through the new `Diagnóstico financiero` panel
+   - focus first on anomaly visibility, not silent auto-repair:
+     - canonical balance vs derived ledger balance mismatches
+     - posted payments with zero allocations
+     - duplicate same-period tuition rows
+     - overapplied charge math
+     - suspicious void/refund/reassignment side effects
+   - goal: catch problematic accounts early and give `superadmin` a system-level way to review new drift instead of only discovering it manually profile by profile
+2. Year-of-birth + account-navigation regression pass
+   - reopen the old "year of birth visible everywhere" goal as a targeted follow-up on the surfaces still missing it:
+     - enrollment `Cargos y Cuentas`
+     - `Regularización Contry` player/account workspace
+   - also fix account-page navigation polish:
+     - player name should link back to the player profile
+     - breadcrumbs on account/detail pages should behave as real links wherever the route context supports it
+3. Sports lane rethink based on live usage
+   - keep the temporary `Inscripciones Torneos` board as the currently successful operational surface
+   - treat the heavier hidden competitions implementation as a discovery branch, not the final product shape
+   - next sports planning pass should pivot toward what operations will actually need next:
+     - match schedules
+     - results
+     - calendars
+     - lighter competition management that matches the working signup board instead of fighting it
+4. Attendance planning lane
+   - bump attendance up as the next major discovery/build candidate after the current urgent fixes
+   - planning should cover:
+     - daily operational attendance capture
+     - coach-facing workflow
+     - reporting / follow-up visibility
+     - how it should coexist with the current export-only attendance workbook
+5. `#58` Director Deportivo dashboard
    - v3 now in progress on preview:
      - new `director_deportivo` role
      - sports-only dashboard
@@ -24,18 +55,18 @@ Current preview release line: `v1.16.33`
      - for a normal competition, the default roster should be `Equipo Base` filtered by fully paid signups
      - the main dashboard should prioritize category/team signup progress, not giant competition-wide team lists
      - keep open for a significant simplification pass before more sports build-out
-2. `#38` Copas / Torneos management
+6. `#38` Copas / Torneos management
    - absorbed into the same preview sports lane so competitions, source teams, and squads are manageable from one surface
    - source-team attachment now needs to stay aligned with campus + gender + birth-year rules
-3. `#59` team-building / assign available players
+7. `#59` team-building / assign available players
    - first pass also absorbed into the sports lane:
      - signed players awaiting squad assignment
      - regular vs refuerzo assignment
      - per-squad target and refuerzo-cap tracking
      - base-team placement remains the prerequisite source of truth
-4. Panel KPI + dashboard follow-up
+8. Panel KPI + dashboard follow-up
    - add drill-downs for pending tuition by category/campus plus trend charts for payments and altas/bajas
-5. then return to medium-priority operational polish items such as attendance export follow-up, player-profile date cleanup, and uniforms/admin utility passes
+9. then return to medium-priority operational polish items such as attendance export follow-up, player-profile date cleanup, and uniforms/admin utility passes
 
 Time-sensitive reminders:
 
@@ -61,6 +92,10 @@ Notes:
   - the sports routes still exist for direct testing/admin access
   - this is a navigation hide, not a rollback of the sports lane
 - sports operations are now the top product priority because tournament organization is becoming operationally urgent
+- live usage update:
+  - the temporary `Inscripciones Torneos` flow has matched real front-desk operations better than the heavier hidden competition-management surfaces
+  - do not assume the current hidden sports-management implementation is the final product direction
+  - the next sports planning pass should start from the successful paid-signups board and extend outward toward schedules/results/calendars, instead of forcing operations into the older heavier model
 - sports implementation should pause for a rules-discovery pass with Julio before more structural work lands:
   - not all categorias need all equipos base
   - some equipos base are mixed-year groups
@@ -121,6 +156,10 @@ Notes:
   - uniform-size auto-sync into `Ficha técnica`
   - nutrition tracking workflow discovery
   - product KPI clarity so `cargos registrados` vs `pagados completos` cannot be confused on product/admin surfaces
+  - product detail admin utility pass now landed on preview:
+    - `Ultimas ventas` supports simple `Anterior / Siguiente` paging
+    - count KPI cards now drill into dedicated per-product detail pages
+    - money-total KPI cards remain summary-only in v1
   - stronger `Regularización Contry` guardrails for competition products so staff do not leave orphaned tournament charges behind without the corresponding historical payment
   - player-based tournament-signups CSV export is now live from `Inscripciones Torneos` for quick Excel reconciliation against external tracking sheets
   - `Inscripciones Torneos` desktop layout is now widened so the board uses more of the available window instead of leaving a large empty right-side gutter
@@ -166,7 +205,8 @@ Run these as explicit periodic passes between feature waves so the app keeps mat
   - recheck route guards, campus scope, action guards, and RLS-sensitive surfaces after major workflow additions
 - finance / payment / reporting regression checklist
   - verify receipts, allocations, operator-campus ownership, `paid_at` semantics, corte outputs, and monthly/weekly summaries still agree
-  - finance drift guardrail now includes `/admin/finance-sanity` plus SQL reconciliation helpers so pending collections, dashboard KPIs, and canonical balance math can be checked against each other intentionally
+- finance drift guardrail now includes `/admin/finance-sanity` plus SQL reconciliation helpers so pending collections, dashboard KPIs, and canonical balance math can be checked against each other intentionally
+  - next follow-up: convert this from mostly manual/superadmin investigation into a more explicit anomaly-monitoring lane so drift is surfaced proactively when ledger states go weird after voids/refunds/allocation mistakes
 - performance hotspot review
   - identify slow pages, heavy queries, unnecessary refreshes, and wide payloads before they become daily friction
   - future tooling follow-up: build a small superadmin-only app performance monitor / timing console so route timing and slow-path diagnostics do not depend on one-off temporary route instrumentation
@@ -310,9 +350,11 @@ Follow after the operational tracks above:
 | 17 | **Uniformes tab** | 🟡 In progress | `v1` now exists on preview as a campus-scoped `/uniforms` dashboard with weekly sales/delivery lists, `pending_order → ordered → delivered` fulfillment flow, bulk weekly order marking, and paid-sale-driven row creation from uniform charges. The latest intake pass also brings a first `Uniformes` card directly into `/players/new`, including size-button polish and explicit `Portero` tagging so front desk can capture uniform intent earlier in the workflow. Follow-up feedback now includes a more compact Uniformes menu plus auto-syncing the purchased uniform size into the player's `Ficha técnica` when a size is captured through sales. Keep future stock control and supplier batch management separate from this issue. |
 | 18 | **Server-side route blocking** | ✅ Done | Added shared app-layer permission helpers, hardened direct-URL route gates for director-only pages, expanded front-desk record-level campus checks, and replaced broad front-desk RLS policies on core operational tables with campus-aware predicates driven by `current_user_allowed_campuses()`. |
 | 19 | **Dashboard KPI verification** | 🔴 Open | Keep this as the data-correctness companion to the new Panel work: verify pending-balance totals against canonical sources, then support the upcoming drill-downs by category/campus and other interactive KPI surfaces without introducing drift. |
+| NEW | **Finance drift monitoring + anomaly logging** | 🔴 Open | Build on top of `/admin/finance-sanity` and the enrollment-level `Diagnóstico financiero` panel so suspicious account states are surfaced proactively instead of only being found manually. First targets: canonical-vs-derived drift, posted payments without allocations, duplicate monthly tuition rows, overapplied charge math, and suspicious refund/void/reassignment side effects. |
 | 21 | **Caja pending charge detail** | 🔴 Open | Expandable rows showing period month + charge type before paying |
 | 22 | **Folio → payment lookup in Actividad** | 🔴 Open | Surface payment ID in audit log so staff can look up transactions by folio |
 | 35 | **Player profile consolidation** | 🟡 In progress | The player profile is now being promoted into the single-player hub: active account detail (summary, charges, payments, incidents), guardians, uniforms, and compact expandable enrollment history live directly on `/players/[id]`, while the enrollment account page remains as the fallback deep-detail route. Follow-up polish now includes compact local date/time formatting instead of verbose UTC-style strings in profile/admin views. |
+| NEW | **Account-page YOB + breadcrumb/navigation polish** | 🔴 Open | Restore year-of-birth visibility on the remaining finance/account surfaces, especially enrollment `Cargos y Cuentas` and `Regularización Contry`. Also make account headers and breadcrumbs behave like true navigation back to player/profile context where available. |
 | 36 | **Document uploads per player** | 🔴 Open | Supabase Storage: photo ID, passport, birth certificate, medical forms. `player_documents` table + Storage bucket with RLS (director_admin+ only). |
 | 37 | **Player dropout historical record / bajas revamp** | ✅ Done | Baja now uses a dedicated dropout workflow instead of the generic enrollment edit path, dropped players render as archive/read-only profiles with clearer balance handoff and re-enrollment CTA, active player profiles no longer show historical-enrollment clutter, and `Jugadores > bajas` acts as the main archive discovery surface. Keep a small visual polish pass for the `Bajas` tab in the backlog, not as a finance rewrite. |
 | 39 | **Input fields → button toggles (UX pass)** | 🔴 Open | Replace 2-option dropdowns with toggle buttons in Caja and elsewhere: payment method (Efectivo/Tarjeta), campus selector, gender, tuition tier selection. |
@@ -322,6 +364,7 @@ Follow after the operational tracks above:
 | 62 | **Excel/list export tools** | 🟡 In progress | First Excel export is live on `/players` and now includes the first correctness pass: dynamic level sections so non-hardcoded levels like `B3` are not dropped, visible warning counts for active players excluded because they are missing gender, and the surrounding Jugadores filter bar has been cleaned up with a dedicated advanced-filters section. Keep this item open for broader list/export tooling beyond attendance rosters. |
 | 63 | **Attendance-sheet export** | 🟡 In progress | `/players` exports a formatted `.xlsx` workbook for manual attendance use. Sheets now use a fixed set of 16 predefined groups per campus (Little Dragons all-gender, FEM ranges, VAR by year) instead of one tab per birth year/gender. Multi-gender sheets show VARONIL/FEMENIL section headers; single-gender sheets go straight to level sections. Missing-gender players are excluded. Front-desk/admin follow-up now calls for another pass of fixes and workflow changes before closing this lane fully. |
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish aligned the player picker with Caja-style search plus `Buscar por categoría`, the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen, and the latest front-desk pass tightened mutation-state feedback, reduced workspace churn, and cleaned the main user-facing Contry copy. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
+| NEW | **Sports lane rethink after live signup-board usage** | 🔴 Open | Use the success of `Inscripciones Torneos` as the new planning anchor. Revisit the heavier hidden competitions implementation before adding more sports complexity, and steer the next discovery/build pass toward actual operational needs like schedules, results, and calendars instead of premature roster-management weight. |
 | NEW | **Receipt encoding artifact cleanup** | 🔴 Open | Printed receipts are much better, but keep a low-priority follow-up pass for remaining accent / `Ñ` artifacts that still show up in edge cases. |
 | NEW | **Bajas tab UI polish** | 🔴 Open | Keep a small visual cleanup pass for the archive / `Bajas` surfaces now that the operational workflow is stable. |
 

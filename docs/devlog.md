@@ -1,5 +1,47 @@
 # Devlog
 
+## 2026-04-17 (session 91)
+
+### Roadmap Refresh: Drift Monitoring, Account Polish, Sports Rethink, Attendance Priority
+
+- Logged the next planning/priority updates coming out of live front-desk and admin usage.
+- Added a new finance hardening follow-up centered on proactive drift/anomaly monitoring.
+  - this is the next layer above the existing diagnostic tools
+  - goal: surface suspicious ledger states earlier instead of only finding them account by account
+- Reopened a targeted UI polish pass for the remaining account surfaces that still lost the year-of-birth context.
+  - first named gaps:
+    - enrollment `Cargos y Cuentas`
+    - `Regularización Contry`
+  - same pass should also restore obvious navigation back to player profile from account views and make breadcrumbs more consistently actionable
+- Logged a broader sports-product rethink note:
+  - the temporary `Inscripciones Torneos` board has matched real operations better than the heavier hidden competition-management surfaces
+  - future sports planning should extend from that successful paid-signups flow toward schedules, results, and calendar operations
+- Bumped attendance discovery/build-up as the next major planning lane after the current urgent fixes, instead of leaving it as a distant later-phase item.
+
+## 2026-04-17 (session 90)
+
+### Product Detail Paging + KPI Drilldowns (v1.16.34)
+
+- Extended the product detail page with real paging on `Ultimas ventas`.
+  - the sales ledger is no longer hard-capped to the newest 25 rows only
+  - it now supports `Anterior / Siguiente` paging in blocks of 25 using the product route query string
+- Added a new product drilldown route for the count KPI cards.
+- The following KPI cards are now clickable:
+  - `Cargos registrados`
+  - `Cargos este mes`
+  - `Jugadores con cargo`
+  - `Jugadores totalmente pagados`
+  - `Cargos sin pagar`
+  - `Brecha vs pagados`
+- The money-total cards remain summary-only in this first pass:
+  - `Monto cargado total`
+  - `Monto cargado este mes`
+- The new drilldown page stays director-only and uses paged tables scoped to one product.
+- Metric semantics were kept aligned with the existing product page:
+  - `Jugadores totalmente pagados` follows the same reconciliation logic already used on the product screen
+  - `Brecha vs pagados` drills into the same reconciliation-issue rows instead of inventing a second gap definition
+- No schema change or accounting change was introduced in this pass.
+
 ## 2026-04-17 (session 89)
 
 ### Inscripciones Torneos Quick Export Copy Cleanup (v1.16.33)
