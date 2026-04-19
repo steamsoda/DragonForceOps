@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.41`
+Current preview release line: `v1.16.42`
 
 ---
 
@@ -51,6 +51,12 @@ Current preview release line: `v1.16.41`
        - `Iker Alejandro Arenas Garza`
      - next product/ops question for this lane:
        - decide whether `payment_reassign_delicate` and pure carry-forward credit should remain top-level warnings or be demoted to lower-level account notes only
+   - session 99 follow-up:
+     - added scheduled finance reconciliation snapshots so global drift can be monitored in the background without turning every admin page load into a heavy deep scan
+     - `/admin/finance-sanity` now exposes the latest automatic snapshot timestamp plus the stored drift summary
+     - page-side snapshot reads degrade safely if the migration has not been applied yet
+     - next cleanup question remains the same:
+       - define which warning-only historical shapes should count as true anomalies versus acceptable review-only operational noise
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed

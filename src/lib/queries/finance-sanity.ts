@@ -38,6 +38,23 @@ type FinanceReconciliationDriftRow = {
   balance_drift: number | string | null;
 };
 
+type FinanceReconciliationSnapshotRow = {
+  snapshot_at: string;
+  campus_id: string | null;
+  capture_mode: string | null;
+  canonical_pending_balance: number | string | null;
+  canonical_enrollments_with_balance: number | string | null;
+  pending_rpc_balance: number | string | null;
+  pending_rpc_enrollments: number | string | null;
+  dashboard_pending_balance: number | string | null;
+  dashboard_enrollments_with_balance: number | string | null;
+  pending_vs_canonical_balance_drift: number | string | null;
+  dashboard_vs_canonical_balance_drift: number | string | null;
+  pending_vs_canonical_count_drift: number | string | null;
+  dashboard_vs_canonical_count_drift: number | string | null;
+  balance_drift_enrollment_count: number | string | null;
+};
+
 type AuditLogRow = {
   id: string;
   event_at: string;
@@ -58,6 +75,22 @@ export type FinanceSanitySummary = {
   dashboardVsCanonicalBalanceDrift: number;
   pendingVsCanonicalCountDrift: number;
   dashboardVsCanonicalCountDrift: number;
+};
+
+export type FinanceSanitySnapshot = {
+  snapshotAt: string;
+  captureMode: "scheduled" | "manual";
+  canonicalPendingBalance: number;
+  canonicalEnrollmentsWithBalance: number;
+  pendingRpcBalance: number;
+  pendingRpcEnrollments: number;
+  dashboardPendingBalance: number;
+  dashboardEnrollmentsWithBalance: number;
+  pendingVsCanonicalBalanceDrift: number;
+  dashboardVsCanonicalBalanceDrift: number;
+  pendingVsCanonicalCountDrift: number;
+  dashboardVsCanonicalCountDrift: number;
+  balanceDriftEnrollmentCount: number;
 };
 
 export type FinanceSanityDriftRow = {
@@ -86,6 +119,7 @@ export type FinanceSanityActiveAnomalyRow = {
 
 export type FinanceSanityData = {
   summary: FinanceSanitySummary;
+  latestSnapshot: FinanceSanitySnapshot | null;
   driftRows: FinanceSanityDriftRow[];
   activeAnomalyRows: FinanceSanityActiveAnomalyRow[];
   recentAnomalyEvents: EnrollmentFinanceAnomalyEvent[];
@@ -175,6 +209,17 @@ function getHighestSeverity(anomalies: EnrollmentFinanceAnomaly[]): EnrollmentFi
   return anomalies.some((anomaly) => anomaly.severity === "needs_correction") ? "needs_correction" : "warning";
 }
 
+function isOptionalSnapshotError(error: { code?: string | null; message?: string | null; details?: string | null }) {
+  const haystack = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    error.code === "42P01" ||
+    haystack.includes("get_latest_finance_reconciliation_snapshot") ||
+    haystack.includes("finance_reconciliation_snapshots")
+  );
+}
+
 export async function getFinanceSanityData(
   campusId?: string,
   filters?: {
@@ -197,6 +242,7 @@ export async function getFinanceSanityData(
 
   const [
     { data: summaryRow, error: summaryError },
+    { data: latestSnapshotRow, error: latestSnapshotError },
     { data: driftRows, error: driftError },
     { data: auditRows, error: auditError },
     { data: balanceCandidateRows, error: balanceCandidateError },
@@ -205,6 +251,9 @@ export async function getFinanceSanityData(
       supabase
         .rpc("get_finance_reconciliation_summary", { p_campus_id: campusId ?? null })
         .maybeSingle<FinanceReconciliationSummaryRow>(),
+      supabase
+        .rpc("get_latest_finance_reconciliation_snapshot", { p_campus_id: null })
+        .maybeSingle<FinanceReconciliationSnapshotRow>(),
       supabase
         .rpc("list_finance_reconciliation_drift", { p_campus_id: campusId ?? null, p_limit: driftLimit })
         .returns<FinanceReconciliationDriftRow[]>(),
@@ -239,6 +288,10 @@ export async function getFinanceSanityData(
     throw new Error(`finance_sanity_drift_failed:${driftError.message}`);
   }
 
+  if (latestSnapshotError && !isOptionalSnapshotError(latestSnapshotError)) {
+    throw new Error(`finance_sanity_snapshot_failed:${latestSnapshotError.message}`);
+  }
+
   if (auditError) {
     throw new Error(`finance_sanity_audit_failed:${auditError.message}`);
   }
@@ -259,6 +312,27 @@ export async function getFinanceSanityData(
     pendingVsCanonicalCountDrift: Number(summaryRow?.pending_vs_canonical_count_drift ?? 0),
     dashboardVsCanonicalCountDrift: Number(summaryRow?.dashboard_vs_canonical_count_drift ?? 0),
   };
+
+  const latestSnapshot: FinanceSanitySnapshot | null =
+    latestSnapshotError && isOptionalSnapshotError(latestSnapshotError)
+      ? null
+      : latestSnapshotRow
+        ? {
+            snapshotAt: latestSnapshotRow.snapshot_at,
+            captureMode: latestSnapshotRow.capture_mode === "manual" ? "manual" : "scheduled",
+            canonicalPendingBalance: toNumber(latestSnapshotRow.canonical_pending_balance),
+            canonicalEnrollmentsWithBalance: Number(latestSnapshotRow.canonical_enrollments_with_balance ?? 0),
+            pendingRpcBalance: toNumber(latestSnapshotRow.pending_rpc_balance),
+            pendingRpcEnrollments: Number(latestSnapshotRow.pending_rpc_enrollments ?? 0),
+            dashboardPendingBalance: toNumber(latestSnapshotRow.dashboard_pending_balance),
+            dashboardEnrollmentsWithBalance: Number(latestSnapshotRow.dashboard_enrollments_with_balance ?? 0),
+            pendingVsCanonicalBalanceDrift: toNumber(latestSnapshotRow.pending_vs_canonical_balance_drift),
+            dashboardVsCanonicalBalanceDrift: toNumber(latestSnapshotRow.dashboard_vs_canonical_balance_drift),
+            pendingVsCanonicalCountDrift: Number(latestSnapshotRow.pending_vs_canonical_count_drift ?? 0),
+            dashboardVsCanonicalCountDrift: Number(latestSnapshotRow.dashboard_vs_canonical_count_drift ?? 0),
+            balanceDriftEnrollmentCount: Number(latestSnapshotRow.balance_drift_enrollment_count ?? 0),
+          }
+        : null;
 
   const normalizedDriftRows: FinanceSanityDriftRow[] = (Array.isArray(driftRows) ? driftRows : []).map((row) => ({
     enrollmentId: row.enrollment_id,
@@ -336,6 +410,7 @@ export async function getFinanceSanityData(
 
   return {
     summary,
+    latestSnapshot,
     driftRows: normalizedDriftRows,
     activeAnomalyRows,
     recentAnomalyEvents,
