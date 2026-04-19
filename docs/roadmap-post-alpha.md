@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.42`
+Current preview release line: `v1.16.43`
 
 ---
 
@@ -57,6 +57,10 @@ Current preview release line: `v1.16.42`
      - page-side snapshot reads degrade safely if the migration has not been applied yet
      - next cleanup question remains the same:
        - define which warning-only historical shapes should count as true anomalies versus acceptable review-only operational noise
+   - session 100 follow-up:
+     - deep scan now expands to the full active enrollment candidate set so warning-only delicate accounts are visible during intentional review
+     - the sanity-page hero state now separates warning-only review items from real correction-grade drift
+     - after `Iker Alejandro Arenas Garza` was corrected, the remaining prod queue is now entirely manual-review plus warning-only work
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed

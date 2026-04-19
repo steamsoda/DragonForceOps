@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-04-19 (session 100)
+
+### Finance Sanity Warning Severity + True Deep Review Follow-Up (v1.16.43)
+
+- Refined `/admin/finance-sanity` so the top state no longer treats all anomalies as equally severe.
+- New behavior:
+  - green when the system is clean
+  - red only when there is true global drift or correction-grade account damage
+  - amber when only warning-grade operational review items remain
+- Added warning/correction counts to the active anomaly header so the queue is easier to interpret at a glance.
+- Fixed the practical gap in `Escaneo profundo`:
+  - before this pass, deep mode still depended on a bounded candidate queue built from drift rows, recent anomaly events, recent finance mutations, and nonzero-balance enrollments
+  - this meant some zero-balance but still delicate accounts, especially `payment_reassign_delicate`, could remain invisible even during a deep review
+  - deep mode now expands to the full active enrollment candidate set, so the page can surface those delicate accounts intentionally
+- Production interpretation after `Iker Alejandro Arenas Garza` was corrected:
+  - actionable auto-repair candidates are now down to `0`
+  - remaining prod queue is:
+    - `23` manual-review accounts
+    - `26` warning-only accounts
+  - the red top banner was therefore overstating the current state; most remaining issues are advisory/manual-review structures, not shared-source drift
+- Validation:
+  - `npm run typecheck` passed
+
 ## 2026-04-18 (session 99)
 
 ### Finance Reconciliation Snapshots + Sanity Monitoring Follow-Up (v1.16.42)
