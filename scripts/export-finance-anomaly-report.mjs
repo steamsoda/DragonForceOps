@@ -422,8 +422,8 @@ async function main() {
       ? await fetchAllPages(args.pageSize, (from, to) =>
           supabase
             .from("payment_allocations")
-            .select("payment_id,charge_id,amount")
-            .order("charge_id", { ascending: true })
+            .select("id,payment_id,charge_id,amount")
+            .order("id", { ascending: true })
             .range(from, to),
         )
       : await fetchAllPages(args.pageSize, (from, to) =>

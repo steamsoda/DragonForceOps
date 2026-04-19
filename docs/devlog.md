@@ -1,5 +1,46 @@
 # Devlog
 
+## 2026-04-18 (session 97)
+
+### Finance Repair Apply Script + Stable Full-Scan Verification (v1.16.40)
+
+- Added a dedicated execution script at `scripts/apply-finance-repair-pass.mjs`.
+- Goal:
+  - apply only the preplanned constrained allocation repairs against the exact prod accounts already classified as RPC-ready
+  - block writes if the live payment-allocation state no longer matches the saved repair plan
+- The apply script now:
+  - reads the prod env file locally
+  - loads the generated repair-plan JSON
+  - verifies current touched allocations still match the saved plan
+  - validates payment totals and charge-cap math before any write
+  - deletes and recreates only the selected payment allocations for the targeted payments
+  - writes a local before/after execution log for the run
+- Added a package shortcut:
+  - `npm run apply:finance-repair -- --env-file <env-file> --plan <plan-file> --out <log-file> --apply`
+- Hardened the read-only exporter full-scan path:
+  - `payment_allocations` pagination now orders by stable unique `id`
+  - this prevents false readback drift when scanning the full table after repairs
+- Production cleanup pass executed:
+  - dry-run verified all 5 planned accounts still matched the saved state
+  - apply pass succeeded for all 5 targeted accounts
+  - exact targeted verification outcome:
+    - `Nicole Alejandra Huerta Jimenez` cleared completely
+    - `Alan Mathias Guerrero Monroy`, `Danna Michelle Huerta Jimenez`, `Dominic André Cid de León Velez`, and `Mia Jacqueline Juárez Flores` dropped to `warning_only`
+- Stable full prod scan after the pass:
+  - anomalous accounts: `51 -> 50`
+  - `auto_repair_candidate`: `8 -> 3`
+  - `manual_review`: stayed `23`
+  - `warning_only`: `20 -> 24`
+- Interpretation:
+  - the first bulk repair pass removed all 5 previously RPC-ready accounts from the actionable-repair bucket
+  - only 3 true first-pass repair candidates remain
+  - the remaining warning/manual population is still a separate lane and was not bulk-touched here
+- Validation:
+  - dry-run apply script passed on all 5 targeted accounts
+  - live apply script passed on all 5 targeted accounts
+  - stable full-scan exporter rerun completed successfully
+  - `npm run typecheck` passed
+
 ## 2026-04-18 (session 96)
 
 ### Finance Cleanup Planner + Safer Auto-Repair Classification (v1.16.39)

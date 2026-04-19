@@ -324,6 +324,11 @@ function simulateAccount(account, finalAllocationRows) {
 
 function buildPlan(account) {
   const finalAllocationRows = buildFinalAllocationRows(account);
+  const currentTouchedAllocations = buildCurrentAllocationRows(account).sort((left, right) => {
+    const paymentDiff = left.paymentId.localeCompare(right.paymentId);
+    if (paymentDiff !== 0) return paymentDiff;
+    return left.chargeId.localeCompare(right.chargeId);
+  });
   const touchedPaymentIds = unique([
     ...account.suggestedNormalization.invalidVoidAllocations.map((row) => row.paymentId),
     ...account.suggestedNormalization.proposedAllocations.map((row) => row.paymentId),
@@ -393,6 +398,9 @@ function buildPlan(account) {
       unappliedPostedAmount: account.unappliedPostedAmount,
       anomalyCodes: account.anomalyCodes,
     },
+    currentTouchedAllocations: currentTouchedAllocations.filter((row) =>
+      touchedPaymentIds.includes(row.paymentId),
+    ),
     touchedPaymentIds,
     selectedChargeIds,
     paymentResiduals,

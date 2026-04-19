@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.39",
+  "version": "1.16.40",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "diagnose:finance": "node scripts/export-finance-anomaly-report.mjs",
-    "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs"
+    "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs",
+    "apply:finance-repair": "node scripts/apply-finance-repair-pass.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
