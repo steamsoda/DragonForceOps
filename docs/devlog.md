@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-04-18 (session 95)
+
+### Read-Only Finance Diagnostic Exporter for Prod Cleanup Planning (v1.16.38)
+
+- Added a standalone read-only script at `scripts/export-finance-anomaly-report.mjs`.
+- Goal:
+  - let production finance anomalies be inspected safely without exposing prod credentials in chat
+  - support the upcoming cleanup pass by exporting a structured JSON snapshot of suspicious accounts
+- The exporter can:
+  - read credentials from a local env file passed at runtime
+  - scan all enrollments or a provided list of enrollment IDs
+  - compute the same family of anomaly signals used in the finance-diagnostics work
+  - classify accounts into:
+    - `auto_repair_candidate`
+    - `mixed_review`
+    - `manual_review`
+  - include a dry-run normalization preview for leftover credit / void-charge allocation states
+- Added a package shortcut:
+  - `npm run diagnose:finance -- --env-file <env-file> --out <json-file>`
+- Validation:
+  - ran successfully against preview and wrote a JSON report
+  - `npm run typecheck` passed
+- This tool is intentionally read-only:
+  - it does not write allocations
+  - it does not mutate charges or payments
+  - it is only for diagnosis and cleanup planning
+
 ## 2026-04-18 (session 94)
 
 ### Payment Void Rebalance Follow-Up + Cleanup Planning (v1.16.37)

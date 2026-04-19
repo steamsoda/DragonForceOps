@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.37`
+Current preview release line: `v1.16.38`
 
 ---
 
@@ -19,6 +19,9 @@ Current preview release line: `v1.16.37`
      - duplicate same-period tuition rows
      - overapplied charge math
      - suspicious void/refund/reassignment side effects
+   - session 95 follow-up:
+     - added a read-only finance diagnostic exporter so prod accounts can be analyzed locally without exposing prod credentials in chat
+     - use the exporter output to separate safe bulk-repair candidates from manual-review accounts before any prod write path is introduced
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
