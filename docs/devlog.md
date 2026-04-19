@@ -1,5 +1,44 @@
 # Devlog
 
+## 2026-04-18 (session 98)
+
+### Finance Sanity Deep Mode + Refund/Void Guard + Residual Cleanup Follow-Up (v1.16.41)
+
+- Added local-workspace hygiene to `.gitignore`:
+  - `.vscode/`
+  - `tmp/`
+- Added a deeper manual review mode to `/admin/finance-sanity`.
+- The page now supports:
+  - `Escaneo reciente`
+  - `Escaneo profundo`
+- Deep mode remains intentionally heavier than the default page load, but it broadens the candidate window beyond the small recent-activity queue:
+  - larger recent-audit slice
+  - larger drift slice
+  - adds balance-bearing enrollments into the candidate pool
+- Tightened a real finance guardrail:
+  - a payment that already has a row in `payment_refunds` can no longer be voided from the normal ledger action
+  - the same protection was added to superadmin audit-log reversal of `payment.posted`
+- This closes the specific contradictory-history path where a refunded payment could later become `void`, which leaves account state harder to reconcile.
+- Refined anomaly-export classification again:
+  - pure residual-credit states now classify as `warning_only` instead of staying in the auto-repair bucket
+  - this especially affects accounts whose real corruption is already gone but still carry unapplied posted credit
+- Production data follow-up:
+  - manually cleaned the remaining void-allocation corruption on:
+    - `Ignacio F. Belmares Briones`
+    - `Marcelo Rodríguez Pedraza`
+  - both accounts now reduce to residual-credit warnings instead of active drift / void-allocation corruption
+  - one true hard manual case remains open:
+    - `Iker Alejandro Arenas Garza`
+  - current understanding:
+    - `Ignacio` and `Marcelo` now have legitimate-looking leftover credit states, not the earlier broken void-allocation state
+    - `Iker` still needs a transaction-history decision because the account mixes:
+      - a refunded payment history
+      - later voiding
+      - a stale allocation on a voided charge
+      - posted-credit drift that is not safely resolvable by allocation rewiring alone
+- Validation:
+  - `npm run typecheck` passed
+
 ## 2026-04-18 (session 97)
 
 ### Finance Repair Apply Script + Stable Full-Scan Verification (v1.16.40)

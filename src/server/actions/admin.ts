@@ -64,6 +64,15 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
     typeof log.after_data?.enrollment_id === "string" ? log.after_data.enrollment_id : null;
 
   if (log.action === "payment.posted") {
+    const { data: refundRow, error: refundLookupError } = await supabase
+      .from("payment_refunds")
+      .select("payment_id")
+      .eq("payment_id", recordId)
+      .maybeSingle<{ payment_id: string } | null>();
+
+    if (refundLookupError) redirect("/admin/actividad?err=reverse_failed");
+    if (refundRow?.payment_id) redirect("/admin/actividad?err=refunded_payment_not_reversible");
+
     await supabase.from("payment_allocations").delete().eq("payment_id", recordId);
     const { error } = await supabase.from("payments").update({ status: "void" }).eq("id", recordId);
     if (error) redirect("/admin/actividad?err=reverse_failed");

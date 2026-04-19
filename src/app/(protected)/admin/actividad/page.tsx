@@ -55,7 +55,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_record_id: "Esta entrada no tiene ID de registro asociado.",
   reverse_failed: "Error al revertir — el registro puede haber sido modificado ya.",
   log_not_found: "Entrada de auditoría no encontrada.",
-  not_reversible: "Este tipo de acción no puede revertirse desde aquí."
+  not_reversible: "Este tipo de acción no puede revertirse desde aquí.",
+  refunded_payment_not_reversible: "No puedes revertir un cobro desde auditoría si ya tiene un reembolso registrado."
 };
 
 function actionColor(action: string) {

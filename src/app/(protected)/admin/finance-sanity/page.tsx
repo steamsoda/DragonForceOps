@@ -8,9 +8,9 @@ import {
   type EnrollmentFinanceAnomalySeverity,
 } from "@/lib/finance/enrollment-anomalies";
 import { listCampuses } from "@/lib/queries/players";
-import { getFinanceSanityData } from "@/lib/queries/finance-sanity";
+import { getFinanceSanityData, type FinanceSanityScanMode } from "@/lib/queries/finance-sanity";
 
-type SearchParams = Promise<{ campus?: string; anomaly?: string; severity?: string }>;
+type SearchParams = Promise<{ campus?: string; anomaly?: string; severity?: string; scan?: string }>;
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", {
@@ -54,15 +54,18 @@ function buildFilterHref({
   campus,
   anomaly,
   severity,
+  scan,
 }: {
   campus?: string;
   anomaly?: string;
   severity?: string;
+  scan?: string;
 }) {
   const params = new URLSearchParams();
   if (campus) params.set("campus", campus);
   if (anomaly) params.set("anomaly", anomaly);
   if (severity) params.set("severity", severity);
+  if (scan) params.set("scan", scan);
   const query = params.toString();
   return `/admin/finance-sanity${query ? `?${query}` : ""}`;
 }
@@ -80,12 +83,14 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
     params.severity === "warning" || params.severity === "needs_correction"
       ? (params.severity as EnrollmentFinanceAnomalySeverity)
       : undefined;
+  const selectedScanMode: FinanceSanityScanMode = params.scan === "deep" ? "deep" : "recent";
 
   const [campuses, sanity] = await Promise.all([
     listCampuses(),
     getFinanceSanityData(selectedCampusId || undefined, {
       anomalyCode: selectedAnomalyCode,
       severity: selectedSeverity,
+      scanMode: selectedScanMode,
     }),
   ]);
 
@@ -139,12 +144,22 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
             <option value="needs_correction">Requiere correccion</option>
             <option value="warning">Advertencia</option>
           </select>
-          <button
-            type="submit"
-            className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-          >
-            Verificar
-          </button>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              name="scan"
+              defaultValue={selectedScanMode}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+            >
+              <option value="recent">Escaneo reciente</option>
+              <option value="deep">Escaneo profundo</option>
+            </select>
+            <button
+              type="submit"
+              className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+            >
+              Verificar
+            </button>
+          </div>
         </form>
 
         <div
@@ -164,7 +179,10 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
           <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
             Alcance actual: {selectedCampusName}. La referencia canonica es <code>v_enrollment_balances</code>; esta
             vista compara ese saldo contra <code>Pendientes</code> y contra el KPI del Panel
-            {anomalyDetected ? ", y tambien agrupa cuentas con estados financieros sospechosos." : "."}
+            {anomalyDetected ? ", y tambien agrupa cuentas con estados financieros sospechosos." : "."}{" "}
+            {selectedScanMode === "deep"
+              ? "Modo profundo: amplia la ventana de actividad reciente y suma cuentas con saldo para una revision mas pesada."
+              : "Modo reciente: prioriza la cola rapida de drift y mutaciones recientes."}
           </p>
         </div>
 
@@ -364,7 +382,7 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
               </p>
             </div>
             <Link
-              href={buildFilterHref({ campus: selectedCampusId || undefined })}
+              href={buildFilterHref({ campus: selectedCampusId || undefined, scan: selectedScanMode })}
               className="text-xs font-medium text-portoBlue hover:underline"
             >
               Limpiar filtros

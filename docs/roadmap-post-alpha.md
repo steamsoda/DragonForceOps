@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.40`
+Current preview release line: `v1.16.41`
 
 ---
 
@@ -42,6 +42,15 @@ Current preview release line: `v1.16.40`
      - next decision for this lane:
        - inspect the remaining 3 actionable accounts separately
        - decide whether the 24 warnings should stay triage-only or be further reduced on purpose
+   - session 98 follow-up:
+     - added `Escaneo profundo` to `Sanidad financiera` so the page can widen its candidate universe without making the default load always pay that cost
+     - blocked voiding/refersing payments that already have refunds, closing another mutation path that can leave contradictory finance history
+     - manually reduced the remaining hard void-allocation corruption on `Ignacio F. Belmares Briones` and `Marcelo Rodríguez Pedraza`
+     - residual-credit-only states are now treated as warnings by the exporter instead of auto-repair candidates
+     - only one truly unresolved manual prod account remains:
+       - `Iker Alejandro Arenas Garza`
+     - next product/ops question for this lane:
+       - decide whether `payment_reassign_delicate` and pure carry-forward credit should remain top-level warnings or be demoted to lower-level account notes only
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed

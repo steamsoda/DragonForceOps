@@ -727,6 +727,16 @@ export async function voidPaymentAction(
     .maybeSingle<{ id: string; status: string; amount: number; method: string }>();
 
   if (!payment) redirect(`${BASE}?err=payment_not_found`);
+
+  const { data: refundRow, error: refundLookupError } = await supabase
+    .from("payment_refunds")
+    .select("payment_id")
+    .eq("payment_id", paymentId)
+    .maybeSingle<{ payment_id: string } | null>();
+
+  if (refundLookupError) redirect(`${BASE}?err=void_failed`);
+  if (refundRow?.payment_id) redirect(`${BASE}?err=payment_refunded_cannot_be_voided`);
+
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
 
   // Delete allocations first (frees the charges back to pending)

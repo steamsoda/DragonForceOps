@@ -133,6 +133,7 @@ const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
   payment_total_mismatch: "Cada pago seleccionado debe cerrar exactamente con su monto.",
   charge_overapplied: "La matriz dejaría uno o más cargos sobreaplicados.",
   allocation_repair_failed: "No se pudo reparar las asignaciones. Intenta de nuevo.",
+  payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
 };
 
 function SummaryChip({
