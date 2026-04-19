@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { normalizeRemainingPostedCreditAllocations } from "@/server/actions/payment-allocation-normalization";
 
 type AuditLogLookup = {
   id: string;
@@ -16,14 +17,14 @@ type AuditLogLookup = {
 
 async function assertSuperadmin(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
+  userId: string,
 ): Promise<boolean> {
   const { data } = await supabase
     .from("user_roles")
     .select("app_roles(code)")
     .eq("user_id", userId)
     .returns<{ app_roles: { code: string } | null }[]>();
-  return (data ?? []).some((r) => r.app_roles?.code === "superadmin");
+  return (data ?? []).some((row) => row.app_roles?.code === "superadmin");
 }
 
 function normalizeConfirmationName(value: string | null | undefined) {
@@ -35,15 +36,16 @@ function normalizeConfirmationName(value: string | null | undefined) {
     .toLocaleLowerCase("es-MX");
 }
 
-// ── Reverse audit log entry ────────────────────────────────────────────────────
-
 export async function reverseAuditLogEntryAction(formData: FormData): Promise<void> {
   const logId = formData.get("log_id")?.toString().trim() ?? "";
   if (!logId) redirect("/admin/actividad?err=invalid_form");
   await assertDebugWritesAllowed("/admin/actividad");
 
   const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
   if (userError || !user) redirect("/admin/actividad?err=unauthenticated");
   if (!(await assertSuperadmin(supabase, user.id))) redirect("/admin/actividad?err=unauthorized");
 
@@ -53,9 +55,9 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
     .eq("id", logId)
     .maybeSingle<AuditLogLookup>();
 
-  if (!log)          redirect("/admin/actividad?err=log_not_found");
+  if (!log) redirect("/admin/actividad?err=log_not_found");
   if (log.reversed_at) redirect("/admin/actividad?err=already_reversed");
-  if (!log.record_id)  redirect("/admin/actividad?err=no_record_id");
+  if (!log.record_id) redirect("/admin/actividad?err=no_record_id");
 
   const recordId = log.record_id;
   const enrollmentId =
@@ -65,15 +67,25 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
     await supabase.from("payment_allocations").delete().eq("payment_id", recordId);
     const { error } = await supabase.from("payments").update({ status: "void" }).eq("id", recordId);
     if (error) redirect("/admin/actividad?err=reverse_failed");
+
+    const normalizationResult =
+      enrollmentId ? await normalizeRemainingPostedCreditAllocations(supabase, enrollmentId) : null;
+
     await writeAuditLog(supabase, {
       actorUserId: user.id,
       actorEmail: user.email ?? null,
       action: "payment.voided",
       tableName: "payments",
       recordId,
-      afterData: { enrollment_id: enrollmentId, reason: "Revertido desde Auditoría — superadmin" }
+      afterData: {
+        enrollment_id: enrollmentId,
+        reason: "Revertido desde Auditoria - superadmin",
+        rebalanced_allocation_count: normalizationResult?.insertedAllocationCount ?? 0,
+        rebalanced_allocation_amount: normalizationResult?.insertedAllocationAmount ?? 0,
+      },
     });
   } else if (log.action === "charge.created") {
+    await supabase.from("payment_allocations").delete().eq("charge_id", recordId);
     const { error } = await supabase.from("charges").update({ status: "void" }).eq("id", recordId);
     if (error) redirect("/admin/actividad?err=reverse_failed");
     await writeAuditLog(supabase, {
@@ -82,13 +94,12 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
       action: "charge.voided",
       tableName: "charges",
       recordId,
-      afterData: { enrollment_id: enrollmentId, reason: "Revertido desde Auditoría — superadmin" }
+      afterData: { enrollment_id: enrollmentId, reason: "Revertido desde Auditoria - superadmin" },
     });
   } else {
     redirect("/admin/actividad?err=not_reversible");
   }
 
-  // Stamp the original entry as reversed
   await supabase
     .from("audit_logs")
     .update({ reversed_at: new Date().toISOString(), reversed_by: user.id })
@@ -98,17 +109,18 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
   redirect("/admin/actividad?ok=reversed");
 }
 
-// ── Nuke player ───────────────────────────────────────────────────────────────
-
 export async function nukePlayerAction(formData: FormData): Promise<void> {
-  const playerId    = formData.get("player_id")?.toString().trim()    ?? "";
+  const playerId = formData.get("player_id")?.toString().trim() ?? "";
   const confirmName = formData.get("confirm_name")?.toString().trim() ?? "";
 
   if (!playerId) redirect("/players?err=invalid");
   await assertDebugWritesAllowed(`/players/${playerId}/nuke`);
 
   const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
   if (userError || !user) redirect(`/players/${playerId}/nuke?err=unauthenticated`);
   if (!(await assertSuperadmin(supabase, user.id))) redirect(`/players/${playerId}/nuke?err=unauthorized`);
 
@@ -125,7 +137,6 @@ export async function nukePlayerAction(formData: FormData): Promise<void> {
     redirect(`/players/${playerId}/nuke?err=name_mismatch`);
   }
 
-  // Write audit trail BEFORE deleting (so the record exists)
   await writeAuditLog(supabase, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
@@ -134,8 +145,8 @@ export async function nukePlayerAction(formData: FormData): Promise<void> {
     recordId: playerId,
     afterData: {
       player_name: `${player.first_name} ${player.last_name}`,
-      reason: "Superadmin nuke"
-    }
+      reason: "Superadmin nuke",
+    },
   });
 
   const { error } = await supabase.rpc("nuke_player", { p_player_id: playerId });

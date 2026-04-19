@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-17.
+Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.35`
+Current preview release line: `v1.16.40`
 
 ---
 
@@ -19,6 +19,32 @@ Current preview release line: `v1.16.35`
      - duplicate same-period tuition rows
      - overapplied charge math
      - suspicious void/refund/reassignment side effects
+   - session 95 follow-up:
+     - added a read-only finance diagnostic exporter so prod accounts can be analyzed locally without exposing prod credentials in chat
+     - use the exporter output to separate safe bulk-repair candidates from manual-review accounts before any prod write path is introduced
+   - session 96 follow-up:
+     - refined exporter classification so `payment_reassign_delicate` by itself lands in `warning_only` instead of the auto-repair bucket
+     - added a finance repair-planning script that simulates the cleanup pass and emits exact constrained-repair payloads only for RPC-ready accounts
+     - latest prod read-only planning split:
+       - 20 `warning_only`
+       - 23 `manual_review`
+       - 8 targeted repair candidates
+       - only 5 of those 8 are currently safe for the first bulk `repair_payment_allocations` pass
+       - keep the remaining 3 in manual toolkit review because they still leave residual credit after the simulated rewrite
+   - session 97 follow-up:
+     - added the controlled finance repair apply script for the preplanned allocation rewrites
+     - executed the first prod cleanup pass on the 5 RPC-ready accounts after a matching-state dry-run
+     - stable post-pass prod snapshot:
+       - anomalous accounts: `50`
+       - `auto_repair_candidate`: `3`
+       - `manual_review`: `23`
+       - `warning_only`: `24`
+     - next decision for this lane:
+       - inspect the remaining 3 actionable accounts separately
+       - decide whether the 24 warnings should stay triage-only or be further reduced on purpose
+   - session 94 follow-up:
+     - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
+     - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
    - goal: catch problematic accounts early and give `superadmin` a system-level way to review new drift instead of only discovering it manually profile by profile
 2. Year-of-birth + account-navigation regression pass
    - reopen the old "year of birth visible everywhere" goal as a targeted follow-up on the surfaces still missing it:
@@ -80,6 +106,11 @@ Notes:
   - anomaly state changes now write `finance.anomaly_detected` / `finance.anomaly_resolved` into `audit_logs`
   - `/admin/finance-sanity` now includes active anomaly review plus recent anomaly events
   - v1 remains superadmin-facing and diagnostic only
+  - first live triage follow-up now landed:
+    - charge voids now release allocations before marking the charge `void`
+    - global anomaly review is now stricter about what counts as a real active anomaly, so normal carry-forward credit states stop flooding the queue
+  - next step for this lane:
+    - inspect the remaining post-hotfix anomaly queue and decide which legacy accounts need toolkit repair vs targeted one-off cleanup
 - year-of-birth + account navigation polish has started landing:
   - dedicated enrollment account page now shows linked player context and functional breadcrumbs
   - `RegularizaciÃ³n Contry` selected-account header now keeps birth year visible

@@ -1,5 +1,161 @@
 # Devlog
 
+## 2026-04-18 (session 97)
+
+### Finance Repair Apply Script + Stable Full-Scan Verification (v1.16.40)
+
+- Added a dedicated execution script at `scripts/apply-finance-repair-pass.mjs`.
+- Goal:
+  - apply only the preplanned constrained allocation repairs against the exact prod accounts already classified as RPC-ready
+  - block writes if the live payment-allocation state no longer matches the saved repair plan
+- The apply script now:
+  - reads the prod env file locally
+  - loads the generated repair-plan JSON
+  - verifies current touched allocations still match the saved plan
+  - validates payment totals and charge-cap math before any write
+  - deletes and recreates only the selected payment allocations for the targeted payments
+  - writes a local before/after execution log for the run
+- Added a package shortcut:
+  - `npm run apply:finance-repair -- --env-file <env-file> --plan <plan-file> --out <log-file> --apply`
+- Hardened the read-only exporter full-scan path:
+  - `payment_allocations` pagination now orders by stable unique `id`
+  - this prevents false readback drift when scanning the full table after repairs
+- Production cleanup pass executed:
+  - dry-run verified all 5 planned accounts still matched the saved state
+  - apply pass succeeded for all 5 targeted accounts
+  - exact targeted verification outcome:
+    - `Nicole Alejandra Huerta Jimenez` cleared completely
+    - `Alan Mathias Guerrero Monroy`, `Danna Michelle Huerta Jimenez`, `Dominic André Cid de León Velez`, and `Mia Jacqueline Juárez Flores` dropped to `warning_only`
+- Stable full prod scan after the pass:
+  - anomalous accounts: `51 -> 50`
+  - `auto_repair_candidate`: `8 -> 3`
+  - `manual_review`: stayed `23`
+  - `warning_only`: `20 -> 24`
+- Interpretation:
+  - the first bulk repair pass removed all 5 previously RPC-ready accounts from the actionable-repair bucket
+  - only 3 true first-pass repair candidates remain
+  - the remaining warning/manual population is still a separate lane and was not bulk-touched here
+- Validation:
+  - dry-run apply script passed on all 5 targeted accounts
+  - live apply script passed on all 5 targeted accounts
+  - stable full-scan exporter rerun completed successfully
+  - `npm run typecheck` passed
+
+## 2026-04-18 (session 96)
+
+### Finance Cleanup Planner + Safer Auto-Repair Classification (v1.16.39)
+
+- Tightened the read-only finance anomaly exporter so `payment_reassign_delicate` by itself no longer gets marked as an auto-repair candidate.
+- The exporter now splits simple warning-only rows away from real first-pass repair candidates:
+  - `warning_only`
+  - `auto_repair_candidate`
+  - `manual_review`
+- Added a second standalone script at `scripts/plan-finance-repair-pass.mjs`.
+- Goal:
+  - turn the exported prod anomaly report into an actual cleanup plan
+  - separate accounts that can close cleanly through `repair_payment_allocations` from accounts that still need manual toolkit review
+- The planner now:
+  - reads the JSON report from the diagnostic exporter
+  - simulates the proposed allocation rewrite per account
+  - computes exact `selectedPaymentIds`, `selectedChargeIds`, and `allocationPlan` payloads for RPC-safe rows
+  - flags residual-credit cases that would still fail or remain dirty after a bulk allocation rewrite
+- Added a package shortcut:
+  - `npm run plan:finance-repair -- --report <json-file> --out <plan-file>`
+- Prod cleanup planning result from the latest read-only scan:
+  - 51 anomalous accounts total
+  - 20 are now correctly treated as `warning_only`
+  - 23 remain `manual_review`
+  - 8 remain first-pass repair targets
+  - of those 8, only 5 are currently RPC-ready for a bulk constrained allocation repair
+  - the remaining 3 still leave residual posted credit after the simulated rewrite and must stay in the manual lane
+- Validation:
+  - exporter rerun against prod completed successfully after the classification refinement
+  - planner ran successfully against the prod report and wrote a structured cleanup-plan JSON
+  - `npm run typecheck` passed
+
+## 2026-04-18 (session 95)
+
+### Read-Only Finance Diagnostic Exporter for Prod Cleanup Planning (v1.16.38)
+
+- Added a standalone read-only script at `scripts/export-finance-anomaly-report.mjs`.
+- Goal:
+  - let production finance anomalies be inspected safely without exposing prod credentials in chat
+  - support the upcoming cleanup pass by exporting a structured JSON snapshot of suspicious accounts
+- The exporter can:
+  - read credentials from a local env file passed at runtime
+  - scan all enrollments or a provided list of enrollment IDs
+  - compute the same family of anomaly signals used in the finance-diagnostics work
+  - classify accounts into:
+    - `auto_repair_candidate`
+    - `mixed_review`
+    - `manual_review`
+  - include a dry-run normalization preview for leftover credit / void-charge allocation states
+- Added a package shortcut:
+  - `npm run diagnose:finance -- --env-file <env-file> --out <json-file>`
+- Validation:
+  - ran successfully against preview and wrote a JSON report
+  - `npm run typecheck` passed
+- This tool is intentionally read-only:
+  - it does not write allocations
+  - it does not mutate charges or payments
+  - it is only for diagnosis and cleanup planning
+
+## 2026-04-18 (session 94)
+
+### Payment Void Rebalance Follow-Up + Cleanup Planning (v1.16.37)
+
+- Investigated a second real finance mutation bug reported after the charge-void fix:
+  - annulling a payment released that payment's own `payment_allocations`
+  - but any other posted credit still left on the same account was not immediately re-applied
+  - result: some accounts could keep canonical balance correct while still showing operational anomalies like:
+    - `Pago parcialmente asignado`
+    - `Credito no aplicado`
+    - charges feeling pending even though the account-level balance was already covered
+- Added a shared post-void credit-normalization helper:
+  - after a payment is voided, remaining posted non-refunded credit on the enrollment is swept back onto pending charges in FIFO order
+  - the helper prefers the payment's previous source charges first when they are still eligible, then falls back to the normal pending-charge order
+- Applied the same safeguard to both payment-void entry points:
+  - normal `voidPaymentAction`
+  - superadmin audit-log reversal of `payment.posted`
+- Added audit metadata to both flows so finance cleanup can see how much allocation was automatically rebalanced after the void.
+- Validation:
+  - `npm run typecheck` passed
+- Important limitation:
+  - this patch prevents new payment-annulment cases from drifting the same way
+  - it does not auto-repair older damaged accounts that were already left in a broken mixed-credit state before this fix
+- Cleanup-planning note:
+  - the local workspace credentials currently point to the preview Supabase project, not the production dataset that contains the 19 live anomaly accounts from the screenshot
+  - those screenshot enrollment IDs do not exist in the DB accessible from this workspace, so the real cleanup pass still needs production data access or an exported target-account list from prod
+
+## 2026-04-17 (session 93)
+
+### Finance Sanity Triage: Charge-Void Fix + Monitoring Noise Reduction (v1.16.36)
+
+- Investigated the first live wave of `Sanidad financiera` results after enabling anomaly monitoring.
+- Confirmed one real bug in the ledger mutation path:
+  - `voidChargeAction` was marking a charge as `void` without releasing its `payment_allocations`
+  - this directly created the `Cargo anulado con pagos aplicados` state and could also cascade into derived-balance drift
+- Fixed charge-void behavior so future voided charges now release their allocations before the charge is voided.
+- Applied the same defensive release step to:
+  - batch void of pending charges for bajas
+  - reversing `charge.created` from audit/admin tools
+- Added tournament-signup revalidation to charge-void handling, so voiding a competition charge does not leave sports signup state stale.
+- Tightened the global anomaly monitor to reduce false alarm volume:
+  - these states still appear inside the per-account diagnostic panel as operational warnings
+  - but they no longer populate the top-level active-anomaly queue or anomaly audit events by themselves:
+    - `Pago registrado sin asignaciones`
+    - `Pago parcialmente asignado`
+    - `Pago con estructura de asignacion delicada`
+    - `Credito no aplicado`
+- Updated `Sanidad financiera` banner copy so the page distinguishes:
+  - real balance drift
+  - broader financial anomalies
+- Result:
+  - future charge-void mistakes should stop creating the same corruption pattern
+  - the global sanity page should now skew much more toward true correction-needed accounts instead of normal carry-forward credit situations
+- Existing damaged accounts were not auto-repaired in this pass.
+  - those still need either toolkit repair or a targeted cleanup pass once we inspect the remaining queue after this hotfix
+
 ## 2026-04-17 (session 92)
 
 ### Account Surfaces + Finance Drift Monitoring (v1.16.35)

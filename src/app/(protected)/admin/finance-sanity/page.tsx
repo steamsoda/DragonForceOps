@@ -34,6 +34,16 @@ function driftClass(value: number, isCount = false) {
   return "text-emerald-700 dark:text-emerald-300";
 }
 
+function hasBalanceDrift(sanity: Awaited<ReturnType<typeof getFinanceSanityData>>) {
+  return (
+    Math.abs(sanity.summary.pendingVsCanonicalBalanceDrift) >= 0.01 ||
+    Math.abs(sanity.summary.dashboardVsCanonicalBalanceDrift) >= 0.01 ||
+    sanity.summary.pendingVsCanonicalCountDrift !== 0 ||
+    sanity.summary.dashboardVsCanonicalCountDrift !== 0 ||
+    sanity.driftRows.length > 0
+  );
+}
+
 function severityBadgeClass(value: EnrollmentFinanceAnomalySeverity) {
   return value === "needs_correction"
     ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
@@ -81,6 +91,8 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
 
   const selectedCampusName =
     campuses.find((campus) => campus.id === selectedCampusId)?.name ?? "Todos los campus visibles";
+  const balanceDriftDetected = hasBalanceDrift(sanity);
+  const anomalyDetected = sanity.activeAnomalyRows.length > 0;
 
   return (
     <PageShell
@@ -143,11 +155,16 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
           }`}
         >
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {sanity.isHealthy ? "Sin drift detectable" : "Se detecto drift financiero"}
+            {sanity.isHealthy
+              ? "Sin drift ni anomalias activas"
+              : balanceDriftDetected
+                ? "Se detecto drift financiero"
+                : "Se detectaron anomalias financieras"}
           </p>
           <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
             Alcance actual: {selectedCampusName}. La referencia canonica es <code>v_enrollment_balances</code>; esta
-            vista compara ese saldo contra <code>Pendientes</code> y contra el KPI del Panel.
+            vista compara ese saldo contra <code>Pendientes</code> y contra el KPI del Panel
+            {anomalyDetected ? ", y tambien agrupa cuentas con estados financieros sospechosos." : "."}
           </p>
         </div>
 
