@@ -26,6 +26,14 @@ function formatSignedCurrency(value: number) {
   return value > 0 ? `+${formatted}` : `-${formatted}`;
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Mexico_City",
+  }).format(new Date(value));
+}
+
 function driftClass(value: number, isCount = false) {
   const threshold = isCount ? value !== 0 : Math.abs(value) >= 0.01;
   if (threshold) {
@@ -229,6 +237,47 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
             </p>
           </section>
         </div>
+
+        {sanity.latestSnapshot ? (
+          <section className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Snapshot automatico global</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Monitoreo programado cada 6 horas UTC para guardar una referencia global de reconciliacion, sin obligar a que esta pagina haga siempre un escaneo profundo.
+                </p>
+              </div>
+              <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                {formatDateTime(sanity.latestSnapshot.snapshotAt)}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Drift pendientes</p>
+                <p className={`mt-1 text-sm font-medium ${driftClass(sanity.latestSnapshot.pendingVsCanonicalBalanceDrift)}`}>
+                  {formatSignedCurrency(sanity.latestSnapshot.pendingVsCanonicalBalanceDrift)}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Drift panel</p>
+                <p className={`mt-1 text-sm font-medium ${driftClass(sanity.latestSnapshot.dashboardVsCanonicalBalanceDrift)}`}>
+                  {formatSignedCurrency(sanity.latestSnapshot.dashboardVsCanonicalBalanceDrift)}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Cuentas con drift</p>
+                <p
+                  className={`mt-1 text-sm font-medium ${driftClass(
+                    sanity.latestSnapshot.balanceDriftEnrollmentCount,
+                    true,
+                  )}`}
+                >
+                  {sanity.latestSnapshot.balanceDriftEnrollmentCount}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-md border border-slate-200 p-4 dark:border-slate-700">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Reglas de referencia</h2>

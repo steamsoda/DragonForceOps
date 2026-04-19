@@ -1,5 +1,34 @@
 # Devlog
 
+## 2026-04-18 (session 99)
+
+### Finance Reconciliation Snapshots + Sanity Monitoring Follow-Up (v1.16.42)
+
+- Added a new DB migration to persist lightweight finance reconciliation snapshots on a schedule instead of forcing every review to depend on a full deep scan.
+- New DB objects:
+  - `public.finance_reconciliation_snapshots`
+  - `public.capture_finance_reconciliation_snapshot(...)`
+  - `public.get_latest_finance_reconciliation_snapshot(...)`
+- The scheduled capture is intentionally narrow:
+  - canonical pending balance
+  - pending RPC balance
+  - dashboard pending balance
+  - count drift between those shared sources
+  - total enrollment-level balance-drift row count
+- This does **not** replace the account-level anomaly toolkit or the new `Escaneo profundo`; it complements them with a cheap background baseline.
+- Added a new `Snapshot automatico global` card to `/admin/finance-sanity`:
+  - shows the latest scheduled capture time
+  - shows stored pending drift, panel drift, and drift-row count from that snapshot
+  - page falls back safely if the DB migration has not been applied yet, so deploy order will not break the admin surface
+- Operational interpretation after the latest finance cleanup:
+  - true hard corruption is now down to the single unresolved manual account (`Iker Alejandro Arenas Garza`)
+  - the rest of the current queue is mostly warning-grade historical complexity, especially `payment_reassign_delicate`
+  - the right next decision is product/ops policy:
+    - either keep those warnings visible as intentional review signals
+    - or demote some of them from top-level anomaly noise if they do not represent broken money state
+- Validation:
+  - `npm run typecheck` passed
+
 ## 2026-04-18 (session 98)
 
 ### Finance Sanity Deep Mode + Refund/Void Guard + Residual Cleanup Follow-Up (v1.16.41)
