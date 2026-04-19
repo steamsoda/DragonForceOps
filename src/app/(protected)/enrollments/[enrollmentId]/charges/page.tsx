@@ -33,6 +33,7 @@ const errorMessages: Record<string, string> = {
   payment_not_found: "Pago no encontrado o ya fue anulado.",
   payment_reassigned: "No se pudo aplicar el cambio de concepto.",
   payment_refunded: "No se pudo registrar el reembolso.",
+  payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
   void_failed: "No se pudo anular. Intenta de nuevo.",
   unauthorized: "No tienes permiso para anular.",

@@ -92,6 +92,8 @@ export type FinanceSanityData = {
   isHealthy: boolean;
 };
 
+export type FinanceSanityScanMode = "recent" | "deep";
+
 const RECENT_FINANCE_ACTIVITY_ACTIONS = [
   "payment.created",
   "payment.created.historical_regularization_contry",
@@ -178,6 +180,7 @@ export async function getFinanceSanityData(
   filters?: {
     anomalyCode?: EnrollmentFinanceAnomalyCode;
     severity?: EnrollmentFinanceAnomalySeverity;
+    scanMode?: FinanceSanityScanMode;
   },
   permissionContext?: PermissionContext | null,
 ): Promise<FinanceSanityData> {
@@ -187,13 +190,23 @@ export async function getFinanceSanityData(
   }
 
   const supabase = context.supabase;
-  const [{ data: summaryRow, error: summaryError }, { data: driftRows, error: driftError }, { data: auditRows, error: auditError }] =
+  const scanMode = filters?.scanMode === "deep" ? "deep" : "recent";
+  const driftLimit = scanMode === "deep" ? 250 : 50;
+  const auditLimit = scanMode === "deep" ? 2000 : 250;
+  const candidateLimit = scanMode === "deep" ? 300 : 40;
+
+  const [
+    { data: summaryRow, error: summaryError },
+    { data: driftRows, error: driftError },
+    { data: auditRows, error: auditError },
+    { data: balanceCandidateRows, error: balanceCandidateError },
+  ] =
     await Promise.all([
       supabase
         .rpc("get_finance_reconciliation_summary", { p_campus_id: campusId ?? null })
         .maybeSingle<FinanceReconciliationSummaryRow>(),
       supabase
-        .rpc("list_finance_reconciliation_drift", { p_campus_id: campusId ?? null, p_limit: 50 })
+        .rpc("list_finance_reconciliation_drift", { p_campus_id: campusId ?? null, p_limit: driftLimit })
         .returns<FinanceReconciliationDriftRow[]>(),
       supabase
         .from("audit_logs")
@@ -206,8 +219,16 @@ export async function getFinanceSanityData(
           ].join(","),
         )
         .order("event_at", { ascending: false })
-        .limit(250)
+        .limit(auditLimit)
         .returns<AuditLogRow[]>(),
+      scanMode === "deep"
+        ? supabase
+            .from("v_enrollment_balances")
+            .select("enrollment_id")
+            .neq("balance", 0)
+            .limit(candidateLimit)
+            .returns<Array<{ enrollment_id: string }>>()
+        : Promise.resolve({ data: [] as Array<{ enrollment_id: string }>, error: null }),
     ]);
 
   if (summaryError) {
@@ -220,6 +241,10 @@ export async function getFinanceSanityData(
 
   if (auditError) {
     throw new Error(`finance_sanity_audit_failed:${auditError.message}`);
+  }
+
+  if (balanceCandidateError) {
+    throw new Error(`finance_sanity_balance_candidates_failed:${balanceCandidateError.message}`);
   }
 
   const summary: FinanceSanitySummary = {
@@ -264,9 +289,10 @@ export async function getFinanceSanityData(
         ...(Array.isArray(auditRows) ? auditRows : [])
           .map(getEnrollmentIdFromAuditRow)
           .filter((value): value is string => Boolean(value)),
+        ...(balanceCandidateRows ?? []).map((row) => row.enrollment_id),
       ].filter(Boolean),
     ),
-  ).slice(0, 40);
+  ).slice(0, candidateLimit);
 
   const diagnosticsList = await Promise.all(
     candidateEnrollmentIds.map((enrollmentId) => getEnrollmentFinanceDiagnostics(enrollmentId, context)),

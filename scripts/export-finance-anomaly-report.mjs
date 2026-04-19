@@ -30,6 +30,13 @@ const ACTIONABLE_AUTO_REPAIR_CODES = new Set([
   "charge_status_mismatch",
 ]);
 
+const WARNING_ONLY_OPERATIONAL_CODES = new Set([
+  "payment_without_allocations",
+  "payment_partial_allocation",
+  "payment_reassign_delicate",
+  "unapplied_credit",
+]);
+
 const FINANCE_ACTIVITY_ACTIONS = [
   "payment.created",
   "payment.created.historical_regularization_contry",
@@ -291,6 +298,9 @@ function buildSuggestedNormalization(chargeRows, paymentRows, allocationsByCharg
 function classifyAccount(anomalyCodes) {
   if (anomalyCodes.some((code) => MANUAL_REVIEW_CODES.has(code))) {
     return "manual_review";
+  }
+  if (anomalyCodes.every((code) => WARNING_ONLY_OPERATIONAL_CODES.has(code))) {
+    return "warning_only";
   }
   if (!anomalyCodes.some((code) => ACTIONABLE_AUTO_REPAIR_CODES.has(code))) {
     return "warning_only";
