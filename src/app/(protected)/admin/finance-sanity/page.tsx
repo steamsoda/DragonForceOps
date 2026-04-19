@@ -52,6 +52,10 @@ function hasBalanceDrift(sanity: Awaited<ReturnType<typeof getFinanceSanityData>
   );
 }
 
+function hasNeedsCorrectionAnomalies(sanity: Awaited<ReturnType<typeof getFinanceSanityData>>) {
+  return sanity.activeAnomalyRows.some((row) => row.highestSeverity === "needs_correction");
+}
+
 function severityBadgeClass(value: EnrollmentFinanceAnomalySeverity) {
   return value === "needs_correction"
     ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
@@ -106,6 +110,12 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
     campuses.find((campus) => campus.id === selectedCampusId)?.name ?? "Todos los campus visibles";
   const balanceDriftDetected = hasBalanceDrift(sanity);
   const anomalyDetected = sanity.activeAnomalyRows.length > 0;
+  const needsCorrectionDetected = hasNeedsCorrectionAnomalies(sanity);
+  const warningOnlyDetected = anomalyDetected && !needsCorrectionDetected && !balanceDriftDetected;
+  const activeWarningCount = sanity.activeAnomalyRows.filter((row) => row.highestSeverity === "warning").length;
+  const activeNeedsCorrectionCount = sanity.activeAnomalyRows.filter(
+    (row) => row.highestSeverity === "needs_correction",
+  ).length;
 
   return (
     <PageShell
@@ -174,6 +184,8 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
           className={`rounded-lg border p-4 ${
             sanity.isHealthy
               ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+              : warningOnlyDetected
+                ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
               : "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30"
           }`}
         >
@@ -182,16 +194,31 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
               ? "Sin drift ni anomalias activas"
               : balanceDriftDetected
                 ? "Se detecto drift financiero"
-                : "Se detectaron anomalias financieras"}
+                : warningOnlyDetected
+                  ? "Se detectaron advertencias operativas"
+                  : "Se detectaron anomalias financieras"}
           </p>
           <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
             Alcance actual: {selectedCampusName}. La referencia canonica es <code>v_enrollment_balances</code>; esta
             vista compara ese saldo contra <code>Pendientes</code> y contra el KPI del Panel
             {anomalyDetected ? ", y tambien agrupa cuentas con estados financieros sospechosos." : "."}{" "}
             {selectedScanMode === "deep"
-              ? "Modo profundo: amplia la ventana de actividad reciente y suma cuentas con saldo para una revision mas pesada."
+              ? `Modo profundo: revisa ${sanity.scannedEnrollmentCount} inscripciones activas para incluir tambien alertas delicadas que no siempre aparecen en la cola rapida.`
               : "Modo reciente: prioriza la cola rapida de drift y mutaciones recientes."}
           </p>
+          {!sanity.isHealthy ? (
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              {balanceDriftDetected
+                ? "Hay divergencia real entre la capa canonica y alguna vista operativa."
+                : warningOnlyDetected
+                  ? `No hay drift global activo, pero siguen visibles ${activeWarningCount} cuenta${
+                      activeWarningCount !== 1 ? "s" : ""
+                    } con alertas de revision manual.`
+                  : `Quedan ${activeNeedsCorrectionCount} cuenta${
+                      activeNeedsCorrectionCount !== 1 ? "s" : ""
+                    } con correcciones necesarias y ${activeWarningCount} en advertencia.`}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-3 xl:grid-cols-3">
@@ -296,9 +323,21 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
                 Vista agrupada por inscripcion usando las mismas reglas del diagnostico financiero.
               </p>
             </div>
-            <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300">
-              {sanity.activeAnomalyRows.length} cuenta{sanity.activeAnomalyRows.length !== 1 ? "s" : ""}
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                {sanity.activeAnomalyRows.length} cuenta{sanity.activeAnomalyRows.length !== 1 ? "s" : ""}
+              </span>
+              {activeNeedsCorrectionCount > 0 ? (
+                <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300">
+                  {activeNeedsCorrectionCount} requiere{activeNeedsCorrectionCount !== 1 ? "n" : ""} correccion
+                </span>
+              ) : null}
+              {activeWarningCount > 0 ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  {activeWarningCount} advertencia{activeWarningCount !== 1 ? "s" : ""}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {sanity.activeAnomalyRows.length === 0 ? (

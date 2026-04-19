@@ -55,6 +55,10 @@ type FinanceReconciliationSnapshotRow = {
   balance_drift_enrollment_count: number | string | null;
 };
 
+type EnrollmentCandidateRow = {
+  id: string;
+};
+
 type AuditLogRow = {
   id: string;
   event_at: string;
@@ -120,6 +124,7 @@ export type FinanceSanityActiveAnomalyRow = {
 export type FinanceSanityData = {
   summary: FinanceSanitySummary;
   latestSnapshot: FinanceSanitySnapshot | null;
+  scannedEnrollmentCount: number;
   driftRows: FinanceSanityDriftRow[];
   activeAnomalyRows: FinanceSanityActiveAnomalyRow[];
   recentAnomalyEvents: EnrollmentFinanceAnomalyEvent[];
@@ -238,7 +243,7 @@ export async function getFinanceSanityData(
   const scanMode = filters?.scanMode === "deep" ? "deep" : "recent";
   const driftLimit = scanMode === "deep" ? 250 : 50;
   const auditLimit = scanMode === "deep" ? 2000 : 250;
-  const candidateLimit = scanMode === "deep" ? 300 : 40;
+  const candidateLimit = scanMode === "deep" ? 1500 : 40;
 
   const [
     { data: summaryRow, error: summaryError },
@@ -246,6 +251,7 @@ export async function getFinanceSanityData(
     { data: driftRows, error: driftError },
     { data: auditRows, error: auditError },
     { data: balanceCandidateRows, error: balanceCandidateError },
+    { data: activeEnrollmentRows, error: activeEnrollmentError },
   ] =
     await Promise.all([
       supabase
@@ -278,6 +284,14 @@ export async function getFinanceSanityData(
             .limit(candidateLimit)
             .returns<Array<{ enrollment_id: string }>>()
         : Promise.resolve({ data: [] as Array<{ enrollment_id: string }>, error: null }),
+      scanMode === "deep"
+        ? supabase
+            .from("enrollments")
+            .select("id")
+            .eq("status", "active")
+            .limit(candidateLimit)
+            .returns<EnrollmentCandidateRow[]>()
+        : Promise.resolve({ data: [] as EnrollmentCandidateRow[], error: null }),
     ]);
 
   if (summaryError) {
@@ -298,6 +312,10 @@ export async function getFinanceSanityData(
 
   if (balanceCandidateError) {
     throw new Error(`finance_sanity_balance_candidates_failed:${balanceCandidateError.message}`);
+  }
+
+  if (activeEnrollmentError) {
+    throw new Error(`finance_sanity_active_candidates_failed:${activeEnrollmentError.message}`);
   }
 
   const summary: FinanceSanitySummary = {
@@ -364,6 +382,7 @@ export async function getFinanceSanityData(
           .map(getEnrollmentIdFromAuditRow)
           .filter((value): value is string => Boolean(value)),
         ...(balanceCandidateRows ?? []).map((row) => row.enrollment_id),
+        ...(activeEnrollmentRows ?? []).map((row) => row.id),
       ].filter(Boolean),
     ),
   ).slice(0, candidateLimit);
@@ -411,6 +430,7 @@ export async function getFinanceSanityData(
   return {
     summary,
     latestSnapshot,
+    scannedEnrollmentCount: candidateEnrollmentIds.length,
     driftRows: normalizedDriftRows,
     activeAnomalyRows,
     recentAnomalyEvents,
