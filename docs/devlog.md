@@ -1,5 +1,37 @@
 # Devlog
 
+## 2026-04-18 (session 96)
+
+### Finance Cleanup Planner + Safer Auto-Repair Classification (v1.16.39)
+
+- Tightened the read-only finance anomaly exporter so `payment_reassign_delicate` by itself no longer gets marked as an auto-repair candidate.
+- The exporter now splits simple warning-only rows away from real first-pass repair candidates:
+  - `warning_only`
+  - `auto_repair_candidate`
+  - `manual_review`
+- Added a second standalone script at `scripts/plan-finance-repair-pass.mjs`.
+- Goal:
+  - turn the exported prod anomaly report into an actual cleanup plan
+  - separate accounts that can close cleanly through `repair_payment_allocations` from accounts that still need manual toolkit review
+- The planner now:
+  - reads the JSON report from the diagnostic exporter
+  - simulates the proposed allocation rewrite per account
+  - computes exact `selectedPaymentIds`, `selectedChargeIds`, and `allocationPlan` payloads for RPC-safe rows
+  - flags residual-credit cases that would still fail or remain dirty after a bulk allocation rewrite
+- Added a package shortcut:
+  - `npm run plan:finance-repair -- --report <json-file> --out <plan-file>`
+- Prod cleanup planning result from the latest read-only scan:
+  - 51 anomalous accounts total
+  - 20 are now correctly treated as `warning_only`
+  - 23 remain `manual_review`
+  - 8 remain first-pass repair targets
+  - of those 8, only 5 are currently RPC-ready for a bulk constrained allocation repair
+  - the remaining 3 still leave residual posted credit after the simulated rewrite and must stay in the manual lane
+- Validation:
+  - exporter rerun against prod completed successfully after the classification refinement
+  - planner ran successfully against the prod report and wrote a structured cleanup-plan JSON
+  - `npm run typecheck` passed
+
 ## 2026-04-18 (session 95)
 
 ### Read-Only Finance Diagnostic Exporter for Prod Cleanup Planning (v1.16.38)

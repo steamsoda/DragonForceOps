@@ -21,6 +21,15 @@ const MANUAL_REVIEW_CODES = new Set([
   "repricing_unsafe_monthly_tuition",
 ]);
 
+const ACTIONABLE_AUTO_REPAIR_CODES = new Set([
+  "canonical_vs_operational_drift",
+  "unapplied_credit",
+  "payment_without_allocations",
+  "payment_partial_allocation",
+  "void_charge_with_allocations",
+  "charge_status_mismatch",
+]);
+
 const FINANCE_ACTIVITY_ACTIONS = [
   "payment.created",
   "payment.created.historical_regularization_contry",
@@ -283,6 +292,9 @@ function classifyAccount(anomalyCodes) {
   if (anomalyCodes.some((code) => MANUAL_REVIEW_CODES.has(code))) {
     return "manual_review";
   }
+  if (!anomalyCodes.some((code) => ACTIONABLE_AUTO_REPAIR_CODES.has(code))) {
+    return "warning_only";
+  }
   if (anomalyCodes.every((code) => SIMPLE_AUTO_REPAIR_CODES.has(code))) {
     return "auto_repair_candidate";
   }
@@ -295,10 +307,7 @@ function unique(values) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const env = {
-    ...process.env,
-    ...parseEnvFile(args.envFile),
-  };
+  const env = parseEnvFile(args.envFile);
 
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
