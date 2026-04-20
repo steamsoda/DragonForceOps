@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-04-20 (session 101)
+
+### Finance Warning Classification Follow-Up (v1.16.44)
+
+- Re-ran the live prod finance exporter after `Iker Alejandro Arenas Garza` was corrected.
+- Current prod shape:
+  - `49` anomalous accounts total
+  - `0` auto-repair candidates
+  - `23` accounts previously landing in `manual_review`
+  - `26` `warning_only`
+- Important finding:
+  - all `23` remaining `manual_review` accounts shared the exact same combo:
+    - `payment_reassign_delicate`
+    - `repricing_unsafe_monthly_tuition`
+  - in every sampled case, canonical and derived balances already match
+  - this means the remaining queue is operationally delicate, but not financially broken
+- Refined exporter classification again:
+  - `repricing_unsafe_monthly_tuition` now counts as warning-grade operational caution for queue classification
+  - combined with `payment_reassign_delicate`, those accounts now land in `warning_only` instead of `manual_review`
+- This change does not silence the underlying account notes in diagnostics; it only makes the exported cleanup queue match the real severity of the remaining states.
+- Validation:
+  - `npm run typecheck` passed
+
 ## 2026-04-19 (session 100)
 
 ### Finance Sanity Warning Severity + True Deep Review Follow-Up (v1.16.43)

@@ -18,7 +18,6 @@ const MANUAL_REVIEW_CODES = new Set([
   "charge_overapplied",
   "non_cash_adjustment_with_allocations",
   "duplicate_monthly_tuition",
-  "repricing_unsafe_monthly_tuition",
 ]);
 
 const ACTIONABLE_AUTO_REPAIR_CODES = new Set([
@@ -35,6 +34,7 @@ const WARNING_ONLY_OPERATIONAL_CODES = new Set([
   "payment_partial_allocation",
   "payment_reassign_delicate",
   "unapplied_credit",
+  "repricing_unsafe_monthly_tuition",
 ]);
 
 const FINANCE_ACTIVITY_ACTIONS = [
