@@ -1,5 +1,43 @@
 # Devlog
 
+## 2026-04-20 (session 102)
+
+### Finance Warning Normalization Batch Pass (v1.16.45)
+
+- Extended `scripts/plan-finance-repair-pass.mjs` with an explicit warning-normalization mode:
+  - `--warning-normalization tuition_first_future_monthly`
+  - targets the mixed advisory shape:
+    - `payment_reassign_delicate`
+    - `repricing_unsafe_monthly_tuition`
+  - reassigns money within the same posted payment from non-monthly extras back to the partially covered future monthly tuition
+- Tightened the planner safety rules for warning-mode:
+  - only accounts that simulate completely clean after the rewrite are emitted as `rpc_ready`
+  - partially improved accounts stay in `manual_followup`
+  - touched payments are now derived from the actual allocation diff, so zeroed rows stay inside verification scope
+- Prod execution for this pass:
+  - full warning-only queue before pass: `49`
+  - normalized plan result:
+    - `20` `rpc_ready`
+    - `29` `manual_followup`
+  - dry-run verification on prod:
+    - `20/20` ok
+  - applied on prod:
+    - `20/20` ok
+    - `0` failures
+- Stable post-pass prod snapshot:
+  - anomalous accounts: `29`
+  - all remaining accounts are still `warning_only`
+  - remaining warning shape:
+    - `24` `payment_reassign_delicate`
+    - `3` `payment_reassign_delicate + repricing_unsafe_monthly_tuition`
+    - `2` `payment_partial_allocation + unapplied_credit`
+- This pass did not introduce drift:
+  - canonical/derived drift stayed at `0`
+  - no new unapplied-credit states were created
+- Validation:
+  - `npm run typecheck` passed
+  - `npm run diagnose:finance -- --env-file .env.prod.local --out tmp/prod-finance-anomaly-report-post-warning-pass.json`
+
 ## 2026-04-20 (session 101)
 
 ### Finance Warning Classification Follow-Up (v1.16.44)
