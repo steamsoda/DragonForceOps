@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.43`
+Current preview release line: `v1.16.44`
 
 ---
 
@@ -61,6 +61,12 @@ Current preview release line: `v1.16.43`
      - deep scan now expands to the full active enrollment candidate set so warning-only delicate accounts are visible during intentional review
      - the sanity-page hero state now separates warning-only review items from real correction-grade drift
      - after `Iker Alejandro Arenas Garza` was corrected, the remaining prod queue is now entirely manual-review plus warning-only work
+   - session 101 follow-up:
+     - confirmed the remaining `manual_review` queue was not actually broken-money work; it was one repeated combo of:
+       - `payment_reassign_delicate`
+       - `repricing_unsafe_monthly_tuition`
+     - exporter classification now treats that shape as `warning_only`
+     - remaining cleanup lane is therefore warning/advisory review, not true correction backlog
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
