@@ -19,6 +19,8 @@ const MANUAL_REVIEW_CODES = new Set([
   "repricing_unsafe_monthly_tuition",
 ]);
 
+const CURRENT_PERIOD_MONTH = "2026-04-01";
+
 function roundMoney(value) {
   return Math.round(value * 100) / 100;
 }
@@ -34,6 +36,7 @@ function parseArgs(argv) {
     reportFile: "finance-anomaly-report.json",
     outFile: "finance-repair-plan.json",
     recommendedAction: "auto_repair_candidate",
+    warningNormalization: "none",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -54,6 +57,12 @@ function parseArgs(argv) {
 
     if (value === "--recommended-action" && next) {
       result.recommendedAction = next;
+      index += 1;
+      continue;
+    }
+
+    if (value === "--warning-normalization" && next) {
+      result.warningNormalization = next;
       index += 1;
       continue;
     }
@@ -112,9 +121,8 @@ function mergeAllocations(rows) {
     .filter((row) => row.amount > 0.01);
 }
 
-function buildFinalAllocationRows(account) {
+function buildAllocationRowsFromSuggestedNormalization(account, currentAllocations) {
   const chargesById = new Map(account.charges.map((charge) => [charge.id, charge]));
-  const currentAllocations = buildCurrentAllocationRows(account);
   const invalidKeys = new Set(
     account.suggestedNormalization.invalidVoidAllocations.map(
       (row) => `${row.paymentId}:${row.chargeId}`,
@@ -134,6 +142,114 @@ function buildFinalAllocationRows(account) {
   }));
 
   return mergeAllocations([...survivingRows, ...proposedRows]);
+}
+
+function buildWarningNormalizationRows(account, currentAllocations, warningNormalization) {
+  if (warningNormalization !== "tuition_first_future_monthly") {
+    return null;
+  }
+
+  if (
+    !account.anomalyCodes.includes("payment_reassign_delicate") ||
+    !account.anomalyCodes.includes("repricing_unsafe_monthly_tuition")
+  ) {
+    return null;
+  }
+
+  const chargesById = new Map(account.charges.map((charge) => [charge.id, charge]));
+  const finalRows = currentAllocations.map((row) => ({ ...row }));
+  const partiallyAllocatedMonthlyCharges = account.charges
+    .filter(
+      (charge) =>
+        charge.typeCode === "monthly_tuition" &&
+        charge.status !== "void" &&
+        charge.periodMonth &&
+        charge.periodMonth >= CURRENT_PERIOD_MONTH &&
+        charge.allocatedAmount > 0.01 &&
+        charge.pendingAmount > 0.01,
+    )
+    .sort((left, right) => left.periodMonth.localeCompare(right.periodMonth));
+
+  let changed = false;
+
+  for (const monthlyCharge of partiallyAllocatedMonthlyCharges) {
+    let remainingNeed = roundMoney(monthlyCharge.amount - monthlyCharge.allocatedAmount);
+    const candidatePayments = account.payments.filter(
+      (payment) =>
+        payment.status === "posted" &&
+        payment.refundStatus !== "refunded" &&
+        payment.sourceCharges.some((charge) => charge.chargeId === monthlyCharge.id) &&
+        payment.sourceCharges.some((charge) => {
+          const sourceCharge = chargesById.get(charge.chargeId);
+          return sourceCharge && sourceCharge.typeCode !== "monthly_tuition";
+        }),
+    );
+
+    for (const payment of candidatePayments) {
+      for (const sourceCharge of payment.sourceCharges) {
+        if (remainingNeed <= 0.01) break;
+
+        const charge = chargesById.get(sourceCharge.chargeId);
+        if (!charge || charge.typeCode === "monthly_tuition") continue;
+
+        const fromRow = finalRows.find(
+          (row) => row.paymentId === payment.id && row.chargeId === sourceCharge.chargeId,
+        );
+        const toRow = finalRows.find(
+          (row) => row.paymentId === payment.id && row.chargeId === monthlyCharge.id,
+        );
+
+        if (!fromRow || !toRow || fromRow.amount <= 0.01) continue;
+
+        const moveAmount = Math.min(remainingNeed, fromRow.amount);
+        if (moveAmount <= 0.01) continue;
+
+        fromRow.amount = roundMoney(fromRow.amount - moveAmount);
+        toRow.amount = roundMoney(toRow.amount + moveAmount);
+        remainingNeed = roundMoney(remainingNeed - moveAmount);
+        changed = true;
+      }
+
+      if (remainingNeed <= 0.01) break;
+    }
+  }
+
+  if (!changed) {
+    return null;
+  }
+
+  return mergeAllocations(finalRows);
+}
+
+function buildFinalAllocationRows(account, warningNormalization) {
+  const currentAllocations = buildCurrentAllocationRows(account);
+  const warningNormalizationRows = buildWarningNormalizationRows(
+    account,
+    currentAllocations,
+    warningNormalization,
+  );
+
+  if (warningNormalizationRows) {
+    return warningNormalizationRows;
+  }
+
+  return buildAllocationRowsFromSuggestedNormalization(account, currentAllocations);
+}
+
+function buildTouchedPaymentIds(currentRows, finalRows) {
+  const currentByKey = new Map(
+    currentRows.map((row) => [`${row.paymentId}:${row.chargeId}`, roundMoney(toNumber(row.amount))]),
+  );
+  const finalByKey = new Map(
+    finalRows.map((row) => [`${row.paymentId}:${row.chargeId}`, roundMoney(toNumber(row.amount))]),
+  );
+
+  return unique([...currentByKey.keys(), ...finalByKey.keys()].flatMap((key) => {
+    const currentAmount = currentByKey.get(key) ?? 0;
+    const finalAmount = finalByKey.get(key) ?? 0;
+    if (Math.abs(currentAmount - finalAmount) <= 0.01) return [];
+    return [key.slice(0, key.indexOf(":"))];
+  })).sort();
 }
 
 function getReassignBlockedReason(payment, allocationsByChargeId, allocatedByChargeId, chargesById) {
@@ -275,7 +391,6 @@ function simulateAccount(account, finalAllocationRows) {
     ]);
   }
 
-  const currentPeriodMonth = "2026-04-01";
   for (const [periodMonth, monthlyCharges] of monthlyTuitionByPeriod.entries()) {
     if (monthlyCharges.length > 1) {
       anomalyCodes.push("duplicate_monthly_tuition");
@@ -283,7 +398,7 @@ function simulateAccount(account, finalAllocationRows) {
 
     const partiallyAllocatedFutureCharge = monthlyCharges.find(
       (charge) =>
-        charge.periodMonth >= currentPeriodMonth &&
+        charge.periodMonth >= CURRENT_PERIOD_MONTH &&
         charge.allocatedAmount > 0.01 &&
         charge.pendingAmount > 0.01,
     );
@@ -322,21 +437,22 @@ function simulateAccount(account, finalAllocationRows) {
   };
 }
 
-function buildPlan(account) {
-  const finalAllocationRows = buildFinalAllocationRows(account);
+function buildPlan(account, warningNormalization) {
+  const finalAllocationRows = buildFinalAllocationRows(account, warningNormalization);
   const currentTouchedAllocations = buildCurrentAllocationRows(account).sort((left, right) => {
     const paymentDiff = left.paymentId.localeCompare(right.paymentId);
     if (paymentDiff !== 0) return paymentDiff;
     return left.chargeId.localeCompare(right.chargeId);
   });
-  const touchedPaymentIds = unique([
-    ...account.suggestedNormalization.invalidVoidAllocations.map((row) => row.paymentId),
-    ...account.suggestedNormalization.proposedAllocations.map((row) => row.paymentId),
-  ]).sort();
+  const touchedPaymentIds = buildTouchedPaymentIds(currentTouchedAllocations, finalAllocationRows);
 
   const paymentById = new Map(account.payments.map((payment) => [payment.id, payment]));
   const touchedAllocations = finalAllocationRows.filter((row) => touchedPaymentIds.includes(row.paymentId));
-  const selectedChargeIds = unique(touchedAllocations.map((row) => row.chargeId)).sort();
+  const selectedChargeIds = unique(
+    [...currentTouchedAllocations, ...touchedAllocations]
+      .filter((row) => touchedPaymentIds.includes(row.paymentId))
+      .map((row) => row.chargeId),
+  ).sort();
 
   const paymentResiduals = touchedPaymentIds.map((paymentId) => {
     const payment = paymentById.get(paymentId);
@@ -362,12 +478,16 @@ function buildPlan(account) {
     ACTIONABLE_AUTO_REPAIR_CODES.has(code),
   );
   const hasManualReviewCode = simulation.anomalyCodes.some((code) => MANUAL_REVIEW_CODES.has(code));
+  const requiresCleanWarningExit =
+    warningNormalization !== "none" && account.recommendedAction === "warning_only";
+  const clearsAllWarnings = simulation.anomalyCodes.length === 0;
 
   const executionClass =
     residualCreditAmount <= 0.01 &&
     !hasRemainingActionableAutoRepairCode &&
     !hasManualReviewCode &&
-    touchedPaymentIds.length > 0
+    touchedPaymentIds.length > 0 &&
+    (!requiresCleanWarningExit || clearsAllWarnings)
       ? "rpc_ready"
       : "manual_followup";
 
@@ -383,6 +503,9 @@ function buildPlan(account) {
     if (hasRemainingActionableAutoRepairCode || hasManualReviewCode) {
       notes.push("Post-plan simulation still leaves material anomalies that need manual toolkit review.");
     }
+    if (requiresCleanWarningExit && !clearsAllWarnings && touchedPaymentIds.length > 0) {
+      notes.push("Normalization helps but does not fully clear the warning state; keep this out of the bulk pass.");
+    }
   }
 
   return {
@@ -390,6 +513,7 @@ function buildPlan(account) {
     playerName: account.playerName,
     campusName: account.campusName,
     repairShape: classifyRepairShape(account),
+    warningNormalization,
     executionClass,
     before: {
       canonicalBalance: account.canonicalBalance,
@@ -429,7 +553,7 @@ function main() {
     (account) => account.recommendedAction === args.recommendedAction,
   );
 
-  const plans = sourceAccounts.map(buildPlan).sort((left, right) => {
+  const plans = sourceAccounts.map((account) => buildPlan(account, args.warningNormalization)).sort((left, right) => {
     if (left.executionClass !== right.executionClass) {
       return left.executionClass.localeCompare(right.executionClass);
     }
@@ -438,6 +562,7 @@ function main() {
 
   const summary = {
     sourceRecommendedAction: args.recommendedAction,
+    warningNormalization: args.warningNormalization,
     sourceAccountCount: sourceAccounts.length,
     rpcReadyCount: plans.filter((plan) => plan.executionClass === "rpc_ready").length,
     manualFollowupCount: plans.filter((plan) => plan.executionClass === "manual_followup").length,

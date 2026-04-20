@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-18.
 
-Current preview release line: `v1.16.44`
+Current preview release line: `v1.16.45`
 
 ---
 
@@ -67,6 +67,18 @@ Current preview release line: `v1.16.44`
        - `repricing_unsafe_monthly_tuition`
      - exporter classification now treats that shape as `warning_only`
      - remaining cleanup lane is therefore warning/advisory review, not true correction backlog
+   - session 102 follow-up:
+     - added a safe warning-normalization mode to the repair planner for tuition-first cleanup of mixed future-monthly repricing cases
+     - executed that batch on prod only for accounts that simulated fully clean after the rewrite
+     - result:
+       - `20` warning-only accounts cleared
+       - prod anomaly queue reduced from `49` to `29`
+       - remaining queue is now:
+         - `24` `payment_reassign_delicate`
+         - `3` `payment_reassign_delicate + repricing_unsafe_monthly_tuition`
+         - `2` `payment_partial_allocation + unapplied_credit`
+     - next cleanup question for this lane:
+       - decide the operational rule for true zero-warning cleanup on the remaining delicate/shared-source histories
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
