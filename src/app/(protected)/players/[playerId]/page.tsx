@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerDetail } from "@/lib/queries/players";
@@ -267,10 +267,12 @@ export default async function PlayerDetailPage({
   params: Promise<{ playerId: string }>;
   searchParams: Promise<{ ok?: string; err?: string; nuked?: string }>;
 }) {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) redirect("/unauthorized");
+
   const { playerId } = await params;
   const sp = await searchParams;
   const player = await getPlayerDetail(playerId);
-  const permissionContext = await getPermissionContext();
   const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
   const isDirector = permissionContext?.isDirector ?? false;
 

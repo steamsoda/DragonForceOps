@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { listBajas, listBirthYears, listCampuses, listPlayers } from "@/lib/queries/players";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
@@ -215,6 +216,7 @@ type SearchParams = Promise<{
 }>;
 
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireOperationalContext("/unauthorized");
   const params = await searchParams;
   const q = params.q ?? "";
   const phone = params.phone ?? "";

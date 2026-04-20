@@ -9,6 +9,7 @@ const ALL_ROLES = [
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
   { code: "director_deportivo", label: "Director Deportivo" },
+  { code: "nutritionist", label: "Nutricionista" },
   { code: "front_desk", label: "Recepcion / Caja" },
   { code: "coach", label: "Coach" }
 ] as const;
@@ -110,10 +111,12 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     const hasAssignableRoles =
       ALL_ROLES.some(
         (role) =>
-          (role.code !== "front_desk" && role.code !== "director_deportivo" && !existingKeys.has(`${role.code}:`)) ||
+          (role.code !== "front_desk" && role.code !== "director_deportivo" && role.code !== "nutritionist" && !existingKeys.has(`${role.code}:`)) ||
           (role.code === "director_deportivo" &&
             (!existingKeys.has(`${role.code}:`) ||
               (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
+          (role.code === "nutritionist" &&
+            (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
           (role.code === "front_desk" &&
             (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
       );
@@ -129,10 +132,12 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         >
           {ALL_ROLES.filter(
             (role) =>
-              (role.code !== "front_desk" && role.code !== "director_deportivo") ||
+              (role.code !== "front_desk" && role.code !== "director_deportivo" && role.code !== "nutritionist") ||
               (role.code === "director_deportivo" &&
                 (!existingKeys.has(`${role.code}:`) ||
                   (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
+              (role.code === "nutritionist" &&
+                (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
               (role.code === "front_desk" &&
                 (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
           ).map((role) => (

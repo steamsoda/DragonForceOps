@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { EnrollmentIntakeForm } from "@/components/enrollments/enrollment-intake-form";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentIntakeContext } from "@/lib/queries/enrollments";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 
@@ -20,6 +21,7 @@ export default async function NewPlayerPage({
 }: {
   searchParams: Promise<{ err?: string; returning?: string; returnMode?: string }>;
 }) {
+  await requireOperationalContext("/unauthorized");
   const query = await searchParams;
   const intakeContext = await getEnrollmentIntakeContext();
   const errorMessage = query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;

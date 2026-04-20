@@ -1,13 +1,51 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-18.
+Updated continuously. Last updated: 2026-04-20.
 
-Current preview release line: `v1.16.45`
+Current preview release line: `v1.16.46`
 
 ---
 
 ## Current Operational Tracks
+
+### Priority 0
+
+1. `Nuevas Inscripciones` intake lane
+   - `v1` nutrition foundation is now implemented:
+     - new campus-scoped `nutritionist` role
+     - dedicated `Nutricion` menu lane with `Panel` + `Toma de medidas`
+     - historical `player_measurement_sessions` model
+     - derived intake queue based on missing first measurement for the active enrollment
+   - remaining follow-up:
+     - true recent-enrollments operational lane for sports + specialists
+     - additional body metrics beyond `weight_kg` / `height_cm`
+     - richer nutrition KPI/analytics and future workflow polish
+
+2. Collections / pending-tuition board split
+   - rename the current `Pendientes` tab to a collections-oriented name such as `Llamadas`
+   - create a new real `Pendientes` tab focused on players with unpaid monthly tuition
+   - target UX:
+     - visually and operationally close to `Inscripciones Torneos`
+     - category-card overview first
+     - click into each `Cat` card for deeper review
+   - target indicators:
+     - pending monthly tuition counts by category/campus
+     - chips such as `+2 meses pendientes`
+     - stronger visual coding for urgency and aging
+     - collections-oriented KPIs that differ from the current follow-up board
+   - planning note:
+     - this is not a small rename; it is a functional split between follow-up workflow and tuition-delinquency visibility
+
+3. Product and competition rules rework follow-up
+   - continue the pending rework for product and competition rules
+   - include rule cleanup needed for current operations, not only the longer sports rethink
+   - likely areas:
+     - product typing and competition linkage rules
+     - signup / eligibility rules
+     - cross-surface consistency between product setup, sports boards, and finance interpretation
+   - planning note:
+     - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
 
 ### Immediate Sequence
 
@@ -79,6 +117,10 @@ Current preview release line: `v1.16.45`
          - `2` `payment_partial_allocation + unapplied_credit`
      - next cleanup question for this lane:
        - decide the operational rule for true zero-warning cleanup on the remaining delicate/shared-source histories
+     - explicit deferred cleanup note:
+       - the `24` remaining `payment_reassign_delicate` accounts should stay on the roadmap as unfinished cleanup debt
+       - they are not currently showing canonical/derived drift, but they still represent fragile historical allocation structure
+       - revisit them in a later dedicated pass instead of treating the reduced queue as a finished state
    - session 94 follow-up:
      - payment void now rebalances remaining posted credit automatically after releasing the voided payment allocations
      - keep the cleanup pass open for legacy damaged accounts that were already corrupted before the fix landed
@@ -410,7 +452,7 @@ Follow after the operational tracks above:
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🟡 In progress | `/pending` now uses a lightweight follow-up workflow instead of the old `Contactado` checkbox: `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresará`, with inline note editing, required promise-date capture, and direct baja handoff for `No regresará`. Follow-up state also clears automatically when balance reaches zero or the enrollment is formally ended. |
-| NEW | **Nutrition tracking / body measurements tab** | 🔴 Open | Add a dedicated nutrition workflow so the nutritionist can capture player weight and body measurements over time without mixing that work into finance or player-admin surfaces. |
+| NEW | **Nutrition tracking / body measurements tab** | 🟡 In progress | `v1` is now implemented on preview: new `nutritionist` role, dedicated `Nutricion` menu section, nutrition-only player profile, historical `player_measurement_sessions`, first-take pending queue, monthly panel KPIs, recent activity, and append-only weight/height capture. Keep this open for more body metrics, richer comparisons, intake workflow polish, and any future nutrition-specific dashboard/reporting asks. |
 | 30 | **New-enrollment tuition tiers (3 tiers)** | ✅ Done | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury incident + optional monthly omission** | 🟡 In progress | Active enrollments can now record an operational incident (`absence`, `injury`, `other`) from the enrollment ledger, with an explicit choice to either just log it or also omit a selected tuition month. Incidents also carry optional `starts_on` / `ends_on` dates for real absence/recovery windows, and active-today `absence` / `injury` incidents now surface as soft indicators in `Jugadores`, player profile, and `Caja`. The monthly generator respects only incidents carrying `omit_period_month`, and the ledger keeps active plus historical incident visibility. Partial-month attendance/proration remains out of scope for this v1. |

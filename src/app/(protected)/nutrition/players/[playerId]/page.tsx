@@ -1,0 +1,255 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { PageShell } from "@/components/ui/page-shell";
+import { MeasurementTrendChart } from "@/components/nutrition/charts";
+import { recordPlayerMeasurementAction } from "@/server/actions/nutrition";
+import { requireNutritionContext } from "@/lib/auth/permissions";
+import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
+import { formatDateMonterrey, getMonterreyDateString } from "@/lib/time";
+
+function formatDelta(value: number | null, suffix: string) {
+  if (value == null) return "Sin comparacion previa";
+  if (value === 0) return `Sin cambio (${suffix})`;
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)} ${suffix}`;
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_form: "Completa fecha, peso y estatura para guardar la medicion.",
+  invalid_enrollment: "La inscripcion activa ya no es valida para registrar esta medicion.",
+  unauthorized: "No tienes permiso para registrar mediciones en este jugador.",
+  save_failed: "No se pudo guardar la medicion.",
+};
+
+type PageParams = Promise<{ playerId: string }>;
+type SearchParams = Promise<{ ok?: string; err?: string }>;
+
+export default async function NutritionPlayerProfilePage({
+  params,
+  searchParams,
+}: {
+  params: PageParams;
+  searchParams: SearchParams;
+}) {
+  await requireNutritionContext("/unauthorized");
+  const { playerId } = await params;
+  const query = await searchParams;
+  const profile = await getNutritionPlayerProfile(playerId);
+
+  if (!profile) notFound();
+
+  const successMessage = query.ok === "saved" ? "Medicion registrada." : null;
+  const errorMessage = query.err ? ERROR_MESSAGES[query.err] ?? "Ocurrio un error." : null;
+
+  return (
+    <PageShell
+      title={profile.playerName}
+      subtitle="Ficha segura de nutricion. No muestra datos financieros ni permite cambios operativos."
+      breadcrumbs={[
+        { label: "Nutricion", href: "/nutrition" },
+        { label: "Toma de medidas", href: "/nutrition/measurements" },
+        { label: profile.playerName },
+      ]}
+      wide
+    >
+      <div className="space-y-4">
+        {successMessage ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+            {successMessage}
+          </div>
+        ) : null}
+
+        {errorMessage ? (
+          <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">
+            {errorMessage}
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugador</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{profile.playerName}</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  {profile.campusName} | Cat. {profile.birthYear ?? "-"} | Nivel {profile.level ?? "Sin nivel"}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  profile.currentEnrollmentHasMeasurement
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                }`}
+              >
+                {profile.currentEnrollmentHasMeasurement ? "Toma actual completada" : "Primera toma pendiente"}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ultima inscripcion</p>
+                <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+                  {formatDateMonterrey(`${profile.latestEnrollmentDate}T12:00:00.000Z`)}
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ultimo peso</p>
+                <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+                  {profile.latestSession ? `${profile.latestSession.weightKg.toFixed(1)} kg` : "-"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDelta(profile.deltaWeightKg, "kg")}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ultima estatura</p>
+                <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+                  {profile.latestSession ? `${profile.latestSession.heightCm.toFixed(1)} cm` : "-"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDelta(profile.deltaHeightCm, "cm")}</p>
+              </div>
+            </div>
+          </article>
+
+          <article id="new-measurement" className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Nueva medicion</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  La primera captura del ciclo actual se registra como `initial_intake`; las siguientes como seguimiento.
+                </p>
+              </div>
+              <Link href="/nutrition/measurements" className="text-sm text-portoBlue hover:underline">
+                Volver a lista
+              </Link>
+            </div>
+
+            <form action={recordPlayerMeasurementAction} className="mt-4 grid gap-3">
+              <input type="hidden" name="player_id" value={profile.playerId} />
+              <input type="hidden" name="enrollment_id" value={profile.activeEnrollmentId} />
+              <input type="hidden" name="return_to" value={`/nutrition/players/${profile.playerId}`} />
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</span>
+                  <input
+                    type="date"
+                    name="measurement_date"
+                    defaultValue={getMonterreyDateString()}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Peso (kg)</span>
+                  <input
+                    type="number"
+                    name="weight_kg"
+                    step="0.1"
+                    min="0"
+                    inputMode="decimal"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Estatura (cm)</span>
+                  <input
+                    type="number"
+                    name="height_cm"
+                    step="0.1"
+                    min="0"
+                    inputMode="decimal"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="space-y-1">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Notas</span>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                  placeholder="Observaciones opcionales"
+                />
+              </label>
+
+              <div className="flex justify-end">
+                <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                  Guardar medicion
+                </button>
+              </div>
+            </form>
+          </article>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
+          <MeasurementTrendChart data={profile.chartPoints} />
+
+          <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resumen actual</p>
+            {profile.latestSession ? (
+              <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                <p>Fecha: {formatDateMonterrey(profile.latestSession.measuredAt)}</p>
+                <p>Tipo: {profile.latestSession.source === "initial_intake" ? "Primera toma" : "Seguimiento"}</p>
+                <p>Peso: {profile.latestSession.weightKg.toFixed(1)} kg</p>
+                <p>Estatura: {profile.latestSession.heightCm.toFixed(1)} cm</p>
+                <p>Notas: {profile.latestSession.notes?.trim() || "-"}</p>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Aun no hay mediciones registradas.</p>
+            )}
+          </article>
+        </div>
+
+        <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Historial</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sesiones registradas para este jugador.</p>
+            </div>
+            <a href="#new-measurement" className="text-sm text-portoBlue hover:underline">
+              Registrar nueva
+            </a>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                <tr>
+                  <th className="px-3 py-2">Fecha</th>
+                  <th className="px-3 py-2">Tipo</th>
+                  <th className="px-3 py-2">Peso</th>
+                  <th className="px-3 py-2">Estatura</th>
+                  <th className="px-3 py-2">Notas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {profile.history.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                      No hay sesiones registradas.
+                    </td>
+                  </tr>
+                ) : (
+                  profile.history.map((session) => (
+                    <tr key={session.id}>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{formatDateMonterrey(session.measuredAt)}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                        {session.source === "initial_intake" ? "Primera toma" : "Seguimiento"}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.weightKg.toFixed(1)} kg</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.heightCm.toFixed(1)} cm</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.notes?.trim() || "-"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </PageShell>
+  );
+}
