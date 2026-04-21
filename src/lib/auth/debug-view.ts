@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { APP_ROLES } from "@/lib/auth/roles";
 import type { RoleScope } from "@/lib/auth/role-display";
 import { resolveDebugPersona } from "@/lib/auth/debug-personas";
@@ -62,16 +62,36 @@ export function isPreviewDebugEnabled() {
 }
 
 async function loadRoleRows(
-  admin: ReturnType<typeof createAdminClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient> | null,
   userId: string
 ): Promise<DebugRoleRow[]> {
-  const { data } = await admin
+  const primary = await supabase
     .from("user_roles")
     .select("campus_id, campuses(id, name, code), app_roles(code)")
     .eq("user_id", userId)
     .returns<DebugRoleRow[]>();
 
-  return data ?? [];
+  if (!primary.error && (primary.data?.length ?? 0) > 0) {
+    return primary.data ?? [];
+  }
+
+  if (!admin) {
+    return primary.data ?? [];
+  }
+
+  const fallback = await admin
+    .from("user_roles")
+    .select("campus_id, campuses(id, name, code), app_roles(code)")
+    .eq("user_id", userId)
+    .returns<DebugRoleRow[]>();
+
+  if (fallback.error) {
+    console.error("debug role bootstrap fallback failed", fallback.error);
+    return primary.data ?? [];
+  }
+
+  return fallback.data ?? primary.data ?? [];
 }
 
 function buildResolvedUser(
@@ -109,7 +129,7 @@ function buildResolvedUser(
 
 export async function getDebugViewContext(): Promise<DebugViewContext | null> {
   const supabase = await createClient();
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
   const {
     data: { user },
     error,
@@ -117,7 +137,7 @@ export async function getDebugViewContext(): Promise<DebugViewContext | null> {
 
   if (error || !user) return null;
 
-  const actorRoleRows = await loadRoleRows(admin, user.id);
+  const actorRoleRows = await loadRoleRows(supabase, admin, user.id);
   const actor = buildResolvedUser(user.id, user.email ?? null, actorRoleRows);
   const enabled = isPreviewDebugEnabled();
   const canManage = enabled && actor.isSuperAdmin;
@@ -136,7 +156,7 @@ export async function getDebugViewContext(): Promise<DebugViewContext | null> {
         activeView = { userId: targetPersona.id, email: targetPersona.email };
         effective = buildResolvedUser(targetPersona.id, targetPersona.email, targetPersona.roleRows);
       } else {
-        const targetRoleRows = await loadRoleRows(admin, targetUserId);
+        const targetRoleRows = await loadRoleRows(supabase, admin, targetUserId);
         activeView = { userId: targetUserId, email: targetUserEmail };
         effective = buildResolvedUser(targetUserId, targetUserEmail, targetRoleRows);
       }

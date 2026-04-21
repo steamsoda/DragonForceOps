@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-20 (session 104)
+
+### Emergency Auth Bootstrap Fallback Hotfix (v1.16.48)
+
+- Fixed a production auth regression introduced in `v1.16.47`.
+- Root issue:
+  - protected-app role bootstrap had been switched to depend primarily on trusted admin-client reads for `user_roles` and active campuses
+  - in production, that path could silently resolve empty role/campus reference data, which made authenticated users look role-less and redirected everyone to `Sin autorizacion`
+- Hotfix behavior:
+  - role bootstrap now tries the original signed-in user session read first
+  - only falls back to the admin client if the session read is empty or errors
+  - active-campus bootstrap now follows the same safe pattern
+- Operational result:
+  - restores access for normal users immediately
+  - still preserves an admin-client recovery path for campus-scoped specialist roles if their self-read reference policies are incomplete
+- Verification:
+  - `npm run typecheck`
+
 ## 2026-04-20 (session 103)
 
 ### Role Bootstrap + Intake Hotfix (v1.16.47)
