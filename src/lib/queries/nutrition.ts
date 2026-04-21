@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   canAccessNutritionCampus,
   getNutritionCampusAccess,
@@ -18,6 +18,8 @@ type ActiveNutritionEnrollmentRow = {
     first_name: string | null;
     last_name: string | null;
     birth_date: string | null;
+    gender: string | null;
+    medical_notes: string | null;
     level: string | null;
   } | null;
 };
@@ -41,6 +43,27 @@ type RecentMeasurementRow = MeasurementSessionRow & {
   campuses: { name: string | null } | null;
 };
 
+type GuardianLinkRow = {
+  player_id: string;
+  is_primary: boolean | null;
+  guardians: {
+    first_name: string | null;
+    last_name: string | null;
+    phone_primary: string | null;
+    phone_secondary: string | null;
+    email: string | null;
+    relationship_label: string | null;
+  } | null;
+};
+
+export type NutritionGuardianContact = {
+  name: string;
+  phonePrimary: string | null;
+  phoneSecondary: string | null;
+  email: string | null;
+  relationshipLabel: string | null;
+};
+
 function toNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number(value);
@@ -49,6 +72,26 @@ function toNumber(value: number | string | null | undefined) {
 
 function getPlayerName(player: ActiveNutritionEnrollmentRow["players"] | RecentMeasurementRow["players"]) {
   return `${player?.first_name ?? ""} ${player?.last_name ?? ""}`.replace(/\s+/g, " ").trim() || "Jugador";
+}
+
+function getGenderLabel(value: string | null | undefined) {
+  if (value === "male") return "Varonil";
+  if (value === "female") return "Femenil";
+  return "Sin genero";
+}
+
+function mapGuardianContact(row: GuardianLinkRow | null | undefined): NutritionGuardianContact | null {
+  const guardian = row?.guardians;
+  if (!guardian) return null;
+  const name = `${guardian.first_name ?? ""} ${guardian.last_name ?? ""}`.replace(/\s+/g, " ").trim();
+
+  return {
+    name: name || "Tutor",
+    phonePrimary: guardian.phone_primary ?? null,
+    phoneSecondary: guardian.phone_secondary ?? null,
+    email: guardian.email ?? null,
+    relationshipLabel: guardian.relationship_label ?? null,
+  };
 }
 
 function getBirthYear(value: string | null | undefined) {
@@ -84,10 +127,10 @@ function buildMonthSeries(selectedMonth: string, count = 6) {
 async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
   if (selectedCampusIds.length === 0) return [] as ActiveNutritionEnrollmentRow[];
 
-  const supabase = await createClient();
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("enrollments")
-    .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(first_name, last_name, birth_date, level)")
+    .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(first_name, last_name, birth_date, gender, medical_notes, level)")
     .eq("status", "active")
     .in("campus_id", selectedCampusIds)
     .order("created_at", { ascending: false })
@@ -99,8 +142,8 @@ async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
 async function listMeasurementSessionsForPlayers(playerIds: string[]) {
   if (playerIds.length === 0) return [] as MeasurementSessionRow[];
 
-  const supabase = await createClient();
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("player_measurement_sessions")
     .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at")
     .in("player_id", playerIds)
@@ -108,6 +151,27 @@ async function listMeasurementSessionsForPlayers(playerIds: string[]) {
     .returns<MeasurementSessionRow[]>();
 
   return data ?? [];
+}
+
+async function listGuardianContactsForPlayers(playerIds: string[]) {
+  if (playerIds.length === 0) return new Map<string, NutritionGuardianContact>();
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("player_guardians")
+    .select("player_id, is_primary, guardians(first_name, last_name, phone_primary, phone_secondary, email, relationship_label)")
+    .in("player_id", playerIds)
+    .order("is_primary", { ascending: false })
+    .returns<GuardianLinkRow[]>();
+
+  const byPlayer = new Map<string, NutritionGuardianContact>();
+  for (const row of data ?? []) {
+    if (byPlayer.has(row.player_id)) continue;
+    const contact = mapGuardianContact(row);
+    if (contact) byPlayer.set(row.player_id, contact);
+  }
+
+  return byPlayer;
 }
 
 export type NutritionDashboardFilters = {
@@ -154,7 +218,11 @@ export type NutritionMeasurementListRow = {
   campusId: string;
   campusName: string;
   birthYear: number | null;
+  gender: string | null;
+  genderLabel: string;
   level: string | null;
+  medicalNotes: string | null;
+  guardianContact: NutritionGuardianContact | null;
   latestEnrollmentDate: string;
   hasCurrentEnrollmentMeasurement: boolean;
   latestMeasurementAt: string | null;
@@ -177,7 +245,11 @@ export type NutritionProfileData = {
   playerId: string;
   playerName: string;
   birthYear: number | null;
+  gender: string | null;
+  genderLabel: string;
   level: string | null;
+  medicalNotes: string | null;
+  guardianContact: NutritionGuardianContact | null;
   campusId: string;
   campusName: string;
   activeEnrollmentId: string;
@@ -247,16 +319,16 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       !currentEnrollmentSessionSet.has(row.id),
   ).length;
 
-  const supabase = await createClient();
+  const admin = createAdminClient();
   const [{ data: currentMonthSessions }, { data: recentRows }] = await Promise.all([
-    supabase
+    admin
       .from("player_measurement_sessions")
       .select("id")
       .in("campus_id", selectedCampusIds)
       .gte("measured_at", monthBounds.start)
       .lt("measured_at", monthBounds.end)
       .returns<Array<{ id: string }>>(),
-    supabase
+    admin
       .from("player_measurement_sessions")
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
       .in("campus_id", selectedCampusIds)
@@ -315,7 +387,10 @@ export async function listNutritionMeasurementRows(filters: NutritionMeasurement
 
   const activeEnrollments = await listAccessibleActiveEnrollments(selectedCampusIds);
   const playerIds = [...new Set(activeEnrollments.map((row) => row.player_id))];
-  const sessions = await listMeasurementSessionsForPlayers(playerIds);
+  const [sessions, guardianContacts] = await Promise.all([
+    listMeasurementSessionsForPlayers(playerIds),
+    listGuardianContactsForPlayers(playerIds),
+  ]);
 
   const latestSessionByPlayer = new Map<string, MeasurementSessionRow>();
   const currentEnrollmentSessionSet = new Set<string>();
@@ -338,7 +413,11 @@ export async function listNutritionMeasurementRows(filters: NutritionMeasurement
         campusId: row.campus_id,
         campusName: row.campuses?.name ?? "Campus",
         birthYear: getBirthYear(row.players?.birth_date),
+        gender: row.players?.gender ?? null,
+        genderLabel: getGenderLabel(row.players?.gender),
         level: row.players?.level ?? null,
+        medicalNotes: row.players?.medical_notes ?? null,
+        guardianContact: guardianContacts.get(row.player_id) ?? null,
         latestEnrollmentDate: row.inscription_date,
         hasCurrentEnrollmentMeasurement: currentEnrollmentSessionSet.has(row.id),
         latestMeasurementAt: latestPlayerSession?.measured_at ?? null,
@@ -363,10 +442,10 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
   const access = await getNutritionCampusAccess();
   if (!access || access.campuses.length === 0) return null;
 
-  const supabase = await createClient();
-  const { data: enrollments } = await supabase
+  const admin = createAdminClient();
+  const { data: enrollments } = await admin
     .from("enrollments")
-    .select("id, player_id, campus_id, status, inscription_date, start_date, campuses(name), players(first_name, last_name, birth_date, level)")
+    .select("id, player_id, campus_id, status, inscription_date, start_date, campuses(name), players(first_name, last_name, birth_date, gender, medical_notes, level)")
     .eq("player_id", playerId)
     .eq("status", "active")
     .order("start_date", { ascending: false })
@@ -375,12 +454,15 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
   const activeEnrollment = (enrollments ?? []).find((row) => canAccessNutritionCampus(access, row.campus_id));
   if (!activeEnrollment) return null;
 
-  const { data: sessionRows } = await supabase
-    .from("player_measurement_sessions")
-    .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at")
-    .eq("player_id", playerId)
-    .order("measured_at", { ascending: false })
-    .returns<MeasurementSessionRow[]>();
+  const [{ data: sessionRows }, guardianContacts] = await Promise.all([
+    admin
+      .from("player_measurement_sessions")
+      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at")
+      .eq("player_id", playerId)
+      .order("measured_at", { ascending: false })
+      .returns<MeasurementSessionRow[]>(),
+    listGuardianContactsForPlayers([playerId]),
+  ]);
 
   const history = (sessionRows ?? []).map((row) => ({
     id: row.id,
@@ -400,7 +482,11 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
     playerId,
     playerName: getPlayerName(activeEnrollment.players),
     birthYear: getBirthYear(activeEnrollment.players?.birth_date),
+    gender: activeEnrollment.players?.gender ?? null,
+    genderLabel: getGenderLabel(activeEnrollment.players?.gender),
     level: activeEnrollment.players?.level ?? null,
+    medicalNotes: activeEnrollment.players?.medical_notes ?? null,
+    guardianContact: guardianContacts.get(playerId) ?? null,
     campusId: activeEnrollment.campus_id,
     campusName: activeEnrollment.campuses?.name ?? "Campus",
     activeEnrollmentId: activeEnrollment.id,

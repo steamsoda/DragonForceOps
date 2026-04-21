@@ -31,7 +31,7 @@ export default async function NutritionPlayerProfilePage({
   params: PageParams;
   searchParams: SearchParams;
 }) {
-  await requireNutritionContext("/unauthorized");
+  const context = await requireNutritionContext("/unauthorized");
   const { playerId } = await params;
   const query = await searchParams;
   const profile = await getNutritionPlayerProfile(playerId);
@@ -40,6 +40,7 @@ export default async function NutritionPlayerProfilePage({
 
   const successMessage = query.ok === "saved" ? "Medicion registrada." : null;
   const errorMessage = query.err ? ERROR_MESSAGES[query.err] ?? "Ocurrio un error." : null;
+  const canRecordMeasurement = context.isNutritionist || context.isSuperAdmin;
 
   return (
     <PageShell
@@ -72,7 +73,7 @@ export default async function NutritionPlayerProfilePage({
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugador</p>
                 <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{profile.playerName}</p>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  {profile.campusName} | Cat. {profile.birthYear ?? "-"} | Nivel {profile.level ?? "Sin nivel"}
+                  {profile.campusName} | Cat. {profile.birthYear ?? "-"} | {profile.genderLabel} | Nivel {profile.level ?? "Sin nivel"}
                 </p>
               </div>
               <span
@@ -108,6 +109,29 @@ export default async function NutritionPlayerProfilePage({
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDelta(profile.deltaHeightCm, "cm")}</p>
               </div>
             </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tutor</p>
+                {profile.guardianContact ? (
+                  <div className="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                    <p className="font-medium text-slate-900 dark:text-slate-100">{profile.guardianContact.name}</p>
+                    <p>{profile.guardianContact.relationshipLabel ?? "Relacion no capturada"}</p>
+                    <p>{profile.guardianContact.phonePrimary ?? "Sin telefono principal"}</p>
+                    {profile.guardianContact.phoneSecondary ? <p>{profile.guardianContact.phoneSecondary}</p> : null}
+                    {profile.guardianContact.email ? <p>{profile.guardianContact.email}</p> : null}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sin tutor capturado.</p>
+                )}
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Notas medicas</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+                  {profile.medicalNotes?.trim() || "Sin notas medicas."}
+                </p>
+              </div>
+            </div>
           </article>
 
           <article id="new-measurement" className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -123,6 +147,7 @@ export default async function NutritionPlayerProfilePage({
               </Link>
             </div>
 
+            {canRecordMeasurement ? (
             <form action={recordPlayerMeasurementAction} className="mt-4 grid gap-3">
               <input type="hidden" name="player_id" value={profile.playerId} />
               <input type="hidden" name="enrollment_id" value={profile.activeEnrollmentId} />
@@ -181,6 +206,11 @@ export default async function NutritionPlayerProfilePage({
                 </button>
               </div>
             </form>
+            ) : (
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+                Tu rol puede revisar nutricion, pero no registrar nuevas mediciones.
+              </div>
+            )}
           </article>
         </div>
 

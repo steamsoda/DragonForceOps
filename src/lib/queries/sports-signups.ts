@@ -1,9 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { BASE_TEAM_LEVELS } from "@/lib/teams/shared";
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+type SupabaseQueryClient = SupabaseClient;
 
 type CompetitionProductRow = {
   id: string;
@@ -193,7 +194,6 @@ function normalizeText(value: string | null | undefined) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
-
 function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -287,7 +287,6 @@ function startPerf(enabled: boolean) {
     steps: [] as Array<{ label: string; durationMs: number }>,
   };
 }
-
 function recordPerfStep(
   perf: ReturnType<typeof startPerf>,
   label: string,
@@ -300,7 +299,7 @@ function recordPerfStep(
   });
 }
 
-async function loadCompetitionProducts(admin: SupabaseServerClient) {
+async function loadCompetitionProducts(admin: SupabaseQueryClient) {
   const pageSize = 1000;
   const rows: CompetitionProductRow[] = [];
 
@@ -322,7 +321,7 @@ async function loadCompetitionProducts(admin: SupabaseServerClient) {
   return rows;
 }
 
-async function loadChargeRows(admin: SupabaseServerClient, campusIds: string[]) {
+async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
   const pageSize = 1000;
   const rows: ChargeRow[] = [];
 
@@ -350,7 +349,7 @@ async function loadChargeRows(admin: SupabaseServerClient, campusIds: string[]) 
 }
 
 async function loadBoardCompetitionChargeRows(
-  admin: SupabaseServerClient,
+  admin: SupabaseQueryClient,
   campusIds: string[],
   competitionProductIds: string[],
 ) {
@@ -415,7 +414,7 @@ async function loadBoardCompetitionChargeRows(
 }
 
 async function loadChargeRowsForCampus(
-  admin: SupabaseServerClient,
+  admin: SupabaseQueryClient,
   campusId: string,
   filter?: ParsedCompetitionBucket | null,
 ) {
@@ -450,7 +449,7 @@ async function loadChargeRowsForCampus(
   return rows;
 }
 
-async function loadActiveEnrollments(admin: SupabaseServerClient, campusIds: string[]) {
+async function loadActiveEnrollments(admin: SupabaseQueryClient, campusIds: string[]) {
   const pageSize = 1000;
   const rows: ActiveEnrollmentRow[] = [];
 
@@ -474,7 +473,7 @@ async function loadActiveEnrollments(admin: SupabaseServerClient, campusIds: str
   return rows;
 }
 
-async function loadActiveEnrollmentsForCampus(admin: SupabaseServerClient, campusId: string) {
+async function loadActiveEnrollmentsForCampus(admin: SupabaseQueryClient, campusId: string) {
   const pageSize = 1000;
   const rows: ActiveEnrollmentRow[] = [];
 
@@ -498,7 +497,7 @@ async function loadActiveEnrollmentsForCampus(admin: SupabaseServerClient, campu
   return rows;
 }
 
-async function loadAllocationTotals(admin: SupabaseServerClient, chargeIds: string[]) {
+async function loadAllocationTotals(admin: SupabaseQueryClient, chargeIds: string[]) {
   const chunkSize = 500;
   const allocationTotals = new Map<string, number>();
 
@@ -523,7 +522,7 @@ async function loadAllocationTotals(admin: SupabaseServerClient, chargeIds: stri
   return allocationTotals;
 }
 
-async function loadPrimaryTeamAssignments(admin: SupabaseServerClient, enrollmentIds: string[]) {
+async function loadPrimaryTeamAssignments(admin: SupabaseQueryClient, enrollmentIds: string[]) {
   if (enrollmentIds.length === 0) return new Map<string, TeamAssignmentRow["teams"]>();
 
   const chunkSize = 500;
@@ -716,7 +715,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) return null;
 
-  const admin = permissionContext.supabase;
+  const admin = createAdminClient();
   const campusIds = campusAccess.campusIds;
   const productsStartedAt = Date.now();
   const products = await loadCompetitionProducts(admin);
@@ -763,7 +762,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   };
 }
 
-async function loadCompetitionProductById(admin: SupabaseServerClient, productId: string) {
+async function loadCompetitionProductById(admin: SupabaseQueryClient, productId: string) {
   const { data, error } = await admin
     .from("products")
     .select("id, name, charge_types(code)")
@@ -797,7 +796,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
   const parsedBucket = parseCompetitionBucketId((filters.competitionId ?? "").trim());
   if (!parsedBucket) return null;
 
-  const admin = permissionContext.supabase;
+  const admin = createAdminClient();
   let competitionLabel = "Competencia";
   const productBucketIds = new Set<string>();
 

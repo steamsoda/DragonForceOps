@@ -3,13 +3,29 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-20.
 
-Current preview release line: `v1.16.48`
+Current preview release line: `v1.16.49`
 
 ---
 
 ## Current Operational Tracks
 
 ### Priority 0
+
+0. Role permissions audit and stabilization
+   - new audit doc:
+     - `docs/role-permissions-audit.md`
+   - current goal:
+     - define exactly what every role can see and edit
+     - align app routes, navigation, server actions, and Supabase RLS
+     - stop preview debug from masking production-only role/RLS failures
+   - active incidents under this lane:
+     - Linda Vista `director_deportivo` can log in but sees no `Inscripciones Torneos` data
+     - Linda Vista `nutritionist` works in preview test but cannot access live correctly
+     - Caja users in Linda Vista and Contry are still hitting new-player intake failures
+   - next required work:
+     - validate the constrained `v1.16.49` permissions/RLS patch in preview
+     - apply to prod once role smoke checks pass
+     - confirm whether Julio should remain Linda Vista-only or receive Contry/global campus scope
 
 1. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:

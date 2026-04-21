@@ -32,6 +32,10 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
   }
 
   const context = await requireNutritionContext("/unauthorized");
+  if (!context.isNutritionist && !context.isSuperAdmin) {
+    redirectWithError(playerId, returnTo, "unauthorized");
+  }
+
   if (!(await canAccessNutritionPlayerRecord(playerId, context))) {
     redirectWithError(playerId, returnTo, "unauthorized");
   }
