@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.59`
+Current preview release line: `v1.16.60`
 
 ---
 
@@ -34,10 +34,15 @@ Current preview release line: `v1.16.59`
      - dedicated `Nutricion` menu lane with `Panel` + `Toma de medidas`
      - historical `player_measurement_sessions` model
      - derived intake queue based on missing first measurement for the active enrollment
+   - `v1.16.60` adds the shared `/new-enrollments` board:
+     - last-30-days default
+     - campus-first/all-campus scope
+     - sports and nutrition workflow status chips
+     - role-specific quick links without finance data
    - remaining follow-up:
-     - true recent-enrollments operational lane for sports + specialists
      - additional body metrics beyond `weight_kg` / `height_cm`
      - richer nutrition KPI/analytics and future workflow polish
+     - inline assignment/capture actions if the link-first workflow proves too slow
 
 2. Collections / pending-tuition board split
    - `v1.16.58` implemented the functional split:

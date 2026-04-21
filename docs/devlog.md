@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-21 (session 114)
+
+### Nuevas Inscripciones Shared Intake Board (v1.16.60)
+
+- Added shared `/new-enrollments` intake board for the last 30 days of enrollments, with date range, campus, category, and workflow-status filters.
+- Added safe derived workflow chips for sports assignment and nutrition first-measurement status.
+- Added role-specific quick links:
+  - sports users open the filtered `Equipos Base` workflow
+  - nutrition users open the nutrition-safe player profile
+  - operational users open the player profile
+- Added navigation entries under `Gestion`, `Competencias`, and `Nutricion` according to role access.
+- Redirected legacy `/dashboard/new-enrollments` into the new shared page while preserving the selected month/campus context.
+- Kept the page finance-safe: no balances, charges, payments, receipts, Caja actions, or tutor contact data.
+
 ## 2026-04-21 (session 113)
 
 ### Pendientes UI Polish + KPI Drilldowns (v1.16.59)
