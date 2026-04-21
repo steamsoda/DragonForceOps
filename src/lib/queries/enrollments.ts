@@ -426,7 +426,11 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
 
-  if (!defaultQuote && pricingVersions.length > 0) {
+  if (pricingVersions.length === 0) {
+    console.error("[intake] no pricing plan versions returned from admin client", {
+      defaultStartDate,
+    });
+  } else if (!defaultQuote) {
     console.warn("[intake] pricing quote null despite versions loaded", {
       defaultStartDate,
       versionCount: pricingVersions.length,
