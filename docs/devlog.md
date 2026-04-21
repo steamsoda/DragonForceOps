@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-21 (session 109)
+
+### New Player Pricing Audit Follow-up (v1.16.53)
+
+- Re-audited the live Caja new-player failure after every Caja user still saw `No se encontro una configuracion de precios valida para esa fecha` on the `Inscripcion y mensualidad` card.
+- Vercel logs showed the actual server-side signal:
+  - `[intake] no pricing plan versions returned from admin client { defaultStartDate: '2026-04-20' }`
+  - this means the client card was not failing because `20/04/2026` lacked a rule; the production runtime was receiving zero pricing plan versions from its Supabase admin query.
+- Added a safer pricing fallback:
+  - first load the expected `standard` plan versions
+  - if none are returned, load any active pricing plan versions so the form is not blocked by a plan-code mismatch
+- Added stronger diagnostics when pricing is still empty:
+  - safe Supabase runtime summary (`urlProjectRef`, service-role JWT project ref/role, no secrets)
+  - visible pricing plan rows returned by the runtime query
+  - query error message if Supabase rejects the pricing plan read
+- Verification:
+  - `npm run typecheck`
+  - `npm run build`
+
 ## 2026-04-20 (session 108)
 
 ### Campus Access Fallback for Scoped Roles (v1.16.51)

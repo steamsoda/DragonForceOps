@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
+  fetchActivePricingPlanVersions,
   fetchPricingPlanVersionsByCode,
   getDefaultEnrollmentStartDate,
   quoteEnrollmentPricingFromVersions,
@@ -384,6 +385,61 @@ type PlayerRow = { id: string; first_name: string; last_name: string };
 type CampusRow = { id: string; code: string; name: string };
 type ActiveEnrollmentRow = { id: string };
 
+function decodeJwtPayload(token: string | undefined) {
+  if (!token) return null;
+
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    return JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as {
+      role?: string;
+      ref?: string;
+      project_ref?: string;
+      iss?: string;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getSupabaseRuntimeSummary() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+  const servicePayload = decodeJwtPayload(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  return {
+    urlProjectRef: url.match(/^https:\/\/([^.]+)/)?.[1] ?? "missing",
+    hasUrl: Boolean(url),
+    serviceRoleJwtRole: servicePayload?.role ?? "unknown",
+    serviceRoleJwtRef: servicePayload?.ref ?? servicePayload?.project_ref ?? "unknown",
+    serviceRoleIssuer: servicePayload?.iss ?? "unknown",
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  };
+}
+
+async function logPricingPlanDiagnostics(
+  admin: ReturnType<typeof createAdminClient>,
+  context: Record<string, unknown>
+) {
+  const { data, error } = await admin
+    .from("pricing_plans")
+    .select("id, plan_code, is_active, effective_start, effective_end")
+    .order("effective_start", { ascending: false })
+    .limit(10);
+
+  console.error("[intake] pricing plan diagnostics", {
+    ...context,
+    runtime: getSupabaseRuntimeSummary(),
+    pricingPlansError: error?.message ?? null,
+    pricingPlans: (data ?? []).map((plan) => ({
+      id: plan.id,
+      planCode: plan.plan_code,
+      isActive: plan.is_active,
+      effectiveStart: plan.effective_start,
+      effectiveEnd: plan.effective_end,
+    })),
+  });
+}
+
 export type EnrollmentCreateFormContext = {
   player: { id: string; fullName: string };
   hasActiveEnrollment: boolean;
@@ -401,7 +457,6 @@ export type EnrollmentIntakeContext = {
 };
 
 export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
-  const supabase = await createClient();
   const admin = createAdminClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) {
@@ -413,22 +468,41 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
     };
   }
   const defaultStartDate = getDefaultEnrollmentStartDate();
+  let pricingVersions = await fetchPricingPlanVersionsByCode(admin, "standard");
+  let usedAnyActivePlanFallback = false;
 
-  const [campusResult, pricingVersions] = await Promise.all([
+  if (pricingVersions.length === 0) {
+    pricingVersions = await fetchActivePricingPlanVersions(admin);
+    usedAnyActivePlanFallback = pricingVersions.length > 0;
+  }
+
+  const [campusResult] = await Promise.all([
     admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
       .order("name")
       .returns<CampusRow[]>(),
-    fetchPricingPlanVersionsByCode(admin, "standard"),
   ]);
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
 
   if (pricingVersions.length === 0) {
-    console.error("[intake] no pricing plan versions returned from admin client", {
+    await logPricingPlanDiagnostics(admin, {
+      reason: "no pricing plan versions returned from admin client",
       defaultStartDate,
+    });
+  } else if (usedAnyActivePlanFallback) {
+    console.error("[intake] standard pricing plan missing; using active plan fallback", {
+      defaultStartDate,
+      runtime: getSupabaseRuntimeSummary(),
+      fallbackVersions: pricingVersions.map((v) => ({
+        id: v.id,
+        planCode: v.planCode,
+        effectiveStart: v.effectiveStart,
+        effectiveEnd: v.effectiveEnd,
+        enrollmentRuleCount: v.enrollmentTuitionRules.length,
+      })),
     });
   } else if (!defaultQuote) {
     console.warn("[intake] pricing quote null despite versions loaded", {
@@ -460,8 +534,12 @@ export async function getEnrollmentCreateFormContext(
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return null;
   const defaultStartDate = getDefaultEnrollmentStartDate();
+  let pricingVersions = await fetchPricingPlanVersionsByCode(admin, "standard");
+  if (pricingVersions.length === 0) {
+    pricingVersions = await fetchActivePricingPlanVersions(admin);
+  }
 
-  const [playerResult, campusResult, pricingVersions, activeEnrollmentResult] = await Promise.all([
+  const [playerResult, campusResult, activeEnrollmentResult] = await Promise.all([
     supabase
       .from("players")
       .select("id, first_name, last_name")
@@ -474,7 +552,6 @@ export async function getEnrollmentCreateFormContext(
       .eq("is_active", true)
       .order("name")
       .returns<CampusRow[]>(),
-    fetchPricingPlanVersionsByCode(admin, "standard"),
     supabase
       .from("enrollments")
       .select("id")

@@ -1,9 +1,9 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-20.
+Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.51`
+Current preview release line: `v1.16.53`
 
 ---
 
@@ -18,14 +18,15 @@ Current preview release line: `v1.16.51`
      - define exactly what every role can see and edit
      - align app routes, navigation, server actions, and Supabase RLS
      - stop preview debug from masking production-only role/RLS failures
-   - active incidents under this lane: resolved in v1.16.51
+   - active incidents under this lane: still under live verification
      - ✅ Linda Vista `director_deportivo` (Julio) empty Inscripciones Torneos — fixed by campus fallback
      - ✅ Linda Vista `nutritionist` (Denisse) empty player list — fixed by campus fallback
-     - ✅ Caja front desk new-player intake pricing error — fixed by campus fallback + defensive enrollment rules migration
+     - ⚠️ Caja front desk new-player intake pricing error — `v1.16.53` adds active-plan fallback plus runtime env/query diagnostics because Vercel logs showed zero pricing plan versions returned from the production admin query
    - next required work:
+     - confirm Caja can create a new player after `v1.16.53` deploy
+     - if still failing, inspect the new `[intake] pricing plan diagnostics` log and correct the Vercel Supabase env/project or pricing seed data accordingly
      - confirm Julio and Denisse can access their data after deploy
      - confirm whether Julio should remain Linda Vista-only or receive Contry/global campus scope
-     - check Vercel logs for any remaining `[intake] pricing quote null` warnings
 
 1. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:
