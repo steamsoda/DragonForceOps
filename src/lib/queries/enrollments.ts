@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
   fetchPricingPlanVersionsByCode,
@@ -401,6 +402,7 @@ export type EnrollmentIntakeContext = {
 
 export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
   const supabase = await createClient();
+  const admin = createAdminClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) {
     return {
@@ -413,13 +415,13 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
   const defaultStartDate = getDefaultEnrollmentStartDate();
 
   const [campusResult, pricingVersions] = await Promise.all([
-    supabase
+    admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
       .order("name")
       .returns<CampusRow[]>(),
-    fetchPricingPlanVersionsByCode(supabase, "standard"),
+    fetchPricingPlanVersionsByCode(admin, "standard"),
   ]);
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
@@ -436,6 +438,7 @@ export async function getEnrollmentCreateFormContext(
   playerId: string
 ): Promise<EnrollmentCreateFormContext | null> {
   const supabase = await createClient();
+  const admin = createAdminClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return null;
   const defaultStartDate = getDefaultEnrollmentStartDate();
@@ -447,13 +450,13 @@ export async function getEnrollmentCreateFormContext(
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerRow | null>(),
-    supabase
+    admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
       .order("name")
       .returns<CampusRow[]>(),
-    fetchPricingPlanVersionsByCode(supabase, "standard"),
+    fetchPricingPlanVersionsByCode(admin, "standard"),
     supabase
       .from("enrollments")
       .select("id")

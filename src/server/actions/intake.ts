@@ -51,6 +51,10 @@ function redirectWithError(
   redirect(`/players/new?${params.toString()}`);
 }
 
+function logIntakeConfigError(details: Record<string, unknown>) {
+  console.error("[intake] missing enrollment config", details);
+}
+
 async function rollbackIntake(
   admin: ReturnType<typeof createAdminClient>,
   ids: {
@@ -202,7 +206,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(admin, {
-      planCode: enrollment.pricingPlanCode,
+      planCode: enrollment.pricingPlanCode || "standard",
       startDate: enrollment.startDate,
     }),
     admin
@@ -218,6 +222,16 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const uniformTrainingTypeId  = (chargeTypes ?? []).find((ct) => ct.code === "uniform_training")?.id;
   const uniformGameTypeId      = (chargeTypes ?? []).find((ct) => ct.code === "uniform_game")?.id;
   if (!pricingQuote || !inscriptionTypeId || !tuitionTypeId) {
+    logIntakeConfigError({
+      action: "createEnrollmentIntakeAction",
+      planCode: enrollment.pricingPlanCode,
+      startDate: enrollment.startDate,
+      hasPricingQuote: Boolean(pricingQuote),
+      chargeTypesError: chargeTypesResult.error?.message ?? null,
+      chargeTypeCodes: (chargeTypes ?? []).map((ct) => ct.code),
+      hasInscriptionType: Boolean(inscriptionTypeId),
+      hasTuitionType: Boolean(tuitionTypeId),
+    });
     return redirectWithError("config_error", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,

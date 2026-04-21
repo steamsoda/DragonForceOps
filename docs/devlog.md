@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-20 (session 107)
+
+### Caja Intake Config Fallback (v1.16.50)
+
+- Follow-up for Caja Contry still seeing `/players/new?err=config_error` after the role-permission stabilization deploy.
+- Moved the new-player and existing-player enrollment form-context pricing reads to the trusted server client so front-desk page hydration does not depend on pricing-table RLS.
+- Added structured server logging when intake/enrollment config resolution fails, including plan code, start date, charge type codes present, and which required part is missing.
+- Kept the action-side trusted pricing reads from `v1.16.49` and added a defensive `standard` fallback if the hidden plan code is unexpectedly blank.
+
 ## 2026-04-20 (session 106)
 
 ### Role Permission Stabilization (v1.16.49)

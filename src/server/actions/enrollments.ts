@@ -201,6 +201,10 @@ function redirectWithError(
   redirect(`/players/${playerId}/enrollments/new?${params.toString()}`);
 }
 
+function logEnrollmentConfigError(details: Record<string, unknown>) {
+  console.error("[enrollments] missing enrollment config", details);
+}
+
 export async function createEnrollmentAction(playerId: string, formData: FormData) {
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
@@ -257,7 +261,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(admin, {
-      planCode: parsed.pricingPlanCode,
+      planCode: parsed.pricingPlanCode || "standard",
       startDate: parsed.startDate,
     }),
     admin
@@ -271,6 +275,17 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   const inscriptionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
   const tuitionTypeId = (chargeTypes ?? []).find((ct) => ct.code === "monthly_tuition")?.id;
   if (!pricingQuote || !inscriptionTypeId || !tuitionTypeId) {
+    logEnrollmentConfigError({
+      action: "createEnrollmentAction",
+      playerId,
+      planCode: parsed.pricingPlanCode,
+      startDate: parsed.startDate,
+      hasPricingQuote: Boolean(pricingQuote),
+      chargeTypesError: chargeTypesResult.error?.message ?? null,
+      chargeTypeCodes: (chargeTypes ?? []).map((ct) => ct.code),
+      hasInscriptionType: Boolean(inscriptionTypeId),
+      hasTuitionType: Boolean(tuitionTypeId),
+    });
     return redirectWithError(playerId, "config_error", {
       isReturning: parsed.isReturning,
       returnMode: parsed.returnInscriptionMode,
