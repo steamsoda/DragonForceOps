@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-21 (session 110)
+
+### Supabase Production Env Guard (v1.16.54)
+
+- Root-caused the live Caja pricing outage to a Vercel production env mismatch:
+  - `NEXT_PUBLIC_SUPABASE_URL` pointed at prod project `hjvytfaalnfcqfgbxsmj`
+  - `SUPABASE_SERVICE_ROLE_KEY` belonged to project `eqefgwdsqabnmpnbpqbq`
+  - Supabase rejected trusted admin reads with `Invalid API key`, which made pricing plans look empty at runtime.
+- Confirmed prod pricing rows still existed and Caja recovered after replacing the Vercel production service-role key and redeploying.
+- Added a Supabase admin-client guard that compares the project ref in the Supabase URL against the project ref embedded in the service-role JWT.
+- Guard behavior:
+  - throws with a clear safe diagnostic for proven URL/key project mismatches
+  - logs a warning if the key format cannot be verified
+  - never logs the secret value.
+- Assessment: this was an availability/configuration failure, not evidence of pricing-table deletion or finance data corruption.
+
 ## 2026-04-21 (session 109)
 
 ### New Player Pricing Audit Follow-up (v1.16.53)
