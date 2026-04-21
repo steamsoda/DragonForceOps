@@ -124,6 +124,17 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
         return true;
       })
       .map((campus) => ({ id: campus.id, code: campus.code, name: campus.name }));
+
+    // Fallback: nested campuses join can return null if RLS timing delays policy evaluation.
+    // Reconstruct from the campus_id column (always returned) + allCampuses.
+    if (campuses.length === 0) {
+      const campusIdSet = new Set(
+        [...frontDeskRows, ...sportsDirectorRows]
+          .map((row) => row.campus_id)
+          .filter((id): id is string => Boolean(id))
+      );
+      campuses = allCampuses.filter((c) => campusIdSet.has(c.id));
+    }
   }
 
   const defaultCampus = chooseDefaultCampus(campuses);
@@ -168,6 +179,15 @@ export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess 
         return true;
       })
       .map((campus) => ({ id: campus.id, code: campus.code, name: campus.name }));
+
+    if (campuses.length === 0) {
+      const campusIdSet = new Set(
+        nutritionRows
+          .map((row) => row.campus_id)
+          .filter((id): id is string => Boolean(id))
+      );
+      campuses = allCampuses.filter((c) => campusIdSet.has(c.id));
+    }
   }
 
   const defaultCampus = chooseDefaultCampus(campuses);
