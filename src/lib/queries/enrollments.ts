@@ -426,6 +426,20 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
 
+  if (!defaultQuote && pricingVersions.length > 0) {
+    console.warn("[intake] pricing quote null despite versions loaded", {
+      defaultStartDate,
+      versionCount: pricingVersions.length,
+      versions: pricingVersions.map((v) => ({
+        id: v.id,
+        planCode: v.planCode,
+        effectiveStart: v.effectiveStart,
+        effectiveEnd: v.effectiveEnd,
+        enrollmentRuleCount: v.enrollmentTuitionRules.length,
+      })),
+    });
+  }
+
   return {
     campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id)),
     planCode: defaultQuote?.plan.planCode ?? "standard",
