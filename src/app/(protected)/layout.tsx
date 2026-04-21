@@ -17,6 +17,7 @@ const DIRECTOR_GESTION_SECTION: NavSection = {
   label: "Gestion",
   items: [
     { href: "/dashboard", label: "Panel" },
+    { href: "/new-enrollments", label: "Nuevas Inscripciones" },
     { href: "/pending", label: "Pendientes" },
     { href: "/llamadas", label: "Llamadas" },
   ],
@@ -25,17 +26,18 @@ const DIRECTOR_GESTION_SECTION: NavSection = {
 const FRONT_DESK_GESTION_SECTION: NavSection = {
   label: "Gestion",
   items: [
+    { href: "/new-enrollments", label: "Nuevas Inscripciones" },
     { href: "/pending", label: "Pendientes" },
     { href: "/llamadas", label: "Llamadas" },
   ],
 };
 
-const COMPETITION_SECTION: NavSection = {
+const COMPETITION_BASE_SECTION: NavSection = {
   label: "Competencias",
   items: [{ href: "/sports-signups", label: "Inscripciones Torneos" }],
 };
 
-const NUTRITION_SECTION: NavSection = {
+const NUTRITION_BASE_SECTION: NavSection = {
   label: "Nutricion",
   items: [
     { href: "/nutrition", label: "Panel" },
@@ -122,11 +124,31 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ],
   };
 
+  const competitionSection: NavSection = {
+    ...COMPETITION_BASE_SECTION,
+    items: [
+      ...COMPETITION_BASE_SECTION.items,
+      ...(hasSportsAccess && !isDirectorOrAbove && !isFrontDesk
+        ? [{ href: "/new-enrollments", label: "Nuevas Inscripciones" }]
+        : []),
+    ],
+  };
+
+  const nutritionSection: NavSection = {
+    ...NUTRITION_BASE_SECTION,
+    items: [
+      ...NUTRITION_BASE_SECTION.items,
+      ...(hasNutritionAccess && !isDirectorOrAbove
+        ? [{ href: "/new-enrollments", label: "Nuevas Inscripciones" }]
+        : []),
+    ],
+  };
+
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : []),
-    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
-    ...(hasNutritionAccess ? [NUTRITION_SECTION] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
+    ...(hasNutritionAccess ? [nutritionSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
@@ -408,6 +430,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
               <div className="flex flex-wrap items-center gap-2">
                 <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
                 <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
+                <Link href="/new-enrollments" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Nuevas</Link>
                 <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
                 <Link href="/llamadas" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Llamadas</Link>
                 <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
