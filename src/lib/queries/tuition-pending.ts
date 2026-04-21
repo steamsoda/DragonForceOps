@@ -104,6 +104,8 @@ export type PendingTuitionCategoryDetailData = {
   players: PendingTuitionPlayer[];
 };
 
+export type PendingTuitionBucket = "1" | "2" | "3plus";
+
 function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -199,6 +201,22 @@ function countBuckets(players: PendingTuitionPlayer[]) {
   };
 }
 
+function normalizeBucket(value: string | null | undefined): PendingTuitionBucket | "" {
+  return value === "1" || value === "2" || value === "3plus" ? value : "";
+}
+
+function getBucketLabel(bucket: PendingTuitionBucket) {
+  if (bucket === "1") return "1 mes pendiente";
+  if (bucket === "2") return "2 meses pendientes";
+  return "3+ meses pendientes";
+}
+
+function filterPlayersByBucket(players: PendingTuitionPlayer[], bucket: PendingTuitionBucket) {
+  if (bucket === "1") return players.filter((player) => player.pendingMonthCount === 1);
+  if (bucket === "2") return players.filter((player) => player.pendingMonthCount === 2);
+  return players.filter((player) => player.pendingMonthCount >= 3);
+}
+
 export async function getPendingTuitionDashboardData(filters: { campusId?: string; month?: string }) {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) {
@@ -213,7 +231,7 @@ export async function getPendingTuitionDashboardData(filters: { campusId?: strin
 
   const selectedMonth = normalizeMonth(filters.month);
   const requestedCampusId = filters.campusId && canAccessCampus(campusAccess, filters.campusId) ? filters.campusId : "";
-  const targetCampusIds = requestedCampusId ? [requestedCampusId] : campusAccess.campusIds;
+  const targetCampusIds = campusAccess.campusIds;
   const admin = createAdminClient();
 
   const { data: enrollments, error: enrollmentError } = await admin
@@ -343,9 +361,36 @@ export async function getPendingTuitionCategoryDetailData(filters: {
   campusId?: string;
   birthYear?: string;
   month?: string;
+  bucket?: string;
 }) {
   const dashboard = await getPendingTuitionDashboardData({ campusId: filters.campusId, month: filters.month });
+  const bucket = normalizeBucket(filters.bucket);
   const key = filters.birthYear && /^\d{4}$/.test(filters.birthYear) ? filters.birthYear : "sin-categoria";
+  const selectedPlayers = dashboard.selectedCampusId
+    ? dashboard.campusBoards
+        .find((board) => board.campusId === dashboard.selectedCampusId)
+        ?.categories.flatMap((category) => category.players) ?? []
+    : dashboard.campusBoards.flatMap((board) => board.categories).flatMap((category) => category.players);
+
+  if (bucket) {
+    const players = filterPlayersByBucket(selectedPlayers, bucket).sort(
+      (a, b) =>
+        b.pendingMonthCount - a.pendingMonthCount ||
+        b.overdueMonthCount - a.overdueMonthCount ||
+        a.playerName.localeCompare(b.playerName, "es-MX")
+    );
+
+    return {
+      campusId: dashboard.selectedCampusId,
+      campusName:
+        dashboard.campusBoards.find((board) => board.campusId === dashboard.selectedCampusId)?.campusName ??
+        "Todos los campus",
+      birthYear: null,
+      categoryLabel: getBucketLabel(bucket),
+      selectedMonth: dashboard.selectedMonth,
+      players,
+    } satisfies PendingTuitionCategoryDetailData;
+  }
 
   if (!dashboard.selectedCampusId) {
     const players = dashboard.campusBoards

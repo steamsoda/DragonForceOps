@@ -21,7 +21,7 @@ function withParams(path: string, params: Record<string, string | undefined>) {
   return query ? `${path}?${query}` : path;
 }
 
-function bucketChip(label: string, count: number, tone: "slate" | "amber" | "rose" = "slate") {
+function pendingChip(label: string, tone: "slate" | "amber" | "rose" = "slate") {
   const tones = {
     slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
     amber: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
@@ -29,10 +29,14 @@ function bucketChip(label: string, count: number, tone: "slate" | "amber" | "ros
   };
 
   return (
-    <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>
-      {label}: {count}
+    <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${tones[tone]}`}>
+      {label}
     </span>
   );
+}
+
+function bucketChip(label: string, count: number, tone: "slate" | "amber" | "rose" = "slate") {
+  return pendingChip(`${label}: ${count}`, tone);
 }
 
 function countBuckets(players: PendingTuitionPlayer[]) {
@@ -106,6 +110,43 @@ function CampusCard({
   );
 }
 
+function KpiCard({
+  href,
+  label,
+  count,
+  tone = "slate",
+}: {
+  href?: string;
+  label: string;
+  count: number;
+  tone?: "slate" | "amber" | "rose";
+}) {
+  const tones = {
+    slate: "border-slate-200 bg-white text-slate-900 hover:border-portoBlue dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+    amber: "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-400 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100",
+    rose: "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-400 dark:border-rose-800 dark:bg-rose-950/20 dark:text-rose-100",
+  };
+  const labelTones = {
+    slate: "text-slate-400",
+    amber: "text-amber-700 dark:text-amber-300",
+    rose: "text-rose-700 dark:text-rose-300",
+  };
+  const className = `rounded-xl border p-4 transition ${tones[tone]} ${href ? "hover:-translate-y-0.5 hover:shadow-sm" : ""}`;
+  const content = (
+    <>
+      <p className={`text-xs uppercase tracking-wide ${labelTones[tone]}`}>{label}</p>
+      <p className="mt-1 text-3xl font-semibold">{count}</p>
+    </>
+  );
+
+  if (!href) return <div className={className}>{content}</div>;
+  return (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
+  );
+}
+
 export default async function PendingTuitionPage({ searchParams }: { searchParams: SearchParams }) {
   await requireOperationalContext("/unauthorized");
 
@@ -148,22 +189,24 @@ export default async function PendingTuitionPage({ searchParams }: { searchParam
         </form>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Jugadores</p>
-            <p className="mt-1 text-3xl font-semibold">{data.totals.players}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs uppercase tracking-wide text-slate-400">1 mes pendiente</p>
-            <p className="mt-1 text-3xl font-semibold">{data.totals.oneMonth}</p>
-          </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">2 meses pendientes</p>
-            <p className="mt-1 text-3xl font-semibold text-amber-900 dark:text-amber-100">{data.totals.twoMonths}</p>
-          </div>
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/20">
-            <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">3+ meses o vencidos</p>
-            <p className="mt-1 text-3xl font-semibold text-rose-900 dark:text-rose-100">{data.totals.threePlusMonths + data.totals.overdue}</p>
-          </div>
+          <KpiCard label="Jugadores" count={data.totals.players} />
+          <KpiCard
+            label="1 mes pendiente"
+            count={data.totals.oneMonth}
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "1", month: data.selectedMonth })}
+          />
+          <KpiCard
+            label="2 meses pendientes"
+            count={data.totals.twoMonths}
+            tone="amber"
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "2", month: data.selectedMonth })}
+          />
+          <KpiCard
+            label="3+ meses pendientes"
+            count={data.totals.threePlusMonths}
+            tone="rose"
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "3plus", month: data.selectedMonth })}
+          />
         </div>
 
         <section className="space-y-3">
@@ -218,9 +261,7 @@ export default async function PendingTuitionPage({ searchParams }: { searchParam
                       <p className="text-sm text-slate-500 dark:text-slate-400">{category.playerCount} jugadores</p>
                     </div>
                     {category.overdueCount > 0 ? (
-                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-200">
-                        Vencidos
-                      </span>
+                      pendingChip("Vencidos", "rose")
                     ) : null}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-1.5">

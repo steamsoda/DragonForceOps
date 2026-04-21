@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.58`
+Current preview release line: `v1.16.59`
 
 ---
 
@@ -49,6 +49,10 @@ Current preview release line: `v1.16.58`
      - optional `month=YYYY-MM` filter
      - chips for `1 mes`, `2 meses`, `3+ meses`, and overdue status
      - no money amounts, tutor contact info, phone, receipts, or Caja actions
+   - `v1.16.59` polish:
+     - campus cards remain visible while a single campus is selected
+     - KPI cards drill into `1 mes`, `2 meses`, and `3+ meses` player lists
+     - chip alignment and detail-row layout were tightened after live screenshots
    - follow-up:
      - live-test role access with front desk and directors
      - tune urgency colors/counts after a few days of production usage
