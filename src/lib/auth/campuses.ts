@@ -49,6 +49,16 @@ export type OperationalCampusAccess = {
   defaultCampusId: string | null;
 };
 
+export type NutritionCampusAccess = {
+  userId: string;
+  isDirector: boolean;
+  isNutritionist: boolean;
+  isGlobalNutritionist: boolean;
+  campuses: AccessibleCampus[];
+  campusIds: string[];
+  defaultCampusId: string | null;
+};
+
 export async function getOperationalCampusAccess(): Promise<OperationalCampusAccess | null> {
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
@@ -104,9 +114,65 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   };
 }
 
+export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess | null> {
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) return null;
+
+  const supabase = await createClient();
+  const [{ data: allCampuses }] = await Promise.all([
+    supabase
+      .from("campuses")
+      .select("id, code, name")
+      .eq("is_active", true)
+      .order("name")
+      .returns<AccessibleCampus[]>(),
+  ]);
+
+  const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
+  const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
+  const isDirector = roleCodes.some((code) => code === "director_admin" || code === "superadmin");
+  const nutritionRows = rows.filter((row) => row.app_roles?.code === "nutritionist");
+  const isNutritionist = nutritionRows.length > 0;
+  const isGlobalNutritionist = nutritionRows.some((row) => row.campus_id === null);
+
+  let campuses: AccessibleCampus[] = [];
+  if (isDirector || isGlobalNutritionist) {
+    campuses = allCampuses ?? [];
+  } else if (isNutritionist) {
+    const seen = new Set<string>();
+    campuses = nutritionRows
+      .map((row) => row.campuses)
+      .filter((campus): campus is NonNullable<RoleCampusRow["campuses"]> => Boolean(campus))
+      .filter((campus) => {
+        if (seen.has(campus.id)) return false;
+        seen.add(campus.id);
+        return true;
+      })
+      .map((campus) => ({ id: campus.id, code: campus.code, name: campus.name }));
+  }
+
+  const defaultCampus = chooseDefaultCampus(campuses);
+
+  return {
+    userId: debugContext.effective.id,
+    isDirector,
+    isNutritionist,
+    isGlobalNutritionist,
+    campuses,
+    campusIds: campuses.map((campus) => campus.id),
+    defaultCampusId: defaultCampus?.id ?? null,
+  };
+}
+
 export function canAccessCampus(access: OperationalCampusAccess | null, campusId: string | null | undefined) {
   if (!access || !campusId) return false;
   if (access.isDirector || access.isLegacyGlobalFrontDesk) return true;
+  return access.campusIds.includes(campusId);
+}
+
+export function canAccessNutritionCampus(access: NutritionCampusAccess | null, campusId: string | null | undefined) {
+  if (!access || !campusId) return false;
+  if (access.isDirector || access.isGlobalNutritionist) return true;
   return access.campusIds.includes(campusId);
 }
 

@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canAccessCampus, getOperationalCampusAccess, type OperationalCampusAccess } from "@/lib/auth/campuses";
+import {
+  canAccessCampus,
+  canAccessNutritionCampus,
+  getNutritionCampusAccess,
+  getOperationalCampusAccess,
+  type NutritionCampusAccess,
+  type OperationalCampusAccess
+} from "@/lib/auth/campuses";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { APP_ROLES } from "@/lib/auth/roles";
 
@@ -13,12 +20,15 @@ export type PermissionContext = {
   user: { id: string; email: string | null };
   roleCodes: string[];
   campusAccess: OperationalCampusAccess | null;
+  nutritionCampusAccess: NutritionCampusAccess | null;
   isSuperAdmin: boolean;
   isDirector: boolean;
   isSportsDirector: boolean;
+  isNutritionist: boolean;
   isFrontDesk: boolean;
   hasOperationalAccess: boolean;
   hasSportsAccess: boolean;
+  hasNutritionAccess: boolean;
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
@@ -26,11 +36,15 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
   if (!debugContext) return null;
 
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const [campusAccess, nutritionCampusAccess] = await Promise.all([
+    getOperationalCampusAccess(),
+    getNutritionCampusAccess(),
+  ]);
   const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
   const isSportsDirector = isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO);
+  const isNutritionist = roleCodes.includes(APP_ROLES.NUTRITIONIST);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
 
   return {
@@ -38,12 +52,15 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     user: { id: debugContext.effective.id, email: debugContext.effective.email ?? null },
     roleCodes,
     campusAccess,
+    nutritionCampusAccess,
     isSuperAdmin,
     isDirector,
     isSportsDirector,
+    isNutritionist,
     isFrontDesk,
     hasOperationalAccess: isDirector || isFrontDesk,
     hasSportsAccess: isSportsDirector,
+    hasNutritionAccess: isDirector || isNutritionist,
   };
 }
 
@@ -62,6 +79,12 @@ export async function requireDirectorContext(redirectTo = "/unauthorized") {
 export async function requireSportsDirectorContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasSportsAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireNutritionContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasNutritionAccess) redirect(redirectTo);
   return context;
 }
 
@@ -121,4 +144,20 @@ export async function canAccessGuardianRecord(
     .maybeSingle<{ guardian_id: string } | null>();
 
   return Boolean(data?.guardian_id);
+}
+
+export async function canAccessNutritionPlayerRecord(
+  playerId: string,
+  context?: PermissionContext | null
+): Promise<boolean> {
+  const resolvedContext = context ?? (await getPermissionContext());
+  if (!resolvedContext?.hasNutritionAccess) return false;
+
+  const { data } = await resolvedContext.supabase
+    .from("enrollments")
+    .select("campus_id")
+    .eq("player_id", playerId)
+    .returns<EnrollmentCampusRow[]>();
+
+  return (data ?? []).some((row) => canAccessNutritionCampus(resolvedContext.nutritionCampusAccess, row.campus_id));
 }

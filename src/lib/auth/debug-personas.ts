@@ -72,6 +72,18 @@ const PERSONAS: DebugPersonaSpec[] = [
     campusTarget: "all",
   },
   {
+    key: "nutrition-lindavista",
+    email: "nutricion.lindavista.debug@preview",
+    roleCode: APP_ROLES.NUTRITIONIST,
+    campusTarget: "linda_vista",
+  },
+  {
+    key: "nutrition-contry",
+    email: "nutricion.contry.debug@preview",
+    roleCode: APP_ROLES.NUTRITIONIST,
+    campusTarget: "contry",
+  },
+  {
     key: "director",
     email: "director.debug@preview",
     roleCode: APP_ROLES.DIRECTOR_ADMIN,

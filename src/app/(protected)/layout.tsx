@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { APP_ROLES, DIRECTOR_OR_ABOVE, SPORTS_STAFF_OR_ABOVE } from "@/lib/auth/roles";
+import { APP_ROLES, DIRECTOR_OR_ABOVE, NUTRITION_STAFF_OR_ABOVE, SPORTS_STAFF_OR_ABOVE } from "@/lib/auth/roles";
 import { getDebugRecentUserIds, getDebugViewContext } from "@/lib/auth/debug-view";
 import { listDebuggableUsers } from "@/lib/auth/debug-users";
 import { version } from "../../../package.json";
@@ -24,6 +24,14 @@ const GESTION_SECTION: NavSection = {
 const COMPETITION_SECTION: NavSection = {
   label: "Competencias",
   items: [{ href: "/sports-signups", label: "Inscripciones Torneos" }],
+};
+
+const NUTRITION_SECTION: NavSection = {
+  label: "Nutricion",
+  items: [
+    { href: "/nutrition", label: "Panel" },
+    { href: "/nutrition/measurements", label: "Toma de medidas" },
+  ],
 };
 
 const FRONT_DESK_REPORTES_SECTION: NavSection = {
@@ -75,8 +83,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
+  const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess;
+  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -106,6 +115,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection, GESTION_SECTION] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
+    ...(hasNutritionAccess ? [NUTRITION_SECTION] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];

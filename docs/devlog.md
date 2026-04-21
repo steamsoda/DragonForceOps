@@ -2,6 +2,44 @@
 
 ## 2026-04-20 (session 102)
 
+### Nutrition Role + Measurement Intake v1 (v1.16.46)
+
+- Added a new campus-scoped `nutritionist` role through app code plus migration/RLS wiring:
+  - separate nutrition campus access helper
+  - separate app-layer nutrition guard
+  - admin role assignment support
+  - preview debug personas for Linda Vista and Contry nutrition staff
+- Added a new top-level `Nutricion` lane in the protected app:
+  - `/nutrition` panel
+  - `/nutrition/measurements`
+  - dedicated safe player route at `/nutrition/players/[playerId]`
+- The nutrition lane is intentionally isolated from finance and general player-admin flows:
+  - no Caja
+  - no `Pendientes`
+  - no `Competencias`
+  - no full existing player profile
+  - no enrollment editing or level editing
+- Added historical measurement storage with `player_measurement_sessions`:
+  - one row per visit
+  - scoped to player + enrollment + campus
+  - `source = initial_intake | follow_up`
+  - v1 captures `weight_kg`, `height_cm`, and optional notes
+- Intake queue logic is derived, not manually staged:
+  - an active enrollment is pending nutrition until that enrollment has its first measurement session
+  - re-enrolled players re-enter the queue automatically if the new enrollment has no session
+- Added nutrition-facing UX:
+  - first-take pending queue vs all active players
+  - latest measurement snapshot on the list
+  - nutrition-safe player profile with current summary, deltas vs prior session, history table, and trend chart
+  - append-only measurement form for v1 safety
+- Hardened route access so nutrition users cannot drift into operational player flows by URL:
+  - `/players`
+  - `/players/new`
+  - `/players/[playerId]`
+- Verification:
+  - `npm run typecheck`
+  - `npm run build`
+
 ### Finance Warning Normalization Batch Pass (v1.16.45)
 
 - Extended `scripts/plan-finance-repair-pass.mjs` with an explicit warning-normalization mode:
@@ -34,6 +72,11 @@
 - This pass did not introduce drift:
   - canonical/derived drift stayed at `0`
   - no new unapplied-credit states were created
+- Follow-up decision recorded:
+  - the `24` remaining `payment_reassign_delicate` accounts are being explicitly deferred, not accepted as resolved
+  - current assessment is that they are structurally delicate but not presently drifting
+  - cleanup is still desired because the current result is operationally unsatisfying and leaves historical payment structure noise in prod
+  - keep that lane open for a later targeted pass once bandwidth returns
 - Validation:
   - `npm run typecheck` passed
   - `npm run diagnose:finance -- --env-file .env.prod.local --out tmp/prod-finance-anomaly-report-post-warning-pass.json`
