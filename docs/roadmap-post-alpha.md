@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.53`
+Current preview release line: `v1.16.54`
 
 ---
 
@@ -21,12 +21,11 @@ Current preview release line: `v1.16.53`
    - active incidents under this lane: still under live verification
      - ✅ Linda Vista `director_deportivo` (Julio) empty Inscripciones Torneos — fixed by campus fallback
      - ✅ Linda Vista `nutritionist` (Denisse) empty player list — fixed by campus fallback
-     - ⚠️ Caja front desk new-player intake pricing error — `v1.16.53` adds active-plan fallback plus runtime env/query diagnostics because Vercel logs showed zero pricing plan versions returned from the production admin query
+     - ✅ Caja front desk new-player intake pricing error — fixed after production Vercel env audit found a Supabase URL/service-role key project mismatch; `v1.16.54` adds a guard to fail fast on that mismatch in the future
    - next required work:
-     - confirm Caja can create a new player after `v1.16.53` deploy
-     - if still failing, inspect the new `[intake] pricing plan diagnostics` log and correct the Vercel Supabase env/project or pricing seed data accordingly
      - confirm Julio and Denisse can access their data after deploy
      - confirm whether Julio should remain Linda Vista-only or receive Contry/global campus scope
+     - add a small production runbook/checklist for Vercel env changes before future Supabase project or secret rotations
 
 1. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:

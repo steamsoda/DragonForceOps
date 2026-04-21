@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { assertSupabaseServiceRoleMatchesUrl } from "@/lib/supabase/env";
 
 /**
  * Service-role Supabase client — bypasses RLS.
@@ -13,6 +14,8 @@ export function createAdminClient() {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY or Supabase URL env var.");
   }
 
+  assertSupabaseServiceRoleMatchesUrl(url, serviceRoleKey);
+
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -23,6 +26,13 @@ export function tryCreateAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
+    return null;
+  }
+
+  try {
+    assertSupabaseServiceRoleMatchesUrl(url, serviceRoleKey);
+  } catch (error) {
+    console.error("[supabase-env] admin client disabled due to invalid Supabase env", error);
     return null;
   }
 
