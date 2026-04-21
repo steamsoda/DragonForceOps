@@ -37,6 +37,7 @@ Use this flow to ship changes with low downtime and avoid touching `main` direct
 - `Preview` deploy must use preview Supabase URL/key.
 - `Production` deploy must use production Supabase URL/key.
 - In Vercel, set variables separately by environment (not shared unless intentionally same project).
+- After any env change, use `docs/production-access-runbook.md` and `Super Admin > Auditoria accesos` to confirm URL/key project refs match before staff resumes testing.
 
 ## Preview auth checklist
 1. Confirm authorize URL uses expected preview project ref:

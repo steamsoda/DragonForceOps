@@ -1,8 +1,14 @@
 # Role Permissions Audit
 
-Last updated: 2026-04-20
+Last updated: 2026-04-21
 
 This document is the working source of truth for app roles, navigation access, data access, and write boundaries in INVICTA. It exists because app-layer route guards, Supabase RLS, preview debug mode, and production login behavior can drift apart if they are not reviewed together.
+
+Current safety additions:
+
+- `Super Admin > Auditoria accesos` is the production-safe read-only diagnostic for env, role, and campus scope checks.
+- `Debug permisos` remains preview-only and must not be treated as proof that production RLS works.
+- Supabase admin-client creation now validates that the URL project ref and service-role JWT project ref match before trusted reads are used.
 
 ## Core Principle
 
@@ -87,9 +93,9 @@ Expected permissions:
 
 Known current risk:
 
-- The hardened front-desk RLS model checks some child inserts against an existing enrollment/player campus relationship.
-- The one-page intake creates brand-new records in stages, so linking a tutor to a brand-new player before the enrollment exists can fail under RLS.
-- Recommendation: move the whole new-player intake mutation into one audited trusted server RPC/action after app-layer auth + campus validation, or reorder the non-admin RLS path so enrollment exists before the tutor link check.
+- New-player intake now uses trusted server-side setup reads after app-layer role/campus validation.
+- The April 21 pricing outage was caused by a Vercel Supabase URL/service-role project mismatch, not missing pricing rows.
+- Continue verifying Caja after deployments with `/players/new` and `/caja` smoke tests.
 
 ### `director_deportivo`
 
@@ -122,12 +128,11 @@ Expected permissions:
 - No enrollment editing.
 - No nutrition data.
 
-Known current mismatch:
+Current guardrail:
 
-- App-layer guards allow `director_deportivo` into `Inscripciones Torneos`.
-- The `Inscripciones Torneos` query still derives confirmation from products, charges, payment allocations, active enrollments, players, teams, and team assignments.
-- In live production, a real `director_deportivo` user likely does not have RLS read access to enough of those underlying rows, so the page can render empty even though preview debug works.
-- Recommendation: do not broadly grant sports users raw finance-table access. Add a server-side safe query/RPC that returns only nonfinancial signup summaries needed by sports views.
+- `Inscripciones Torneos` is allowed for sports staff but must remain a no-money surface.
+- Sports access should be verified through the production access diagnostic and live `/sports-signups` smoke test.
+- Do not broadly grant sports users raw finance-table access. If a sports view needs derived payment state, keep using safe server-side summaries with no amounts or payment methods.
 
 Bootstrap requirement:
 
@@ -165,15 +170,11 @@ Expected permissions:
 - No level assignment.
 - No sports competition management.
 
-Known current mismatch:
+Current guardrail:
 
-- The nutrition migration added `nutritionist` data policies for campuses, players, enrollments, and measurement sessions.
-- It did not add explicit self-read policies for `app_roles` and `user_roles` equivalent to the later `director_deportivo` bootstrap fix.
-- If production does not have a working trusted fallback during auth bootstrap, a live nutritionist can authenticate but resolve as role-less.
-- Recommendation: add a nutritionist self-read bootstrap migration:
-  - `nutritionist_read_app_roles`
-  - `nutritionist_read_own_user_roles`
-  - keep `nutritionist_read_campuses` scoped to accessible campuses
+- Nutrition pages use the nutrition context and campus fallback path.
+- Nutritionist production access should be verified with `Super Admin > Auditoria accesos`, `/nutrition`, and `/nutrition/measurements`.
+- If a nutritionist authenticates but resolves as role-less, inspect `user_roles`, `app_roles`, campus scope, and the Supabase env match before changing policies.
 
 ### `coach`
 
@@ -208,6 +209,8 @@ Failure pattern:
 
 - If role bootstrap returns empty rows, the app says `Sin autorizacion` even when the DB role assignment is valid.
 - If preview debug uses a superadmin actor, preview can pass while production fails.
+- If the Supabase service-role key belongs to a different project than the URL, trusted fallback reads fail with `Invalid API key` and can look like empty pricing/config/role data.
+- Use `Super Admin > Auditoria accesos` for production-safe verification before changing RLS or role assignments.
 
 ## Current Incidents Under Review
 
@@ -219,17 +222,18 @@ Reported issue:
 
 Known data:
 
-- `julioc@dragonforcemty.com` has `director_deportivo` scoped to Linda Vista in production.
+- `julioc@dragonforcemty.com` should now have global `director_deportivo` scope (`campus_id = null`) in production.
 - `sebastiang@dragonforcemty.com` has `director_deportivo` scoped to Contry in production.
 
-Likely cause:
+Resolved / current cause:
 
-- App access is allowed, but live RLS does not expose the raw tables used to compute tournament signup boards.
+- Earlier empty-board reports were caused by a combination of scoped campus fallback issues and later the Supabase env mismatch.
+- Julio's intended scope is now global sports visibility.
 
-Preferred fix:
+Verification:
 
-- Build a sports-safe server-side query/RPC for signup boards that returns only the fields sports staff should see.
-- Avoid granting direct sports RLS access to raw payment allocations or charge amounts unless the business explicitly approves it.
+- Confirm `Auditoria accesos` shows Julio with `director_deportivo | Todos`.
+- Confirm `/sports-signups` shows both campuses and still no money amounts.
 
 ### Nutritionist Linda Vista
 
@@ -241,17 +245,14 @@ Known data:
 
 - `denisseo@dragonforcemty.com` has `nutritionist` scoped to Linda Vista in production.
 
-Likely cause:
+Likely historical cause:
 
-- Missing nutritionist self-read bootstrap policies for `app_roles` / `user_roles`, combined with preview debug masking the issue.
+- Scoped campus fallback and production env mismatch could both make valid role assignments resolve as empty in live production.
 
-Needed from ops:
+Verification:
 
-- Confirm the nutritionist user's email so the live role row can be checked.
-
-Preferred fix:
-
-- Add nutritionist self-read bootstrap policies and verify prod role assignment.
+- Confirm `Auditoria accesos` shows Denisse as Linda Vista `nutritionist`.
+- Confirm Denisse can open `/nutrition` and `/nutrition/measurements`.
 
 Director/director-admin boundary:
 
@@ -265,19 +266,15 @@ Reported issue:
 
 - Trouble creating new players; error appears around tutor creation.
 
-Likely cause:
+Resolved / current cause:
 
-- The staged intake flow creates guardian/player/link/enrollment/charges across several RLS-sensitive tables.
-- The current hardened policies are campus-aware, but some records do not have a campus relationship until later in the flow.
+- The latest confirmed outage was caused by Vercel production Supabase env mismatch, which made trusted pricing reads fail with `Invalid API key`.
+- Pricing rows existed in production and Caja recovered after the Vercel env correction and redeploy.
 
-Preferred fix:
+Verification:
 
-- Treat new-player intake as one trusted, audited server operation after:
-  - user is authenticated
-  - user is `front_desk` or director
-  - selected campus is within their allowed scope
-  - form validates
-- Keep normal edit/update flows under RLS after the record exists.
+- Caja Contry and Caja Linda Vista should smoke test `/players/new`.
+- If the error returns, inspect env match first, then pricing rows, then intake action logs.
 
 Known production front desk role assignments:
 
@@ -296,25 +293,21 @@ Known production front desk role assignments:
 8. `coach` remains completely inactive until the coach/attendance module is explicitly activated.
 9. Campus-scoped users only see assigned campuses unless their `user_roles.campus_id` is `null`.
 
-Open operational decision:
+Operational decision resolved on 2026-04-21:
 
-- `julioc@dragonforcemty.com` is currently scoped to Linda Vista in production. If he must see Contry `Inscripciones Torneos`, the role assignment should become Contry + Linda Vista or global; the app should not silently override campus scope in code.
+- `julioc@dragonforcemty.com` should have global `director_deportivo` scope so he can see all sports signup boards without money amounts.
 
 ## Recommended Next Fix Order
 
-1. Production auth bootstrap hardening:
-   - add missing nutritionist self-read role policies
-   - verify each live role resolves at least one role row
-2. Sports signup board data boundary:
-   - replace raw client/RLS table reads with a sports-safe trusted server query
-   - return no money amounts
-3. Intake read/write boundary:
-   - keep new-player intake as a trusted audited server operation after app-layer permission checks
-   - use trusted reads for pricing/charge type setup so front desk does not fail on reference-table RLS
-4. Regression matrix:
-   - create one smoke path per role:
-     - login
-     - `/inicio`
-     - expected nav item exists
-     - expected forbidden route redirects
-     - one expected data query returns rows when data exists
+1. Production smoke verification:
+   - Denisse: `/nutrition`, `/nutrition/measurements`
+   - Julio: `/sports-signups` across campuses, no money amounts
+   - Caja: `/players/new`, `/caja`
+2. Use `Super Admin > Auditoria accesos` after every auth/env deploy to verify:
+   - Supabase URL/key project refs match
+   - key live users exist
+   - role rows and campus scopes resolve as expected
+3. Keep sports and nutrition surfaces safe:
+   - derived status chips are allowed
+   - raw money amounts/payment methods are not allowed for sports/nutrition
+4. Continue workflow work only after access smoke tests are stable.

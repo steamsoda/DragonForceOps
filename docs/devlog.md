@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-21 (session 111)
+
+### Role Access Audit + Production Diagnostic (v1.16.57)
+
+- Added `Super Admin > Auditoria accesos`, a production-safe read-only diagnostic page for:
+  - Supabase URL/service-role project-ref match status
+  - key live user role rows
+  - resolved operational and nutrition campus scope
+  - quick access indicators for Caja, sports, nutrition, and director surfaces
+- Kept preview impersonation isolated in `Debug permisos`; the new page does not impersonate users and does not write data.
+- Added `docs/production-access-runbook.md` for env checks, safe project-ref comparison, role bootstrap checks, safe log-sharing rules, and post-deploy smoke tests.
+- Updated the role permissions audit to reflect the current post-incident state after the campus fallback and Supabase env guard fixes.
+- Updated Julio's intended sports scope decision in docs: `julioc@dragonforcemty.com` should be global `director_deportivo` so he can see all sports signup boards without money amounts.
+
 ## 2026-04-21 (session 110)
 
 ### Supabase Production Env Guard (v1.16.54-v1.16.56)
