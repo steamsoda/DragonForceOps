@@ -18,12 +18,16 @@ const DIRECTOR_GESTION_SECTION: NavSection = {
   items: [
     { href: "/dashboard", label: "Panel" },
     { href: "/pending", label: "Pendientes" },
+    { href: "/llamadas", label: "Llamadas" },
   ],
 };
 
 const FRONT_DESK_GESTION_SECTION: NavSection = {
   label: "Gestion",
-  items: [{ href: "/pending", label: "Pendientes" }],
+  items: [
+    { href: "/pending", label: "Pendientes" },
+    { href: "/llamadas", label: "Llamadas" },
+  ],
 };
 
 const COMPETITION_SECTION: NavSection = {
@@ -405,6 +409,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                 <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
                 <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
                 <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
+                <Link href="/llamadas" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Llamadas</Link>
                 <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
                 <Link href="/receipts" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Recibos</Link>
                 <Link href="/admin/debug-view" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Panel debug</Link>

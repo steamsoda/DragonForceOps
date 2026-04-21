@@ -27,8 +27,8 @@ export default async function BajaWriteoffPage({ searchParams }: { searchParams:
       subtitle="Anula cargos pendientes de alumnos que ya estan de baja o cancelados."
     >
       <div className="space-y-4">
-        <Link href="/pending" className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-          {"<-"} Pagos pendientes
+        <Link href="/llamadas" className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+          {"<-"} Llamadas
         </Link>
 
         {params.ok === "voided" ? (

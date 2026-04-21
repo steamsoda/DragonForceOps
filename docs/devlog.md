@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-21 (session 112)
+
+### Pendientes Tuition Board + Llamadas Split (v1.16.58)
+
+- Moved the existing balance/call follow-up workflow from `/pending` to `/llamadas` and updated navigation labels for directors and front desk.
+- Rebuilt `/pending` as a tuition-only board:
+  - active players with unpaid `monthly_tuition` charges only
+  - campus cards plus category/YOB cards modeled after `Inscripciones Torneos`
+  - optional `month=YYYY-MM` filter
+  - chips for `1 mes`, `2 meses`, `3+ meses`, and overdue state
+- Added a category detail view under `/pending/detail` where rows link to the player profile and show only tuition-safe fields.
+- Kept money amounts, tutor contact data, phone numbers, receipts, payment methods, and Caja actions out of the new `Pendientes` board.
+- Updated cache invalidation so payment posting, corrections, enrollment changes, and call follow-up refresh the correct `Pendientes` and/or `Llamadas` surfaces.
+
 ## 2026-04-21 (session 111)
 
 ### Role Access Audit + Production Diagnostic (v1.16.57)

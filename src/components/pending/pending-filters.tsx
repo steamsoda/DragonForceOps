@@ -16,6 +16,7 @@ type PendingFiltersProps = {
   overdue: string;
   campuses: CampusOption[];
   teams: TeamOption[];
+  basePath?: string;
 };
 
 export function PendingFilters({
@@ -25,7 +26,8 @@ export function PendingFilters({
   balanceBucket,
   overdue,
   campuses,
-  teams
+  teams,
+  basePath = "/pending"
 }: PendingFiltersProps) {
   return (
     <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-2 xl:grid-cols-12">
@@ -88,7 +90,7 @@ export function PendingFilters({
           Aplicar filtros
         </button>
         <a
-          href="/pending"
+          href={basePath}
           className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
         >
           Limpiar

@@ -189,6 +189,7 @@ export async function revalidatePaymentSurfaces(ledger: EnrollmentLedger) {
   revalidatePath("/receipts");
   revalidatePath("/caja");
   revalidatePath("/pending");
+  revalidatePath("/llamadas");
   revalidatePath("/uniforms");
   revalidatePath("/reports/corte-diario");
   if (ledger.enrollment.playerId) {

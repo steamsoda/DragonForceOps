@@ -9,6 +9,7 @@ Current safety additions:
 - `Super Admin > Auditoria accesos` is the production-safe read-only diagnostic for env, role, and campus scope checks.
 - `Debug permisos` remains preview-only and must not be treated as proof that production RLS works.
 - Supabase admin-client creation now validates that the URL project ref and service-role JWT project ref match before trusted reads are used.
+- As of `v1.16.58`, `Pendientes` means the tuition-only board with no money amounts or contact data; the old call/follow-up workflow now lives under `Llamadas`.
 
 ## Core Principle
 
@@ -29,7 +30,7 @@ Purpose: full system owner and emergency operator.
 Expected navigation:
 
 - `Diario`: Caja, Jugadores, Uniformes, Regularizacion Contry where applicable
-- `Gestion`: Panel, Pendientes
+- `Gestion`: Panel, Pendientes, Llamadas
 - `Competencias`: Inscripciones Torneos
 - `Nutricion`: Panel, Toma de medidas
 - `Reportes`: all reports
@@ -51,7 +52,7 @@ Purpose: full operational director without preview/debug ownership.
 Expected navigation:
 
 - `Diario`: Caja, Jugadores, Uniformes, Regularizacion Contry where applicable
-- `Gestion`: Panel, Pendientes
+- `Gestion`: Panel, Pendientes, Llamadas
 - `Competencias`: Inscripciones Torneos
 - `Nutricion`: Panel, Toma de medidas
 - `Reportes`: all director reports
@@ -72,7 +73,7 @@ Purpose: daily Caja and enrollment operator, scoped by campus.
 Expected navigation:
 
 - `Diario`: Caja, Jugadores, Uniformes, Regularizacion Contry only if their campus scope includes Contry
-- `Gestion`: Pendientes
+- `Gestion`: Pendientes, Llamadas
 - `Competencias`: Inscripciones Torneos
 - `Reportes`: Corte Diario, Recibos
 
@@ -83,6 +84,8 @@ Expected permissions:
 - Edit basic player/tutor operational data.
 - Post payments through Caja.
 - Create normal guided Caja charges/products.
+- Use `Pendientes` as a tuition-only board without money amounts or contact info.
+- Use `Llamadas` for collections follow-up, phone/contact context, and promise tracking.
 - Use `Inscripciones Torneos` as a read-only/non-admin operational board.
 - See receipts and Corte Diario for assigned campus scope.
 - No `Gestion > Panel` dashboard.
