@@ -13,12 +13,17 @@ import { summarizeRoleScopes } from "@/lib/auth/role-display";
 import { clearDebugViewAction, setDebugViewUserAction } from "@/server/actions/debug-view";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 
-const GESTION_SECTION: NavSection = {
+const DIRECTOR_GESTION_SECTION: NavSection = {
   label: "Gestion",
   items: [
     { href: "/dashboard", label: "Panel" },
     { href: "/pending", label: "Pendientes" },
   ],
+};
+
+const FRONT_DESK_GESTION_SECTION: NavSection = {
+  label: "Gestion",
+  items: [{ href: "/pending", label: "Pendientes" }],
 };
 
 const COMPETITION_SECTION: NavSection = {
@@ -113,7 +118,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   };
 
   const sections: NavSection[] = [
-    ...(isDirectorOrAbove || isFrontDesk ? [staffSection, GESTION_SECTION] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : []),
+    ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [COMPETITION_SECTION] : []),
     ...(hasNutritionAccess ? [NUTRITION_SECTION] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),

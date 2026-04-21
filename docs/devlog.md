@@ -1,5 +1,36 @@
 # Devlog
 
+## 2026-04-20 (session 106)
+
+### Role Permission Stabilization (v1.16.49)
+
+- Locked the owner's role/access decisions into `docs/role-permissions-audit.md`.
+- Changed `Gestion > Panel` to director-only while keeping front desk on operational `Pendientes` and `Inscripciones Torneos`.
+- Added a stabilization migration for:
+  - nutritionist self-read access to role bootstrap rows
+  - nutritionist read access to tutor links/contact rows for nutrition-safe profiles
+  - front-desk read access to newer pricing tables used by intake quotes
+- Moved `Inscripciones Torneos` data loading to a trusted server-side query after app-layer campus checks so `director_deportivo` can see sports status chips without raw money amounts.
+- Hardened new-player / new-enrollment intake setup reads by resolving pricing and charge types with the trusted server client after campus validation.
+- Updated nutrition surfaces to show gender, medical notes, and tutor contact information; `director_admin` remains read-only for nutrition measurements.
+
+## 2026-04-20 (session 105)
+
+### Role Permissions Audit Started
+
+- Added `docs/role-permissions-audit.md` as the working source of truth for role access, route boundaries, RLS expectations, and known mismatches.
+- Captured current production role assignment facts for:
+  - `julioc@dragonforcemty.com` as Linda Vista `director_deportivo`
+  - `sebastiang@dragonforcemty.com` as Contry `director_deportivo`
+  - `denisseo@dragonforcemty.com` as Linda Vista `nutritionist`
+  - current front-desk assignments
+- Documented the likely live/preview mismatch:
+  - preview debug mode can pass because the actor is superadmin while production users hit RLS as themselves
+- Identified three active permission-boundary issues to resolve next:
+  - nutritionist live bootstrap needs explicit self-read role policies
+  - `Inscripciones Torneos` is app-allowed for sports users but still depends on raw tables that sports RLS does not expose
+  - one-page front-desk intake crosses multiple staged inserts where some RLS checks require a campus relationship that does not exist until later in the flow
+
 ## 2026-04-20 (session 104)
 
 ### Emergency Auth Bootstrap Fallback Hotfix (v1.16.48)

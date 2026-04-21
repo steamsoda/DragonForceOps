@@ -201,7 +201,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   }
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
-    getEnrollmentPricingQuote(supabase, {
+    getEnrollmentPricingQuote(admin, {
       planCode: enrollment.pricingPlanCode,
       startDate: enrollment.startDate,
     }),

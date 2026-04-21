@@ -5,6 +5,7 @@ import { assertDebugWritesAllowed, isDebugWriteBlocked } from "@/lib/auth/debug-
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
 import { applyScholarshipToAmount, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 import {
@@ -212,6 +213,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   );
 
   const supabase = await createClient();
+  const admin = createAdminClient();
   const {
     data: { user },
     error: userError,
@@ -254,11 +256,11 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   }
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
-    getEnrollmentPricingQuote(supabase, {
+    getEnrollmentPricingQuote(admin, {
       planCode: parsed.pricingPlanCode,
       startDate: parsed.startDate,
     }),
-    supabase
+    admin
       .from("charge_types")
       .select("id, code")
       .in("code", ["inscription", "monthly_tuition"])

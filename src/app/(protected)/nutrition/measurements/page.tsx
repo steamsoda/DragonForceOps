@@ -90,7 +90,9 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
                 <th className="px-3 py-2">Jugador</th>
                 <th className="px-3 py-2">Campus</th>
                 <th className="px-3 py-2">Cat.</th>
+                <th className="px-3 py-2">Genero</th>
                 <th className="px-3 py-2">Nivel</th>
+                <th className="px-3 py-2">Tutor</th>
                 <th className="px-3 py-2">Ult. inscripcion</th>
                 <th className="px-3 py-2">Ult. medicion</th>
                 <th className="px-3 py-2">Peso</th>
@@ -102,7 +104,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={10}>
+                  <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={12}>
                     No hay jugadores con esos filtros.
                   </td>
                 </tr>
@@ -112,7 +114,18 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
                     <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.playerName}</td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.birthYear ?? "-"}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.genderLabel}</td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                      {row.guardianContact ? (
+                        <span>
+                          {row.guardianContact.name}
+                          {row.guardianContact.phonePrimary ? ` | ${row.guardianContact.phonePrimary}` : ""}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                       {row.latestEnrollmentDate ? formatDateMonterrey(`${row.latestEnrollmentDate}T12:00:00.000Z`) : "-"}
                     </td>
