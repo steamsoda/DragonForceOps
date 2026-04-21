@@ -538,6 +538,7 @@ export async function updateEnrollmentAction(
   revalidatePath(`/players/${playerId}`);
   revalidatePath("/players");
   revalidatePath("/pending");
+  revalidatePath("/llamadas");
   revalidatePath("/admin/mensualidades");
   revalidatePath("/reports/porto-mensual");
   redirect(`/players/${playerId}`);
@@ -609,6 +610,7 @@ export async function dropoutEnrollmentAction(
   revalidatePath(`/players/${playerId}`);
   revalidatePath("/players");
   revalidatePath("/pending");
+  revalidatePath("/llamadas");
   revalidatePath("/pending/bajas");
   redirect(`/players/${playerId}?ok=dropped`);
 }
@@ -727,6 +729,6 @@ export async function updatePendingFollowUpAction(
     },
   });
 
-  revalidatePath("/pending");
+  revalidatePath("/llamadas");
   return { ok: true };
 }

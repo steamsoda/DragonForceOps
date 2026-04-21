@@ -116,6 +116,7 @@ async function revalidateCorrectionSurfaces(enrollmentId: string, playerId: stri
   revalidatePath(`/enrollments/${enrollmentId}/charges`);
   if (playerId) revalidatePath(`/players/${playerId}`);
   revalidatePath("/pending");
+  revalidatePath("/llamadas");
   revalidatePath("/dashboard");
   revalidatePath("/admin/finance-sanity");
   revalidatePath("/admin/actividad");

@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.57`
+Current preview release line: `v1.16.58`
 
 ---
 
@@ -40,19 +40,18 @@ Current preview release line: `v1.16.57`
      - richer nutrition KPI/analytics and future workflow polish
 
 2. Collections / pending-tuition board split
-   - rename the current `Pendientes` tab to a collections-oriented name such as `Llamadas`
-   - create a new real `Pendientes` tab focused on players with unpaid monthly tuition
-   - target UX:
-     - visually and operationally close to `Inscripciones Torneos`
-     - category-card overview first
+   - `v1.16.58` implemented the functional split:
+     - `/llamadas` now owns the old balance/call follow-up workflow
+     - `/pending` now owns the tuition-only board for unpaid monthly tuition
+   - current `Pendientes` behavior:
+     - campus-first and category-card overview modeled after `Inscripciones Torneos`
      - click into each `Cat` card for deeper review
-   - target indicators:
-     - pending monthly tuition counts by category/campus
-     - chips such as `+2 meses pendientes`
-     - stronger visual coding for urgency and aging
-     - collections-oriented KPIs that differ from the current follow-up board
-   - planning note:
-     - this is not a small rename; it is a functional split between follow-up workflow and tuition-delinquency visibility
+     - optional `month=YYYY-MM` filter
+     - chips for `1 mes`, `2 meses`, `3+ meses`, and overdue status
+     - no money amounts, tutor contact info, phone, receipts, or Caja actions
+   - follow-up:
+     - live-test role access with front desk and directors
+     - tune urgency colors/counts after a few days of production usage
 
 3. Product and competition rules rework follow-up
    - continue the pending rework for product and competition rules
