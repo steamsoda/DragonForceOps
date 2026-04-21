@@ -2,7 +2,7 @@
 
 ## 2026-04-21 (session 110)
 
-### Supabase Production Env Guard (v1.16.54)
+### Supabase Production Env Guard (v1.16.54-v1.16.55)
 
 - Root-caused the live Caja pricing outage to a Vercel production env mismatch:
   - `NEXT_PUBLIC_SUPABASE_URL` pointed at prod project `hjvytfaalnfcqfgbxsmj`
@@ -14,6 +14,7 @@
   - throws with a clear safe diagnostic for proven URL/key project mismatches
   - logs a warning if the key format cannot be verified
   - never logs the secret value.
+- Added `.vercelignore` so future manual Vercel CLI deployments do not package local `.env*` files from the workstation.
 - Assessment: this was an availability/configuration failure, not evidence of pricing-table deletion or finance data corruption.
 
 ## 2026-04-21 (session 109)

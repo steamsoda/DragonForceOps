@@ -1,0 +1,12 @@
+.env
+.env.local
+.env.*.local
+.vercel
+node_modules
+.next
+out
+dist
+coverage
+tmp
+docs/Reference Docs
+qz-private.pem
