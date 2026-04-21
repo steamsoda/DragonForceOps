@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-04-21 (session 113)
+
+### Pendientes UI Polish + KPI Drilldowns (v1.16.59)
+
+- Kept all accessible campus cards visible on `/pending` even when one campus is selected; the selected campus now only scopes totals, categories, and drilldowns.
+- Made the `1 mes`, `2 meses`, and `3+ meses` KPI cards clickable, opening `/pending/detail` with a bucket filter that respects the current campus/month scope.
+- Cleaned up the red KPI to mean `3+ meses pendientes` only, leaving overdue as a badge/chip instead of mixing it into the count.
+- Standardized pending chips with centered text and visible borders across campus cards, category cards, month chips, and urgency badges.
+- Improved `/pending/detail` row alignment so players with multiple pending months do not shift the visual columns.
+
 ## 2026-04-21 (session 112)
 
 ### Pendientes Tuition Board + Llamadas Split (v1.16.58)
