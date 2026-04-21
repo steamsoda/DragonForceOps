@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-04-20 (session 108)
+
+### Campus Access Fallback for Scoped Roles (v1.16.51)
+
+- Root-cause investigation revealed that when the `campuses` nested join in `loadRoleRows` returns `null` (RLS policy evaluation timing), every scoped role (front_desk, director_deportivo, nutritionist) ends up with an empty campus list — silently breaking all downstream queries filtered by campus.
+- Fixed in `getOperationalCampusAccess()` and `getNutritionCampusAccess()`: added a fallback that reconstructs the campus list from the `campus_id` column on `user_roles` (always returned, not a join) matched against the already-loaded `allCampuses` list.
+- Added defensive migration `20260420180000_ensure_enrollment_tuition_rules.sql`: idempotent re-insert of enrollment tuition rules for any active standard plan that has none (addresses potential silent data gap causing the client-side pricing error).
+- Added `console.warn` in `getEnrollmentIntakeContext()` when pricing versions are loaded but the quote is still null — will appear in Vercel logs for diagnosis if the data gap persists.
+- Fixes: Caja front desk "No se encontró configuración de precios", Julio (director_deportivo) empty Inscripciones Torneos, Denisse (nutritionist) empty player list.
+
 ## 2026-04-20 (session 107)
 
 ### Caja Intake Config Fallback (v1.16.50)

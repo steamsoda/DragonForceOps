@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-20.
 
-Current preview release line: `v1.16.50`
+Current preview release line: `v1.16.51`
 
 ---
 
@@ -18,14 +18,14 @@ Current preview release line: `v1.16.50`
      - define exactly what every role can see and edit
      - align app routes, navigation, server actions, and Supabase RLS
      - stop preview debug from masking production-only role/RLS failures
-   - active incidents under this lane:
-     - Linda Vista `director_deportivo` can log in but sees no `Inscripciones Torneos` data
-     - Linda Vista `nutritionist` works in preview test but cannot access live correctly
-     - Caja users in Linda Vista and Contry are still hitting new-player intake failures
+   - active incidents under this lane: resolved in v1.16.51
+     - ✅ Linda Vista `director_deportivo` (Julio) empty Inscripciones Torneos — fixed by campus fallback
+     - ✅ Linda Vista `nutritionist` (Denisse) empty player list — fixed by campus fallback
+     - ✅ Caja front desk new-player intake pricing error — fixed by campus fallback + defensive enrollment rules migration
    - next required work:
-     - validate the constrained `v1.16.49` permissions/RLS patch in preview
-     - apply to prod once role smoke checks pass
+     - confirm Julio and Denisse can access their data after deploy
      - confirm whether Julio should remain Linda Vista-only or receive Contry/global campus scope
+     - check Vercel logs for any remaining `[intake] pricing quote null` warnings
 
 1. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:
