@@ -351,6 +351,49 @@ export async function fetchPricingPlanVersionsByCode(
   return planRows.map((plan) => buildPlanSnapshot(plan, planItems, tuitionRules, enrollmentRules));
 }
 
+export async function fetchActivePricingPlanVersions(
+  supabase: SupabaseClient
+): Promise<PricingPlanVersionSnapshot[]> {
+  const { data: plans } = await supabase
+    .from("pricing_plans")
+    .select("id, name, currency, plan_code, effective_start, effective_end, updated_at")
+    .eq("is_active", true)
+    .order("effective_start", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .returns<EffectivePricingPlanRow[]>();
+
+  const planRows = plans ?? [];
+  if (planRows.length === 0) return [];
+
+  const planIds = planRows.map((plan) => plan.id);
+  const [planItemsResult, tuitionRulesResult, enrollmentRulesResult] = await Promise.all([
+    supabase
+      .from("pricing_plan_items")
+      .select("pricing_plan_id, amount, charge_types(code)")
+      .eq("is_active", true)
+      .in("pricing_plan_id", planIds)
+      .returns<PlanItemRow[]>(),
+    supabase
+      .from("pricing_plan_tuition_rules")
+      .select("id, pricing_plan_id, day_from, day_to, amount")
+      .in("pricing_plan_id", planIds)
+      .order("day_from", { ascending: true })
+      .returns<TuitionRuleRow[]>(),
+    supabase
+      .from("pricing_plan_enrollment_tuition_rules")
+      .select("pricing_plan_id, day_from, day_to, amount, charge_month_offset")
+      .in("pricing_plan_id", planIds)
+      .order("day_from", { ascending: true })
+      .returns<EnrollmentTuitionRuleRow[]>(),
+  ]);
+
+  const planItems = planItemsResult.data ?? [];
+  const tuitionRules = tuitionRulesResult.data ?? [];
+  const enrollmentRules = enrollmentRulesResult.data ?? [];
+
+  return planRows.map((plan) => buildPlanSnapshot(plan, planItems, tuitionRules, enrollmentRules));
+}
+
 export async function getPricingDefaultsForPlan(
   supabase: SupabaseClient,
   pricingPlanId: string
