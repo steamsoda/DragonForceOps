@@ -5,6 +5,7 @@ import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
 import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
 import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
@@ -51,7 +52,7 @@ function redirectWithError(
 }
 
 async function rollbackIntake(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient>,
   ids: {
     teamAssignmentId?: string | null;
     enrollmentId?: string | null;
@@ -61,20 +62,20 @@ async function rollbackIntake(
   }
 ) {
   if (ids.teamAssignmentId) {
-    await supabase.from("team_assignments").delete().eq("id", ids.teamAssignmentId);
+    await admin.from("team_assignments").delete().eq("id", ids.teamAssignmentId);
   }
   if (ids.enrollmentId) {
-    await supabase.from("charges").delete().eq("enrollment_id", ids.enrollmentId);
-    await supabase.from("enrollments").delete().eq("id", ids.enrollmentId);
+    await admin.from("charges").delete().eq("enrollment_id", ids.enrollmentId);
+    await admin.from("enrollments").delete().eq("id", ids.enrollmentId);
   }
   if (ids.playerGuardianId) {
-    await supabase.from("player_guardians").delete().eq("id", ids.playerGuardianId);
+    await admin.from("player_guardians").delete().eq("id", ids.playerGuardianId);
   }
   if (ids.playerId) {
-    await supabase.from("players").delete().eq("id", ids.playerId);
+    await admin.from("players").delete().eq("id", ids.playerId);
   }
   if (ids.guardianId) {
-    await supabase.from("guardians").delete().eq("id", ids.guardianId);
+    await admin.from("guardians").delete().eq("id", ids.guardianId);
   }
 }
 
@@ -180,6 +181,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   await assertDebugWritesAllowed(`/players/new${isReturning ? "?returning=1" : ""}`);
 
   const supabase = await createClient();
+  const admin = createAdminClient();
   const {
     data: { user },
     error: userError,
@@ -203,7 +205,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       planCode: enrollment.pricingPlanCode,
       startDate: enrollment.startDate,
     }),
-    supabase
+    admin
       .from("charge_types")
       .select("id, code")
       .in("code", ["inscription", "monthly_tuition", "uniform_training", "uniform_game"])
@@ -237,7 +239,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const inscriptionAmount = returnOption?.amount ?? pricingQuote.inscriptionAmount;
   const inscriptionDescription = returnOption?.chargeDescription ?? "Inscripcion";
 
-  const { data: guardian, error: guardianError } = await supabase
+  const { data: guardian, error: guardianError } = await admin
     .from("guardians")
     .insert({
       first_name: player.guardianFirstName,
@@ -252,11 +254,12 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     .returns<{ id: string } | null>();
 
   if (guardianError || !guardian) {
+    console.error("intake guardian insert failed", guardianError);
     return redirectWithError("guardian_failed", { isReturning: player.isReturning });
   }
   createdIds.guardianId = guardian.id;
 
-  const { data: createdPlayer, error: playerError } = await supabase
+  const { data: createdPlayer, error: playerError } = await admin
     .from("players")
     .insert({
       first_name: player.firstName,
@@ -271,12 +274,13 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     .returns<{ id: string } | null>();
 
   if (playerError || !createdPlayer) {
-    await rollbackIntake(supabase, createdIds);
+    console.error("intake player insert failed", playerError);
+    await rollbackIntake(admin, createdIds);
     return redirectWithError("player_failed", { isReturning: player.isReturning });
   }
   createdIds.playerId = createdPlayer.id;
 
-  const { data: link, error: linkError } = await supabase
+  const { data: link, error: linkError } = await admin
     .from("player_guardians")
     .insert({
       player_id: createdPlayer.id,
@@ -288,12 +292,13 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     .returns<{ id: string } | null>();
 
   if (linkError || !link) {
-    await rollbackIntake(supabase, createdIds);
+    console.error("intake guardian link failed", linkError);
+    await rollbackIntake(admin, createdIds);
     return redirectWithError("link_failed", { isReturning: player.isReturning });
   }
   createdIds.playerGuardianId = link.id;
 
-  const { data: createdEnrollment, error: enrollmentError } = await supabase
+  const { data: createdEnrollment, error: enrollmentError } = await admin
     .from("enrollments")
     .insert({
       player_id: createdPlayer.id,
@@ -311,7 +316,8 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     .returns<{ id: string; pricing_plans: { currency: string } | null } | null>();
 
   if (enrollmentError || !createdEnrollment) {
-    await rollbackIntake(supabase, createdIds);
+    console.error("intake enrollment insert failed", enrollmentError);
+    await rollbackIntake(admin, createdIds);
     return redirectWithError("enrollment_failed", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
@@ -322,7 +328,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const currency = createdEnrollment.pricing_plans?.currency ?? pricingQuote.plan.currency ?? "MXN";
   const tuitionDescription = `Mensualidad ${formatPeriodMonthLabel(pricingQuote.tuitionPeriodMonth)}`;
 
-  const { error: chargesError } = await supabase.from("charges").insert([
+  const { error: chargesError } = await admin.from("charges").insert([
     {
       enrollment_id: createdEnrollment.id,
       charge_type_id: inscriptionTypeId,
@@ -345,7 +351,8 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   ]);
 
   if (chargesError) {
-    await rollbackIntake(supabase, createdIds);
+    console.error("intake charge seed failed", chargesError);
+    await rollbackIntake(admin, createdIds);
     return redirectWithError("charges_failed", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
@@ -358,7 +365,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
 
   if (includesKits) {
     const kitStatus = kitFulfillment === "deliver_now" ? "delivered" : "pending_order";
-    await supabase.from("uniform_orders").insert([
+    await admin.from("uniform_orders").insert([
       {
         player_id: createdPlayer.id,
         enrollment_id: createdEnrollment.id,
@@ -385,12 +392,12 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       },
     ]);
     if (uniformSize) {
-      await supabase.from("players").update({ uniform_size: uniformSize }).eq("id", createdPlayer.id);
+      await admin.from("players").update({ uniform_size: uniformSize }).eq("id", createdPlayer.id);
     }
   }
 
   if (addExtraKit && uniformTrainingTypeId) {
-    await supabase.from("charges").insert({
+    await admin.from("charges").insert({
       enrollment_id: createdEnrollment.id,
       charge_type_id: uniformTrainingTypeId,
       description: "Kit de entrenamiento adicional",
@@ -405,7 +412,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   }
 
   if (addGameUniform && uniformGameTypeId) {
-    await supabase.from("charges").insert({
+    await admin.from("charges").insert({
       enrollment_id: createdEnrollment.id,
       charge_type_id: uniformGameTypeId,
       description: "Uniforme de juego",
@@ -424,7 +431,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const b2Team = await findB2TeamForAutoAssign(enrollment.campusId, birthYear, player.gender ?? null);
   if (b2Team) {
     const today = new Date().toISOString().split("T")[0];
-    const { data: teamAssignment, error: teamAssignmentError } = await supabase
+    const { data: teamAssignment, error: teamAssignmentError } = await admin
       .from("team_assignments")
       .insert({
         enrollment_id: createdEnrollment.id,
@@ -439,7 +446,8 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       .returns<{ id: string } | null>();
 
     if (teamAssignmentError) {
-      await rollbackIntake(supabase, createdIds);
+      console.error("intake auto team assignment failed", teamAssignmentError);
+      await rollbackIntake(admin, createdIds);
       return redirectWithError("enrollment_failed", {
         isReturning: enrollment.isReturning,
         returnMode: enrollment.returnInscriptionMode,
@@ -447,10 +455,10 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     }
 
     createdIds.teamAssignmentId = teamAssignment?.id ?? null;
-    await supabase.from("players").update({ level: "B2" }).eq("id", createdPlayer.id);
+    await admin.from("players").update({ level: "B2" }).eq("id", createdPlayer.id);
   }
 
-  await writeAuditLog(supabase, {
+  await writeAuditLog(admin, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
     action: "enrollment.created",

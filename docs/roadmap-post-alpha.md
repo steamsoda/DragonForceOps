@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-20.
 
-Current preview release line: `v1.16.46`
+Current preview release line: `v1.16.47`
 
 ---
 
@@ -211,6 +211,13 @@ Notes:
   - immediate auth follow-up now landed:
     - `director_deportivo` users also need self-read access to their own role/campus reference data during protected-layout bootstrap
     - otherwise login can succeed while the app still resolves them as role-less and blocks entry
+  - session 103 hardening:
+    - protected-app role bootstrap now resolves `user_roles` and active campuses through the trusted server admin client instead of depending on user-scoped RLS for those reference reads
+    - this keeps campus-scoped specialist roles from getting locked out by drift in self-read reference policies
+- front-desk intake hardening follow-up:
+  - the one-page `Nuevo jugador` intake now performs its multi-step insert/rollback sequence through the trusted server admin client after normal auth + campus checks pass
+  - goal:
+    - stop Caja/front-desk enrollment intake from failing on tutor/player/link creation because of brittle intermediate RLS edges during the staged create flow
 - the `Deportivo` sidebar section is intentionally hidden for now while the sports workflow is being simplified
   - the sports routes still exist for direct testing/admin access
   - this is a navigation hide, not a rollback of the sports lane
