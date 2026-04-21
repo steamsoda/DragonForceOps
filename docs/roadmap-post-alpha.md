@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-20.
 
-Current preview release line: `v1.16.47`
+Current preview release line: `v1.16.48`
 
 ---
 
@@ -214,6 +214,9 @@ Notes:
   - session 103 hardening:
     - protected-app role bootstrap now resolves `user_roles` and active campuses through the trusted server admin client instead of depending on user-scoped RLS for those reference reads
     - this keeps campus-scoped specialist roles from getting locked out by drift in self-read reference policies
+  - session 104 emergency fallback:
+    - auth bootstrap now prefers the original session-scoped role/campus reads and uses the admin client only as a fallback recovery path
+    - goal: prevent a production-wide lockout if the trusted bootstrap path returns empty reference data
 - front-desk intake hardening follow-up:
   - the one-page `Nuevo jugador` intake now performs its multi-step insert/rollback sequence through the trusted server admin client after normal auth + campus checks pass
   - goal:

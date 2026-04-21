@@ -1,4 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 
 export type AccessibleCampus = {
@@ -37,6 +38,40 @@ function chooseDefaultCampus(campuses: AccessibleCampus[]) {
   })[0];
 }
 
+async function loadAllCampuses() {
+  const supabase = await createClient();
+  const admin = tryCreateAdminClient();
+
+  const primary = await supabase
+    .from("campuses")
+    .select("id, code, name")
+    .eq("is_active", true)
+    .order("name")
+    .returns<AccessibleCampus[]>();
+
+  if (!primary.error && (primary.data?.length ?? 0) > 0) {
+    return primary.data ?? [];
+  }
+
+  if (!admin) {
+    return primary.data ?? [];
+  }
+
+  const fallback = await admin
+    .from("campuses")
+    .select("id, code, name")
+    .eq("is_active", true)
+    .order("name")
+    .returns<AccessibleCampus[]>();
+
+  if (fallback.error) {
+    console.error("campus bootstrap fallback failed", fallback.error);
+    return primary.data ?? [];
+  }
+
+  return fallback.data ?? primary.data ?? [];
+}
+
 export type OperationalCampusAccess = {
   userId: string;
   isDirector: boolean;
@@ -63,15 +98,7 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const admin = createAdminClient();
-  const [{ data: allCampuses }] = await Promise.all([
-    admin
-      .from("campuses")
-      .select("id, code, name")
-      .eq("is_active", true)
-      .order("name")
-      .returns<AccessibleCampus[]>(),
-  ]);
+  const allCampuses = await loadAllCampuses();
 
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
@@ -118,15 +145,7 @@ export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess 
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const admin = createAdminClient();
-  const [{ data: allCampuses }] = await Promise.all([
-    admin
-      .from("campuses")
-      .select("id, code, name")
-      .eq("is_active", true)
-      .order("name")
-      .returns<AccessibleCampus[]>(),
-  ]);
+  const allCampuses = await loadAllCampuses();
 
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
