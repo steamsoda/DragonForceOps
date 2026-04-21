@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-20 (session 103)
+
+### Role Bootstrap + Intake Hotfix (v1.16.47)
+
+- Hardened protected-app role bootstrap for campus-scoped specialist users.
+- Role resolution in the protected shell now reads `user_roles` through the trusted server admin client instead of depending on the signed-in user being able to self-read that reference data through RLS.
+- Active campus catalog loading for permission bootstrap now also uses the trusted server admin client.
+- This specifically protects access for roles like `director_deportivo` if self-read reference policies drift or are incomplete in production.
+- Hardened the one-page enrollment intake action used by Caja/front desk:
+  - the multi-step create flow now writes with the trusted server admin client after normal user authentication and campus validation succeed
+  - rollback cleanup for partial failures now uses the same trusted path
+  - added server-side error logging for guardian, player, guardian-link, enrollment, charge-seed, and auto-team-assignment failures so future intake failures are easier to diagnose
+- Operational intent:
+  - fix the reported `Tutor` creation failure during new player + new enrollment intake
+  - remove the fragile dependency between specialist login access and user-scoped role-reference RLS
+- Verification:
+  - `npm run typecheck`
+  - `npm run build`
+
 ## 2026-04-20 (session 102)
 
 ### Nutrition Role + Measurement Intake v1 (v1.16.46)

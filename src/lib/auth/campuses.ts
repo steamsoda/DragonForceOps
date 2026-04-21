@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 
 export type AccessibleCampus = {
@@ -63,9 +63,9 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const supabase = await createClient();
+  const admin = createAdminClient();
   const [{ data: allCampuses }] = await Promise.all([
-    supabase
+    admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
@@ -118,9 +118,9 @@ export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess 
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const supabase = await createClient();
+  const admin = createAdminClient();
   const [{ data: allCampuses }] = await Promise.all([
-    supabase
+    admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
