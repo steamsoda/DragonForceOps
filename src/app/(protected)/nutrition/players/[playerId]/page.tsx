@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { MeasurementTrendChart } from "@/components/nutrition/charts";
+import { OMSGrowthChart } from "@/components/nutrition/charts";
 import { recordPlayerMeasurementAction } from "@/server/actions/nutrition";
 import { requireNutritionContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
+import type { GrowthClassificationTone } from "@/lib/nutrition/growth";
 import { formatDateMonterrey, getMonterreyDateString } from "@/lib/time";
 
 function formatDelta(value: number | null, suffix: string) {
@@ -19,6 +20,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_enrollment: "La inscripcion activa ya no es valida para registrar esta medicion.",
   unauthorized: "No tienes permiso para registrar mediciones en este jugador.",
   save_failed: "No se pudo guardar la medicion.",
+};
+
+const CLASSIFICATION_CLASSES: Record<GrowthClassificationTone, string> = {
+  normal: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  warning: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  danger: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300",
 };
 
 type PageParams = Promise<{ playerId: string }>;
@@ -215,7 +222,7 @@ export default async function NutritionPlayerProfilePage({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
-          <MeasurementTrendChart data={profile.chartPoints} />
+          <OMSGrowthChart profile={profile.growthProfile} />
 
           <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resumen actual</p>
@@ -225,6 +232,30 @@ export default async function NutritionPlayerProfilePage({
                 <p>Tipo: {profile.latestSession.source === "initial_intake" ? "Primera toma" : "Seguimiento"}</p>
                 <p>Peso: {profile.latestSession.weightKg.toFixed(1)} kg</p>
                 <p>Estatura: {profile.latestSession.heightCm.toFixed(1)} cm</p>
+                {profile.growthProfile.latestBmi ? (
+                  <>
+                    <p>IMC: {profile.growthProfile.latestBmi.value.toFixed(1)} kg/m2</p>
+                    <p>Percentil IMC: P{profile.growthProfile.latestBmi.percentile}</p>
+                    <p>
+                      Z-score IMC: {profile.growthProfile.latestBmi.zScore > 0 ? "+" : ""}
+                      {profile.growthProfile.latestBmi.zScore}
+                    </p>
+                    {profile.growthProfile.latestBmi.classification ? (
+                      <p>
+                        Clasificacion:{" "}
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            CLASSIFICATION_CLASSES[profile.growthProfile.latestBmi.classification.tone]
+                          }`}
+                        >
+                          {profile.growthProfile.latestBmi.classification.label}
+                        </span>
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-slate-500 dark:text-slate-400">IMC OMS: requiere edad y genero dentro del rango OMS.</p>
+                )}
                 <p>Notas: {profile.latestSession.notes?.trim() || "-"}</p>
               </div>
             ) : (

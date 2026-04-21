@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-21 (session 115)
+
+### OMS Growth Curves for Nutrition Profile (v1.16.61)
+
+- Added static WHO/OMS LMS reference data for nutrition growth charts:
+  - BMI-for-age and height-for-age for 5-19 years
+  - weight-for-age for the official WHO 5-10 year range
+- Kept `player_measurement_sessions` as the source of truth; no parallel measurement table was added.
+- Added server-side growth helpers that derive age-in-months, BMI, Z-score, percentile, and BMI classification from existing weight/height sessions plus player birth date and gender.
+- Replaced the simple nutrition profile trend chart with OMS chart tabs for `IMC`, `Peso`, and `Estatura`.
+- Updated `Resumen actual` on the nutrition-safe player profile with latest BMI, BMI percentile, Z-score, and classification when the player is inside OMS range.
+- Added safe fallback messages for missing gender, missing birth date, no measurements, and players outside the available WHO reference range.
+
 ## 2026-04-21 (session 114)
 
 ### Nuevas Inscripciones Shared Intake Board (v1.16.60)

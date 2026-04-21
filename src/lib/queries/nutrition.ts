@@ -5,6 +5,12 @@ import {
   type AccessibleCampus,
 } from "@/lib/auth/campuses";
 import { getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
+import {
+  buildGrowthProfile,
+  getGrowthSex,
+  type GrowthProfile,
+  type WhoGrowthReferenceRow,
+} from "@/lib/nutrition/growth";
 
 type ActiveNutritionEnrollmentRow = {
   id: string;
@@ -244,6 +250,7 @@ export type NutritionProfileSession = {
 export type NutritionProfileData = {
   playerId: string;
   playerName: string;
+  birthDate: string | null;
   birthYear: number | null;
   gender: string | null;
   genderLabel: string;
@@ -261,6 +268,7 @@ export type NutritionProfileData = {
   deltaHeightCm: number | null;
   history: NutritionProfileSession[];
   chartPoints: Array<{ label: string; weightKg: number; heightCm: number }>;
+  growthProfile: GrowthProfile;
 };
 
 export async function listNutritionCampuses() {
@@ -477,10 +485,33 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
 
   const latestSession = history[0] ?? null;
   const previousSession = history[1] ?? null;
+  const growthSex = getGrowthSex(activeEnrollment.players?.gender ?? null);
+  const { data: growthReferenceRows } = growthSex
+    ? await admin
+        .from("who_growth_reference")
+        .select("indicator, sex, age_months, l, m, s")
+        .eq("sex", growthSex)
+        .order("indicator", { ascending: true })
+        .order("age_months", { ascending: true })
+        .returns<WhoGrowthReferenceRow[]>()
+    : { data: [] as WhoGrowthReferenceRow[] };
+
+  const growthProfile = buildGrowthProfile({
+    birthDate: activeEnrollment.players?.birth_date ?? null,
+    gender: activeEnrollment.players?.gender ?? null,
+    measurements: history.map((session) => ({
+      id: session.id,
+      measuredAt: session.measuredAt,
+      weightKg: session.weightKg,
+      heightCm: session.heightCm,
+    })),
+    referenceRows: growthReferenceRows ?? [],
+  });
 
   return {
     playerId,
     playerName: getPlayerName(activeEnrollment.players),
+    birthDate: activeEnrollment.players?.birth_date ?? null,
     birthYear: getBirthYear(activeEnrollment.players?.birth_date),
     gender: activeEnrollment.players?.gender ?? null,
     genderLabel: getGenderLabel(activeEnrollment.players?.gender),
@@ -509,5 +540,6 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
         weightKg: session.weightKg,
         heightCm: session.heightCm,
       })),
+    growthProfile,
   };
 }

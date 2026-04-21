@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.60`
+Current preview release line: `v1.16.61`
 
 ---
 
@@ -40,6 +40,10 @@ Current preview release line: `v1.16.60`
      - sports and nutrition workflow status chips
      - role-specific quick links without finance data
    - remaining follow-up:
+     - `v1.16.61` adds OMS growth curves to the nutrition-safe player profile:
+       - BMI-for-age and height-for-age for 5-19 years
+       - weight-for-age for the official OMS 5-10 year range
+       - BMI/Z-score/percentile/classification derived from existing `player_measurement_sessions`
      - additional body metrics beyond `weight_kg` / `height_cm`
      - richer nutrition KPI/analytics and future workflow polish
      - inline assignment/capture actions if the link-first workflow proves too slow
@@ -487,7 +491,7 @@ Follow after the operational tracks above:
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🟡 In progress | `/pending` now uses a lightweight follow-up workflow instead of the old `Contactado` checkbox: `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresará`, with inline note editing, required promise-date capture, and direct baja handoff for `No regresará`. Follow-up state also clears automatically when balance reaches zero or the enrollment is formally ended. |
-| NEW | **Nutrition tracking / body measurements tab** | 🟡 In progress | `v1` is now implemented on preview: new `nutritionist` role, dedicated `Nutricion` menu section, nutrition-only player profile, historical `player_measurement_sessions`, first-take pending queue, monthly panel KPIs, recent activity, and append-only weight/height capture. Keep this open for more body metrics, richer comparisons, intake workflow polish, and any future nutrition-specific dashboard/reporting asks. |
+| NEW | **Nutrition tracking / body measurements tab** | 🟡 In progress | `v1` is now implemented on preview: new `nutritionist` role, dedicated `Nutricion` menu section, nutrition-only player profile, historical `player_measurement_sessions`, first-take pending queue, monthly panel KPIs, recent activity, append-only weight/height capture, and OMS growth curves for IMC/Peso/Estatura on the nutrition profile. Keep this open for more body metrics, richer comparisons, intake workflow polish, and any future nutrition-specific dashboard/reporting asks. |
 | 30 | **New-enrollment tuition tiers (3 tiers)** | ✅ Done | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury incident + optional monthly omission** | 🟡 In progress | Active enrollments can now record an operational incident (`absence`, `injury`, `other`) from the enrollment ledger, with an explicit choice to either just log it or also omit a selected tuition month. Incidents also carry optional `starts_on` / `ends_on` dates for real absence/recovery windows, and active-today `absence` / `injury` incidents now surface as soft indicators in `Jugadores`, player profile, and `Caja`. The monthly generator respects only incidents carrying `omit_period_month`, and the ledger keeps active plus historical incident visibility. Partial-month attendance/proration remains out of scope for this v1. |
