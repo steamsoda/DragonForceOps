@@ -68,6 +68,7 @@ export type EnrollmentPricingQuote = {
   inscriptionAmount: number;
   tuitionAmount: number;
   tuitionPeriodMonth: string;
+  tuitionPricingRuleId: string | null;
   tuitionRuleLabel: string;
   chargeMonthOffset: number;
 };
@@ -196,6 +197,12 @@ export function quoteEnrollmentPricingFromVersions(
   if (!enrollmentRule) return null;
 
   const tuitionPeriodMonth = addMonthsToPeriodMonth(`${startDate.slice(0, 7)}-01`, enrollmentRule.charge_month_offset);
+  const targetTuitionQuote =
+    enrollmentRule.charge_month_offset > 0
+      ? quoteTuitionForDayFromVersions(versions, tuitionPeriodMonth, 1)
+      : null;
+
+  if (enrollmentRule.charge_month_offset > 0 && !targetTuitionQuote) return null;
 
   return {
     plan: {
@@ -207,8 +214,9 @@ export function quoteEnrollmentPricingFromVersions(
       effectiveEnd: version.effectiveEnd,
     },
     inscriptionAmount: getInscriptionAmountForPlan(version),
-    tuitionAmount: enrollmentRule.amount,
+    tuitionAmount: targetTuitionQuote?.amount ?? enrollmentRule.amount,
     tuitionPeriodMonth,
+    tuitionPricingRuleId: targetTuitionQuote?.pricingRuleId ?? null,
     tuitionRuleLabel:
       enrollmentRule.charge_month_offset > 0
         ? "Mensualidad siguiente mes"

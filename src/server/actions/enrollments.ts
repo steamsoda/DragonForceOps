@@ -345,6 +345,7 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       currency,
       status: "pending",
       period_month: pricingQuote.tuitionPeriodMonth,
+      pricing_rule_id: pricingQuote.tuitionPricingRuleId,
       created_by: user.id,
     },
   ]);
