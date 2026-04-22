@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { APP_ROLES, DIRECTOR_OR_ABOVE, NUTRITION_STAFF_OR_ABOVE, SPORTS_STAFF_OR_ABOVE } from "@/lib/auth/roles";
+import { APP_ROLES, ATTENDANCE_STAFF_OR_ABOVE, DIRECTOR_OR_ABOVE, NUTRITION_STAFF_OR_ABOVE, SPORTS_STAFF_OR_ABOVE } from "@/lib/auth/roles";
 import { getDebugRecentUserIds, getDebugViewContext } from "@/lib/auth/debug-view";
 import { listDebuggableUsers } from "@/lib/auth/debug-users";
 import { version } from "../../../package.json";
@@ -42,6 +42,15 @@ const NUTRITION_BASE_SECTION: NavSection = {
   items: [
     { href: "/nutrition", label: "Panel" },
     { href: "/nutrition/measurements", label: "Toma de medidas" },
+  ],
+};
+
+const ATTENDANCE_BASE_SECTION: NavSection = {
+  label: "Asistencia",
+  items: [
+    { href: "/attendance", label: "Hoy" },
+    { href: "/attendance/schedules", label: "Horarios" },
+    { href: "/attendance/reports", label: "Reportes" },
   ],
 };
 
@@ -95,8 +104,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
+  const hasAttendanceWriteAccess = ATTENDANCE_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
+  const hasAttendanceReadAccess = hasAttendanceWriteAccess || roleCodes.includes(APP_ROLES.FRONT_DESK);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess;
+  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -144,11 +155,19 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ],
   };
 
+  const attendanceSection: NavSection = {
+    ...ATTENDANCE_BASE_SECTION,
+    items: hasAttendanceWriteAccess
+      ? ATTENDANCE_BASE_SECTION.items
+      : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/reports"),
+  };
+
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
+    ...(hasAttendanceReadAccess ? [attendanceSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];

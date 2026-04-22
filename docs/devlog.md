@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-22 (session 117)
+
+### Attendance Tracking v1 (v1.16.63)
+
+- Added the campus-scoped `attendance_admin` role (`Admin de Campo`) plus a new top-level `Asistencia` menu.
+- Added additive attendance tables for weekly schedule templates, concrete sessions, per-player attendance records, and correction audit rows.
+- Added Supabase `pg_cron` generation for next-week training sessions from active class-team schedule templates; the generator is idempotent and does not touch existing player, enrollment, team, or finance rows.
+- Built `Asistencia > Hoy` for daily session review, manual match/special session creation by directors/sports staff, touch-friendly attendance capture, incident prefill, and cancellation.
+- Built `Asistencia > Horarios` for recurring training schedule templates and `Asistencia > Reportes` for inactive-player and team/coach attendance reporting.
+- Added player-profile attendance summary widgets and a director dashboard weekly attendance KPI.
+- Kept parent-facing attendance, coach login workflows, automatic baja triggers, and old Excel attendance backfill out of scope.
+
 ## 2026-04-21 (session 116)
 
 ### Late-April May Tuition Pricing Hotfix (v1.16.62)

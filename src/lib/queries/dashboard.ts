@@ -1,5 +1,6 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
+import { getWeeklyAttendanceRate } from "@/lib/queries/attendance";
 import { getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -57,6 +58,8 @@ export type DashboardData = {
   player360Count: number;
   historicalCatchupAmount: number;
   historicalCatchupCount: number;
+  attendanceRateThisWeek: number | null;
+  attendanceRecordsThisWeek: number;
   selectedMonth: string;
 };
 
@@ -118,9 +121,13 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
       player360Count: 0,
       historicalCatchupAmount: 0,
       historicalCatchupCount: 0,
+      attendanceRateThisWeek: null,
+      attendanceRecordsThisWeek: 0,
       selectedMonth: filters.month ?? "",
     };
   }
+
+  const attendance = await getWeeklyAttendanceRate({ campusId: filters.campusId });
 
   const paymentsByMethod = parseJsonArray<{
     method: string;
@@ -149,6 +156,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     player360Count: Number(data.player_360_count ?? 0),
     historicalCatchupAmount: toNumber(data.historical_catchup_amount),
     historicalCatchupCount: Number(data.historical_catchup_count ?? 0),
+    attendanceRateThisWeek: attendance?.rate ?? null,
+    attendanceRecordsThisWeek: attendance?.total ?? 0,
     selectedMonth: data.selected_month,
   };
 }

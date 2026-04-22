@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.62`
+Current preview release line: `v1.16.63`
 
 ---
 
@@ -87,6 +87,21 @@ Current preview release line: `v1.16.62`
      - cross-surface consistency between product setup, sports boards, and finance interpretation
    - planning note:
      - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
+
+5. Attendance tracking v1
+   - `v1.16.63` adds internal attendance tracking on preview:
+     - campus-scoped `attendance_admin` role
+     - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`
+     - recurring class-team schedule templates and idempotent Supabase `pg_cron` session generation
+     - touch-friendly attendance capture with incident prefill from active absence/injury incidents
+     - cancellation flow that excludes sessions from attendance-rate calculations
+     - player-profile attendance summary and director dashboard weekly attendance KPI
+   - safety boundaries:
+     - parent-facing attendance remains out of scope
+     - coach login/workflows remain deferred
+     - no automatic baja trigger
+     - no backfill from the old Excel attendance export
+     - no changes to Caja, finance, enrollment, nutrition, or existing sports signup workflows
 
 ### Immediate Sequence
 

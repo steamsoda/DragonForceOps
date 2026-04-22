@@ -1,4 +1,4 @@
-type RoleCode = "superadmin" | "director_admin" | "director_deportivo" | "nutritionist" | "front_desk" | "coach" | string;
+type RoleCode = "superadmin" | "director_admin" | "director_deportivo" | "nutritionist" | "attendance_admin" | "front_desk" | "coach" | string;
 
 export type RoleScope = {
   code: RoleCode;
@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<string, string> = {
   director_admin: "Director Admin",
   director_deportivo: "Director Deportivo",
   nutritionist: "Nutricionista",
+  attendance_admin: "Admin de Campo",
   front_desk: "Recepcion / Caja",
   coach: "Coach"
 };

@@ -59,7 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           <KpiCard label="Pagos del mes" value={formatCurrency(dashboard.paymentsThisMonth)} description="Total cobrado en el mes seleccionado" />
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <KpiCard label="Alumnos con saldo" value={dashboard.enrollmentsWithBalance.toLocaleString("es-MX")} description="Inscripciones activas con adeudo pendiente" />
           <KpiCard
             label="Nuevas inscripciones"
@@ -68,6 +68,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
             href={buildNewEnrollmentsHref(selectedCampusId, dashboard.selectedMonth)}
           />
           <KpiCard label="Bajas del mes" value={dashboard.bajasThisMonth.toLocaleString("es-MX")} description="Inscripciones dadas de baja en el mes seleccionado" />
+          <KpiCard
+            label="Asistencia semana"
+            value={dashboard.attendanceRateThisWeek == null ? "Sin datos" : `${dashboard.attendanceRateThisWeek}%`}
+            description={`${dashboard.attendanceRecordsThisWeek} registros completados esta semana`}
+            href="/attendance/reports"
+          />
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">

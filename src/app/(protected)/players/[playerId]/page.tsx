@@ -10,6 +10,8 @@ import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
 import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
+import { PlayerAttendanceSummary } from "@/components/attendance/player-attendance-summary";
+import { getPlayerAttendanceSummary } from "@/lib/queries/attendance";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import {
   createBalanceAdjustmentAction,
@@ -292,6 +294,7 @@ export default async function PlayerDetailPage({
     isSuperAdmin && activeEnrollmentId
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
       : null;
+  const attendanceSummary = await getPlayerAttendanceSummary(player.id);
   const balanceTone =
     profileBalance > 0
       ? "amber"
@@ -622,6 +625,8 @@ export default async function PlayerDetailPage({
             )}
           </section>
         </div>
+
+        <PlayerAttendanceSummary summary={attendanceSummary} />
 
         {activeLedger ? (
           <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
