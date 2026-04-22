@@ -104,6 +104,7 @@ Current preview release line: `v1.16.63`
      - no changes to Caja, finance, enrollment, nutrition, or existing sports signup workflows
    - follow-up before production hardening:
      - review whether attendance should be driven by `Nivel` instead of `teams`
+     - see `docs/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
      - adjust schedule templates, session generation, roster resolution, reports, and UI copy if `Nivel` becomes the operational attendance grouping
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked

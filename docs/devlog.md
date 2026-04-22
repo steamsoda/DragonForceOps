@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-22 (session 118)
+
+### Training Groups Model Analysis
+
+- Added `docs/training-groups-model-analysis.md` after reviewing the current player/team/nivel model and Julio's training-group guide.
+- Recommended separating `Training Groups` from competition `Teams` instead of hardening attendance around `teams(type = 'class')`.
+- Noted that Attendance v1 should remain preview-only until the roster source is confirmed and the training-group model is decided.
+
 ## 2026-04-22 (session 117)
 
 ### Attendance Tracking v1 (v1.16.63)
