@@ -360,6 +360,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       currency,
       status: "pending",
       period_month: pricingQuote.tuitionPeriodMonth,
+      pricing_rule_id: pricingQuote.tuitionPricingRuleId,
       created_by: user.id,
     },
   ]);

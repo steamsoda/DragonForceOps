@@ -3,7 +3,7 @@
 Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-21.
 
-Current preview release line: `v1.16.61`
+Current preview release line: `v1.16.62`
 
 ---
 
@@ -28,7 +28,18 @@ Current preview release line: `v1.16.61`
      - confirm Julio's global sports scope shows both campuses without money amounts
      - use the new runbook after future Vercel env changes or Supabase secret rotations
 
-1. `Nuevas Inscripciones` intake lane
+1. Late-April May tuition pricing hotfix
+   - `v1.16.62` fixes the new-enrollment pricing helper so day-21+ April enrollments carry May tuition at the May plan amount (`700`) instead of the April enrollment-start plan amount (`600`)
+   - targeted repair migration is intentionally narrow:
+     - May 2026 `monthly_tuition`
+     - non-void charges at `600`
+     - enrollment start dates from `2026-04-21` through `2026-04-30`
+   - already-paid affected accounts are not grandfathered; correcting the charge to `700` can leave `100` pending, which matches the intended accounting result
+   - cron note:
+     - monthly tuition remains Supabase `pg_cron`, not Vercel Cron
+     - May generation is expected to use `generate_monthly_charges('2026-05-01')`, resolving the May day-1 tuition plan at `700`
+
+2. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:
      - new campus-scoped `nutritionist` role
      - dedicated `Nutricion` menu lane with `Panel` + `Toma de medidas`
@@ -48,7 +59,7 @@ Current preview release line: `v1.16.61`
      - richer nutrition KPI/analytics and future workflow polish
      - inline assignment/capture actions if the link-first workflow proves too slow
 
-2. Collections / pending-tuition board split
+3. Collections / pending-tuition board split
    - `v1.16.58` implemented the functional split:
      - `/llamadas` now owns the old balance/call follow-up workflow
      - `/pending` now owns the tuition-only board for unpaid monthly tuition
@@ -66,7 +77,7 @@ Current preview release line: `v1.16.61`
      - live-test role access with front desk and directors
      - tune urgency colors/counts after a few days of production usage
 
-3. Product and competition rules rework follow-up
+4. Product and competition rules rework follow-up
    - continue the pending rework for product and competition rules
    - include rule cleanup needed for current operations, not only the longer sports rethink
    - likely areas:

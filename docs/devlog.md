@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-04-21 (session 116)
+
+### Late-April May Tuition Pricing Hotfix (v1.16.62)
+
+- Fixed `quoteEnrollmentPricingFromVersions()` so day-21+ enrollments price the carried monthly tuition from the target tuition period's active plan instead of reusing the enrollment start-date plan amount.
+- Day-21+ enrollment charge creation now also stores the resolved target-period tuition `pricing_rule_id` for the carried monthly tuition row.
+- Preserved existing enrollment rules:
+  - days 1-10 charge current-month full tuition
+  - days 11-20 charge current-month half tuition
+  - days 21+ charge next-month full tuition using the next month's effective pricing version
+- Added a focused pricing assertion script covering April 20, April 21, May 1, May 11, and May 21 enrollment start dates.
+- Added a narrow data correction migration for May 2026 monthly-tuition charges at `600` created from enrollments starting `2026-04-21` through `2026-04-30`; the repair updates them to `700` and intentionally leaves already-paid `600` accounts with `100` pending.
+- Confirmed this lane should stay on Supabase `pg_cron`, not Vercel Cron:
+  - `generate-monthly-charges` runs day 1 at `06:00 UTC`
+  - `reprice-pending-monthly-tuition` runs day 11 at `06:00 UTC`
+  - May generation should call `generate_monthly_charges('2026-05-01')` and resolve the May `700` plan by period month.
+
 ## 2026-04-21 (session 115)
 
 ### OMS Growth Curves for Nutrition Profile (v1.16.61)
