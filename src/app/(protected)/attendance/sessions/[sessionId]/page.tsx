@@ -26,7 +26,7 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
   return (
     <PageShell
       title={`${session.teamName} | ${session.sessionDate} ${session.startTime}`}
-      subtitle={`${session.campusName} | ${ATTENDANCE_SESSION_TYPE_LABELS[session.sessionType]} | Coach ${session.coachName ?? "-"} | ${STATUS_LABELS[session.status]}`}
+      subtitle={`${session.campusName} | ${ATTENDANCE_SESSION_TYPE_LABELS[session.sessionType]} | ${session.sourceType === "training_group" ? "Grupo" : "Equipo"} | Coach ${session.coachName ?? "-"} | ${STATUS_LABELS[session.status]}`}
       breadcrumbs={[{ label: "Asistencia", href: "/attendance" }, { label: "Sesion" }]}
       wide
     >

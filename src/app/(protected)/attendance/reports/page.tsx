@@ -66,7 +66,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                 <tr>
                   <th className="px-3 py-2">Jugador</th>
                   <th className="px-3 py-2">Campus</th>
-                  <th className="px-3 py-2">Equipo</th>
+                  <th className="px-3 py-2">Grupo / equipo</th>
                   <th className="px-3 py-2">Sesiones</th>
                   <th className="px-3 py-2">Ausencias</th>
                   <th className="px-3 py-2">Asistencia</th>
@@ -95,7 +95,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Equipos y coach</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Grupos / equipos y coach</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.teamReports.map((row) => (
               <article key={row.teamId} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

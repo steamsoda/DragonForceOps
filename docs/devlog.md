@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-04-23 (session 119)
+
+### Training Groups Rollout v1.0 (v1.16.64)
+
+- Added first-class `training_groups`, `training_group_coaches`, and `training_group_assignments` so daily sports and attendance grouping no longer depend on `teams(type='class')`.
+- Seeded the confirmed Linda Vista and Contry training-group catalog plus linked coach assignments inside an additive migration.
+- Added `Asistencia > Grupos`:
+  - group catalog and metadata editor
+  - coach linking
+  - guided assignment review for active enrollments
+  - safe bulk apply for unambiguous training-group suggestions
+- Migrated attendance preview toward training groups for regular training:
+  - schedule templates now create from `training_groups`
+  - generated training sessions resolve rosters from `training_group_assignments`
+  - reports and session detail now show training-group sources while keeping match/special sessions team-based
+  - legacy class-team preview sessions remain readable as fallback
+- Updated `/new-enrollments` so sports completion now means active enrollment + active training-group assignment, not competition-team assignment.
+- Updated the player profile to show training group separately from competition team(s).
+- Kept tournament and competition workflow unchanged on `teams`, `team_assignments`, `tournament_source_teams`, and `tournament_squads`.
+
 ## 2026-04-22 (session 118)
 
 ### Training Groups Model Analysis

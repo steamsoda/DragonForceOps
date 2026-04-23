@@ -33,10 +33,10 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
         {data.canManageSchedules ? (
           <form action={createAttendanceScheduleAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-5">
             <label className="text-sm font-medium md:col-span-2">
-              Equipo de clases
-              <select name="team_id" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-                {data.classTeams.map((team) => (
-                  <option key={team.id} value={team.id}>{team.campusName} | {team.name}</option>
+              Grupo de entrenamiento
+              <select name="training_group_id" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                {data.trainingGroups.map((group) => (
+                  <option key={group.id} value={group.id}>{group.campusName} | {group.name}</option>
                 ))}
               </select>
             </label>
@@ -72,7 +72,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
           <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
               <tr>
-                <th className="px-3 py-2">Equipo</th>
+                <th className="px-3 py-2">Grupo / equipo</th>
                 <th className="px-3 py-2">Dia</th>
                 <th className="px-3 py-2">Horario</th>
                 <th className="px-3 py-2">Vigencia</th>
@@ -85,7 +85,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                 <tr key={template.id}>
                   <td className="px-3 py-2">
                     <p className="font-medium">{template.teamName}</p>
-                    <p className="text-xs text-slate-500">{template.campusName} | Coach {template.coachName ?? "-"}</p>
+                    <p className="text-xs text-slate-500">{template.campusName} | {template.sourceType === "training_group" ? "Grupo" : "Equipo"} | Coach {template.coachName ?? "-"}</p>
                   </td>
                   {data.canManageSchedules ? (
                     <td className="px-3 py-2" colSpan={5}>

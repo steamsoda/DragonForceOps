@@ -370,7 +370,7 @@ export default async function PlayerDetailPage({
                 {(activeEnrollment ?? archiveEnrollment) ? (
                   <SummaryChip label={(activeEnrollment ?? archiveEnrollment)!.campusName} tone="blue" />
                 ) : null}
-                {player.activeTeam?.name ? <SummaryChip label={player.activeTeam.name} tone="blue" /> : null}
+                {player.activeTrainingGroup?.name ? <SummaryChip label={player.activeTrainingGroup.name} tone="blue" /> : null}
                 {player.activeTeam?.level ? <SummaryChip label={`Nivel ${player.activeTeam.level}`} tone="violet" /> : null}
                 {player.isGoalkeeper ? <SummaryChip label="Portero" tone="violet" /> : null}
                 {activeIncident ? (
@@ -523,16 +523,30 @@ export default async function PlayerDetailPage({
               {activeEnrollment ? (
                 <>
                   <div>
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo</p>
-                    <p className="font-medium">{player.activeTeam?.name ?? "Sin equipo"}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Grupo de entrenamiento</p>
+                    <p className="font-medium">{player.activeTrainingGroup?.name ?? "Sin grupo"}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coach</p>
-                    <p className="font-medium">{player.activeTeam?.coachName ?? "Sin asignar"}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo de competencia</p>
+                    <p className="font-medium">
+                      {player.competitionTeams.length > 0 ? player.competitionTeams.map((team) => team.name).join(", ") : "Sin equipo"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan actual</p>
                     <p className="font-medium">{activeEnrollment.pricingPlanName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Nivel operativo</p>
+                    <p className="font-medium">{player.activeTeam?.level ?? player.level ?? "Sin nivel"}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coaches de competencia</p>
+                    <p className="font-medium">
+                      {player.competitionTeams.length > 0
+                        ? player.competitionTeams.map((team) => team.coachName).filter(Boolean).join(", ") || "Sin asignar"
+                        : "Sin asignar"}
+                    </p>
                   </div>
                 </>
               ) : archiveEnrollment ? (

@@ -1,10 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-21.
+Updated continuously. Last updated: 2026-04-23.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.63`
+Current preview release line: `v1.16.64`
 
 ---
 
@@ -96,6 +96,13 @@ Current preview release line: `v1.16.63`
      - touch-friendly attendance capture with incident prefill from active absence/injury incidents
      - cancellation flow that excludes sessions from attendance-rate calculations
      - player-profile attendance summary and director dashboard weekly attendance KPI
+   - `v1.16.64` starts the `Training Groups` split on preview:
+     - adds first-class `training_groups`, `training_group_coaches`, and `training_group_assignments`
+     - adds `Asistencia > Grupos` for group catalog, coach linking, guided review, and safe bulk assignment of unambiguous matches
+     - regular training attendance now resolves from training groups while match/special attendance stays on competition teams
+     - `/new-enrollments` now treats sports-complete as active training-group assignment, not competition-team assignment
+     - player profile now shows training group separately from competition team(s)
+     - tournament flow remains on `teams`, `team_assignments`, `tournament_source_teams`, and `tournament_squads`
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred

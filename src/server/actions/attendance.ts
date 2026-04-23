@@ -35,31 +35,31 @@ async function requireScheduleManager() {
 export async function createAttendanceScheduleAction(formData: FormData) {
   await assertDebugWritesAllowed("/attendance/schedules");
   const { context, admin } = await requireScheduleManager();
-  const teamId = clean(formData.get("team_id"));
+  const trainingGroupId = clean(formData.get("training_group_id"));
   const dayOfWeek = Number(clean(formData.get("day_of_week")));
   const startTime = clean(formData.get("start_time"));
   const endTime = clean(formData.get("end_time"));
   const effectiveStart = clean(formData.get("effective_start")) || getMonterreyDateString();
 
-  if (!teamId || !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7 || !isTimeOnly(startTime) || !isTimeOnly(endTime) || !isDateOnly(effectiveStart)) {
+  if (!trainingGroupId || !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7 || !isTimeOnly(startTime) || !isTimeOnly(endTime) || !isDateOnly(effectiveStart)) {
     redirect("/attendance/schedules?err=invalid_form");
   }
 
-  const { data: team } = await admin
-    .from("teams")
-    .select("id, campus_id, type, is_active")
-    .eq("id", teamId)
-    .maybeSingle<{ id: string; campus_id: string; type: string; is_active: boolean } | null>();
+  const { data: trainingGroup } = await admin
+    .from("training_groups")
+    .select("id, campus_id, status")
+    .eq("id", trainingGroupId)
+    .maybeSingle<{ id: string; campus_id: string; status: string } | null>();
 
-  if (!team || team.type !== "class" || !team.is_active || !canWriteAttendanceCampus(context.attendanceCampusAccess, team.campus_id)) {
-    redirect("/attendance/schedules?err=invalid_team");
+  if (!trainingGroup || trainingGroup.status !== "active" || !canWriteAttendanceCampus(context.attendanceCampusAccess, trainingGroup.campus_id)) {
+    redirect("/attendance/schedules?err=invalid_group");
   }
 
   const { data: created, error } = await admin
     .from("attendance_schedule_templates")
     .insert({
-      team_id: team.id,
-      campus_id: team.campus_id,
+      training_group_id: trainingGroup.id,
+      campus_id: trainingGroup.campus_id,
       day_of_week: dayOfWeek,
       start_time: startTime,
       end_time: endTime,
@@ -77,7 +77,7 @@ export async function createAttendanceScheduleAction(formData: FormData) {
     action: "attendance_schedule.created",
     tableName: "attendance_schedule_templates",
     recordId: created.id,
-    afterData: { team_id: team.id, campus_id: team.campus_id, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime },
+    afterData: { training_group_id: trainingGroup.id, campus_id: trainingGroup.campus_id, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime },
   });
 
   revalidatePath("/attendance");
@@ -268,7 +268,8 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
             : "manual";
     return {
       session_id: sessionId,
-      team_assignment_id: player.assignmentId,
+      team_assignment_id: player.assignmentSource === "team" ? player.assignmentId : null,
+      training_group_assignment_id: player.assignmentSource === "training_group" ? player.assignmentId : null,
       enrollment_id: player.enrollmentId,
       player_id: player.playerId,
       status,

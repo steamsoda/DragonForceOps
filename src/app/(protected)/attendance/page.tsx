@@ -123,7 +123,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-slate-100">{session.teamName}</p>
                           <p className="text-sm text-slate-500">
-                            {session.campusName} | {ATTENDANCE_SESSION_TYPE_LABELS[session.sessionType]} | Coach {session.coachName ?? "-"}
+                            {session.campusName} | {ATTENDANCE_SESSION_TYPE_LABELS[session.sessionType]} | {session.sourceType === "training_group" ? "Grupo" : "Equipo"} | Coach {session.coachName ?? "-"}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">

@@ -32,6 +32,14 @@ type TeamAssignmentRow = {
   } | null;
 };
 
+type TrainingGroupAssignmentRow = {
+  enrollment_id: string;
+  training_groups: {
+    id: string;
+    name: string | null;
+  } | null;
+};
+
 type MeasurementRow = {
   enrollment_id: string;
 };
@@ -53,6 +61,8 @@ export type NewEnrollmentIntakeRow = {
   genderLabel: string;
   currentTeamId: string | null;
   currentTeamName: string | null;
+  currentTrainingGroupId: string | null;
+  currentTrainingGroupName: string | null;
   resolvedLevel: string | null;
   sportsComplete: boolean;
   nutritionComplete: boolean;
@@ -147,12 +157,11 @@ function normalizeDateRange(filters: Pick<NewEnrollmentIntakeFilters, "startDate
   return { startDate, endDate };
 }
 
-function buildTeamsHref(row: NewEnrollmentIntakeRow) {
+function buildSportsHref(row: NewEnrollmentIntakeRow) {
   const params = new URLSearchParams();
-  params.set("campusId", row.campusId);
+  params.set("campus", row.campusId);
   if (row.birthYear) params.set("birthYear", String(row.birthYear));
-  params.set("gender", row.gender === "male" || row.gender === "female" ? row.gender : "mixed");
-  return `/teams?${params.toString()}`;
+  return `/attendance/groups?${params.toString()}`;
 }
 
 function countRows(rows: NewEnrollmentIntakeRow[]) {
@@ -225,7 +234,7 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
   const enrollmentRows = enrollments ?? [];
   const enrollmentIds = enrollmentRows.map((row) => row.id);
 
-  const [{ data: assignments }, { data: measurements }] = await Promise.all([
+  const [{ data: assignments }, { data: trainingGroups }, { data: measurements }] = await Promise.all([
     enrollmentIds.length
       ? admin
           .from("team_assignments")
@@ -237,6 +246,14 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
       : Promise.resolve({ data: [] as TeamAssignmentRow[] }),
     enrollmentIds.length
       ? admin
+          .from("training_group_assignments")
+          .select("enrollment_id, training_groups(id, name)")
+          .in("enrollment_id", enrollmentIds)
+          .is("end_date", null)
+          .returns<TrainingGroupAssignmentRow[]>()
+      : Promise.resolve({ data: [] as TrainingGroupAssignmentRow[] }),
+    enrollmentIds.length
+      ? admin
           .from("player_measurement_sessions")
           .select("enrollment_id")
           .in("enrollment_id", enrollmentIds)
@@ -245,6 +262,7 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
   ]);
 
   const teamByEnrollment = new Map((assignments ?? []).map((row) => [row.enrollment_id, row.teams]));
+  const trainingGroupByEnrollment = new Map((trainingGroups ?? []).map((row) => [row.enrollment_id, row.training_groups]));
   const measuredEnrollmentIds = new Set((measurements ?? []).map((row) => row.enrollment_id));
   const canOpenSports = context.hasSportsAccess;
   const canOpenNutrition = context.hasNutritionAccess;
@@ -254,9 +272,10 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
     .map<NewEnrollmentIntakeRow | null>((row) => {
       if (!row.campuses) return null;
       const team = teamByEnrollment.get(row.id) ?? null;
+      const trainingGroup = trainingGroupByEnrollment.get(row.id) ?? null;
       const resolvedLevel = team?.level ?? row.players?.level ?? null;
       const birthYear = getBirthYear(row.players?.birth_date);
-      const sportsComplete = row.status === "active" && Boolean(team?.id && resolvedLevel);
+      const sportsComplete = row.status === "active" && Boolean(trainingGroup?.id);
       const nutritionComplete = row.status === "active" && measuredEnrollmentIds.has(row.id);
       const mapped: NewEnrollmentIntakeRow = {
         enrollmentId: row.id,
@@ -273,6 +292,8 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
         genderLabel: getGenderLabel(row.players?.gender),
         currentTeamId: team?.id ?? null,
         currentTeamName: team?.name ?? null,
+        currentTrainingGroupId: trainingGroup?.id ?? null,
+        currentTrainingGroupName: trainingGroup?.name ?? null,
         resolvedLevel,
         sportsComplete,
         nutritionComplete,
@@ -282,7 +303,7 @@ export async function getNewEnrollmentIntakeData(filters: NewEnrollmentIntakeFil
       };
       return {
         ...mapped,
-        sportsActionHref: canOpenSports ? buildTeamsHref(mapped) : null,
+        sportsActionHref: canOpenSports ? buildSportsHref(mapped) : null,
       };
     })
     .filter((row): row is NewEnrollmentIntakeRow => Boolean(row));
