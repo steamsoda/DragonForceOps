@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-24 (session 120)
+
+### Bulk Training Schedule Creator (v1.16.65)
+
+- Added a bulk schedule creator to `Asistencia > Horarios`.
+- Directors and `director_deportivo` can now choose:
+  - campus
+  - effective start date
+  - one or more weekdays
+- The bulk action creates missing weekly attendance templates for every active training group in that campus that already has seeded start/end times.
+- Safety behavior:
+  - skips projected groups and groups without times
+  - skips group/day combinations that already have an active overlapping template
+  - leaves manual match/special sessions unchanged
+- Kept the single-template creation form available for exceptions and one-off adjustments.
+
 ## 2026-04-23 (session 119)
 
 ### Training Groups Rollout v1.0 (v1.16.64)

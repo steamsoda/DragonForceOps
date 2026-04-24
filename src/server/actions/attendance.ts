@@ -32,6 +32,83 @@ async function requireScheduleManager() {
   return { context, admin: createAdminClient() };
 }
 
+export async function createBulkAttendanceSchedulesAction(formData: FormData) {
+  await assertDebugWritesAllowed("/attendance/schedules");
+  const { context, admin } = await requireScheduleManager();
+  const campusId = clean(formData.get("campus_id"));
+  const effectiveStart = clean(formData.get("effective_start")) || getMonterreyDateString();
+  const dayValues = formData.getAll("day_of_week").map((value) => Number(String(value))).filter((value) => Number.isInteger(value) && value >= 1 && value <= 7);
+  const dayOfWeekValues = [...new Set(dayValues)];
+
+  if (!campusId || !canWriteAttendanceCampus(context.attendanceCampusAccess, campusId) || !isDateOnly(effectiveStart) || dayOfWeekValues.length === 0) {
+    redirect("/attendance/schedules?err=invalid_bulk_form");
+  }
+
+  const [{ data: groups }, { data: existingTemplates }] = await Promise.all([
+    admin
+      .from("training_groups")
+      .select("id, campus_id, name, start_time, end_time")
+      .eq("campus_id", campusId)
+      .eq("status", "active")
+      .not("start_time", "is", null)
+      .not("end_time", "is", null)
+      .returns<Array<{ id: string; campus_id: string; name: string; start_time: string | null; end_time: string | null }>>(),
+    admin
+      .from("attendance_schedule_templates")
+      .select("training_group_id, day_of_week, effective_end, is_active")
+      .eq("campus_id", campusId)
+      .in("day_of_week", dayOfWeekValues)
+      .not("training_group_id", "is", null)
+      .returns<Array<{ training_group_id: string | null; day_of_week: number; effective_end: string | null; is_active: boolean }>>(),
+  ]);
+
+  const existingKeys = new Set(
+    (existingTemplates ?? [])
+      .filter((row) => row.training_group_id && row.is_active && (!row.effective_end || row.effective_end >= effectiveStart))
+      .map((row) => `${row.training_group_id}:${row.day_of_week}`)
+  );
+
+  const rowsToInsert = (groups ?? []).flatMap((group) =>
+    dayOfWeekValues.flatMap((dayOfWeek) => {
+      if (!group.start_time || !group.end_time) return [];
+      const key = `${group.id}:${dayOfWeek}`;
+      if (existingKeys.has(key)) return [];
+      existingKeys.add(key);
+      return [{
+        campus_id: group.campus_id,
+        training_group_id: group.id,
+        day_of_week: dayOfWeek,
+        start_time: group.start_time.slice(0, 5),
+        end_time: group.end_time.slice(0, 5),
+        effective_start: effectiveStart,
+        created_by: context.user.id,
+      }];
+    })
+  );
+
+  if (rowsToInsert.length > 0) {
+    const { error } = await admin.from("attendance_schedule_templates").insert(rowsToInsert);
+    if (error) redirect("/attendance/schedules?err=bulk_create_failed");
+
+    await writeAuditLog(admin, {
+      actorUserId: context.user.id,
+      actorEmail: context.user.email,
+      action: "attendance_schedule.bulk_created",
+      tableName: "attendance_schedule_templates",
+      afterData: {
+        campus_id: campusId,
+        effective_start: effectiveStart,
+        day_of_week: dayOfWeekValues,
+        created: rowsToInsert.length,
+      },
+    });
+  }
+
+  revalidatePath("/attendance");
+  revalidatePath("/attendance/schedules");
+  redirect(`/attendance/schedules?ok=bulk_created&count=${rowsToInsert.length}`);
+}
+
 export async function createAttendanceScheduleAction(formData: FormData) {
   await assertDebugWritesAllowed("/attendance/schedules");
   const { context, admin } = await requireScheduleManager();

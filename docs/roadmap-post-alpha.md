@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-23.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.64`
+Current preview release line: `v1.16.65`
 
 ---
 
@@ -103,6 +103,10 @@ Current preview release line: `v1.16.64`
      - `/new-enrollments` now treats sports-complete as active training-group assignment, not competition-team assignment
      - player profile now shows training group separately from competition team(s)
      - tournament flow remains on `teams`, `team_assignments`, `tournament_source_teams`, and `tournament_squads`
+   - `v1.16.65` adds a bulk creator in `Asistencia > Horarios`:
+     - choose campus + weekdays + effective start date
+     - auto-create missing weekly templates for all active training groups with seeded time slots
+     - skips projected/no-time groups and avoids duplicating active overlapping templates
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred
