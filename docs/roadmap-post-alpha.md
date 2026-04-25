@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-23.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.65`
+Current preview release line: `v1.16.66`
 
 ---
 
@@ -74,6 +74,15 @@ Current preview release line: `v1.16.65`
      - campus cards remain visible while a single campus is selected
      - KPI cards drill into `1 mes`, `2 meses`, and `3+ meses` player lists
      - chip alignment and detail-row layout were tightened after live screenshots
+   - `v1.16.66` critical data-completeness hotfix:
+     - fixed `Pendientes` undercounting on large campuses caused by the tuition loader querying too many enrollment IDs in a single Supabase request
+     - root cause:
+       - very large `.in(enrollment_id, [...])` requests can exceed request/header limits
+       - wide historical tuition reads can also hit the default `1000` PostgREST row cap
+       - result: the board could render a partial pending-tuition dataset even while individual player profiles were correct
+     - fix:
+       - small enrollment-ID batches plus paged charge reads until each batch is exhausted
+       - intended to restore complete pending-tuition counts for both campuses without changing account data or finance logic
    - follow-up:
      - live-test role access with front desk and directors
      - tune urgency colors/counts after a few days of production usage
@@ -107,6 +116,10 @@ Current preview release line: `v1.16.65`
      - choose campus + weekdays + effective start date
      - auto-create missing weekly templates for all active training groups with seeded time slots
      - skips projected/no-time groups and avoids duplicating active overlapping templates
+   - continuation follow-up:
+     - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
+     - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
+     - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred

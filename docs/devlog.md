@@ -2,6 +2,26 @@
 
 ## 2026-04-24 (session 120)
 
+### Pendientes Data Completeness Hotfix (v1.16.66)
+
+- Fixed a critical `Pendientes` scaling bug that could hide valid pending-tuition players from the board even though the player profile and charge ledger were correct.
+- Root cause:
+  - `src/lib/queries/tuition-pending.ts` loaded monthly tuition charges with a single large `.in(enrollment_id, [...])` request per chunk.
+  - As campus size and monthly-charge history grew, that query hit two Supabase/PostgREST limits:
+    - oversized request URL/header limits from very large enrollment-ID lists
+    - the default `1000` row cap on wide result sets
+  - operational effect:
+    - `Pendientes` could render a partial tuition dataset for large campuses
+    - front desk would see an undercounted pending list while the affected player profile still showed the correct pending charge
+- Fix:
+  - reduced enrollment-ID batch size
+  - added paged charge reads for each batch until all tuition rows are exhausted
+  - no account balances, charges, allocations, or finance records were rewritten; this is a read-path correctness fix only
+- Example live prod symptom behind this incident:
+  - `Iván Marcelo Mendoza Coronado` had a valid pending April 2026 monthly tuition charge in profile, but was omitted from `Pendientes` because the board query was under-returning charge rows at campus scale
+- Operational note:
+  - this issue is business-critical because `Pendientes` is an action board for collections/front desk; incomplete pending lists are not acceptable and must be treated as a production correctness failure, not a cosmetic bug
+
 ### Bulk Training Schedule Creator (v1.16.65)
 
 - Added a bulk schedule creator to `Asistencia > Horarios`.
