@@ -81,7 +81,7 @@ export async function writePostedPaymentAudit(
     enrollmentId: string;
     amount: number;
       method: string;
-      source: "caja" | "ledger" | "historical_regularization_contry";
+      source: "caja" | "ledger" | "historical_regularization_contry" | "historical_regularization_admin";
       externalSource: string;
       split: boolean;
       paidAt: string;

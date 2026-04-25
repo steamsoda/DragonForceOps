@@ -7,10 +7,10 @@ import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import type { EnrollmentLedger } from "@/lib/queries/billing";
 import {
-  getContryRegularizationChargeContextAction,
-  getContryRegularizationLedgerAction,
-  postContryHistoricalPaymentAction,
-  type ContryRegularizationChargeContext,
+  getHistoricalRegularizationChargeContextAction,
+  getHistoricalRegularizationLedgerAction,
+  postHistoricalRegularizationPaymentAction,
+  type HistoricalRegularizationChargeContext,
 } from "@/server/actions/payments";
 import {
   createAdvanceTuitionAction,
@@ -60,7 +60,6 @@ function paymentMethodTone(method: string, active: boolean) {
 
   return active ? tone.selected : tone.idle;
 }
-
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
@@ -69,7 +68,7 @@ function getActionErrorMessage(code: string) {
   const messages: Record<string, string> = {
     invalid_form: "Verifica el monto, método y datos del cargo.",
     unauthenticated: "Tu sesión expiró. Inicia sesión de nuevo.",
-    enrollment_not_found: "La cuenta seleccionada ya no está disponible para Contry.",
+    enrollment_not_found: "La cuenta seleccionada ya no está disponible para regularización histórica.",
     enrollment_inactive: "La inscripción ya no está activa.",
     no_pending_charges: "No hay cargos pendientes en esta cuenta.",
     payment_insert_failed: "No se pudo registrar el pago histórico.",
@@ -143,13 +142,11 @@ function MethodToggleGroup({
 
 export function ContryRegularizationAccountPanel({
   initialLedger,
-  contryCampusId,
 }: {
   initialLedger: EnrollmentLedger;
-  contryCampusId: string;
 }) {
   const [ledger, setLedger] = useState(initialLedger);
-  const [chargeContext, setChargeContext] = useState<ContryRegularizationChargeContext | null>(null);
+  const [chargeContext, setChargeContext] = useState<HistoricalRegularizationChargeContext | null>(null);
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [paymentAmount, setPaymentAmount] = useState(initialLedger.totals.balance > 0 ? initialLedger.totals.balance.toFixed(2) : "");
@@ -194,7 +191,7 @@ export function ContryRegularizationAccountPanel({
   }, []);
 
   useEffect(() => {
-    getContryRegularizationChargeContextAction(initialLedger.enrollment.id).then((context) => {
+    getHistoricalRegularizationChargeContextAction(initialLedger.enrollment.id).then((context) => {
       setChargeContext(context);
       if (context?.advanceTuitionOptions[0]?.periodMonth) {
         setTuitionPeriod(context.advanceTuitionOptions[0].periodMonth.slice(0, 7));
@@ -259,14 +256,14 @@ export function ContryRegularizationAccountPanel({
 
   async function refreshWorkspace(options?: { refreshContext?: boolean }) {
     if (!options?.refreshContext) {
-      const nextLedger = await getContryRegularizationLedgerAction(ledger.enrollment.id);
+      const nextLedger = await getHistoricalRegularizationLedgerAction(ledger.enrollment.id);
       if (nextLedger) setLedger(nextLedger);
       return nextLedger;
     }
 
     const [nextLedger, nextContext] = await Promise.all([
-      getContryRegularizationLedgerAction(ledger.enrollment.id),
-      getContryRegularizationChargeContextAction(ledger.enrollment.id),
+      getHistoricalRegularizationLedgerAction(ledger.enrollment.id),
+      getHistoricalRegularizationChargeContextAction(ledger.enrollment.id),
     ]);
     if (nextLedger) setLedger(nextLedger);
     if (nextContext) {
@@ -294,7 +291,7 @@ export function ContryRegularizationAccountPanel({
       if (paymentPaidAt.trim()) formData.set("paidAt", paymentPaidAt.trim());
       if (selectedChargeIds.length > 0) formData.set("targetChargeIds", selectedChargeIds.join(","));
 
-      const result = await postContryHistoricalPaymentAction(ledger.enrollment.id, contryCampusId, formData);
+      const result = await postHistoricalRegularizationPaymentAction(ledger.enrollment.id, formData);
       if (!result.ok) {
         setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
@@ -312,7 +309,7 @@ export function ContryRegularizationAccountPanel({
       setImmediatePaymentPaidAt("");
       setSuccessPaymentId(result.paymentId);
       setPendingMessage(null);
-      setSuccessMessage("Pago histórico registrado correctamente para Contry.");
+      setSuccessMessage("Pago histórico registrado correctamente.");
     });
   }
 
@@ -331,7 +328,7 @@ export function ContryRegularizationAccountPanel({
       if (immediatePaymentPaidAt.trim()) formData.set("paidAt", immediatePaymentPaidAt.trim());
       formData.set("targetChargeIds", immediatePaymentPrompt.chargeId);
 
-      const result = await postContryHistoricalPaymentAction(ledger.enrollment.id, contryCampusId, formData);
+      const result = await postHistoricalRegularizationPaymentAction(ledger.enrollment.id, formData);
       if (!result.ok) {
         setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
@@ -347,7 +344,7 @@ export function ContryRegularizationAccountPanel({
       setImmediatePaymentPaidAt("");
       setSuccessPaymentId(result.paymentId);
       setPendingMessage(null);
-      setSuccessMessage("Cargo y pago hist\u00f3rico registrados correctamente.");
+      setSuccessMessage("Cargo y pago historico registrados correctamente.");
     });
   }
 
@@ -361,7 +358,7 @@ export function ContryRegularizationAccountPanel({
   function submitProductCharge() {
     if (!selectedProduct) return;
     if (selectedProduct.defaultAmount == null) {
-      setErrorMessage("Este producto no tiene monto fijo configurado. Config\u00faralo en Productos antes de usarlo en Regularizaci\u00f3n Contry.");
+      setErrorMessage("Este producto no tiene monto fijo configurado. Configúralo en Productos antes de usarlo en regularización histórica.");
       return;
     }
     setErrorMessage(null);
@@ -375,7 +372,7 @@ export function ContryRegularizationAccountPanel({
       if (chargeSize) formData.set("size", chargeSize);
       if (goalkeeper) formData.set("goalkeeper", "1");
 
-      const result = await postCajaChargeAction(ledger.enrollment.id, formData, contryCampusId);
+      const result = await postCajaChargeAction(ledger.enrollment.id, formData, ledger.enrollment.campusId);
       if (!result.ok) {
         setPendingMessage(null);
         setErrorMessage(getActionErrorMessage(result.error));
@@ -406,7 +403,7 @@ export function ContryRegularizationAccountPanel({
       const result = await createAdvanceTuitionAction(
         ledger.enrollment.id,
         tuitionPeriod,
-        contryCampusId,
+        ledger.enrollment.campusId,
         tuitionPricingPaidAt,
       );
       if (!result.ok) {
@@ -580,7 +577,7 @@ export function ContryRegularizationAccountPanel({
         <div className="space-y-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Registrar pago histórico</p>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Esta captura sigue siendo solo para Regularización Contry. No imprime automáticamente y no se vincula a la sesión de caja.
+            Este flujo es solo para superadmin. No imprime automaticamente y no se vincula a la sesion de caja.
           </p>
         </div>
 
@@ -693,7 +690,7 @@ export function ContryRegularizationAccountPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Agregar nuevo cargo</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Caja-lite para Regularización Contry: crea cargos y mensualidades sin salir de esta cuenta.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Workspace historico: crea cargos y mensualidades excepcionales sin salir de esta cuenta.</p>
           </div>
           <div className="flex rounded-md border border-slate-300 p-1 dark:border-slate-600">
             <button
@@ -759,7 +756,7 @@ export function ContryRegularizationAccountPanel({
                       : "Configura este precio en Productos para usarlo aqu\u00ed"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Regularizaci\u00f3n Contry usa el importe del cat\u00e1logo. El monto no se edita en esta pantalla.
+                    La regularización histórica usa el importe del catálogo. El monto no se edita en esta pantalla.
                   </p>
                 </div>
                 {selectedProduct.hasSizes ? (
@@ -984,7 +981,7 @@ export function ContryRegularizationAccountPanel({
         <PaymentsTable
           enrollmentId={ledger.enrollment.id}
           rows={ledger.payments}
-          returnTo={`/regularizacion/contry?enrollment=${ledger.enrollment.id}`}
+          returnTo={`/admin/regularizacion-historica?campus=${ledger.enrollment.campusId}&enrollment=${ledger.enrollment.id}`}
         />
       </section>
     </section>

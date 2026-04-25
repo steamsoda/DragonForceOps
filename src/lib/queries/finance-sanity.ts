@@ -136,6 +136,7 @@ export type FinanceSanityScanMode = "recent" | "deep";
 const RECENT_FINANCE_ACTIVITY_ACTIONS = [
   "payment.created",
   "payment.created.historical_regularization_contry",
+  "payment.created.historical_regularization_admin",
   "charge.created",
   "charge.created.caja",
   "charge.created.caja_advance_tuition",

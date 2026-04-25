@@ -103,7 +103,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
             </p>
           </div>
           <div className="rounded-md border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
-            <p className="text-xs uppercase tracking-wide text-sky-700 dark:text-sky-300">Regularización histórica Contry</p>
+            <p className="text-xs uppercase tracking-wide text-sky-700 dark:text-sky-300">Regularización histórica</p>
             <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{fmt(data.historicalCatchupAmount)}</p>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
               {data.historicalCatchupCount} pago{data.historicalCatchupCount !== 1 ? "s" : ""} contados por su fecha real de pago

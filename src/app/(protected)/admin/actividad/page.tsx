@@ -81,7 +81,9 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
     const amount = data.amount as number | undefined;
     const method = data.method as string | undefined;
     const source =
-      data.external_source === "historical_catchup_contry" ? "Regularización histórica Contry" : null;
+      data.external_source === "historical_catchup_contry" || data.external_source === "historical_catchup_admin"
+        ? "Regularización histórica"
+        : null;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, method, source].filter(Boolean).join(" · ");
   }
   if (action === "payment.reassigned") {

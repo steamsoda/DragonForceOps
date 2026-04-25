@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-23.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.66`
+Current preview release line: `v1.16.67`
 
 ---
 
@@ -40,7 +40,29 @@ Current preview release line: `v1.16.66`
      - monthly tuition remains Supabase `pg_cron`, not Vercel Cron
      - May generation is expected to use `generate_monthly_charges('2026-05-01')`, resolving the May day-1 tuition plan at `700`
 
-2. `Nuevas Inscripciones` intake lane
+2. Historical regularization workspace hardening
+   - `v1.16.67` replaces the old staff-facing `Regularización Contry` surface with a new superadmin-only workspace:
+     - route: `/admin/regularizacion-historica`
+     - legacy `/regularizacion/contry` now redirects only for superadmin and rejects everyone else
+   - scope:
+     - both Contry and Linda Vista
+     - historical payment posting
+     - historical monthly tuition create/reprice using explicit historical pricing datetime
+     - exceptional product/additional charge creation
+   - safety posture:
+     - selected enrollment forces the campus context for repair postings
+     - no Caja-session linking
+     - no routine front-desk exposure in navigation or route access
+     - new historical repair records use generic sources:
+       - `historical_regularization_admin`
+       - `historical_catchup_admin`
+   - reporting follow-up included in the same pass:
+     - dashboard / resumen mensual / corte semanal now treat both old and new historical payment sources as the same `Regularización histórica` bucket
+   - remaining follow-up:
+     - live-test Linda Vista historical repricing cases end-to-end
+     - update remaining permission/reference docs that still mention the old staff-facing `Regularización Contry` wording
+
+3. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:
      - new campus-scoped `nutritionist` role
      - dedicated `Nutricion` menu lane with `Panel` + `Toma de medidas`
@@ -60,7 +82,7 @@ Current preview release line: `v1.16.66`
      - richer nutrition KPI/analytics and future workflow polish
      - inline assignment/capture actions if the link-first workflow proves too slow
 
-3. Collections / pending-tuition board split
+4. Collections / pending-tuition board split
    - `v1.16.58` implemented the functional split:
      - `/llamadas` now owns the old balance/call follow-up workflow
      - `/pending` now owns the tuition-only board for unpaid monthly tuition
@@ -86,8 +108,14 @@ Current preview release line: `v1.16.66`
    - follow-up:
      - live-test role access with front desk and directors
      - tune urgency colors/counts after a few days of production usage
+     - cross-surface large-query audit:
+       - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
+       - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
+       - `Corte Diario` does not currently show the same issue at present payment volumes
+       - next hardening target is `Jugadores`, where all-campus / `pendingMonth` / enrollment-linked follow-up queries still use the same risky pattern and can fail at current prod scale
+       - goal: chunk/paginate or move remaining high-risk aggregations into SQL/RPC before they become another operations incident
 
-4. Product and competition rules rework follow-up
+5. Product and competition rules rework follow-up
    - continue the pending rework for product and competition rules
    - include rule cleanup needed for current operations, not only the longer sports rethink
    - likely areas:
@@ -97,7 +125,7 @@ Current preview release line: `v1.16.66`
    - planning note:
      - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
 
-5. Attendance tracking v1
+6. Attendance tracking v1
    - `v1.16.63` adds internal attendance tracking on preview:
      - campus-scoped `attendance_admin` role
      - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`

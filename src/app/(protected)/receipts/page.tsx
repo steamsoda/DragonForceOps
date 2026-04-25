@@ -26,7 +26,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 function isHistoricalCatchup(row: { externalSource: string }) {
-  return row.externalSource === "historical_catchup_contry";
+  return row.externalSource === "historical_catchup_contry" || row.externalSource === "historical_catchup_admin";
 }
 
 function isRefunded(row: { refundedAt: string | null }) {
@@ -132,7 +132,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                     </p>
                   ) : null}
                   {isHistoricalCatchup(row) ? (
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Regularización histórica Contry</p>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Regularización histórica</p>
                   ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -201,7 +201,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
                         ) : null}
                         {isHistoricalCatchup(row) ? (
                           <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                            Hist. Contry
+                            Histórico
                           </span>
                         ) : null}
                       </div>
