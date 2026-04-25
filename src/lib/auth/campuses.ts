@@ -94,6 +94,19 @@ export type NutritionCampusAccess = {
   defaultCampusId: string | null;
 };
 
+export type AttendanceCampusAccess = {
+  userId: string;
+  isDirector: boolean;
+  isSportsDirector: boolean;
+  isGlobalSportsDirector: boolean;
+  isAttendanceAdmin: boolean;
+  isFrontDesk: boolean;
+  canWrite: boolean;
+  campuses: AccessibleCampus[];
+  campusIds: string[];
+  defaultCampusId: string | null;
+};
+
 export async function getOperationalCampusAccess(): Promise<OperationalCampusAccess | null> {
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
@@ -146,6 +159,65 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
     isGlobalSportsDirector,
     isFrontDesk,
     isLegacyGlobalFrontDesk,
+    campuses,
+    campusIds: campuses.map((campus) => campus.id),
+    defaultCampusId: defaultCampus?.id ?? null,
+  };
+}
+
+export async function getAttendanceCampusAccess(): Promise<AttendanceCampusAccess | null> {
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) return null;
+
+  const allCampuses = await loadAllCampuses();
+
+  const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
+  const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
+  const isDirector = roleCodes.some((code) => code === "director_admin" || code === "superadmin");
+  const sportsRows = rows.filter((row) => row.app_roles?.code === "director_deportivo");
+  const isSportsDirector = sportsRows.length > 0;
+  const isGlobalSportsDirector = sportsRows.some((row) => row.campus_id === null);
+  const attendanceRows = rows.filter((row) => row.app_roles?.code === "attendance_admin");
+  const isAttendanceAdmin = attendanceRows.some((row) => row.campus_id !== null);
+  const frontDeskRows = rows.filter((row) => row.app_roles?.code === "front_desk");
+  const isFrontDesk = frontDeskRows.length > 0;
+
+  let campuses: AccessibleCampus[] = [];
+  if (isDirector || isGlobalSportsDirector) {
+    campuses = allCampuses ?? [];
+  } else {
+    const scopedRows = [...sportsRows, ...attendanceRows, ...frontDeskRows];
+    const seen = new Set<string>();
+    campuses = scopedRows
+      .map((row) => row.campuses)
+      .filter((campus): campus is NonNullable<RoleCampusRow["campuses"]> => Boolean(campus))
+      .filter((campus) => {
+        if (seen.has(campus.id)) return false;
+        seen.add(campus.id);
+        return true;
+      })
+      .map((campus) => ({ id: campus.id, code: campus.code, name: campus.name }));
+
+    if (campuses.length === 0) {
+      const campusIdSet = new Set(
+        scopedRows
+          .map((row) => row.campus_id)
+          .filter((id): id is string => Boolean(id))
+      );
+      campuses = allCampuses.filter((c) => campusIdSet.has(c.id));
+    }
+  }
+
+  const defaultCampus = chooseDefaultCampus(campuses);
+
+  return {
+    userId: debugContext.effective.id,
+    isDirector,
+    isSportsDirector,
+    isGlobalSportsDirector,
+    isAttendanceAdmin,
+    isFrontDesk,
+    canWrite: isDirector || isSportsDirector || isAttendanceAdmin,
     campuses,
     campusIds: campuses.map((campus) => campus.id),
     defaultCampusId: defaultCampus?.id ?? null,
@@ -212,6 +284,18 @@ export function canAccessCampus(access: OperationalCampusAccess | null, campusId
 export function canAccessNutritionCampus(access: NutritionCampusAccess | null, campusId: string | null | undefined) {
   if (!access || !campusId) return false;
   if (access.isDirector || access.isGlobalNutritionist) return true;
+  return access.campusIds.includes(campusId);
+}
+
+export function canAccessAttendanceCampus(access: AttendanceCampusAccess | null, campusId: string | null | undefined) {
+  if (!access || !campusId) return false;
+  if (access.isDirector || access.isGlobalSportsDirector) return true;
+  return access.campusIds.includes(campusId);
+}
+
+export function canWriteAttendanceCampus(access: AttendanceCampusAccess | null, campusId: string | null | undefined) {
+  if (!access?.canWrite || !campusId) return false;
+  if (access.isDirector || access.isGlobalSportsDirector) return true;
   return access.campusIds.includes(campusId);
 }
 

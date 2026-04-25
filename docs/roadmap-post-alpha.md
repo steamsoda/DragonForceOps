@@ -1,9 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-21.
+Updated continuously. Last updated: 2026-04-23.
+Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.62`
+Current preview release line: `v1.16.66`
 
 ---
 
@@ -73,6 +74,15 @@ Current preview release line: `v1.16.62`
      - campus cards remain visible while a single campus is selected
      - KPI cards drill into `1 mes`, `2 meses`, and `3+ meses` player lists
      - chip alignment and detail-row layout were tightened after live screenshots
+   - `v1.16.66` critical data-completeness hotfix:
+     - fixed `Pendientes` undercounting on large campuses caused by the tuition loader querying too many enrollment IDs in a single Supabase request
+     - root cause:
+       - very large `.in(enrollment_id, [...])` requests can exceed request/header limits
+       - wide historical tuition reads can also hit the default `1000` PostgREST row cap
+       - result: the board could render a partial pending-tuition dataset even while individual player profiles were correct
+     - fix:
+       - small enrollment-ID batches plus paged charge reads until each batch is exhausted
+       - intended to restore complete pending-tuition counts for both campuses without changing account data or finance logic
    - follow-up:
      - live-test role access with front desk and directors
      - tune urgency colors/counts after a few days of production usage
@@ -86,6 +96,42 @@ Current preview release line: `v1.16.62`
      - cross-surface consistency between product setup, sports boards, and finance interpretation
    - planning note:
      - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
+
+5. Attendance tracking v1
+   - `v1.16.63` adds internal attendance tracking on preview:
+     - campus-scoped `attendance_admin` role
+     - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`
+     - recurring class-team schedule templates and idempotent Supabase `pg_cron` session generation
+     - touch-friendly attendance capture with incident prefill from active absence/injury incidents
+     - cancellation flow that excludes sessions from attendance-rate calculations
+     - player-profile attendance summary and director dashboard weekly attendance KPI
+   - `v1.16.64` starts the `Training Groups` split on preview:
+     - adds first-class `training_groups`, `training_group_coaches`, and `training_group_assignments`
+     - adds `Asistencia > Grupos` for group catalog, coach linking, guided review, and safe bulk assignment of unambiguous matches
+     - regular training attendance now resolves from training groups while match/special attendance stays on competition teams
+     - `/new-enrollments` now treats sports-complete as active training-group assignment, not competition-team assignment
+     - player profile now shows training group separately from competition team(s)
+     - tournament flow remains on `teams`, `team_assignments`, `tournament_source_teams`, and `tournament_squads`
+   - `v1.16.65` adds a bulk creator in `Asistencia > Horarios`:
+     - choose campus + weekdays + effective start date
+     - auto-create missing weekly templates for all active training groups with seeded time slots
+     - skips projected/no-time groups and avoids duplicating active overlapping templates
+   - continuation follow-up:
+     - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
+     - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
+     - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
+   - safety boundaries:
+     - parent-facing attendance remains out of scope
+     - coach login/workflows remain deferred
+     - no automatic baja trigger
+     - no backfill from the old Excel attendance export
+     - no changes to Caja, finance, enrollment, nutrition, or existing sports signup workflows
+   - follow-up before production hardening:
+     - review whether attendance should be driven by `Nivel` instead of `teams`
+     - see `docs/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
+     - adjust schedule templates, session generation, roster resolution, reports, and UI copy if `Nivel` becomes the operational attendance grouping
+     - preserve the current v1 preview implementation until the final field workflow is confirmed
+     - avoid migrating production attendance data until the grouping model is locked
 
 ### Immediate Sequence
 
@@ -545,16 +591,166 @@ Follow after the operational tracks above:
 
 ## Later Phases
 
+This long-term plan is subject to change as the app continues to develop; these phases are strategic direction, not locked implementation commitments.
+
+### Phase A — Database Architecture & Security Hardening
+
+**Must be completed before any parent-facing app goes live.**
+
+1. **Schema separation in current Supabase DB**
+   - Split current `public` schema into `public` + `operations`
+   - `public` schema (safe for external access): `players`, `guardians`, `player_guardians`, `teams`, `team_assignments`, `coaches`, `campuses`, `who_growth_reference`, `player_measurement_sessions`, `app_settings` (filtered keys only)
+   - `operations` schema (staff only, never exposed via Supabase client API): `payments`, `payment_allocations`, `payment_refunds`, `charges`, `charge_types`, `pricing_plans`, `pricing_plan_items`, `pricing_plan_tuition_rules`, `pricing_plan_enrollment_tuition_rules`, `products`, `cash_sessions`, `cash_session_entries`, `campus_folio_counters`, `corte_checkpoints`, `finance_reconciliation_snapshots`, `uniform_orders`, `enrollment_incidents`, `area_map_entries`, `academy_events`, `audit_logs`, `app_roles`, `user_roles`, `tournament_team_entries`, `tournament_source_teams`, `tournament_squads`
+   - `REVOKE ALL ON SCHEMA operations FROM anon, authenticated` — parent-facing clients physically cannot see operations tables
+   - Staff admin app accesses `operations` through server-side code (Edge Functions or service role key), never through client SDK
+
+2. **Views for mixed-sensitivity tables**
+   - `v_parent_enrollments` — exposes `id`, `player_id`, `campus_id`, `status`, `start_date`. Excludes: `has_scholarship`, `scholarship_status`, `dropout_reason`, `dropout_notes`, `contactado_*`, `follow_up_*`, `promise_date`, `pricing_plan_id`
+   - `v_parent_tournaments` — exposes name, dates, eligibility, signup deadline. Excludes: `charge_amount`
+   - `v_parent_tournament_entries` — exposes sign-up status. Excludes: `charge_created`, `charge_id`
+
+3. **Add `tenant_id` to all tables**
+   - Add `tenant_id UUID` column to every table now, even as the only tenant
+   - Create a `tenants` table: `id`, `name`, `code`, `logo_url`, `primary_color`, `config (jsonb)`, `stripe_connect_account_id`, `created_at`
+   - Default all existing rows to a "Dragon Force Monterrey" tenant UUID
+   - Much easier to add now than to retrofit later when multi-tenancy is needed
+
+### Phase B — Parent-Facing Database (Separate Supabase Project)
+
+**Needed when parent app development begins. The core security principle: the parent app connects to a database that has zero financial data in it. Not restricted access — the data simply doesn't exist there.**
+
+1. **Create a second Supabase project** as the parent-facing data store
+   - Completely separate DB, separate credentials, separate network
+   - Even a fully compromised parent app cannot reach financial data because there is no path
+
+2. **Parent DB tables** (minimal, curated):
+   - `players` (synced subset)
+   - `guardians` (synced subset)
+   - `player_guardians`
+   - `enrollments_safe` (safe columns only via sync)
+   - `teams`, `team_assignments`, `coaches` (name only), `campuses`
+   - `my_charges` — flattened: `description`, `amount_due`, `status`, `due_date`, `payment_url`. No internal IDs, no allocation breakdowns, no pricing rule references
+   - `announcements` (NEW — admin → parent one-way)
+   - `messages` (NEW — parent ↔ admin simple inbox)
+   - `notification_preferences` (NEW)
+
+3. **One-way sync pipe** from operations DB → parent DB
+   - Sync via Edge Functions triggered by DB changes, or cron batch
+   - Parent DB is a projection, not a source of truth
+   - Only unique data in parent DB is messages/announcements
+
+### Phase C — Parent Mobile App (Expo / React Native)
+
+**After parent DB is set up.**
+
+1. **Tech stack**: Expo / React Native (not PWA)
+   - Reliable iOS push notifications, native app store presence, React knowledge transfers from Next.js
+   - One codebase → Android + iOS
+
+2. **Developer accounts**: Google Play $25 one-time, Apple App Store $99/year
+
+3. **MVP screens**:
+   - Login (Supabase Auth)
+   - My kids' profiles, team, schedule
+   - Announcements feed
+   - Payment status + Pay button (Stripe integration)
+   - Simple messaging (parent → admin inbox)
+   - Push notifications (Expo push service)
+
+4. **Multi-tenant skinning**: app reads tenant config (logo, name, colors) at login. One published app serves all Dragon Force academies worldwide. Parent logs in → `tenant_id` routes to their academy's data.
+
+5. **Security model**: parent app connects ONLY to parent DB. No knowledge of, credentials for, or code referencing the operations DB.
+
+### Phase D — Stripe Integration (replaces 360Player invoice workflow)
+
+**Can begin in parallel with Phase B.**
+
+1. **In-app payment flow**:
+   - Parent taps Pay → app calls Edge Function on operations side
+   - Edge Function resolves correct price from `pricing_plan_tuition_rules` based on current date (early bird $700 / standard $850 / late $1,000)
+   - Creates Stripe PaymentIntent → returns `client_secret` to app
+   - App opens Stripe payment sheet (React Native SDK) — card, Apple Pay, Google Pay
+   - Stripe webhook → operations DB records payment + allocation → sync pipe updates parent DB
+
+2. **Dynamic pricing resolution** (eliminates manual invoice swapping):
+   - One charge per enrollment per month, amount resolves dynamically at display and payment time
+   - Day 1–10: $700 / Day 11–20: $850 / Day 21+: $1,000
+   - Uses existing `pricing_plan_tuition_rules` — no new data model needed
+   - No manual invoice recall, no resending, system handles it automatically
+
+3. **Stripe Connect** (for multi-tenant expansion):
+   - Each academy gets a Connected Account under our Stripe platform
+   - Parent payments route to correct academy's bank account
+   - Optional platform fee per transaction as SaaS revenue
+
+4. **Payment Links fallback**: generate Stripe Payment Links for parents without the app — sendable via SMS, email, or push notification
+
+### Phase E — WATI / WhatsApp Comms
+
+**Status: RECONSIDERING — may be replaced by parent app push notifications.**
+
+Options under consideration:
+- Drop WATI entirely — rely on parent app + SMS/email fallback
+- Keep WATI as transitional — use WhatsApp while parent app adoption grows, then phase out
+- Keep WhatsApp Business API without WATI — cheaper, critical reminders only, no WATI subscription
+
+Decision pending — revisit once parent app scope is finalized.
+
+### Phase F — Multi-Tenancy & Expansion
+
+**Foundational work (tenant_id) is in Phase A. Full expansion architecture deferred until needed.**
+
+1. **Operations DB: domain-based schemas with tenant_id**
+   ```
+   operations-db
+   ├── core       → players, guardians, enrollments, teams, campuses, coaches
+   ├── finance    → payments, charges, cash_sessions, pricing_plans, reconciliation
+   ├── tournaments → tournaments, squads, team_entries, player_entries
+   └── admin      → audit_logs, user_roles, app_roles, app_settings
+   ```
+   All tables have `tenant_id`. RLS + schema-level GRANT controls access by role AND tenant.
+
+2. **Parent DB**: single schema with `tenant_id` + RLS. Scale to schema-per-tenant only if needed (unlikely at projected scale).
+
+3. **Onboarding a new academy**: create tenant record → Stripe Connected Account → branding config → import data → app auto-skins. Configuration task, not a rebuild.
+
+### Strategic Build Order (Later Phases)
+
+1. Add `tenant_id` to all existing tables (do now, even as only tenant)
+2. Schema separation in current DB (`public` + `operations`) — before any parent-facing work
+3. Stripe integration — Edge Functions + webhooks + dynamic pricing
+4. Parent DB — second Supabase project with curated sync
+5. Parent mobile app — Expo/React Native MVP
+6. Push notifications — Expo push service
+7. WATI decision — keep, transition, or drop based on app adoption
+8. Multi-tenant domain schemas — when expansion is imminent
+9. Stripe Connect — when first external academy onboards
+
+### Architectural Decisions Log
+
+| Decision | Chosen | Rationale |
+|---|---|---|
+| Parent app tech | Expo / React Native | Reliable iOS push, app store presence, React knowledge transfers |
+| Parent data isolation | Separate Supabase project | Parent app physically cannot reach financial data — no path exists |
+| Internal data isolation | Postgres schema separation | `operations` schema invisible to Supabase client API |
+| Multi-tenancy model | `tenant_id` column + RLS | Single DB handles dozens of academies; schema-per-tenant unnecessary at projected scale |
+| Payment processor | Stripe (existing 360Player account) | Already verified, Connect for multi-tenant, React Native SDK |
+| Pricing resolution | Dynamic at display/payment time | Eliminates manual invoice swapping; uses existing `pricing_plan_tuition_rules` |
+| WATI | Under reconsideration | Parent app push notifications may replace WhatsApp comms layer |
+| Clip | Dropped | Stripe covers both in-person and remote payments |
+
+### Existing Later Phase Items (preserved)
+
 | Item | Notes |
 |------|-------|
 | Coach role + coach module | Coach logs in, takes attendance per training session |
 | Attendance tracking | Per-session records, attendance-based baja detection (3 consecutive missed months) |
 | Director Deportivo role + dashboard | Moved up into active backlog as #58, sports-ops focus only |
 | Campus-scoped access (Contry cashier role) | `front_desk` sees only their campus data |
-| Stripe webhook automation | Auto-ingest + match payments to enrollments |
+| Stripe webhook automation | → absorbed into Phase D |
 | Uniform stock control | Count-based inventory, dashboard widget |
 | Jersey number assignment | Business rules TBD |
-| WhatsApp/SMS automated reminders | Phase 3+ |
+| WhatsApp/SMS automated reminders | → absorbed into Phase E |
 
 ---
 

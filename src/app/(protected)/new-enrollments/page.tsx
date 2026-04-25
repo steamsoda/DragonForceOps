@@ -81,7 +81,7 @@ function CampusCard({
 
 function ActionLinks({ row }: { row: NewEnrollmentIntakeRow }) {
   const links = [
-    row.sportsActionHref ? { href: row.sportsActionHref, label: "Equipo/Nivel" } : null,
+    row.sportsActionHref ? { href: row.sportsActionHref, label: "Grupo deportivo" } : null,
     row.nutritionActionHref ? { href: row.nutritionActionHref, label: "Nutricion" } : null,
     row.playerActionHref ? { href: row.playerActionHref, label: "Jugador" } : null,
   ].filter((item): item is { href: string; label: string } => Boolean(item));
@@ -249,7 +249,7 @@ export default async function NewEnrollmentsPage({ searchParams }: { searchParam
                   <th className="px-3 py-2">Cat.</th>
                   <th className="px-3 py-2">Genero</th>
                   <th className="px-3 py-2">Alta</th>
-                  <th className="px-3 py-2">Nivel / Equipo</th>
+                  <th className="px-3 py-2">Nivel / Grupo</th>
                   <th className="px-3 py-2">Estado</th>
                   <th className="px-3 py-2">Acciones</th>
                 </tr>
@@ -279,7 +279,8 @@ export default async function NewEnrollmentsPage({ searchParams }: { searchParam
                       </td>
                       <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
                         <p>Nivel {row.resolvedLevel ?? "-"}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{row.currentTeamName ?? "Sin equipo"}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{row.currentTrainingGroupName ?? "Sin grupo"}</p>
+                        {row.currentTeamName ? <p className="text-xs text-slate-400">Comp: {row.currentTeamName}</p> : null}
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1.5">

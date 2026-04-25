@@ -124,16 +124,31 @@ type EnrollmentBalanceRow = {
 };
 
 type TeamAssignmentDetailRow = {
+  id?: string;
   teams: {
     id: string;
     name: string;
     birth_year: number | null;
     gender: string | null;
     level: string | null;
+    type?: string | null;
     coaches: {
       first_name: string;
       last_name: string;
     } | null;
+  } | null;
+};
+
+type TrainingGroupAssignmentDetailRow = {
+  training_groups: {
+    id: string;
+    name: string;
+    program: string;
+    level_label: string | null;
+    group_code: string | null;
+    gender: string;
+    birth_year_min: number | null;
+    birth_year_max: number | null;
   } | null;
 };
 
@@ -562,6 +577,8 @@ export async function getPlayerDetail(playerId: string) {
 
   let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
   let teamAssignment: TeamAssignmentDetailRow | null = null;
+  let competitionAssignments: TeamAssignmentDetailRow[] = [];
+  let trainingGroupAssignment: TrainingGroupAssignmentDetailRow | null = null;
   let activeIncident: ActiveIncident | null = null;
   let activeEnrollmentLedger: EnrollmentLedger | null = null;
 
@@ -587,6 +604,29 @@ export async function getPlayerDetail(playerId: string) {
           .returns<TeamAssignmentDetailRow | null>()
           .then(({ data }) => {
             teamAssignment = data;
+          })
+      : Promise.resolve(),
+    activeEnrollmentRow
+      ? supabase
+          .from("team_assignments")
+          .select("teams(id, name, birth_year, gender, level, coaches(first_name, last_name), type)")
+          .eq("enrollment_id", activeEnrollmentRow.id)
+          .is("end_date", null)
+          .returns<TeamAssignmentDetailRow[]>()
+          .then(({ data }) => {
+            competitionAssignments = (data ?? []).filter((row) => row.teams && (row.teams as TeamAssignmentDetailRow["teams"] & { type?: string }).type === "competition");
+          })
+      : Promise.resolve(),
+    activeEnrollmentRow
+      ? supabase
+          .from("training_group_assignments")
+          .select("training_groups(id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max)")
+          .eq("enrollment_id", activeEnrollmentRow.id)
+          .is("end_date", null)
+          .maybeSingle()
+          .returns<TrainingGroupAssignmentDetailRow | null>()
+          .then(({ data }) => {
+            trainingGroupAssignment = data;
           })
       : Promise.resolve(),
     activeEnrollmentRow
@@ -656,6 +696,7 @@ export async function getPlayerDetail(playerId: string) {
     })[0] ?? null;
 
   const team = (teamAssignment as TeamAssignmentDetailRow | null)?.teams ?? null;
+  const trainingGroup = (trainingGroupAssignment as TrainingGroupAssignmentDetailRow | null)?.training_groups ?? null;
 
   return {
     id: player.id,
@@ -678,6 +719,31 @@ export async function getPlayerDetail(playerId: string) {
     historicalEnrollments,
     latestEndedEnrollment,
     activeEnrollmentLedger,
+    activeTrainingGroup: trainingGroup
+      ? {
+          id: trainingGroup.id,
+          name: trainingGroup.name,
+          program: trainingGroup.program,
+          levelLabel: trainingGroup.level_label,
+          groupCode: trainingGroup.group_code,
+          gender: trainingGroup.gender,
+          birthYearMin: trainingGroup.birth_year_min,
+          birthYearMax: trainingGroup.birth_year_max,
+        }
+      : null,
+    competitionTeams: competitionAssignments
+      .map((row) => row.teams)
+      .filter((teamRow): teamRow is NonNullable<typeof team> => Boolean(teamRow))
+      .map((teamRow) => ({
+        id: teamRow.id,
+        name: teamRow.name,
+        birthYear: teamRow.birth_year,
+        gender: teamRow.gender,
+        level: teamRow.level,
+        coachName: teamRow.coaches
+          ? `${teamRow.coaches.first_name} ${teamRow.coaches.last_name}`.trim()
+          : null,
+      })),
     activeTeam: team
       ? {
           id: team.id,

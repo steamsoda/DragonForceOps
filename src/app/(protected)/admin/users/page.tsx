@@ -10,6 +10,7 @@ const ALL_ROLES = [
   { code: "director_admin", label: "Director Admin" },
   { code: "director_deportivo", label: "Director Deportivo" },
   { code: "nutritionist", label: "Nutricionista" },
+  { code: "attendance_admin", label: "Admin de Campo" },
   { code: "front_desk", label: "Recepcion / Caja" },
   { code: "coach", label: "Coach" }
 ] as const;
@@ -108,14 +109,17 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
 
   function GrantForm({ userId, existingRoles }: { userId: string; existingRoles: RoleAssignment[] }) {
     const existingKeys = new Set(existingRoles.map((role) => `${role.code}:${role.campusId ?? ""}`));
+    const campusScopedRoles = new Set(["front_desk", "director_deportivo", "nutritionist", "attendance_admin"]);
     const hasAssignableRoles =
       ALL_ROLES.some(
         (role) =>
-          (role.code !== "front_desk" && role.code !== "director_deportivo" && role.code !== "nutritionist" && !existingKeys.has(`${role.code}:`)) ||
+          (!campusScopedRoles.has(role.code) && !existingKeys.has(`${role.code}:`)) ||
           (role.code === "director_deportivo" &&
             (!existingKeys.has(`${role.code}:`) ||
               (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
           (role.code === "nutritionist" &&
+            (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
+          (role.code === "attendance_admin" &&
             (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
           (role.code === "front_desk" &&
             (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
@@ -132,11 +136,13 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         >
           {ALL_ROLES.filter(
             (role) =>
-              (role.code !== "front_desk" && role.code !== "director_deportivo" && role.code !== "nutritionist") ||
+              (!campusScopedRoles.has(role.code)) ||
               (role.code === "director_deportivo" &&
                 (!existingKeys.has(`${role.code}:`) ||
                   (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))) ||
               (role.code === "nutritionist" &&
+                (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
+              (role.code === "attendance_admin" &&
                 (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`))) ||
               (role.code === "front_desk" &&
                 (campuses ?? []).some((campus) => !existingKeys.has(`${role.code}:${campus.id}`)))
@@ -162,6 +168,10 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           Asignar
         </button>
         <p className="text-[11px] text-slate-400">
+          Recepcion / Caja, Nutricionista y Admin de Campo requieren campus. Director Deportivo puede usar campus especifico o
+          `Sin campus` para `Todos`.
+        </p>
+        <p className="hidden">
           Recepcion / Caja requiere campus. Director Deportivo puede usar campus especÃ­fico o `Sin campus` para `Todos`.
         </p>
       </form>

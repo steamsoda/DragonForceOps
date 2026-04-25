@@ -2,9 +2,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   canAccessCampus,
+  canAccessAttendanceCampus,
   canAccessNutritionCampus,
+  getAttendanceCampusAccess,
   getNutritionCampusAccess,
   getOperationalCampusAccess,
+  type AttendanceCampusAccess,
   type NutritionCampusAccess,
   type OperationalCampusAccess
 } from "@/lib/auth/campuses";
@@ -21,14 +24,18 @@ export type PermissionContext = {
   roleCodes: string[];
   campusAccess: OperationalCampusAccess | null;
   nutritionCampusAccess: NutritionCampusAccess | null;
+  attendanceCampusAccess: AttendanceCampusAccess | null;
   isSuperAdmin: boolean;
   isDirector: boolean;
   isSportsDirector: boolean;
   isNutritionist: boolean;
+  isAttendanceAdmin: boolean;
   isFrontDesk: boolean;
   hasOperationalAccess: boolean;
   hasSportsAccess: boolean;
   hasNutritionAccess: boolean;
+  hasAttendanceReadAccess: boolean;
+  hasAttendanceWriteAccess: boolean;
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
@@ -36,15 +43,17 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
   if (!debugContext) return null;
 
   const supabase = await createClient();
-  const [campusAccess, nutritionCampusAccess] = await Promise.all([
+  const [campusAccess, nutritionCampusAccess, attendanceCampusAccess] = await Promise.all([
     getOperationalCampusAccess(),
     getNutritionCampusAccess(),
+    getAttendanceCampusAccess(),
   ]);
   const roleCodes = debugContext.effective.roleCodes;
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
   const isSportsDirector = isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO);
   const isNutritionist = roleCodes.includes(APP_ROLES.NUTRITIONIST);
+  const isAttendanceAdmin = roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
 
   return {
@@ -53,14 +62,18 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     roleCodes,
     campusAccess,
     nutritionCampusAccess,
+    attendanceCampusAccess,
     isSuperAdmin,
     isDirector,
     isSportsDirector,
     isNutritionist,
+    isAttendanceAdmin,
     isFrontDesk,
     hasOperationalAccess: isDirector || isFrontDesk,
     hasSportsAccess: isSportsDirector,
     hasNutritionAccess: isDirector || isNutritionist,
+    hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk,
+    hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin,
   };
 }
 
@@ -85,6 +98,18 @@ export async function requireSportsDirectorContext(redirectTo = "/unauthorized")
 export async function requireNutritionContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasNutritionAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireAttendanceReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceReadAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireAttendanceWriteContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceWriteAccess) redirect(redirectTo);
   return context;
 }
 
@@ -160,4 +185,20 @@ export async function canAccessNutritionPlayerRecord(
     .returns<EnrollmentCampusRow[]>();
 
   return (data ?? []).some((row) => canAccessNutritionCampus(resolvedContext.nutritionCampusAccess, row.campus_id));
+}
+
+export async function canAccessAttendancePlayerRecord(
+  playerId: string,
+  context?: PermissionContext | null
+): Promise<boolean> {
+  const resolvedContext = context ?? (await getPermissionContext());
+  if (!resolvedContext?.hasAttendanceReadAccess) return false;
+
+  const { data } = await resolvedContext.supabase
+    .from("enrollments")
+    .select("campus_id")
+    .eq("player_id", playerId)
+    .returns<EnrollmentCampusRow[]>();
+
+  return (data ?? []).some((row) => canAccessAttendanceCampus(resolvedContext.attendanceCampusAccess, row.campus_id));
 }

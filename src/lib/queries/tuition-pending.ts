@@ -172,21 +172,35 @@ async function loadTuitionCharges(enrollmentIds: string[], selectedMonth: string
 
   const admin = createAdminClient();
   const rows: TuitionChargeRow[] = [];
-  const chunkSize = 500;
+  // The Pendientes board can easily span hundreds of active enrollments.
+  // Large `.in(enrollment_id, [...])` requests hit two Supabase/PostgREST limits:
+  // 1) request URL/header overflow from very large ID lists
+  // 2) default 1000-row response caps on wide historical tuition queries
+  // Keep the enrollment batches small and page each batch until it is exhausted.
+  const chunkSize = 100;
+  const pageSize = 500;
 
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
-    let query = admin
-      .from("charges")
-      .select("id, enrollment_id, amount, period_month, due_date, charge_types!inner(code), payment_allocations(amount)")
-      .in("enrollment_id", enrollmentIds.slice(index, index + chunkSize))
-      .eq("charge_types.code", "monthly_tuition")
-      .neq("status", "void");
+    const enrollmentChunk = enrollmentIds.slice(index, index + chunkSize);
 
-    if (selectedMonth) query = query.eq("period_month", toPeriodMonth(selectedMonth));
+    for (let offset = 0; ; offset += pageSize) {
+      let query = admin
+        .from("charges")
+        .select("id, enrollment_id, amount, period_month, due_date, charge_types!inner(code), payment_allocations(amount)")
+        .in("enrollment_id", enrollmentChunk)
+        .eq("charge_types.code", "monthly_tuition")
+        .neq("status", "void")
+        .range(offset, offset + pageSize - 1);
 
-    const { data, error } = await query.returns<TuitionChargeRow[]>();
-    if (error) throw error;
-    rows.push(...(data ?? []));
+      if (selectedMonth) query = query.eq("period_month", toPeriodMonth(selectedMonth));
+
+      const { data, error } = await query.returns<TuitionChargeRow[]>();
+      if (error) throw error;
+
+      const page = data ?? [];
+      rows.push(...page);
+      if (page.length < pageSize) break;
+    }
   }
 
   return rows;

@@ -3,6 +3,7 @@ export const APP_ROLES = {
   DIRECTOR_ADMIN: "director_admin",
   DIRECTOR_DEPORTIVO: "director_deportivo",
   NUTRITIONIST: "nutritionist",
+  ATTENDANCE_ADMIN: "attendance_admin",
   FRONT_DESK: "front_desk",
   COACH: "coach"
 } as const;
@@ -20,4 +21,11 @@ export const NUTRITION_STAFF_OR_ABOVE = [
   APP_ROLES.SUPERADMIN,
   APP_ROLES.DIRECTOR_ADMIN,
   APP_ROLES.NUTRITIONIST,
+] as const;
+
+export const ATTENDANCE_STAFF_OR_ABOVE = [
+  APP_ROLES.SUPERADMIN,
+  APP_ROLES.DIRECTOR_ADMIN,
+  APP_ROLES.DIRECTOR_DEPORTIVO,
+  APP_ROLES.ATTENDANCE_ADMIN,
 ] as const;

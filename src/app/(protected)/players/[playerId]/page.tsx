@@ -10,6 +10,8 @@ import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
 import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
+import { PlayerAttendanceSummary } from "@/components/attendance/player-attendance-summary";
+import { getPlayerAttendanceSummary } from "@/lib/queries/attendance";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import {
   createBalanceAdjustmentAction,
@@ -292,6 +294,7 @@ export default async function PlayerDetailPage({
     isSuperAdmin && activeEnrollmentId
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
       : null;
+  const attendanceSummary = await getPlayerAttendanceSummary(player.id);
   const balanceTone =
     profileBalance > 0
       ? "amber"
@@ -367,7 +370,7 @@ export default async function PlayerDetailPage({
                 {(activeEnrollment ?? archiveEnrollment) ? (
                   <SummaryChip label={(activeEnrollment ?? archiveEnrollment)!.campusName} tone="blue" />
                 ) : null}
-                {player.activeTeam?.name ? <SummaryChip label={player.activeTeam.name} tone="blue" /> : null}
+                {player.activeTrainingGroup?.name ? <SummaryChip label={player.activeTrainingGroup.name} tone="blue" /> : null}
                 {player.activeTeam?.level ? <SummaryChip label={`Nivel ${player.activeTeam.level}`} tone="violet" /> : null}
                 {player.isGoalkeeper ? <SummaryChip label="Portero" tone="violet" /> : null}
                 {activeIncident ? (
@@ -520,16 +523,30 @@ export default async function PlayerDetailPage({
               {activeEnrollment ? (
                 <>
                   <div>
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo</p>
-                    <p className="font-medium">{player.activeTeam?.name ?? "Sin equipo"}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Grupo de entrenamiento</p>
+                    <p className="font-medium">{player.activeTrainingGroup?.name ?? "Sin grupo"}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coach</p>
-                    <p className="font-medium">{player.activeTeam?.coachName ?? "Sin asignar"}</p>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Equipo de competencia</p>
+                    <p className="font-medium">
+                      {player.competitionTeams.length > 0 ? player.competitionTeams.map((team) => team.name).join(", ") : "Sin equipo"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan actual</p>
                     <p className="font-medium">{activeEnrollment.pricingPlanName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Nivel operativo</p>
+                    <p className="font-medium">{player.activeTeam?.level ?? player.level ?? "Sin nivel"}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coaches de competencia</p>
+                    <p className="font-medium">
+                      {player.competitionTeams.length > 0
+                        ? player.competitionTeams.map((team) => team.coachName).filter(Boolean).join(", ") || "Sin asignar"
+                        : "Sin asignar"}
+                    </p>
                   </div>
                 </>
               ) : archiveEnrollment ? (
@@ -622,6 +639,8 @@ export default async function PlayerDetailPage({
             )}
           </section>
         </div>
+
+        <PlayerAttendanceSummary summary={attendanceSummary} />
 
         {activeLedger ? (
           <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">

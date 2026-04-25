@@ -1,5 +1,81 @@
 # Devlog
 
+## 2026-04-24 (session 120)
+
+### Pendientes Data Completeness Hotfix (v1.16.66)
+
+- Fixed a critical `Pendientes` scaling bug that could hide valid pending-tuition players from the board even though the player profile and charge ledger were correct.
+- Root cause:
+  - `src/lib/queries/tuition-pending.ts` loaded monthly tuition charges with a single large `.in(enrollment_id, [...])` request per chunk.
+  - As campus size and monthly-charge history grew, that query hit two Supabase/PostgREST limits:
+    - oversized request URL/header limits from very large enrollment-ID lists
+    - the default `1000` row cap on wide result sets
+  - operational effect:
+    - `Pendientes` could render a partial tuition dataset for large campuses
+    - front desk would see an undercounted pending list while the affected player profile still showed the correct pending charge
+- Fix:
+  - reduced enrollment-ID batch size
+  - added paged charge reads for each batch until all tuition rows are exhausted
+  - no account balances, charges, allocations, or finance records were rewritten; this is a read-path correctness fix only
+- Example live prod symptom behind this incident:
+  - `Iván Marcelo Mendoza Coronado` had a valid pending April 2026 monthly tuition charge in profile, but was omitted from `Pendientes` because the board query was under-returning charge rows at campus scale
+- Operational note:
+  - this issue is business-critical because `Pendientes` is an action board for collections/front desk; incomplete pending lists are not acceptable and must be treated as a production correctness failure, not a cosmetic bug
+
+### Bulk Training Schedule Creator (v1.16.65)
+
+- Added a bulk schedule creator to `Asistencia > Horarios`.
+- Directors and `director_deportivo` can now choose:
+  - campus
+  - effective start date
+  - one or more weekdays
+- The bulk action creates missing weekly attendance templates for every active training group in that campus that already has seeded start/end times.
+- Safety behavior:
+  - skips projected groups and groups without times
+  - skips group/day combinations that already have an active overlapping template
+  - leaves manual match/special sessions unchanged
+- Kept the single-template creation form available for exceptions and one-off adjustments.
+
+## 2026-04-23 (session 119)
+
+### Training Groups Rollout v1.0 (v1.16.64)
+
+- Added first-class `training_groups`, `training_group_coaches`, and `training_group_assignments` so daily sports and attendance grouping no longer depend on `teams(type='class')`.
+- Seeded the confirmed Linda Vista and Contry training-group catalog plus linked coach assignments inside an additive migration.
+- Added `Asistencia > Grupos`:
+  - group catalog and metadata editor
+  - coach linking
+  - guided assignment review for active enrollments
+  - safe bulk apply for unambiguous training-group suggestions
+- Migrated attendance preview toward training groups for regular training:
+  - schedule templates now create from `training_groups`
+  - generated training sessions resolve rosters from `training_group_assignments`
+  - reports and session detail now show training-group sources while keeping match/special sessions team-based
+  - legacy class-team preview sessions remain readable as fallback
+- Updated `/new-enrollments` so sports completion now means active enrollment + active training-group assignment, not competition-team assignment.
+- Updated the player profile to show training group separately from competition team(s).
+- Kept tournament and competition workflow unchanged on `teams`, `team_assignments`, `tournament_source_teams`, and `tournament_squads`.
+
+## 2026-04-22 (session 118)
+
+### Training Groups Model Analysis
+
+- Added `docs/training-groups-model-analysis.md` after reviewing the current player/team/nivel model and Julio's training-group guide.
+- Recommended separating `Training Groups` from competition `Teams` instead of hardening attendance around `teams(type = 'class')`.
+- Noted that Attendance v1 should remain preview-only until the roster source is confirmed and the training-group model is decided.
+
+## 2026-04-22 (session 117)
+
+### Attendance Tracking v1 (v1.16.63)
+
+- Added the campus-scoped `attendance_admin` role (`Admin de Campo`) plus a new top-level `Asistencia` menu.
+- Added additive attendance tables for weekly schedule templates, concrete sessions, per-player attendance records, and correction audit rows.
+- Added Supabase `pg_cron` generation for next-week training sessions from active class-team schedule templates; the generator is idempotent and does not touch existing player, enrollment, team, or finance rows.
+- Built `Asistencia > Hoy` for daily session review, manual match/special session creation by directors/sports staff, touch-friendly attendance capture, incident prefill, and cancellation.
+- Built `Asistencia > Horarios` for recurring training schedule templates and `Asistencia > Reportes` for inactive-player and team/coach attendance reporting.
+- Added player-profile attendance summary widgets and a director dashboard weekly attendance KPI.
+- Kept parent-facing attendance, coach login workflows, automatic baja triggers, and old Excel attendance backfill out of scope.
+
 ## 2026-04-21 (session 116)
 
 ### Late-April May Tuition Pricing Hotfix (v1.16.62)
