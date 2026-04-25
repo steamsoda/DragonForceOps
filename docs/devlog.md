@@ -2,6 +2,26 @@
 
 ## 2026-04-24 (session 120)
 
+### Historical Regularization Workspace v1 (v1.16.67)
+
+- Replaced the old Contry-only historical repair flow with a new superadmin-only workspace at `/admin/regularizacion-historica`.
+- The old `/regularizacion/contry` route now works only as a compatibility alias:
+  - superadmin users are redirected to the new generic page
+  - all other roles are rejected at the route guard level
+- Converted the existing repair workflow into a campus-aware tool for both Contry and Linda Vista:
+  - campus-first player/enrollment picker
+  - selected enrollment now drives the effective campus automatically
+  - historical payment posting, product charges, and monthly tuition create/reprice remain in one workspace
+- Historical repair payments now write new generic sources for future records:
+  - audit source: `historical_regularization_admin`
+  - payment external source: `historical_catchup_admin`
+- Preserved old `historical_catchup_contry` records as-is, but reporting/activity/receipts now render both old and new sources as `Regularización histórica`.
+- Added a reporting migration so finance summaries count both historical source variants through the shared `finance_payment_facts(...)` function.
+- Why this change was necessary:
+  - `Regularización Contry` started as an operational catch-up tool while Contry was still outside the normal live workflow
+  - once both campuses were using the app directly, leaving a sensitive historical-repair surface in staff navigation created unnecessary operational risk
+  - the safer model is a single superadmin repair desk for exceptional backdated posting and repricing, not a campus cashier tool
+
 ### Pendientes Data Completeness Hotfix (v1.16.66)
 
 - Fixed a critical `Pendientes` scaling bug that could hide valid pending-tuition players from the board even though the player profile and charge ledger were correct.

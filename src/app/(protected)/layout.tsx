@@ -11,7 +11,6 @@ import { PrinterTestButton } from "@/components/ui/printer-test-button";
 import { getPrinterName } from "@/lib/queries/settings";
 import { summarizeRoleScopes } from "@/lib/auth/role-display";
 import { clearDebugViewAction, setDebugViewUserAction } from "@/server/actions/debug-view";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 const DIRECTOR_GESTION_SECTION: NavSection = {
   label: "Gestion",
@@ -117,14 +116,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     { href: "/admin/actividad", label: "Auditoria" },
     { href: "/admin/access-audit", label: "Auditoria accesos" },
     { href: "/admin/finance-sanity", label: "Sanidad financiera" },
+    { href: "/admin/regularizacion-historica", label: "Regularización histórica" },
     ...(debugContext.canManage ? [{ href: "/admin/debug-view", label: "Debug permisos" }] : []),
   ];
-
-  const campusAccess = await getOperationalCampusAccess();
-  const canAccessContryRegularization = (campusAccess?.campuses ?? []).some((campus) => {
-    const normalized = `${campus.code} ${campus.name}`.toLowerCase();
-    return normalized.includes("contry") || normalized.includes("ctr");
-  });
 
   const staffSection: NavSection = {
     label: "Diario",
@@ -132,7 +126,6 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       { href: "/caja", label: "Caja" },
       { href: "/players", label: "Jugadores" },
       { href: "/uniforms", label: "Uniformes" },
-      ...(canAccessContryRegularization ? [{ href: "/regularizacion/contry", label: "Regularización Contry" }] : []),
     ],
   };
 

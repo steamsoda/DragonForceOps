@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canAccessCampus, findContryCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
-import { listPlayers } from "@/lib/queries/players";
 import { createClient } from "@/lib/supabase/server";
 import { formatPeriodMonthLabel, getAdvanceTuitionOptions } from "@/lib/pricing/plans";
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyMonthString, parseMonterreyDateTimeInput } from "@/lib/time";
@@ -59,6 +59,7 @@ export type HistoricalRegularizationPaymentResult =
   | { ok: false; error: string };
 
 export type ContryRegularizationPlayerResult = {
+  campusId: string;
   playerId: string;
   playerName: string;
   birthYear: number | null;
@@ -69,13 +70,14 @@ export type ContryRegularizationPlayerResult = {
   coachName: string | null;
 };
 
-export type ContryRegularizationDrilldownMeta = {
-  campusId: string;
-  campusName: string;
-  birthYears: number[];
+export type HistoricalRegularizationPlayerResult = ContryRegularizationPlayerResult;
+
+export type HistoricalRegularizationDrilldownMeta = {
+  campuses: { id: string; name: string }[];
+  birthYearsByCampus: Record<string, number[]>;
 };
 
-export type ContryRegularizationChargeContext = {
+export type HistoricalRegularizationChargeContext = {
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number; alreadyExists: boolean }>;
 };
 
@@ -87,7 +89,7 @@ type SharedPostedPayment = {
 };
 
 type PostEnrollmentPaymentMode = {
-  auditSource: "ledger" | "historical_regularization_contry";
+  auditSource: "ledger" | "historical_regularization_contry" | "historical_regularization_admin";
   externalSource: string;
   requirePaidAt: boolean;
   forceOperatorCampusId?: string;
@@ -107,22 +109,16 @@ type CajaYearListRow = {
   coach_name: string | null;
 };
 
-async function getContryRegularizationContext() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+type CajaSearchRow = CajaYearListRow;
 
-  if (userError || !user) return null;
-
-  const campusAccess = await getOperationalCampusAccess();
-  if (!campusAccess) return null;
-
-  const contryCampus = findContryCampus(campusAccess.campuses);
-  if (!contryCampus) return null;
-
-  return { supabase, user, campusAccess, contryCampus };
+async function getHistoricalRegularizationContext() {
+  const context = await getPermissionContext();
+  if (!context?.isSuperAdmin || !context.campusAccess) return null;
+  return {
+    supabase: context.supabase,
+    user: context.user,
+    campusAccess: context.campusAccess,
+  };
 }
 
 async function postEnrollmentPaymentInternal(
@@ -263,8 +259,10 @@ async function postEnrollmentPaymentInternal(
     actorUserId: user.id,
     actorEmail: user.email ?? null,
     triggerAction:
-      mode.auditSource === "historical_regularization_contry"
-        ? "payment.created.historical_regularization_contry"
+      mode.auditSource === "historical_regularization_admin"
+        ? "payment.created.historical_regularization_admin"
+        : mode.auditSource === "historical_regularization_contry"
+          ? "payment.created.historical_regularization_contry"
         : "payment.created",
     before: anomalyBefore,
   });
@@ -319,38 +317,33 @@ export async function postEnrollmentPaymentAction(
   };
 }
 
-export async function getContryRegularizationDrilldownMetaAction(): Promise<ContryRegularizationDrilldownMeta> {
-  const context = await getContryRegularizationContext();
-  if (!context) return { campusId: "", campusName: "Contry", birthYears: [] };
+export async function getHistoricalRegularizationDrilldownMetaAction(): Promise<HistoricalRegularizationDrilldownMeta> {
+  const context = await getHistoricalRegularizationContext();
+  if (!context) return { campuses: [], birthYearsByCampus: {} };
 
-  const { supabase, contryCampus } = context;
-  const { data } = await supabase
-    .from("players")
-    .select("birth_date, enrollments!inner(campus_id, status)")
-    .eq("enrollments.status", "active")
-    .eq("enrollments.campus_id", contryCampus.id)
-    .returns<Array<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>>();
+  const { supabase, campusAccess } = context;
+  const { data } = await supabase.rpc("list_active_birth_years_by_campus");
 
-  const birthYears = [...new Set((data ?? []).map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort(
-    (a, b) => a - b
-  );
+  const campuses = campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name }));
+  const birthYearsByCampus: Record<string, number[]> = {};
+  for (const row of (data ?? []) as { campus_id: string; birth_year: number }[]) {
+    if (!canAccessCampus(campusAccess, row.campus_id)) continue;
+    if (!birthYearsByCampus[row.campus_id]) birthYearsByCampus[row.campus_id] = [];
+    birthYearsByCampus[row.campus_id].push(row.birth_year);
+  }
 
-  return {
-    campusId: contryCampus.id,
-    campusName: contryCampus.name,
-    birthYears,
-  };
+  return { campuses, birthYearsByCampus };
 }
 
-export async function getContryRegularizationChargeContextAction(
+export async function getHistoricalRegularizationChargeContextAction(
   enrollmentId: string,
-): Promise<ContryRegularizationChargeContext | null> {
-  const context = await getContryRegularizationContext();
+): Promise<HistoricalRegularizationChargeContext | null> {
+  const context = await getHistoricalRegularizationContext();
   if (!context) return null;
 
-  const { supabase, contryCampus } = context;
+  const { supabase } = context;
   const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger || ledger.enrollment.campusId !== contryCampus.id) return null;
+  if (!ledger) return null;
 
   const { data: enrollmentPlan } = await supabase
     .from("enrollments")
@@ -407,60 +400,73 @@ export async function getContryRegularizationChargeContextAction(
   };
 }
 
-export async function getContryRegularizationLedgerAction(enrollmentId: string) {
-  const context = await getContryRegularizationContext();
+export async function getHistoricalRegularizationLedgerAction(enrollmentId: string) {
+  const context = await getHistoricalRegularizationContext();
   if (!context) return null;
 
   const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger || ledger.enrollment.campusId !== context.contryCampus.id) return null;
+  if (!ledger) return null;
 
   return ledger;
 }
 
-export async function searchContryRegularizationPlayersAction(
+export async function searchHistoricalRegularizationPlayersAction(
   q: string,
-): Promise<ContryRegularizationPlayerResult[]> {
+  campusId?: string,
+): Promise<HistoricalRegularizationPlayerResult[]> {
   const trimmed = q.trim();
   if (trimmed.length < 2) return [];
 
-  const context = await getContryRegularizationContext();
+  const context = await getHistoricalRegularizationContext();
   if (!context) return [];
 
-  const { contryCampus } = context;
-  const result = await listPlayers({
-    campusId: contryCampus.id,
-    q: /^\d{4}$/.test(trimmed) ? undefined : trimmed,
-    birthYear: /^\d{4}$/.test(trimmed) ? trimmed : undefined,
-    page: 1,
-  });
+  const { supabase, campusAccess } = context;
+  if (campusId && !canAccessCampus(campusAccess, campusId)) return [];
 
-  return result.rows.slice(0, 8).map((row) => ({
-    playerId: row.id,
-    playerName: row.fullName,
-    birthYear: row.birthYear,
-    enrollmentId: row.enrollmentId ?? "",
-    campusName: row.campusName,
-    balance: row.balance,
-    teamName: row.teamName,
-    coachName: null,
-  })).filter((row) => !!row.enrollmentId);
+  const allowedCampusNames = new Map(campusAccess.campuses.map((campus) => [campus.name, campus.id]));
+  const selectedCampusName = campusId
+    ? campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? null
+    : null;
+
+  const { data, error } = await supabase.rpc("search_players_for_caja", { search_query: trimmed });
+  if (error || !data) return [];
+
+  return (data as CajaSearchRow[])
+    .filter((row) => allowedCampusNames.has(row.campus_name))
+    .filter((row) => !selectedCampusName || row.campus_name === selectedCampusName)
+    .map((row) => ({
+      campusId: allowedCampusNames.get(row.campus_name) ?? "",
+      playerId: row.player_id,
+      playerName: row.player_name,
+      birthYear: row.birth_year,
+      enrollmentId: row.enrollment_id,
+      campusName: row.campus_name,
+      balance: row.balance,
+      teamName: row.team_name ?? null,
+      coachName: row.coach_name ?? null,
+    }))
+    .filter((row) => !!row.enrollmentId && !!row.campusId)
+    .slice(0, 8);
 }
 
-export async function listContryRegularizationPlayersByYearAction(
+export async function listHistoricalRegularizationPlayersByYearAction(
+  campusId: string,
   birthYear: number,
-): Promise<ContryRegularizationPlayerResult[]> {
-  const context = await getContryRegularizationContext();
+): Promise<HistoricalRegularizationPlayerResult[]> {
+  const context = await getHistoricalRegularizationContext();
   if (!context) return [];
 
-  const { supabase, contryCampus } = context;
+  const { supabase, campusAccess } = context;
+  if (!canAccessCampus(campusAccess, campusId)) return [];
   const { data, error } = await supabase.rpc("list_caja_players_by_campus_year", {
-    p_campus_id: contryCampus.id,
+    p_campus_id: campusId,
     p_birth_year: birthYear,
   });
 
   if (error || !data) return [];
 
   return (data as CajaYearListRow[]).map((row) => ({
+    campusId,
     playerId: row.player_id,
     playerName: row.player_name,
     birthYear: row.birth_year,
@@ -472,19 +478,24 @@ export async function listContryRegularizationPlayersByYearAction(
   }));
 }
 
-export async function postContryHistoricalPaymentAction(
+export async function postHistoricalRegularizationPaymentAction(
   enrollmentId: string,
-  contryCampusId: string,
   formData: FormData
 ): Promise<HistoricalRegularizationPaymentResult> {
+  const context = await getHistoricalRegularizationContext();
+  if (!context) return { ok: false, error: "unauthenticated" };
+
+  const ledger = await getEnrollmentLedger(enrollmentId);
+  if (!ledger) return { ok: false, error: "enrollment_not_found" };
+
   const result = await postEnrollmentPaymentInternal(enrollmentId, formData, {
-    auditSource: "historical_regularization_contry",
-    externalSource: "historical_catchup_contry",
+    auditSource: "historical_regularization_admin",
+    externalSource: "historical_catchup_admin",
     requirePaidAt: true,
-    forceOperatorCampusId: contryCampusId,
-    requireEnrollmentCampusId: contryCampusId,
+    forceOperatorCampusId: ledger.enrollment.campusId,
+    requireEnrollmentCampusId: ledger.enrollment.campusId,
     linkCashToSession: false,
-    extraRevalidatePaths: ["/regularizacion/contry"],
+    extraRevalidatePaths: ["/admin/regularizacion-historica"],
   });
 
   if (!result.ok) return result;
@@ -501,13 +512,12 @@ export async function postContryHistoricalPaymentAction(
   };
 }
 
-export async function postContryHistoricalPaymentRedirectAction(
+export async function postHistoricalRegularizationPaymentRedirectAction(
   enrollmentId: string,
-  contryCampusId: string,
   returnTo: string,
   formData: FormData
 ): Promise<void> {
-  const result = await postContryHistoricalPaymentAction(enrollmentId, contryCampusId, formData);
+  const result = await postHistoricalRegularizationPaymentAction(enrollmentId, formData);
   const joiner = returnTo.includes("?") ? "&" : "?";
 
   if (!result.ok) {
@@ -517,6 +527,51 @@ export async function postContryHistoricalPaymentRedirectAction(
   redirect(
     `${returnTo}${joiner}ok=historical_payment_posted&payment=${encodeURIComponent(result.paymentId)}`
   );
+}
+
+export async function getContryRegularizationDrilldownMetaAction() {
+  const meta = await getHistoricalRegularizationDrilldownMetaAction();
+  const campus = meta.campuses.find((candidate) => candidate.name.toLowerCase().includes("contry"));
+  return {
+    campusId: campus?.id ?? "",
+    campusName: campus?.name ?? "Contry",
+    birthYears: campus ? meta.birthYearsByCampus[campus.id] ?? [] : [],
+  };
+}
+
+export async function getContryRegularizationChargeContextAction(enrollmentId: string) {
+  return getHistoricalRegularizationChargeContextAction(enrollmentId);
+}
+
+export async function getContryRegularizationLedgerAction(enrollmentId: string) {
+  return getHistoricalRegularizationLedgerAction(enrollmentId);
+}
+
+export async function searchContryRegularizationPlayersAction(q: string) {
+  const meta = await getContryRegularizationDrilldownMetaAction();
+  return searchHistoricalRegularizationPlayersAction(q, meta.campusId);
+}
+
+export async function listContryRegularizationPlayersByYearAction(birthYear: number) {
+  const meta = await getContryRegularizationDrilldownMetaAction();
+  return meta.campusId ? listHistoricalRegularizationPlayersByYearAction(meta.campusId, birthYear) : [];
+}
+
+export async function postContryHistoricalPaymentAction(
+  enrollmentId: string,
+  _contryCampusId: string,
+  formData: FormData
+) {
+  return postHistoricalRegularizationPaymentAction(enrollmentId, formData);
+}
+
+export async function postContryHistoricalPaymentRedirectAction(
+  enrollmentId: string,
+  _contryCampusId: string,
+  returnTo: string,
+  formData: FormData
+) {
+  return postHistoricalRegularizationPaymentRedirectAction(enrollmentId, returnTo, formData);
 }
 
 export async function applyEarlyBirdDiscountIfEligible(..._args: unknown[]) {
