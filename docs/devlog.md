@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-04-25 (session 121)
+
+### Historical Regularization Charge Voiding (v1.16.68)
+
+- Extended `Regularizacion historica` so it can now void pending charges directly from the same player workspace instead of forcing a detour into the full enrollment account page.
+- Reused the existing charge-void safety model instead of creating a looser delete path:
+  - pending charges only
+  - superadmin-only route/action guard
+  - required void reason
+  - released allocations are removed and logged
+  - anomaly audit trail still runs
+  - tournament/signup revalidation still runs
+- Added a regularization-specific server action that redirects back into `/admin/regularizacion-historica` with the same enrollment/campus context and explicit success/error feedback.
+- This turns the historical workspace into a more complete repair desk for exceptional account cleanup without reopening the old front-desk-facing `Regularizacion Contry` workflow.
+
 ## 2026-04-24 (session 120)
 
 ### Historical Regularization Workspace v1 (v1.16.67)
