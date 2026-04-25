@@ -142,8 +142,10 @@ function MethodToggleGroup({
 
 export function ContryRegularizationAccountPanel({
   initialLedger,
+  voidChargeAction,
 }: {
   initialLedger: EnrollmentLedger;
+  voidChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
 }) {
   const [ledger, setLedger] = useState(initialLedger);
   const [chargeContext, setChargeContext] = useState<HistoricalRegularizationChargeContext | null>(null);
@@ -973,7 +975,7 @@ export function ContryRegularizationAccountPanel({
 
       <section className="space-y-2">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos pendientes e históricos</h3>
-        <ChargesLedgerTable rows={ledger.charges} />
+        <ChargesLedgerTable rows={ledger.charges} voidChargeAction={voidChargeAction} />
       </section>
 
       <section className="space-y-2">

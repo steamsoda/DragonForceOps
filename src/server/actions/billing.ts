@@ -8,6 +8,7 @@ import {
   getPermissionContext,
   requireDirectorContext,
   requireOperationalContext,
+  requireSuperAdminContext,
 } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
@@ -881,6 +882,103 @@ export async function voidChargeAction(
 }
 
 // ── Batch void charges for ended/cancelled enrollments ────────────────────────
+
+export async function voidHistoricalRegularizationChargeAction(
+  enrollmentId: string,
+  campusId: string,
+  chargeId: string,
+  formData: FormData
+): Promise<void> {
+  const basePath = "/admin/regularizacion-historica";
+  const params = new URLSearchParams({
+    campus: campusId,
+    enrollment: enrollmentId,
+  });
+  const redirectWith = (key: "ok" | "err", value: string) => redirect(`${basePath}?${params.toString()}&${key}=${value}`);
+
+  await assertDebugWritesAllowed(`${basePath}?${params.toString()}`);
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  if (!reason) redirectWith("err", "void_reason_required");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  if (userError || !user) redirectWith("err", "unauthenticated");
+  const currentUser = user!;
+  const permissionContext = await requireSuperAdminContext(`${basePath}?${params.toString()}&err=unauthorized`);
+
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, status, amount, description")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .eq("status", "pending")
+    .maybeSingle<{ id: string; status: string; amount: number; description: string }>();
+
+  if (!charge) redirectWith("err", "charge_not_found");
+  const currentCharge = charge!;
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
+
+  const { data: releasedAllocations, error: releaseLookupError } = await supabase
+    .from("payment_allocations")
+    .select("payment_id, amount")
+    .eq("charge_id", chargeId)
+    .returns<Array<{ payment_id: string; amount: number }>>();
+
+  if (releaseLookupError) redirectWith("err", "void_failed");
+
+  const { error: releaseAllocationsError } = await supabase
+    .from("payment_allocations")
+    .delete()
+    .eq("charge_id", chargeId);
+
+  if (releaseAllocationsError) redirectWith("err", "void_failed");
+
+  const { error } = await supabase
+    .from("charges")
+    .update({ status: "void" })
+    .eq("id", chargeId);
+
+  if (error) redirectWith("err", "void_failed");
+
+  await writeAuditLog(supabase, {
+    actorUserId: currentUser.id,
+    actorEmail: currentUser.email ?? null,
+    action: "charge.voided",
+    tableName: "charges",
+    recordId: chargeId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      description: currentCharge.description,
+      amount: currentCharge.amount,
+      reason,
+      source: "historical_regularization",
+      released_allocation_count: releasedAllocations?.length ?? 0,
+      released_allocation_amount: (releasedAllocations ?? []).reduce((sum, row) => sum + row.amount, 0),
+    }
+  });
+
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath(basePath);
+  revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: currentUser.id,
+    actorEmail: currentUser.email ?? null,
+    triggerAction: "charge.voided",
+    before: anomalyBefore,
+    permissionContext,
+  });
+  redirectWith("ok", "charge_voided");
+}
 
 export async function batchVoidBajaChargesAction(formData: FormData): Promise<void> {
   const BASE = "/pending/bajas";

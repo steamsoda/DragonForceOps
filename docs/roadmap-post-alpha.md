@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-23.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.67`
+Current preview release line: `v1.16.68`
 
 ---
 
@@ -58,6 +58,10 @@ Current preview release line: `v1.16.67`
        - `historical_catchup_admin`
    - reporting follow-up included in the same pass:
      - dashboard / resumen mensual / corte semanal now treat both old and new historical payment sources as the same `Regularización histórica` bucket
+   - `v1.16.68` adds direct charge voiding inside the same workspace:
+     - pending charges can now be anulated from the historical ledger table
+     - uses the same guarded void logic as the regular enrollment-account page
+     - keeps the user inside `Regularizacion historica` after success/error instead of forcing a second workflow
    - remaining follow-up:
      - live-test Linda Vista historical repricing cases end-to-end
      - update remaining permission/reference docs that still mention the old staff-facing `Regularización Contry` wording
