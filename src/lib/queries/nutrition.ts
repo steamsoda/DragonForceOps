@@ -140,6 +140,20 @@ function groupMatchesGender(group: NutritionTrainingGroupRow, gender: "male" | "
   return group.gender === gender || group.gender === "mixed";
 }
 
+function normalizeBirthYearFilter(value: string | number | null | undefined) {
+  const year = typeof value === "number" ? value : Number.parseInt(value ?? "", 10);
+  return Number.isFinite(year) && year >= 2000 && year <= 2100 ? year : null;
+}
+
+function groupMatchesBirthYear(group: NutritionTrainingGroupRow, birthYear: number | null) {
+  if (!birthYear) return true;
+  const min = group.birth_year_min;
+  const max = group.birth_year_max;
+  if (min == null && max == null) return true;
+  if (min != null && max != null) return birthYear >= min && birthYear <= max;
+  return birthYear === (min ?? max);
+}
+
 function trainingGroupSubtitle(group: NutritionTrainingGroupRow) {
   const parts = [
     TRAINING_GROUP_PROGRAM_LABELS[group.program] ?? group.program,
@@ -288,6 +302,7 @@ export type NutritionMeasurementListFilters = {
 export type NutritionGroupedRosterFilters = {
   campusId?: string;
   gender?: string;
+  birthYear?: string | number;
   intakeStatus?: "pending" | "all";
 };
 
@@ -365,6 +380,8 @@ export type NutritionGroupedRosterData = {
   selectedCampusId: string;
   selectedCampusName: string;
   selectedGender: "male" | "female" | "";
+  selectedBirthYear: number | null;
+  birthYears: number[];
   intakeStatus: "pending" | "all";
   sections: NutritionGroupedRosterSection[];
   totalPlayers: number;
@@ -596,11 +613,16 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
   if (!selectedCampus) return null;
 
   const selectedGender = normalizeGenderFilter(filters.gender);
+  const selectedBirthYear = normalizeBirthYearFilter(filters.birthYear);
   const activeEnrollments = await listAccessibleActiveEnrollments([selectedCampus.id]);
   const genderFilteredEnrollments = selectedGender
     ? activeEnrollments.filter((row) => row.players?.gender === selectedGender)
     : activeEnrollments;
-  const playerIds = [...new Set(genderFilteredEnrollments.map((row) => row.player_id))];
+  const birthYears = [...new Set(genderFilteredEnrollments.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
+  const visibleEnrollments = selectedBirthYear
+    ? genderFilteredEnrollments.filter((row) => getBirthYear(row.players?.birth_date) === selectedBirthYear)
+    : genderFilteredEnrollments;
+  const playerIds = [...new Set(visibleEnrollments.map((row) => row.player_id))];
 
   const [sessions, guardianContacts, groups, assignments] = await Promise.all([
     listMeasurementSessionsForPlayers(playerIds),
@@ -632,7 +654,7 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
       if (yearDiff !== 0) return yearDiff;
       return a.name.localeCompare(b.name, "es-MX");
     })
-    .filter((group) => groupMatchesGender(group, selectedGender))) {
+    .filter((group) => groupMatchesGender(group, selectedGender) && groupMatchesBirthYear(group, selectedBirthYear))) {
     sectionMap.set(group.id, {
       id: group.id,
       name: group.name,
@@ -650,7 +672,7 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
     rows: [],
   };
 
-  for (const enrollment of genderFilteredEnrollments) {
+  for (const enrollment of visibleEnrollments) {
     const hasCurrentMeasurement = currentEnrollmentSessionSet.has(enrollment.id);
     if (intakeStatus === "pending" && hasCurrentMeasurement) continue;
 
@@ -701,6 +723,8 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
     selectedCampusId: selectedCampus.id,
     selectedCampusName: selectedCampus.name,
     selectedGender,
+    selectedBirthYear,
+    birthYears,
     intakeStatus,
     sections,
     totalPlayers: sections.reduce((sum, section) => sum + section.rows.length, 0),
