@@ -60,6 +60,7 @@ type CampusRow = {
 
 type PlayerDetailRow = {
   id: string;
+  public_player_id: string | null;
   first_name: string;
   last_name: string;
   birth_date: string;
@@ -154,6 +155,7 @@ type TrainingGroupAssignmentDetailRow = {
 
 type PlayerWithEnrollmentRow = {
   id: string;
+  public_player_id: string | null;
   first_name: string;
   last_name: string;
   birth_date: string;
@@ -246,7 +248,7 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   const { data: players } = await supabase
     .from("players")
-    .select("id, first_name, last_name, birth_date, status, gender, level, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))")
+    .select("id, public_player_id, first_name, last_name, birth_date, status, gender, level, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))")
     .eq("enrollments.status", "active")
     .in("enrollments.campus_id", selectedCampusIds)
     .order("first_name", { ascending: true })
@@ -386,6 +388,7 @@ export async function listPlayers(filters: PlayerListFilters) {
 
     return {
       id: player.id,
+      publicPlayerId: player.public_player_id,
       fullName: `${player.first_name} ${player.last_name}`,
       birthDate: player.birth_date,
       birthYear: parseInt(player.birth_date.slice(0, 4), 10),
@@ -536,7 +539,7 @@ export async function getPlayerDetail(playerId: string) {
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
       .from("players")
-      .select("id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size, is_goalkeeper, level")
+      .select("id, public_player_id, first_name, last_name, birth_date, status, gender, medical_notes, uniform_size, is_goalkeeper, level")
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerDetailRow | null>(),
@@ -700,6 +703,7 @@ export async function getPlayerDetail(playerId: string) {
 
   return {
     id: player.id,
+    publicPlayerId: player.public_player_id,
     firstName: player.first_name,
     lastName: player.last_name,
     fullName: `${player.first_name} ${player.last_name}`,

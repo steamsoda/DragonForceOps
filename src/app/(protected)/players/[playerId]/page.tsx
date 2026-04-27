@@ -361,12 +361,13 @@ export default async function PlayerDetailPage({
                 </p>
                 <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{player.fullName}</h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Nacimiento: {fmtDate(player.birthDate)} {primaryGuardian ? `| Tutor principal: ${primaryGuardian.first_name} ${primaryGuardian.last_name}` : ""}
+                  ID: {player.publicPlayerId ?? "-"} | Nacimiento: {fmtDate(player.birthDate)} {primaryGuardian ? `| Tutor principal: ${primaryGuardian.first_name} ${primaryGuardian.last_name}` : ""}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <SummaryChip label={activeEnrollment ? "Activo" : "Baja"} tone={activeEnrollment ? "emerald" : "slate"} />
+                {player.publicPlayerId ? <SummaryChip label={player.publicPlayerId} tone="slate" /> : null}
                 {(activeEnrollment ?? archiveEnrollment) ? (
                   <SummaryChip label={(activeEnrollment ?? archiveEnrollment)!.campusName} tone="blue" />
                 ) : null}
@@ -498,6 +499,10 @@ export default async function PlayerDetailPage({
               ) : null}
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-slate-400">ID jugador</p>
+                <p className="font-mono font-medium">{player.publicPlayerId ?? "-"}</p>
+              </div>
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Genero</p>
                 <p className="font-medium">
