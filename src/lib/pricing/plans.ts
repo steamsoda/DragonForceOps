@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMonterreyDateString, getMonterreyMonthString } from "@/lib/time";
 
-const DEFAULT_INSCRIPTION_AMOUNT = 1800;
+const DEFAULT_INSCRIPTION_AMOUNT = 1900;
 const DEFAULT_FIRST_MONTH_AMOUNT = 600;
 
 export const ADVANCE_TUITION_MONTH_OFFSETS = [0, 1, 2, 3] as const;

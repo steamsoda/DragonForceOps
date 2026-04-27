@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-27 (session 123)
+
+### Inscription Price Update (v1.16.74)
+
+- Updated new-enrollment inscription pricing from `$1,800` to `$1,900` starting 2026-04-27.
+- Added an effective pricing-plan migration instead of rewriting historical charges:
+  - dates before 2026-04-27 keep the previous `$1,800` item
+  - 2026-04-27 onward uses `$1,900`
+  - May 2026 and future standard plan versions also use `$1,900`
+- Updated the app fallback inscription amount to `$1,900` so intake remains safe if pricing-plan item reads ever fail.
+- Existing enrollment charges are intentionally untouched.
+
 ## 2026-04-26 (session 122)
 
 ### Jugadores Group Ordering Polish (v1.16.73)
