@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.72`
+Current preview release line: `v1.16.73`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -188,6 +188,7 @@ Near-term UI/workflow planning note: operations has requested a larger UI pass; 
      - old active list remains available at `/players?view=active`
      - nutrition gets a parallel grouped roster in `Toma de medidas` with no finance/payment/tuition fields
    - `v1.16.72` adds category/YOB buttons below gender controls in both grouped roster views
+   - `v1.16.73` orders `Jugadores` grouped sections by YOB from youngest to oldest and prefixes section titles with category/gender
    - hidden sports/WIP surface note:
      - old/hidden `Equipos`, tournament management, and competition/squad surfaces should stay untouched for now
      - future decision needed: promote, rebuild, or retire each surface after the rules pass
