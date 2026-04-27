@@ -106,6 +106,8 @@ export type PlayerRosterGroupsData = {
   selectedCampusId: string;
   selectedCampusName: string;
   selectedGender: "male" | "female" | "";
+  selectedBirthYear: number | null;
+  birthYears: number[];
   months: RosterTuitionMonth[];
   sections: PlayerRosterGroupSection[];
   totalPlayers: number;
@@ -209,6 +211,20 @@ function groupMatchesGender(group: TrainingGroupRow, gender: "male" | "female" |
   return group.gender === gender || group.gender === "mixed";
 }
 
+function normalizeBirthYearFilter(value: string | number | null | undefined) {
+  const year = typeof value === "number" ? value : Number.parseInt(value ?? "", 10);
+  return Number.isFinite(year) && year >= 2000 && year <= 2100 ? year : null;
+}
+
+function groupMatchesBirthYear(group: TrainingGroupRow, birthYear: number | null) {
+  if (!birthYear) return true;
+  const min = group.birth_year_min;
+  const max = group.birth_year_max;
+  if (min == null && max == null) return true;
+  if (min != null && max != null) return birthYear >= min && birthYear <= max;
+  return birthYear === (min ?? max);
+}
+
 function buildTuitionCells(months: RosterTuitionMonth[], charges: TuitionChargeRow[]) {
   const byPeriod = new Map<string, TuitionChargeRow[]>();
   for (const charge of charges) {
@@ -253,7 +269,7 @@ function buildTuitionCells(months: RosterTuitionMonth[], charges: TuitionChargeR
   });
 }
 
-export async function getPlayerRosterGroupsData(filters: { campusId?: string; gender?: string } = {}): Promise<PlayerRosterGroupsData | null> {
+export async function getPlayerRosterGroupsData(filters: { campusId?: string; gender?: string; birthYear?: string | number } = {}): Promise<PlayerRosterGroupsData | null> {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
@@ -266,6 +282,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
 
   const selectedCampus = campusAccess.campuses.find((campus) => campus.id === selectedCampusId) ?? campusAccess.campuses[0];
   const selectedGender = normalizeGenderFilter(filters.gender);
+  const selectedBirthYear = normalizeBirthYearFilter(filters.birthYear);
   const months = getRosterMonths();
   const supabase = await createClient();
 
@@ -339,6 +356,10 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     ),
   ]);
 
+  const birthYears = [...new Set(enrollments.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
+  const visibleEnrollments = selectedBirthYear
+    ? enrollments.filter((row) => getBirthYear(row.players?.birth_date) === selectedBirthYear)
+    : enrollments;
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const assignmentByEnrollment = new Map(assignments.map((assignment) => [assignment.enrollment_id, assignment.training_groups]));
   const chargesByEnrollment = new Map<string, TuitionChargeRow[]>();
@@ -358,7 +379,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     const yearDiff = (a.birth_year_min ?? 9999) - (b.birth_year_min ?? 9999);
     if (yearDiff !== 0) return yearDiff;
     return a.name.localeCompare(b.name, "es-MX");
-  }).filter((group) => groupMatchesGender(group, selectedGender))) {
+  }).filter((group) => groupMatchesGender(group, selectedGender) && groupMatchesBirthYear(group, selectedBirthYear))) {
     sectionMap.set(group.id, {
       id: group.id,
       name: group.name,
@@ -382,7 +403,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     rows: [],
   };
 
-  for (const enrollment of enrollments) {
+  for (const enrollment of visibleEnrollments) {
     const player = enrollment.players;
     if (!player) continue;
     const assignedGroup = assignmentByEnrollment.get(enrollment.id) ?? null;
@@ -427,9 +448,11 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     selectedCampusId,
     selectedCampusName: selectedCampus?.name ?? "-",
     selectedGender,
+    selectedBirthYear,
+    birthYears,
     months,
     sections,
-    totalPlayers: enrollments.length,
+    totalPlayers: visibleEnrollments.length,
     unassignedCount: unassignedSection.rows.length,
   };
 }

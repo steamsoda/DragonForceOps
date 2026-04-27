@@ -2,6 +2,15 @@
 
 ## 2026-04-26 (session 122)
 
+### Grouped Roster Category Buttons (v1.16.72)
+
+- Added category/YOB buttons below the gender controls in the grouped roster views:
+  - `Jugadores > Vista por grupos`
+  - `Nutricion > Toma de medidas > Vista por grupos`
+- Category filters preserve the current campus and gender scope.
+- The YOB options are derived from the currently visible campus/gender roster, and selecting one trims the rendered groups/rows.
+- Nutrition remains finance-safe: no tuition, payment, charge, balance, receipt, or Caja data was added.
+
 ### Jugadores Default + Nutrition Grouped Roster (v1.16.71)
 
 - Made `/players` open the spreadsheet-style `Vista por grupos` by default while preserving the old active list at `/players?view=active`.

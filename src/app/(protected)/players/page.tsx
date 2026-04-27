@@ -234,10 +234,11 @@ function tuitionCellClass(state: RosterTuitionCell["state"]) {
   return "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
 }
 
-function groupedRosterHref({ campusId, gender }: { campusId?: string; gender?: string }) {
+function groupedRosterHref({ campusId, gender, birthYear }: { campusId?: string; gender?: string; birthYear?: number | string | null }) {
   const params = new URLSearchParams({ view: "groups" });
   if (campusId) params.set("campus", campusId);
   if (gender) params.set("gender", gender);
+  if (birthYear) params.set("year", String(birthYear));
   return `/players?${params.toString()}`;
 }
 
@@ -282,7 +283,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
             return (
               <Link
                 key={campus.id}
-                href={groupedRosterHref({ campusId: campus.id, gender: data.selectedGender })}
+                href={groupedRosterHref({ campusId: campus.id, gender: data.selectedGender, birthYear: data.selectedBirthYear })}
                 className={`rounded-lg border px-4 py-3 text-left transition ${
                   active
                     ? "border-portoBlue bg-blue-50 text-portoBlue shadow-sm dark:border-blue-400 dark:bg-blue-950/30 dark:text-blue-200"
@@ -304,7 +305,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
               return (
                 <Link
                   key={option.value || "all"}
-                  href={groupedRosterHref({ campusId: data.selectedCampusId, gender: option.value })}
+                  href={groupedRosterHref({ campusId: data.selectedCampusId, gender: option.value, birthYear: data.selectedBirthYear })}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     active
                       ? "border-portoBlue bg-portoBlue text-white"
@@ -315,6 +316,35 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
                 </Link>
               );
             })}
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Categoria</p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={groupedRosterHref({ campusId: data.selectedCampusId, gender: data.selectedGender })}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                data.selectedBirthYear == null
+                  ? "border-portoBlue bg-portoBlue text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+              }`}
+            >
+              Todas
+            </Link>
+            {data.birthYears.map((year) => (
+              <Link
+                key={year}
+                href={groupedRosterHref({ campusId: data.selectedCampusId, gender: data.selectedGender, birthYear: year })}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  data.selectedBirthYear === year
+                    ? "border-portoBlue bg-portoBlue text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                }`}
+              >
+                {year}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -435,7 +465,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
 
   if (view === "groups") {
     const selectedGroupGender = gender === "male" || gender === "female" ? gender : "";
-    const rosterData = await getPlayerRosterGroupsData({ campusId: campusId || undefined, gender: selectedGroupGender || undefined });
+    const rosterData = await getPlayerRosterGroupsData({ campusId: campusId || undefined, gender: selectedGroupGender || undefined, birthYear: birthYear || undefined });
     return (
       <PageShell
         title="Jugadores por grupos"

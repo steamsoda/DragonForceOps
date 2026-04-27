@@ -12,6 +12,7 @@ import { formatDateMonterrey } from "@/lib/time";
 type SearchParams = Promise<{
   campus?: string;
   gender?: string;
+  year?: string;
   q?: string;
   status?: "pending" | "all";
   view?: "groups" | "list";
@@ -21,17 +22,20 @@ function measurementsHref({
   view,
   campusId,
   gender,
+  birthYear,
   status,
 }: {
   view?: "groups" | "list";
   campusId?: string;
   gender?: string;
+  birthYear?: number | string | null;
   status?: "pending" | "all";
 }) {
   const params = new URLSearchParams();
   if (view && view !== "groups") params.set("view", view);
   if (campusId) params.set("campus", campusId);
   if (gender) params.set("gender", gender);
+  if (birthYear) params.set("year", String(birthYear));
   if (status && status !== "pending") params.set("status", status);
   const query = params.toString();
   return query ? `/nutrition/measurements?${query}` : "/nutrition/measurements";
@@ -49,7 +53,7 @@ function measurementStatusChip(done: boolean) {
   );
 }
 
-function NutritionViewTabs({ view, status, campusId, gender }: { view: "groups" | "list"; status: "pending" | "all"; campusId: string; gender: string }) {
+function NutritionViewTabs({ view, status, campusId, gender, birthYear }: { view: "groups" | "list"; status: "pending" | "all"; campusId: string; gender: string; birthYear: string }) {
   const items = [
     { key: "groups", label: "Vista por grupos" },
     { key: "list", label: "Lista" },
@@ -60,7 +64,7 @@ function NutritionViewTabs({ view, status, campusId, gender }: { view: "groups" 
       {items.map((item) => (
         <Link
           key={item.key}
-          href={measurementsHref({ view: item.key, campusId, gender, status })}
+          href={measurementsHref({ view: item.key, campusId, gender, birthYear, status })}
           className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
             view === item.key
               ? "border-portoBlue text-portoBlue"
@@ -119,7 +123,7 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
             return (
               <Link
                 key={campus.id}
-                href={measurementsHref({ campusId: campus.id, gender: data.selectedGender, status: data.intakeStatus })}
+                href={measurementsHref({ campusId: campus.id, gender: data.selectedGender, birthYear: data.selectedBirthYear, status: data.intakeStatus })}
                 className={`rounded-lg border px-4 py-3 text-left transition ${
                   active
                     ? "border-portoBlue bg-blue-50 text-portoBlue shadow-sm dark:border-blue-400 dark:bg-blue-950/30 dark:text-blue-200"
@@ -133,14 +137,14 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
           })}
         </div>
 
-        <div className="grid gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 md:grid-cols-2">
+        <div className="grid gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 md:grid-cols-3">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Genero</p>
             <div className="flex flex-wrap gap-2">
               {genderOptions.map((option) => (
                 <Link
                   key={option.value || "all"}
-                  href={measurementsHref({ campusId: data.selectedCampusId, gender: option.value, status: data.intakeStatus })}
+                  href={measurementsHref({ campusId: data.selectedCampusId, gender: option.value, birthYear: data.selectedBirthYear, status: data.intakeStatus })}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     data.selectedGender === option.value
                       ? "border-portoBlue bg-portoBlue text-white"
@@ -153,12 +157,40 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
             </div>
           </div>
           <div className="space-y-2">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Categoria</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={measurementsHref({ campusId: data.selectedCampusId, gender: data.selectedGender, status: data.intakeStatus })}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  data.selectedBirthYear == null
+                    ? "border-portoBlue bg-portoBlue text-white"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                }`}
+              >
+                Todas
+              </Link>
+              {data.birthYears.map((year) => (
+                <Link
+                  key={year}
+                  href={measurementsHref({ campusId: data.selectedCampusId, gender: data.selectedGender, birthYear: year, status: data.intakeStatus })}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    data.selectedBirthYear === year
+                      ? "border-portoBlue bg-portoBlue text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  }`}
+                >
+                  {year}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Estado</p>
             <div className="flex flex-wrap gap-2">
               {statusOptions.map((option) => (
                 <Link
                   key={option.value}
-                  href={measurementsHref({ campusId: data.selectedCampusId, gender: data.selectedGender, status: option.value })}
+                  href={measurementsHref({ campusId: data.selectedCampusId, gender: data.selectedGender, birthYear: data.selectedBirthYear, status: option.value })}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     data.intakeStatus === option.value
                       ? "border-portoBlue bg-portoBlue text-white"
@@ -279,6 +311,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const selectedGender = params.gender === "male" || params.gender === "female" ? params.gender : "";
+  const selectedBirthYear = params.year ?? "";
   const status = params.status === "all" ? "all" : "pending";
   const queryText = params.q ?? "";
   const view = params.view === "list" ? "list" : "groups";
@@ -296,6 +329,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
       ? getNutritionGroupedRosterData({
           campusId: selectedCampusId || undefined,
           gender: selectedGender || undefined,
+          birthYear: selectedBirthYear || undefined,
           intakeStatus: status,
         })
       : Promise.resolve(null),
@@ -309,7 +343,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
       wide
     >
       <div className="space-y-4">
-        <NutritionViewTabs view={view} status={status} campusId={selectedCampusId} gender={selectedGender} />
+        <NutritionViewTabs view={view} status={status} campusId={selectedCampusId} gender={selectedGender} birthYear={selectedBirthYear} />
 
         {view === "groups" ? (
           <NutritionGroupedRoster data={groupedData} />
