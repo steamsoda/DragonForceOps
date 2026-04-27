@@ -1,10 +1,14 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-23.
+Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
 Current preview release line: `v1.16.68`
+
+Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
+
+Near-term UI/workflow planning note: operations has requested a larger UI pass; exact scope is pending, but it should be planned against the current live surfaces instead of mixing unrelated refactors into one release.
 
 ---
 

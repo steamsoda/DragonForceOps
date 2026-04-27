@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-26 (session 122)
+
+### Preview Planning Checkpoint After v1.16.68
+
+- Confirmed `v1.16.68` is the current production release after merging the `Regularizacion historica` charge-voiding controls to `main`.
+- Next implementation work should continue from the `preview` branch before any further production merge.
+- Immediate open lanes to keep visible before the next UI pass:
+  - larger UI/workflow changes requested by operations, pending exact scope from live feedback
+  - `Jugadores` query hardening after the `Pendientes` large-query incident
+  - attendance continuation: in-app session generation, clearer `Horarios` vs `Hoy` wording, and field validation of training-group based attendance
+  - live-test Linda Vista historical repricing and charge voiding inside the new superadmin workspace
+
 ## 2026-04-25 (session 121)
 
 ### Historical Regularization Charge Voiding (v1.16.68)
