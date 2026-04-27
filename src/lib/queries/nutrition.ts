@@ -11,6 +11,11 @@ import {
   type GrowthProfile,
   type WhoGrowthReferenceRow,
 } from "@/lib/nutrition/growth";
+import {
+  TRAINING_GROUP_GENDER_LABELS,
+  TRAINING_GROUP_PROGRAM_LABELS,
+  formatTrainingGroupBirthYearRange,
+} from "@/lib/training-groups/shared";
 
 type ActiveNutritionEnrollmentRow = {
   id: string;
@@ -21,6 +26,7 @@ type ActiveNutritionEnrollmentRow = {
   inscription_date: string;
   campuses: { name: string | null } | null;
   players: {
+    public_player_id?: string | null;
     first_name: string | null;
     last_name: string | null;
     birth_date: string | null;
@@ -28,6 +34,27 @@ type ActiveNutritionEnrollmentRow = {
     medical_notes: string | null;
     level: string | null;
   } | null;
+};
+
+type NutritionTrainingGroupRow = {
+  id: string;
+  campus_id: string;
+  name: string;
+  program: string;
+  level_label: string | null;
+  group_code: string | null;
+  gender: string;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: string;
+};
+
+type NutritionTrainingGroupAssignmentRow = {
+  enrollment_id: string;
+  training_group_id: string;
+  training_groups: NutritionTrainingGroupRow | null;
 };
 
 type MeasurementSessionRow = {
@@ -104,6 +131,43 @@ function getBirthYear(value: string | null | undefined) {
   return value ? Number.parseInt(value.slice(0, 4), 10) : null;
 }
 
+function normalizeGenderFilter(value: string | null | undefined): "male" | "female" | "" {
+  return value === "male" || value === "female" ? value : "";
+}
+
+function groupMatchesGender(group: NutritionTrainingGroupRow, gender: "male" | "female" | "") {
+  if (!gender) return true;
+  return group.gender === gender || group.gender === "mixed";
+}
+
+function trainingGroupSubtitle(group: NutritionTrainingGroupRow) {
+  const parts = [
+    TRAINING_GROUP_PROGRAM_LABELS[group.program] ?? group.program,
+    `Cat. ${formatTrainingGroupBirthYearRange(group.birth_year_min, group.birth_year_max)}`,
+    TRAINING_GROUP_GENDER_LABELS[group.gender] ?? group.gender,
+  ];
+  if (group.start_time && group.end_time) parts.push(`${group.start_time.slice(0, 5)}-${group.end_time.slice(0, 5)}`);
+  return parts.join(" | ");
+}
+
+function programRank(program: string | null) {
+  if (program === "selectivo") return 0;
+  if (program === "futbol_para_todos") return 1;
+  if (program === "little_dragons") return 2;
+  return 9;
+}
+
+function levelRank(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.includes("selectivo") || normalized === "sel") return 0;
+  if (normalized === "b1") return 1;
+  if (normalized === "b2") return 2;
+  if (normalized === "b3") return 3;
+  if (normalized.includes("little")) return 4;
+  if (normalized === "sin nivel") return 9;
+  return 5;
+}
+
 function getSelectedNutritionCampusIds(campuses: AccessibleCampus[], campusId?: string) {
   if (!campusId) return campuses.map((campus) => campus.id);
   return campuses.some((campus) => campus.id === campusId) ? [campusId] : [];
@@ -136,11 +200,41 @@ async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("enrollments")
-    .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(first_name, last_name, birth_date, gender, medical_notes, level)")
+    .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(public_player_id, first_name, last_name, birth_date, gender, medical_notes, level)")
     .eq("status", "active")
     .in("campus_id", selectedCampusIds)
     .order("created_at", { ascending: false })
     .returns<ActiveNutritionEnrollmentRow[]>();
+
+  return data ?? [];
+}
+
+async function listNutritionTrainingGroups(selectedCampusId: string, selectedGender: "male" | "female" | "") {
+  const admin = createAdminClient();
+  let query = admin
+    .from("training_groups")
+    .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status")
+    .eq("campus_id", selectedCampusId)
+    .eq("status", "active")
+    .order("program", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (selectedGender) {
+    query = query.in("gender", [selectedGender, "mixed"]);
+  }
+
+  const { data } = await query.returns<NutritionTrainingGroupRow[]>();
+  return data ?? [];
+}
+
+async function listNutritionTrainingGroupAssignments(selectedCampusId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("training_group_assignments")
+    .select("enrollment_id, training_group_id, training_groups!inner(id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status)")
+    .is("end_date", null)
+    .eq("training_groups.campus_id", selectedCampusId)
+    .returns<NutritionTrainingGroupAssignmentRow[]>();
 
   return data ?? [];
 }
@@ -191,6 +285,12 @@ export type NutritionMeasurementListFilters = {
   intakeStatus?: "pending" | "all";
 };
 
+export type NutritionGroupedRosterFilters = {
+  campusId?: string;
+  gender?: string;
+  intakeStatus?: "pending" | "all";
+};
+
 export type NutritionActivityPoint = {
   label: string;
   total: number;
@@ -234,6 +334,41 @@ export type NutritionMeasurementListRow = {
   latestMeasurementAt: string | null;
   latestWeightKg: number | null;
   latestHeightCm: number | null;
+};
+
+export type NutritionGroupedRosterRow = {
+  enrollmentId: string;
+  playerId: string;
+  publicPlayerId: string;
+  playerName: string;
+  birthYear: number | null;
+  genderLabel: string;
+  levelGroup: string;
+  guardianContact: NutritionGuardianContact | null;
+  latestEnrollmentDate: string;
+  hasCurrentEnrollmentMeasurement: boolean;
+  latestMeasurementAt: string | null;
+  latestWeightKg: number | null;
+  latestHeightCm: number | null;
+};
+
+export type NutritionGroupedRosterSection = {
+  id: string;
+  name: string;
+  subtitle: string;
+  sortKey: string;
+  rows: NutritionGroupedRosterRow[];
+};
+
+export type NutritionGroupedRosterData = {
+  campuses: AccessibleCampus[];
+  selectedCampusId: string;
+  selectedCampusName: string;
+  selectedGender: "male" | "female" | "";
+  intakeStatus: "pending" | "all";
+  sections: NutritionGroupedRosterSection[];
+  totalPlayers: number;
+  unassignedCount: number;
 };
 
 export type NutritionProfileSession = {
@@ -444,6 +579,133 @@ export async function listNutritionMeasurementRows(filters: NutritionMeasurement
       }
       return left.playerName.localeCompare(right.playerName, "es-MX");
     });
+}
+
+export async function getNutritionGroupedRosterData(filters: NutritionGroupedRosterFilters = {}): Promise<NutritionGroupedRosterData | null> {
+  const access = await getNutritionCampusAccess();
+  const intakeStatus = filters.intakeStatus ?? "pending";
+
+  if (!access || access.campuses.length === 0) return null;
+
+  const accessibleCampuses = access.campuses.filter((campus) => canAccessNutritionCampus(access, campus.id));
+  const selectedCampus =
+    filters.campusId && accessibleCampuses.some((campus) => campus.id === filters.campusId)
+      ? accessibleCampuses.find((campus) => campus.id === filters.campusId)
+      : accessibleCampuses[0];
+
+  if (!selectedCampus) return null;
+
+  const selectedGender = normalizeGenderFilter(filters.gender);
+  const activeEnrollments = await listAccessibleActiveEnrollments([selectedCampus.id]);
+  const genderFilteredEnrollments = selectedGender
+    ? activeEnrollments.filter((row) => row.players?.gender === selectedGender)
+    : activeEnrollments;
+  const playerIds = [...new Set(genderFilteredEnrollments.map((row) => row.player_id))];
+
+  const [sessions, guardianContacts, groups, assignments] = await Promise.all([
+    listMeasurementSessionsForPlayers(playerIds),
+    listGuardianContactsForPlayers(playerIds),
+    listNutritionTrainingGroups(selectedCampus.id, selectedGender),
+    listNutritionTrainingGroupAssignments(selectedCampus.id),
+  ]);
+
+  const latestSessionByPlayer = new Map<string, MeasurementSessionRow>();
+  const currentEnrollmentSessionSet = new Set<string>();
+  for (const session of sessions) {
+    if (!latestSessionByPlayer.has(session.player_id)) {
+      latestSessionByPlayer.set(session.player_id, session);
+    }
+    currentEnrollmentSessionSet.add(session.enrollment_id);
+  }
+
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
+  const assignmentByEnrollment = new Map(assignments.map((assignment) => [assignment.enrollment_id, assignment.training_groups]));
+  const sectionMap = new Map<string, NutritionGroupedRosterSection>();
+
+  for (const group of [...groups]
+    .sort((a, b) => {
+      const programDiff = programRank(a.program) - programRank(b.program);
+      if (programDiff !== 0) return programDiff;
+      const startDiff = (a.start_time ?? "99:99").localeCompare(b.start_time ?? "99:99");
+      if (startDiff !== 0) return startDiff;
+      const yearDiff = (a.birth_year_min ?? 9999) - (b.birth_year_min ?? 9999);
+      if (yearDiff !== 0) return yearDiff;
+      return a.name.localeCompare(b.name, "es-MX");
+    })
+    .filter((group) => groupMatchesGender(group, selectedGender))) {
+    sectionMap.set(group.id, {
+      id: group.id,
+      name: group.name,
+      subtitle: trainingGroupSubtitle(group),
+      sortKey: `${programRank(group.program)}:${group.start_time ?? "99:99"}:${group.birth_year_min ?? 9999}:${group.name}`,
+      rows: [],
+    });
+  }
+
+  const unassignedSection: NutritionGroupedRosterSection = {
+    id: "sin-grupo",
+    name: "Sin grupo",
+    subtitle: "Jugadores activos sin grupo de entrenamiento asignado",
+    sortKey: "99:sin-grupo",
+    rows: [],
+  };
+
+  for (const enrollment of genderFilteredEnrollments) {
+    const hasCurrentMeasurement = currentEnrollmentSessionSet.has(enrollment.id);
+    if (intakeStatus === "pending" && hasCurrentMeasurement) continue;
+
+    const player = enrollment.players;
+    const assignedGroup = assignmentByEnrollment.get(enrollment.id) ?? null;
+    const canonicalGroup = assignedGroup?.id ? groupsById.get(assignedGroup.id) ?? assignedGroup : null;
+    const targetSection = canonicalGroup?.id ? sectionMap.get(canonicalGroup.id) ?? unassignedSection : unassignedSection;
+    const latestSession = latestSessionByPlayer.get(enrollment.player_id) ?? null;
+    const levelGroup =
+      canonicalGroup?.level_label?.trim() ||
+      canonicalGroup?.group_code?.trim() ||
+      player?.level?.trim() ||
+      canonicalGroup?.name ||
+      "Sin nivel";
+
+    targetSection.rows.push({
+      enrollmentId: enrollment.id,
+      playerId: enrollment.player_id,
+      publicPlayerId: player?.public_player_id ?? "Pendiente",
+      playerName: getPlayerName(player),
+      birthYear: getBirthYear(player?.birth_date),
+      genderLabel: getGenderLabel(player?.gender),
+      levelGroup,
+      guardianContact: guardianContacts.get(enrollment.player_id) ?? null,
+      latestEnrollmentDate: enrollment.inscription_date,
+      hasCurrentEnrollmentMeasurement: hasCurrentMeasurement,
+      latestMeasurementAt: latestSession?.measured_at ?? null,
+      latestWeightKg: latestSession ? toNumber(latestSession.weight_kg) : null,
+      latestHeightCm: latestSession ? toNumber(latestSession.height_cm) : null,
+    });
+  }
+
+  const sections = [...sectionMap.values(), ...(unassignedSection.rows.length > 0 ? [unassignedSection] : [])]
+    .map((section) => ({
+      ...section,
+      rows: [...section.rows].sort((left, right) => {
+        const levelDiff = levelRank(left.levelGroup) - levelRank(right.levelGroup);
+        if (levelDiff !== 0) return levelDiff;
+        const yearDiff = (left.birthYear ?? 9999) - (right.birthYear ?? 9999);
+        if (yearDiff !== 0) return yearDiff;
+        return left.playerName.localeCompare(right.playerName, "es-MX");
+      }),
+    }))
+    .sort((left, right) => left.sortKey.localeCompare(right.sortKey, "es-MX"));
+
+  return {
+    campuses: accessibleCampuses,
+    selectedCampusId: selectedCampus.id,
+    selectedCampusName: selectedCampus.name,
+    selectedGender,
+    intakeStatus,
+    sections,
+    totalPlayers: sections.reduce((sum, section) => sum + section.rows.length, 0),
+    unassignedCount: unassignedSection.rows.length,
+  };
 }
 
 export async function getNutritionPlayerProfile(playerId: string): Promise<NutritionProfileData | null> {

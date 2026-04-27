@@ -203,8 +203,8 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
 
 function PlayerViewTabs({ view }: { view: "active" | "bajas" | "groups" }) {
   const items = [
+    { href: "/players", key: "groups", label: "Vista por grupos" },
     { href: "/players?view=active", key: "active", label: "Activos" },
-    { href: "/players?view=groups", key: "groups", label: "Vista por grupos" },
     { href: "/players?view=bajas", key: "bajas", label: "Bajas" },
   ] as const;
 
@@ -431,7 +431,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const missingTeam = params.missingTeam === "1";
   const pendingMonth = params.pendingMonth ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const view = params.view === "bajas" ? "bajas" : params.view === "groups" ? "groups" : "active";
+  const view = params.view === "active" ? "active" : params.view === "bajas" ? "bajas" : "groups";
 
   if (view === "groups") {
     const selectedGroupGender = gender === "male" || gender === "female" ? gender : "";

@@ -2,6 +2,18 @@
 
 ## 2026-04-26 (session 122)
 
+### Jugadores Default + Nutrition Grouped Roster (v1.16.71)
+
+- Made `/players` open the spreadsheet-style `Vista por grupos` by default while preserving the old active list at `/players?view=active`.
+- Added a nutrition-safe grouped roster mode to `Nutricion > Toma de medidas`:
+  - default route now opens `Vista por grupos`
+  - list mode remains available with `view=list`
+  - campus, gender, and measurement-status controls are button-based
+  - rows group by `training_groups` and include `Sin grupo`
+- Nutrition safety boundary:
+  - the new nutrition grouped view does not query or render charges, payments, balances, receipts, Caja actions, or tuition status
+  - it only shows nutrition-safe context already allowed for nutrition work: identity, public player ID, group/category, tutor contact, latest measurement, and measurement status
+
 ### Jugadores Grouped Roster Filter Polish (v1.16.70)
 
 - Replaced the campus dropdown in `/players?view=groups` with large campus buttons so staff can switch campuses without treating the roster like a form.
