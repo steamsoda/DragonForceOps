@@ -2,6 +2,27 @@
 
 ## 2026-04-26 (session 122)
 
+### Jugadores Spreadsheet-Style Roster Planning + Public ID v1 (v1.16.69)
+
+- Added `docs/jugadores-spreadsheet-view-plan.md` to capture the agreed UI direction before implementation:
+  - keep the current `Jugadores` list intact
+  - add a separate spreadsheet-style view for staff who are used to Excel
+  - organize by campus and training group
+  - limit v1 to reliable fields and last 3 tuition months
+  - defer SLR / CECAFF / uniform shorthand until product and tournament rules are cleaned up
+- Added permanent player public IDs:
+  - global `DF-0001` style sequence
+  - existing players backfilled by creation date
+  - new players assigned automatically by DB trigger
+  - separate from jersey numbers
+- Added `/players?view=groups` as a read-only, campus-scoped roster view:
+  - active training groups render as sheet-like sections
+  - `Sin grupo` catches active players missing a group assignment
+  - tuition cells show `MES P`, latest payment date, `Pendiente`, or `-`
+  - no amounts, tutor phones, product shorthand, or tournament shorthand are shown in v1
+- Query note:
+  - the new roster view uses campus-scoped joined reads and pagination instead of extending the risky `listPlayers()` fanout path that still needs its own hardening pass
+
 ### Preview Planning Checkpoint After v1.16.68
 
 - Confirmed `v1.16.68` is the current production release after merging the `Regularizacion historica` charge-voiding controls to `main`.

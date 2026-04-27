@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { listBajas, listBirthYears, listCampuses, listPlayers } from "@/lib/queries/players";
+import { getPlayerRosterGroupsData, type PlayerRosterGroupsData, type RosterTuitionCell } from "@/lib/queries/player-roster-groups";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
@@ -140,7 +141,7 @@ function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSetting
               {row.fullName}
             </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Cat. {new Date(row.birthDate).getFullYear()} | {row.level ?? "Sin nivel"} | {row.campusName}
+              {row.publicPlayerId ?? "ID pendiente"} | Cat. {new Date(row.birthDate).getFullYear()} | {row.level ?? "Sin nivel"} | {row.campusName}
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">Tutor: {row.primaryPhone ?? "-"}</p>
           </div>
@@ -200,6 +201,161 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
   );
 }
 
+function PlayerViewTabs({ view }: { view: "active" | "bajas" | "groups" }) {
+  const items = [
+    { href: "/players?view=active", key: "active", label: "Activos" },
+    { href: "/players?view=groups", key: "groups", label: "Vista por grupos" },
+    { href: "/players?view=bajas", key: "bajas", label: "Bajas" },
+  ] as const;
+
+  return (
+    <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
+      {items.map((item) => (
+        <Link
+          key={item.key}
+          href={item.href}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            view === item.key
+              ? "border-portoBlue text-portoBlue"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+          }`}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function tuitionCellClass(state: RosterTuitionCell["state"]) {
+  if (state === "pending") return "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200";
+  if (state === "platform") return "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200";
+  if (state === "paid") return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200";
+  return "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
+}
+
+function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
+  if (!data) {
+    return (
+      <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+        No hay campus disponibles para esta vista.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <form className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <input type="hidden" name="view" value="groups" />
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium text-slate-700 dark:text-slate-300">Campus</span>
+          <select name="campus" defaultValue={data.selectedCampusId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+            {data.campuses.map((campus) => (
+              <option key={campus.id} value={campus.id}>
+                {campus.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+          Ver campus
+        </button>
+        <div className="ml-auto flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {data.totalPlayers} jugadores
+          </span>
+          {data.unassignedCount > 0 ? (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              {data.unassignedCount} sin grupo
+            </span>
+          ) : null}
+        </div>
+      </form>
+
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex min-w-max gap-2">
+          {data.sections.map((section) => (
+            <a
+              key={section.id}
+              href={`#grupo-${section.id}`}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-700 dark:text-slate-300"
+            >
+              {section.name} ({section.rows.length})
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {data.sections.map((section) => (
+          <section key={section.id} id={`grupo-${section.id}`} className="space-y-2">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{section.name}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{section.subtitle}</p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                {section.rows.length} jugadores
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full border-collapse text-xs">
+                <thead className="bg-slate-50 text-left uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  <tr>
+                    <th className="w-12 border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">#</th>
+                    <th className="border-b border-slate-200 px-2 py-2 dark:border-slate-700">ID</th>
+                    <th className="min-w-64 border-b border-slate-200 px-2 py-2 dark:border-slate-700">Nombre</th>
+                    <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">CAT</th>
+                    <th className="border-b border-slate-200 px-2 py-2 dark:border-slate-700">Nivel/Grupo</th>
+                    <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">INSC</th>
+                    {data.months.map((month) => (
+                      <th key={month.periodMonth} className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">
+                        {month.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {section.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6 + data.months.length} className="px-3 py-4 text-slate-500 dark:text-slate-400">
+                        Sin jugadores activos en este grupo.
+                      </td>
+                    </tr>
+                  ) : (
+                    section.rows.map((row, index) => (
+                      <tr key={row.enrollmentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="px-2 py-2 text-center text-slate-500 dark:text-slate-400">{index + 1}</td>
+                        <td className="px-2 py-2 font-mono text-slate-700 dark:text-slate-300">{row.publicPlayerId}</td>
+                        <td className="px-2 py-2">
+                          <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                            {row.fullName}
+                          </Link>
+                        </td>
+                        <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.birthYear ?? "-"}</td>
+                        <td className="px-2 py-2 text-slate-700 dark:text-slate-300">{row.levelGroup}</td>
+                        <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.inscriptionDate}</td>
+                        {row.tuition.map((cell) => (
+                          <td key={cell.periodMonth} className="px-2 py-2 text-center">
+                            <span className={`inline-flex min-h-6 min-w-20 items-center justify-center rounded border px-2 py-1 font-medium leading-none ${tuitionCellClass(cell.state)}`}>
+                              {cell.value}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type SearchParams = Promise<{
   q?: string;
   phone?: string;
@@ -228,7 +384,24 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const missingTeam = params.missingTeam === "1";
   const pendingMonth = params.pendingMonth ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const view = params.view === "bajas" ? "bajas" : "active";
+  const view = params.view === "bajas" ? "bajas" : params.view === "groups" ? "groups" : "active";
+
+  if (view === "groups") {
+    const rosterData = await getPlayerRosterGroupsData({ campusId: campusId || undefined });
+    return (
+      <PageShell
+        title="Jugadores por grupos"
+        subtitle="Vista tipo hoja de calculo por campus y grupo de entrenamiento."
+        breadcrumbs={[{ label: "Jugadores" }]}
+        wide
+      >
+        <div className="space-y-4">
+          <PlayerViewTabs view={view} />
+          <GroupedRosterView data={rosterData} />
+        </div>
+      </PageShell>
+    );
+  }
 
   const [campuses, birthYears, tags, attendanceExport] = await Promise.all([
     listCampuses(),
@@ -294,28 +467,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
-          <Link
-            href="/players?view=active"
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
-              view === "active"
-                ? "border-portoBlue text-portoBlue"
-                : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
-            }`}
-          >
-            Activos
-          </Link>
-          <Link
-            href="/players?view=bajas"
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
-              view === "bajas"
-                ? "border-portoBlue text-portoBlue"
-                : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
-            }`}
-          >
-            Bajas
-          </Link>
-        </div>
+        <PlayerViewTabs view={view} />
 
         <div className="space-y-3">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -443,6 +595,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <tr>
                     <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">ID</th>
                     <th className="px-3 py-2">Categoria</th>
                     <th className="px-3 py-2">Nivel</th>
                     <th className="px-3 py-2">Campus</th>
@@ -453,7 +606,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {activeRows.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={7}>
                         No se encontraron jugadores con esos filtros.
                       </td>
                     </tr>
@@ -465,6 +618,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                             {row.fullName}
                           </Link>
                         </td>
+                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">{row.publicPlayerId ?? "-"}</td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>

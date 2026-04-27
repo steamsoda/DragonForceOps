@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.68`
+Current preview release line: `v1.16.69`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -168,6 +168,24 @@ Near-term UI/workflow planning note: operations has requested a larger UI pass; 
      - adjust schedule templates, session generation, roster resolution, reports, and UI copy if `Nivel` becomes the operational attendance grouping
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked
+
+7. `Jugadores` spreadsheet-style roster view
+   - `v1.16.69` adds the first app-native answer to the old Excel workbook workflow:
+     - planning doc: `docs/jugadores-spreadsheet-view-plan.md`
+     - route state: `/players?view=groups`
+     - read-only, campus-scoped, training-group organized roster
+     - permanent global public player IDs in `DF-0001` format
+     - last 3 tuition months rendered as compact status/date shorthand
+   - v1 intentionally excludes product/tournament shorthand columns:
+     - SLR / CECAFF / uniform cells need cleaner product and competition semantics before they become app-level indicators
+     - revisit after the product/competition rules rework
+   - hidden sports/WIP surface note:
+     - old/hidden `Equipos`, tournament management, and competition/squad surfaces should stay untouched for now
+     - future decision needed: promote, rebuild, or retire each surface after the rules pass
+   - follow-up:
+     - validate staff scanning comfort against the live Contry/Linda Vista workbooks
+     - decide whether this view should later export to Excel using the same grouping/query source
+     - keep the separate `Jugadores` query-hardening lane open for the existing list path
 
 ### Immediate Sequence
 
