@@ -105,6 +105,7 @@ export type PlayerRosterGroupsData = {
   campuses: AccessibleCampus[];
   selectedCampusId: string;
   selectedCampusName: string;
+  selectedGender: "male" | "female" | "";
   months: RosterTuitionMonth[];
   sections: PlayerRosterGroupSection[];
   totalPlayers: number;
@@ -199,6 +200,15 @@ function levelRank(value: string) {
   return 5;
 }
 
+function normalizeGenderFilter(value: string | null | undefined): "male" | "female" | "" {
+  return value === "male" || value === "female" ? value : "";
+}
+
+function groupMatchesGender(group: TrainingGroupRow, gender: "male" | "female" | "") {
+  if (!gender) return true;
+  return group.gender === gender || group.gender === "mixed";
+}
+
 function buildTuitionCells(months: RosterTuitionMonth[], charges: TuitionChargeRow[]) {
   const byPeriod = new Map<string, TuitionChargeRow[]>();
   for (const charge of charges) {
@@ -243,7 +253,7 @@ function buildTuitionCells(months: RosterTuitionMonth[], charges: TuitionChargeR
   });
 }
 
-export async function getPlayerRosterGroupsData(filters: { campusId?: string } = {}): Promise<PlayerRosterGroupsData | null> {
+export async function getPlayerRosterGroupsData(filters: { campusId?: string; gender?: string } = {}): Promise<PlayerRosterGroupsData | null> {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
@@ -255,34 +265,51 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string } =
   if (!selectedCampusId) return null;
 
   const selectedCampus = campusAccess.campuses.find((campus) => campus.id === selectedCampusId) ?? campusAccess.campuses[0];
+  const selectedGender = normalizeGenderFilter(filters.gender);
   const months = getRosterMonths();
   const supabase = await createClient();
 
+  const buildEnrollmentQuery = (from: number, to: number) => {
+    let query = supabase
+      .from("enrollments")
+      .select("id, campus_id, start_date, inscription_date, campuses(name, code), players!inner(id, public_player_id, first_name, last_name, birth_date, gender, level, status)")
+      .eq("status", "active")
+      .eq("campus_id", selectedCampusId)
+      .eq("players.status", "active")
+      .order("start_date", { ascending: true })
+      .range(from, to);
+
+    if (selectedGender) {
+      query = query.eq("players.gender", selectedGender);
+    }
+
+    return query.returns<RosterEnrollmentRow[]>();
+  };
+
+  const buildGroupsQuery = (from: number, to: number) => {
+    let query = supabase
+      .from("training_groups")
+      .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status")
+      .eq("campus_id", selectedCampusId)
+      .eq("status", "active")
+      .order("program", { ascending: true })
+      .order("start_time", { ascending: true })
+      .range(from, to);
+
+    if (selectedGender) {
+      query = query.in("gender", [selectedGender, "mixed"]);
+    }
+
+    return query.returns<TrainingGroupRow[]>();
+  };
+
   const [enrollments, groups, assignments, charges] = await Promise.all([
     fetchAll<RosterEnrollmentRow>(
-      (from, to) =>
-        supabase
-          .from("enrollments")
-          .select("id, campus_id, start_date, inscription_date, campuses(name, code), players!inner(id, public_player_id, first_name, last_name, birth_date, gender, level, status)")
-          .eq("status", "active")
-          .eq("campus_id", selectedCampusId)
-          .eq("players.status", "active")
-          .order("start_date", { ascending: true })
-          .range(from, to)
-          .returns<RosterEnrollmentRow[]>(),
+      buildEnrollmentQuery,
       "player roster enrollments",
     ),
     fetchAll<TrainingGroupRow>(
-      (from, to) =>
-        supabase
-          .from("training_groups")
-          .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status")
-          .eq("campus_id", selectedCampusId)
-          .eq("status", "active")
-          .order("program", { ascending: true })
-          .order("start_time", { ascending: true })
-          .range(from, to)
-          .returns<TrainingGroupRow[]>(),
+      buildGroupsQuery,
       "player roster training groups",
     ),
     fetchAll<TrainingGroupAssignmentRow>(
@@ -331,7 +358,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string } =
     const yearDiff = (a.birth_year_min ?? 9999) - (b.birth_year_min ?? 9999);
     if (yearDiff !== 0) return yearDiff;
     return a.name.localeCompare(b.name, "es-MX");
-  })) {
+  }).filter((group) => groupMatchesGender(group, selectedGender))) {
     sectionMap.set(group.id, {
       id: group.id,
       name: group.name,
@@ -399,6 +426,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string } =
     campuses: campusAccess.campuses,
     selectedCampusId,
     selectedCampusName: selectedCampus?.name ?? "-",
+    selectedGender,
     months,
     sections,
     totalPlayers: enrollments.length,

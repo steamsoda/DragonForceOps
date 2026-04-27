@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.69`
+Current preview release line: `v1.16.70`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -179,6 +179,10 @@ Near-term UI/workflow planning note: operations has requested a larger UI pass; 
    - v1 intentionally excludes product/tournament shorthand columns:
      - SLR / CECAFF / uniform cells need cleaner product and competition semantics before they become app-level indicators
      - revisit after the product/competition rules rework
+   - `v1.16.70` UI/performance polish:
+     - campus selector changed from dropdown to large buttons
+     - gender buttons added below campus selection
+     - gender filter now trims the grouped roster query and rendered rows for snappier scanning
    - hidden sports/WIP surface note:
      - old/hidden `Equipos`, tournament management, and competition/squad surfaces should stay untouched for now
      - future decision needed: promote, rebuild, or retire each surface after the rules pass

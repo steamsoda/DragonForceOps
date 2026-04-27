@@ -2,6 +2,19 @@
 
 ## 2026-04-26 (session 122)
 
+### Jugadores Grouped Roster Filter Polish (v1.16.70)
+
+- Replaced the campus dropdown in `/players?view=groups` with large campus buttons so staff can switch campuses without treating the roster like a form.
+- Added gender buttons under campus selection:
+  - `Todos`
+  - `Varonil`
+  - `Femenil`
+- Wired the gender filter into the dedicated grouped-roster query so the page loads and renders fewer rows when staff only need one side of the roster.
+- Performance note:
+  - the view still intentionally loads the selected campus roster at once for Excel-style scanning
+  - tuition data remains live/dynamic instead of aggressively cached because staff use it for operational payment confidence
+  - the query stays bounded to one campus and the last 3 tuition months, with pagination to avoid the large-query failure class previously found in `Pendientes`
+
 ### Jugadores Spreadsheet-Style Roster Planning + Public ID v1 (v1.16.69)
 
 - Added `docs/jugadores-spreadsheet-view-plan.md` to capture the agreed UI direction before implementation:
