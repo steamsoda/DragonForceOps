@@ -2,6 +2,15 @@
 
 ## 2026-04-26 (session 122)
 
+### Jugadores Group Ordering Polish (v1.16.73)
+
+- Updated `Jugadores > Vista por grupos` so group sections are ordered by category/YOB from youngest to oldest.
+- Changed group section titles to include category first:
+  - `2014 - Avanzado B1`
+  - `2014 - Femenil - Avanzado B2`
+- Added title cleanup so existing group names that already start with year or `Femenil` do not duplicate those words in the new display format.
+- Kept `Sin grupo` last so unresolved assignments remain visible without interrupting the category order.
+
 ### Grouped Roster Category Buttons (v1.16.72)
 
 - Added category/YOB buttons below the gender controls in the grouped roster views:

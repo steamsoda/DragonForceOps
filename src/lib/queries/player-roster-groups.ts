@@ -184,6 +184,35 @@ function groupSubtitle(group: TrainingGroupRow) {
   return parts.join(" | ");
 }
 
+function groupCategoryLabel(group: TrainingGroupRow) {
+  return formatTrainingGroupBirthYearRange(group.birth_year_min, group.birth_year_max);
+}
+
+function groupSortYear(group: TrainingGroupRow) {
+  const years = [group.birth_year_min, group.birth_year_max].filter((year): year is number => year != null);
+  return years.length > 0 ? Math.max(...years) : -1;
+}
+
+function groupOldestYear(group: TrainingGroupRow) {
+  const years = [group.birth_year_min, group.birth_year_max].filter((year): year is number => year != null);
+  return years.length > 0 ? Math.min(...years) : -1;
+}
+
+function stripGroupTitlePrefix(value: string) {
+  return value
+    .replace(/^\s*\d{4}(?:\s*[\/-]\s*\d{4})?\s*[-–—:]?\s*/i, "")
+    .replace(/^\s*femenil\s*[-–—:]?\s*/i, "")
+    .trim();
+}
+
+function formatGroupDisplayName(group: TrainingGroupRow) {
+  const groupName = stripGroupTitlePrefix(group.name) || group.level_label?.trim() || group.group_code?.trim() || "Grupo";
+  const parts = [groupCategoryLabel(group)];
+  if (group.gender === "female") parts.push("Femenil");
+  parts.push(groupName);
+  return parts.join(" - ");
+}
+
 function programRank(program: string | null) {
   if (program === "selectivo") return 0;
   if (program === "futbol_para_todos") return 1;
@@ -372,22 +401,26 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
 
   const sectionMap = new Map<string, PlayerRosterGroupSection>();
   for (const group of [...groups].sort((a, b) => {
-    const programDiff = programRank(a.program) - programRank(b.program);
-    if (programDiff !== 0) return programDiff;
+    const youngestDiff = groupSortYear(b) - groupSortYear(a);
+    if (youngestDiff !== 0) return youngestDiff;
+    const oldestDiff = groupOldestYear(b) - groupOldestYear(a);
+    if (oldestDiff !== 0) return oldestDiff;
     const startDiff = (a.start_time ?? "99:99").localeCompare(b.start_time ?? "99:99");
     if (startDiff !== 0) return startDiff;
-    const yearDiff = (a.birth_year_min ?? 9999) - (b.birth_year_min ?? 9999);
-    if (yearDiff !== 0) return yearDiff;
+    const programDiff = programRank(a.program) - programRank(b.program);
+    if (programDiff !== 0) return programDiff;
+    const genderDiff = a.gender.localeCompare(b.gender, "es-MX");
+    if (genderDiff !== 0) return genderDiff;
     return a.name.localeCompare(b.name, "es-MX");
   }).filter((group) => groupMatchesGender(group, selectedGender) && groupMatchesBirthYear(group, selectedBirthYear))) {
     sectionMap.set(group.id, {
       id: group.id,
-      name: group.name,
+      name: formatGroupDisplayName(group),
       subtitle: groupSubtitle(group),
       program: group.program,
       programLabel: TRAINING_GROUP_PROGRAM_LABELS[group.program] ?? group.program,
       levelLabel: group.level_label,
-      sortKey: `${programRank(group.program)}:${group.start_time ?? "99:99"}:${group.birth_year_min ?? 9999}:${group.name}`,
+      sortKey: `${String(9999 - groupSortYear(group)).padStart(4, "0")}:${String(9999 - groupOldestYear(group)).padStart(4, "0")}:${group.start_time ?? "99:99"}:${programRank(group.program)}:${group.gender}:${group.name}`,
       rows: [],
     });
   }
@@ -399,7 +432,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     program: null,
     programLabel: "Sin grupo",
     levelLabel: null,
-    sortKey: "99:sin-grupo",
+    sortKey: "zzzz:sin-grupo",
     rows: [],
   };
 
