@@ -174,6 +174,10 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
       p15ToP85: point.p85 - point.p15,
       p85ToP97: point.p97 - point.p85,
     })) ?? [];
+  const referenceXDomain =
+    chartData.length > 0
+      ? ([chartData[0].ageYears, chartData[chartData.length - 1].ageYears] as [number, number])
+      : (["dataMin", "dataMax"] as [string, string]);
 
   return (
     <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -247,7 +251,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <XAxis
                   dataKey="ageYears"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={referenceXDomain}
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}

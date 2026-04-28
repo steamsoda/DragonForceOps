@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-28 (session 132)
+
+### Nutrition OMS Profile Axis Fix (v1.16.83)
+
+- Fixed the main nutrition profile OMS chart after the repeated-measurement series change.
+- The X axis now uses the WHO/OMS reference row range explicitly instead of letting Recharts infer the domain from the player-only series.
+- This restores the full OMS reference curve in the profile while preserving repeated same-age player measurement points.
+
 ## 2026-04-28 (session 131)
 
 ### Nutrition Report Print-Safe Chart Polish (v1.16.82)
