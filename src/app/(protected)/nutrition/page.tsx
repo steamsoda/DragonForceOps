@@ -69,7 +69,7 @@ export default async function NutritionDashboardPage({ searchParams }: { searchP
           </Link>
         </form>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <KpiCard
             label="Primera toma pendiente"
             value={dashboard.pendingFirstMeasurement.toLocaleString("es-MX")}
@@ -86,6 +86,11 @@ export default async function NutritionDashboardPage({ searchParams }: { searchP
             label="Sesiones del mes"
             value={dashboard.sessionsThisMonth.toLocaleString("es-MX")}
             description="Capturas registradas en el mes seleccionado."
+          />
+          <KpiCard
+            label="Cinturas del mes"
+            value={dashboard.sessionsWithWaistThisMonth.toLocaleString("es-MX")}
+            description="Sesiones del mes con circunferencia de cintura registrada."
           />
           <KpiCard
             label="Altas pendientes"
@@ -128,6 +133,7 @@ export default async function NutritionDashboardPage({ searchParams }: { searchP
                     </div>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                       {session.weightKg.toFixed(1)} kg | {session.heightCm.toFixed(1)} cm
+                      {session.waistCircumferenceCm != null ? ` | Cintura ${session.waistCircumferenceCm.toFixed(1)} cm` : ""}
                     </p>
                   </div>
                 ))

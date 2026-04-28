@@ -25,9 +25,20 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
   const measurementDate = parseDateOnlyInput(formData.get("measurement_date")?.toString());
   const weightKg = Number(formData.get("weight_kg")?.toString().trim() ?? "");
   const heightCm = Number(formData.get("height_cm")?.toString().trim() ?? "");
+  const waistRaw = formData.get("waist_circumference_cm")?.toString().trim() ?? "";
+  const waistCircumferenceCm = waistRaw ? Number(waistRaw) : null;
   const notes = formData.get("notes")?.toString().trim() || null;
 
-  if (!playerId || !enrollmentId || !measurementDate || !Number.isFinite(weightKg) || !Number.isFinite(heightCm) || weightKg <= 0 || heightCm <= 0) {
+  if (
+    !playerId ||
+    !enrollmentId ||
+    !measurementDate ||
+    !Number.isFinite(weightKg) ||
+    !Number.isFinite(heightCm) ||
+    weightKg <= 0 ||
+    heightCm <= 0 ||
+    (waistCircumferenceCm != null && (!Number.isFinite(waistCircumferenceCm) || waistCircumferenceCm <= 0))
+  ) {
     redirectWithError(playerId || "missing", returnTo, "invalid_form");
   }
 
@@ -70,6 +81,7 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
       source,
       weight_kg: weightKg,
       height_cm: heightCm,
+      waist_circumference_cm: waistCircumferenceCm,
       notes,
       updated_at: new Date().toISOString(),
     });

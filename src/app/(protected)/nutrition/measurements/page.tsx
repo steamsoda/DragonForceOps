@@ -246,6 +246,7 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Ult. medicion</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Peso</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Estatura</th>
+                    <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Cintura</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Estado</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">Accion</th>
                   </tr>
@@ -253,7 +254,7 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {section.rows.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="px-3 py-4 text-slate-500 dark:text-slate-400">
+                      <td colSpan={13} className="px-3 py-4 text-slate-500 dark:text-slate-400">
                         Sin jugadores activos en este grupo.
                       </td>
                     </tr>
@@ -286,6 +287,9 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
                         </td>
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">
                           {row.latestHeightCm != null ? `${row.latestHeightCm.toFixed(1)} cm` : "-"}
+                        </td>
+                        <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">
+                          {row.latestWaistCircumferenceCm != null ? `${row.latestWaistCircumferenceCm.toFixed(1)} cm` : "-"}
                         </td>
                         <td className="px-2 py-2 text-center">{measurementStatusChip(row.hasCurrentEnrollmentMeasurement)}</td>
                         <td className="px-2 py-2 text-center">
@@ -412,6 +416,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
                 <th className="px-3 py-2">Ult. medicion</th>
                 <th className="px-3 py-2">Peso</th>
                 <th className="px-3 py-2">Estatura</th>
+                <th className="px-3 py-2">Cintura</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Accion</th>
               </tr>
@@ -419,7 +424,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={12}>
+                  <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={13}>
                     No hay jugadores con esos filtros.
                   </td>
                 </tr>
@@ -452,6 +457,9 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
                     </td>
                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                       {row.latestHeightCm != null ? `${row.latestHeightCm.toFixed(1)} cm` : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                      {row.latestWaistCircumferenceCm != null ? `${row.latestWaistCircumferenceCm.toFixed(1)} cm` : "-"}
                     </td>
                     <td className="px-3 py-2">
                       {row.hasCurrentEnrollmentMeasurement ? (

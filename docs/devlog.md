@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-28 (session 127)
+
+### Nutrition Waist Circumference + Parent Report (v1.16.78)
+
+- Added optional historical `Circunferencia de cintura (cm)` to nutrition measurement sessions.
+- Updated nutrition capture so weight and height remain required while waist circumference is optional.
+- Surfaced waist circumference in nutrition-safe views:
+  - main nutrition panel monthly KPI for sessions with waist captured
+  - recent activity cards
+  - `Toma de medidas` grouped/list views
+  - nutrition player profile latest summary, delta versus prior session, history table, and waist trend chart
+- Added a printable parent report page at `/nutrition/players/[playerId]/report`:
+  - includes player nutrition summary, OMS chart section, waist trend, measurement history, and a notes/recommendations box
+  - uses browser print / save as PDF instead of adding a server-side PDF dependency
+- Safety note:
+  - the report and new fields stay inside the nutrition-safe route boundary
+  - no finance, Caja, charges, payments, receipts, or admin mutation data was introduced
+
 ## 2026-04-28 (session 126)
 
 ### Pendientes Return-State UX Pass (v1.16.77)
