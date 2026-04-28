@@ -269,6 +269,7 @@ async function listMeasurementSessionsForPlayers(playerIds: string[]) {
     .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
     .in("player_id", playerIds)
     .order("measured_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .returns<MeasurementSessionRow[]>();
 
   return data ?? [];
@@ -508,6 +509,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
       .in("campus_id", selectedCampusIds)
       .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(8)
       .returns<RecentMeasurementRow[]>(),
   ]);
@@ -773,6 +775,7 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
       .eq("player_id", playerId)
       .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .returns<MeasurementSessionRow[]>(),
     listGuardianContactsForPlayers([playerId]),
   ]);
@@ -844,7 +847,9 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
         label: new Intl.DateTimeFormat("es-MX", {
           day: "2-digit",
           month: "2-digit",
-          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
           timeZone: "America/Monterrey",
         }).format(new Date(session.measuredAt)),
         weightKg: session.weightKg,

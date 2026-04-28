@@ -51,6 +51,51 @@ const CLASSIFICATION_CLASSES: Record<GrowthClassificationTone, string> = {
   danger: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300",
 };
 
+type GrowthChartRow = {
+  ageMonths: number;
+  ageYears: number;
+  p3: number;
+  p15: number;
+  p50: number;
+  p85: number;
+  p97: number;
+  p3Base: number;
+  p3ToP15: number;
+  p15ToP85: number;
+  p85ToP97: number;
+};
+
+function getZoomDomains(chartData: GrowthChartRow[], playerPoints: Array<{ ageYears: number; value: number }>) {
+  if (chartData.length === 0 || playerPoints.length === 0) {
+    return {
+      xDomain: ["dataMin", "dataMax"] as [string, string],
+      yDomain: ["auto", "auto"] as [string, string],
+    };
+  }
+
+  const referenceMin = chartData[0]?.ageYears ?? 0;
+  const referenceMax = chartData[chartData.length - 1]?.ageYears ?? 19;
+  const playerAges = playerPoints.map((point) => point.ageYears);
+  const minAge = Math.min(...playerAges);
+  const maxAge = Math.max(...playerAges);
+  const minX = Math.max(referenceMin, minAge - 0.5);
+  const maxX = Math.min(referenceMax, maxAge + 0.5);
+  const visibleRows = chartData.filter((point) => point.ageYears >= minX && point.ageYears <= maxX);
+  const visibleValues = [
+    ...visibleRows.flatMap((point) => [point.p3, point.p15, point.p50, point.p85, point.p97]),
+    ...playerPoints.map((point) => point.value),
+  ];
+
+  const minY = Math.min(...visibleValues);
+  const maxY = Math.max(...visibleValues);
+  const padding = Math.max((maxY - minY) * 0.12, 1);
+
+  return {
+    xDomain: [Number(minX.toFixed(2)), Number(maxX.toFixed(2))] as [number, number],
+    yDomain: [Math.max(0, Math.floor(minY - padding)), Math.ceil(maxY + padding)] as [number, number],
+  };
+}
+
 export function MeasurementActivityBar({ data }: MeasurementActivityBarProps) {
   if (data.length === 0) {
     return (
@@ -143,6 +188,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
       p15ToP85: point.p85 - point.p15,
       p85ToP97: point.p97 - point.p85,
     })) ?? [];
+  const zoomDomains = getZoomDomains(chartData, selected?.playerPoints ?? []);
 
   return (
     <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -216,7 +262,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <XAxis
                   dataKey="ageYears"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={zoomDomains.xDomain}
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
@@ -226,6 +272,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
+                  domain={zoomDomains.yDomain}
                   width={44}
                   label={{ value: selected.unit, angle: -90, position: "insideLeft", fontSize: 11, fill: "#64748b" }}
                 />
@@ -239,6 +286,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                       p85: "P85",
                       p97: "P97",
                       playerValue: "Jugador",
+                      value: "Jugador",
                     };
                     return [typeof value === "number" ? value.toFixed(1) : value, labelMap[String(name)] ?? String(name)];
                   }}
@@ -256,13 +304,13 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <Line type="monotone" dataKey="p97" name="P97" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={1.2} />
                 <Line
                   type="monotone"
-                  dataKey="playerValue"
+                  data={selected.playerPoints}
+                  dataKey="value"
                   name="Jugador"
                   stroke="#185FA5"
                   strokeWidth={2.5}
                   dot={{ r: 5, fill: "#185FA5", stroke: "#ffffff", strokeWidth: 2 }}
                   activeDot={{ r: 6 }}
-                  connectNulls
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -286,6 +334,7 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
             p15ToP85: point.p85 - point.p15,
             p85ToP97: point.p97 - point.p85,
           })) ?? [];
+        const zoomDomains = getZoomDomains(chartData, selected?.playerPoints ?? []);
 
         return (
           <div key={tab.indicator} className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-2">
@@ -306,8 +355,8 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
               <ResponsiveContainer width="100%" height={height}>
                 <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis dataKey="ageYears" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={30} />
+                  <XAxis dataKey="ageYears" type="number" domain={zoomDomains.xDomain} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <YAxis domain={zoomDomains.yDomain} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={30} />
                   <Area stackId="band" dataKey="p3Base" stroke="none" fill="transparent" />
                   <Area stackId="band" dataKey="p3ToP15" stroke="none" fill="#fecaca" fillOpacity={0.3} />
                   <Area stackId="band" dataKey="p15ToP85" stroke="none" fill="#99f6e4" fillOpacity={0.26} />
@@ -317,11 +366,11 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
                   <Line type="monotone" dataKey="p97" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={0.8} />
                   <Line
                     type="monotone"
-                    dataKey="playerValue"
+                    data={selected.playerPoints}
+                    dataKey="value"
                     stroke="#185FA5"
                     strokeWidth={2}
                     dot={{ r: 3, fill: "#185FA5", stroke: "#ffffff", strokeWidth: 1 }}
-                    connectNulls
                   />
                 </ComposedChart>
               </ResponsiveContainer>

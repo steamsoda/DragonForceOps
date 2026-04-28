@@ -4,7 +4,7 @@ import { CompactOMSGrowthCharts } from "@/components/nutrition/charts";
 import { PrintReportButton } from "@/components/nutrition/print-report-button";
 import { requireNutritionContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
-import { formatDateMonterrey } from "@/lib/time";
+import { formatDateMonterrey, formatDateTimeMonterrey } from "@/lib/time";
 
 type PageParams = Promise<{ playerId: string }>;
 
@@ -84,7 +84,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
             </div>
             <div>
               <p className="font-semibold uppercase text-slate-500">Ult. medicion</p>
-              <p className="border-b border-slate-300 pb-1 text-sm font-semibold">{latest ? formatDateMonterrey(latest.measuredAt) : "-"}</p>
+              <p className="border-b border-slate-300 pb-1 text-sm font-semibold">{latest ? formatDateTimeMonterrey(latest.measuredAt) : "-"}</p>
             </div>
           </div>
         </header>
@@ -173,7 +173,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
               <tbody>
                 {profile.history.slice(0, 5).map((session) => (
                   <tr key={session.id} className="border-b border-slate-100">
-                    <td className="py-1">{formatDateMonterrey(session.measuredAt)}</td>
+                    <td className="py-1">{formatDateTimeMonterrey(session.measuredAt)}</td>
                     <td className="py-1">{session.weightKg.toFixed(1)} kg</td>
                     <td className="py-1">{session.heightCm.toFixed(1)} cm</td>
                     <td className="py-1">{formatValue(session.waistCircumferenceCm, "cm")}</td>

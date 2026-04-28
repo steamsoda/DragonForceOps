@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { canAccessNutritionCampus } from "@/lib/auth/campuses";
 import { canAccessNutritionPlayerRecord, requireNutritionContext } from "@/lib/auth/permissions";
-import { parseDateOnlyInput } from "@/lib/time";
+import { getMonterreyTimeString, parseDateOnlyInput, parseMonterreyDateTimeInput } from "@/lib/time";
 
 function normalizeReturnTo(value: string | null | undefined, playerId: string) {
   const fallback = `/nutrition/players/${playerId}`;
@@ -23,6 +23,7 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
   const enrollmentId = formData.get("enrollment_id")?.toString().trim() ?? "";
   const returnTo = normalizeReturnTo(formData.get("return_to")?.toString(), playerId);
   const measurementDate = parseDateOnlyInput(formData.get("measurement_date")?.toString());
+  const measurementTime = formData.get("measurement_time")?.toString().trim() || getMonterreyTimeString();
   const weightKg = Number(formData.get("weight_kg")?.toString().trim() ?? "");
   const heightCm = Number(formData.get("height_cm")?.toString().trim() ?? "");
   const waistRaw = formData.get("waist_circumference_cm")?.toString().trim() ?? "";
@@ -33,6 +34,7 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
     !playerId ||
     !enrollmentId ||
     !measurementDate ||
+    !parseMonterreyDateTimeInput(`${measurementDate}T${measurementTime}`) ||
     !Number.isFinite(weightKg) ||
     !Number.isFinite(heightCm) ||
     weightKg <= 0 ||
@@ -67,7 +69,7 @@ export async function recordPlayerMeasurementAction(formData: FormData) {
     .select("id", { count: "exact", head: true })
     .eq("enrollment_id", enrollmentId);
 
-  const measuredAt = new Date(`${measurementDate}T12:00:00.000Z`).toISOString();
+  const measuredAt = parseMonterreyDateTimeInput(`${measurementDate}T${measurementTime}`)!;
   const source = (count ?? 0) > 0 ? "follow_up" : "initial_intake";
 
   const { error } = await context.supabase

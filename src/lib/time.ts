@@ -27,6 +27,18 @@ export function formatTimeMonterrey(value: string | Date) {
   }).format(new Date(value));
 }
 
+export function getMonterreyTimeString(value: string | Date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MONTERREY_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
+}
+
 export function formatDateTimeMonterrey(value: string | Date) {
   return `${formatDateMonterrey(value)} ${formatTimeMonterrey(value)}`;
 }

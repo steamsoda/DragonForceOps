@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.80`
+Current preview release line: `v1.16.81`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -236,6 +236,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - softer IMC percentile heading with classification in parentheses
      - linear percentile marker instead of circular gauge
      - cleaner Dragon Force Monterrey branding and print-only textarea styling
+   - `v1.16.81` tightens live nutrition capture:
+     - measurements keep Monterrey date + time instead of date-only/noon storage
+     - same-day history rows and report rows show timestamps
+     - OMS charts render all captures in the same age-month and zoom around the player's relevant range
    - add `Circunferencia` measurement support:
      - v1 field is `Circunferencia de cintura (cm)`
      - store historically on measurement sessions, not as player-level overwrite fields

@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-04-28 (session 130)
+
+### Nutrition Measurement Timestamp + OMS Chart Zoom (v1.16.81)
+
+- Nutrition measurements now store the selected Monterrey date and time instead of forcing every record to noon.
+- Added a `Hora` field to `Nueva medicion` and tightened the input grid so `Cintura (cm)` aligns with the other measurement fields.
+- Nutrition history, current summary, parent report history, and trend labels now show date plus time, making same-day test captures distinguishable.
+- Measurement queries now sort by `measured_at` and then `created_at` for stable ordering when records share the same timestamp.
+- OMS charts now render all player measurement points instead of collapsing multiple captures in the same age-month into a single point.
+- OMS chart axes now zoom around the player's relevant age/value range so short-term weight, height, and IMC changes are easier to read.
+
 ## 2026-04-28 (session 129)
 
 ### Nutrition Parent Report Copy + Layout Polish (v1.16.80)

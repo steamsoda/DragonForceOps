@@ -6,7 +6,7 @@ import { recordPlayerMeasurementAction } from "@/server/actions/nutrition";
 import { requireNutritionContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
 import type { GrowthClassificationTone } from "@/lib/nutrition/growth";
-import { formatDateMonterrey, getMonterreyDateString } from "@/lib/time";
+import { formatDateMonterrey, formatDateTimeMonterrey, getMonterreyDateString, getMonterreyTimeString } from "@/lib/time";
 
 function formatDelta(value: number | null, suffix: string) {
   if (value == null) return "Sin comparacion previa";
@@ -167,13 +167,23 @@ export default async function NutritionPlayerProfilePage({
               <input type="hidden" name="enrollment_id" value={profile.activeEnrollmentId} />
               <input type="hidden" name="return_to" value={`/nutrition/players/${profile.playerId}`} />
 
-              <div className="grid gap-3 md:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <label className="space-y-1">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</span>
                   <input
                     type="date"
                     name="measurement_date"
                     defaultValue={getMonterreyDateString()}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hora</span>
+                  <input
+                    type="time"
+                    name="measurement_time"
+                    defaultValue={getMonterreyTimeString()}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                     required
                   />
@@ -203,7 +213,7 @@ export default async function NutritionPlayerProfilePage({
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Circunferencia de cintura (cm)</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Cintura (cm)</span>
                   <input
                     type="number"
                     name="waist_circumference_cm"
@@ -246,7 +256,7 @@ export default async function NutritionPlayerProfilePage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resumen actual</p>
             {profile.latestSession ? (
               <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <p>Fecha: {formatDateMonterrey(profile.latestSession.measuredAt)}</p>
+                <p>Fecha: {formatDateTimeMonterrey(profile.latestSession.measuredAt)}</p>
                 <p>Tipo: {profile.latestSession.source === "initial_intake" ? "Primera toma" : "Seguimiento"}</p>
                 <p>Peso: {profile.latestSession.weightKg.toFixed(1)} kg</p>
                 <p>Estatura: {profile.latestSession.heightCm.toFixed(1)} cm</p>
@@ -337,7 +347,7 @@ export default async function NutritionPlayerProfilePage({
                 ) : (
                   profile.history.map((session) => (
                     <tr key={session.id}>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{formatDateMonterrey(session.measuredAt)}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{formatDateTimeMonterrey(session.measuredAt)}</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                         {session.source === "initial_intake" ? "Primera toma" : "Seguimiento"}
                       </td>
