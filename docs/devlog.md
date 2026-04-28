@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-28 (session 133)
+
+### Attendance + Training Groups Planning Doc
+
+- Added `docs/attendance-training-groups-roadmap.md` to define the next sports/attendance simplification pass before implementation.
+- Captured the agreed operating model:
+  - `Nivel` becomes legacy/display-only during transition
+  - `training_groups.program` becomes the clearer axis for `Futbol Para Todos`, `Selectivo`, and `Little Dragons`
+  - training groups drive regular attendance
+  - competition teams stay separate and hidden/WIP until the tournament model cleanup
+  - front desk can see the future attendance group/month view read-only
+  - attendance reporting uses strict calendar months and excludes cancelled sessions from rate calculations
+
 ## 2026-04-28 (session 132)
 
 ### Nutrition OMS Profile Axis Fix (v1.16.83)

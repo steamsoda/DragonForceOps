@@ -140,6 +140,9 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
 
 6. Attendance tracking v1
+   - planning doc:
+     - `docs/attendance-training-groups-roadmap.md` defines the next attendance + training-groups simplification pass
+     - agreed direction: `Nivel` becomes legacy, training groups use program/YOB/gender/campus as the operational model, and competition teams stay separate until the tournament cleanup
    - `v1.16.63` adds internal attendance tracking on preview:
      - campus-scoped `attendance_admin` role
      - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`
@@ -266,6 +269,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - whether reports are generated on demand only or stored for later download
 
 10. Sports grouping model simplification: program over `Nivel`
+   - planning doc:
+     - `docs/attendance-training-groups-roadmap.md`
    - planning direction:
      - move away from ambiguous `Nivel` as the primary grouping concept
      - make `Futbol Para Todos` vs `Selectivos` an explicit sports program axis
