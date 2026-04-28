@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-04-28 (session 131)
+
+### Nutrition Report Print-Safe Chart Polish (v1.16.82)
+
+- Reverted the interactive nutrition OMS chart axes to the original full reference view while keeping same-age repeated player points.
+- Replaced the report percentile marker with a print-safe bell-curve style IMC percentile graphic.
+- Replaced compact report OMS charts with static SVG rendering so chart lines and labels survive browser PDF export more reliably than Recharts `ResponsiveContainer`.
+- Removed the printed placeholder text from the report recommendations field; helper copy now appears only on screen before printing.
+
 ## 2026-04-28 (session 130)
 
 ### Nutrition Measurement Timestamp + OMS Chart Zoom (v1.16.81)

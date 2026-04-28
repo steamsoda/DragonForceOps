@@ -33,6 +33,43 @@ function getPercentilePosition(percentile: number | null | undefined) {
   return Math.max(2, Math.min(98, percentile));
 }
 
+function PercentileBellCurve({ percentile }: { percentile: number | null | undefined }) {
+  const hasPercentile = percentile != null && Number.isFinite(percentile);
+  const markerX = 18 + (getPercentilePosition(percentile) / 100) * 134;
+
+  return (
+    <svg viewBox="0 0 170 116" className="mt-2 h-[116px] w-full" role="img" aria-label="Distribucion percentil IMC">
+      <defs>
+        <linearGradient id="bmi-bell-gradient" x1="0%" x2="100%" y1="0%" y2="0%">
+          <stop offset="0%" stopColor="#ef4444" stopOpacity="0.28" />
+          <stop offset="18%" stopColor="#f59e0b" stopOpacity="0.26" />
+          <stop offset="50%" stopColor="#34d399" stopOpacity="0.34" />
+          <stop offset="82%" stopColor="#f59e0b" stopOpacity="0.26" />
+          <stop offset="100%" stopColor="#ef4444" stopOpacity="0.28" />
+        </linearGradient>
+      </defs>
+      <line x1="18" y1="84" x2="152" y2="84" stroke="#94a3b8" strokeWidth="1" />
+      <path
+        d="M18 84 C36 82 43 57 58 39 C70 24 82 18 85 18 C88 18 100 24 112 39 C127 57 134 82 152 84 L18 84 Z"
+        fill="url(#bmi-bell-gradient)"
+      />
+      <path d="M18 84 C36 82 43 57 58 39 C70 24 82 18 85 18 C88 18 100 24 112 39 C127 57 134 82 152 84" fill="none" stroke="#0f172a" strokeWidth="1.5" />
+      {hasPercentile ? (
+        <>
+          <line x1={markerX} y1="18" x2={markerX} y2="88" stroke="#185FA5" strokeWidth="2" />
+          <path d={`M${markerX - 5} 14 L${markerX + 5} 14 L${markerX} 22 Z`} fill="#185FA5" />
+          <text x={markerX} y="105" textAnchor="middle" fontSize="11" fontWeight="700" fill="#185FA5">
+            P{percentile}
+          </text>
+        </>
+      ) : null}
+      <text x="18" y="101" textAnchor="middle" fontSize="8" fill="#64748b">P3</text>
+      <text x="85" y="101" textAnchor="middle" fontSize="8" fill="#64748b">P50</text>
+      <text x="152" y="101" textAnchor="middle" fontSize="8" fill="#64748b">P97</text>
+    </svg>
+  );
+}
+
 export default async function NutritionParentReportPage({ params }: { params: PageParams }) {
   await requireNutritionContext("/unauthorized");
   const { playerId } = await params;
@@ -43,7 +80,6 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
   const latestBmi = profile.growthProfile.latestBmi;
   const latest = profile.latestSession;
   const bmiClassification = latestBmi?.classification?.label ?? null;
-  const percentilePosition = getPercentilePosition(latestBmi?.percentile);
 
   return (
     <main className="mx-auto max-w-[980px] px-4 py-5 print:max-w-none print:px-0 print:py-0">
@@ -95,19 +131,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
               <div className="w-full rounded-md border border-slate-200 p-3">
                 <p className="text-center text-[10px] font-bold uppercase tracking-wide text-portoBlue">Percentil IMC</p>
                 <p className="mt-1 text-center text-3xl font-black text-slate-900">{latestBmi ? latestBmi.percentile : "-"}</p>
-                <div className="relative mt-5 h-5 overflow-visible rounded-full bg-gradient-to-r from-rose-500 via-amber-400 via-emerald-300 to-rose-500">
-                  {latestBmi ? (
-                    <div
-                      className="absolute -top-4 h-0 w-0 -translate-x-1/2 border-x-[7px] border-t-[12px] border-x-transparent border-t-slate-900"
-                      style={{ left: `${percentilePosition}%` }}
-                    />
-                  ) : null}
-                </div>
-                <div className="mt-2 flex justify-between text-[9px] font-semibold text-slate-500">
-                  <span>P3</span>
-                  <span>P50</span>
-                  <span>P97</span>
-                </div>
+                <PercentileBellCurve percentile={latestBmi?.percentile} />
               </div>
               <div className="mt-3 grid w-full grid-cols-3 gap-1 text-center text-[9px] font-semibold text-slate-600">
                 <span className="rounded bg-emerald-100 px-1 py-1 text-emerald-800">Rango OMS</span>
@@ -125,10 +149,12 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
               </p>
               <label className="mt-3 block">
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Observaciones y recomendaciones</span>
+                <span className="mt-1 block text-xs text-slate-500 print:hidden">
+                  Escribe aqui observaciones, recomendaciones o seguimiento sugerido antes de imprimir.
+                </span>
                 <textarea
                   rows={5}
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm leading-5 print:border-0 print:px-0 print:shadow-none print:outline-none"
-                  placeholder="Escribe aqui observaciones, recomendaciones o seguimiento sugerido antes de imprimir."
                 />
               </label>
             </div>

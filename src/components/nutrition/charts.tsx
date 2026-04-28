@@ -65,35 +65,21 @@ type GrowthChartRow = {
   p85ToP97: number;
 };
 
-function getZoomDomains(chartData: GrowthChartRow[], playerPoints: Array<{ ageYears: number; value: number }>) {
-  if (chartData.length === 0 || playerPoints.length === 0) {
-    return {
-      xDomain: ["dataMin", "dataMax"] as [string, string],
-      yDomain: ["auto", "auto"] as [string, string],
-    };
-  }
+function pointsToPolyline(points: Array<{ ageYears: number; value: number }>, xMin: number, xMax: number, yMin: number, yMax: number) {
+  const width = 220;
+  const height = 88;
+  const left = 22;
+  const top = 8;
+  const xRange = Math.max(xMax - xMin, 1);
+  const yRange = Math.max(yMax - yMin, 1);
 
-  const referenceMin = chartData[0]?.ageYears ?? 0;
-  const referenceMax = chartData[chartData.length - 1]?.ageYears ?? 19;
-  const playerAges = playerPoints.map((point) => point.ageYears);
-  const minAge = Math.min(...playerAges);
-  const maxAge = Math.max(...playerAges);
-  const minX = Math.max(referenceMin, minAge - 0.5);
-  const maxX = Math.min(referenceMax, maxAge + 0.5);
-  const visibleRows = chartData.filter((point) => point.ageYears >= minX && point.ageYears <= maxX);
-  const visibleValues = [
-    ...visibleRows.flatMap((point) => [point.p3, point.p15, point.p50, point.p85, point.p97]),
-    ...playerPoints.map((point) => point.value),
-  ];
-
-  const minY = Math.min(...visibleValues);
-  const maxY = Math.max(...visibleValues);
-  const padding = Math.max((maxY - minY) * 0.12, 1);
-
-  return {
-    xDomain: [Number(minX.toFixed(2)), Number(maxX.toFixed(2))] as [number, number],
-    yDomain: [Math.max(0, Math.floor(minY - padding)), Math.ceil(maxY + padding)] as [number, number],
-  };
+  return points
+    .map((point) => {
+      const x = left + ((point.ageYears - xMin) / xRange) * width;
+      const y = top + height - ((point.value - yMin) / yRange) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
 }
 
 export function MeasurementActivityBar({ data }: MeasurementActivityBarProps) {
@@ -188,7 +174,6 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
       p15ToP85: point.p85 - point.p15,
       p85ToP97: point.p97 - point.p85,
     })) ?? [];
-  const zoomDomains = getZoomDomains(chartData, selected?.playerPoints ?? []);
 
   return (
     <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -262,7 +247,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <XAxis
                   dataKey="ageYears"
                   type="number"
-                  domain={zoomDomains.xDomain}
+                  domain={["dataMin", "dataMax"]}
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
@@ -272,7 +257,6 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
-                  domain={zoomDomains.yDomain}
                   width={44}
                   label={{ value: selected.unit, angle: -90, position: "insideLeft", fontSize: 11, fill: "#64748b" }}
                 />
@@ -326,15 +310,17 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
     <div className="grid gap-2 md:grid-cols-3 print:grid-cols-3">
       {GROWTH_TABS.map((tab) => {
         const selected = profile.indicators.find((indicator) => indicator.indicator === tab.indicator);
-        const chartData =
-          selected?.chartPoints.map((point) => ({
-            ...point,
-            p3Base: point.p3,
-            p3ToP15: point.p15 - point.p3,
-            p15ToP85: point.p85 - point.p15,
-            p85ToP97: point.p97 - point.p85,
-          })) ?? [];
-        const zoomDomains = getZoomDomains(chartData, selected?.playerPoints ?? []);
+        const chartData = selected?.chartPoints ?? [];
+        const xMin = chartData[0]?.ageYears ?? 0;
+        const xMax = chartData[chartData.length - 1]?.ageYears ?? 19;
+        const values = chartData.flatMap((point) => [point.p3, point.p50, point.p97]);
+        const playerValues = selected?.playerPoints.map((point) => point.value) ?? [];
+        const yMin = Math.max(0, Math.floor(Math.min(...values, ...playerValues)));
+        const yMax = Math.ceil(Math.max(...values, ...playerValues));
+        const p3Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p3 })), xMin, xMax, yMin, yMax);
+        const p50Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p50 })), xMin, xMax, yMin, yMax);
+        const p97Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p97 })), xMin, xMax, yMin, yMax);
+        const playerPath = pointsToPolyline(selected?.playerPoints ?? [], xMin, xMax, yMin, yMax);
 
         return (
           <div key={tab.indicator} className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-2">
@@ -352,28 +338,25 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
                 {selected?.unavailableReason ?? "No hay datos suficientes."}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={height}>
-                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis dataKey="ageYears" type="number" domain={zoomDomains.xDomain} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                  <YAxis domain={zoomDomains.yDomain} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={30} />
-                  <Area stackId="band" dataKey="p3Base" stroke="none" fill="transparent" />
-                  <Area stackId="band" dataKey="p3ToP15" stroke="none" fill="#fecaca" fillOpacity={0.3} />
-                  <Area stackId="band" dataKey="p15ToP85" stroke="none" fill="#99f6e4" fillOpacity={0.26} />
-                  <Area stackId="band" dataKey="p85ToP97" stroke="none" fill="#fde68a" fillOpacity={0.3} />
-                  <Line type="monotone" dataKey="p3" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={0.8} />
-                  <Line type="monotone" dataKey="p50" stroke="#0F6E56" dot={false} strokeWidth={1.4} />
-                  <Line type="monotone" dataKey="p97" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={0.8} />
-                  <Line
-                    type="monotone"
-                    data={selected.playerPoints}
-                    dataKey="value"
-                    stroke="#185FA5"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "#185FA5", stroke: "#ffffff", strokeWidth: 1 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <svg viewBox="0 0 260 120" width="100%" height={height} role="img" aria-label={`Curva OMS ${tab.label}`}>
+                <rect x="22" y="8" width="220" height="88" fill="#f8fafc" />
+                <line x1="22" y1="96" x2="242" y2="96" stroke="#cbd5e1" strokeWidth="0.8" />
+                <line x1="22" y1="8" x2="22" y2="96" stroke="#cbd5e1" strokeWidth="0.8" />
+                <polyline points={p3Path} fill="none" stroke="#A32D2D" strokeDasharray="3 3" strokeWidth="1" />
+                <polyline points={p50Path} fill="none" stroke="#0F6E56" strokeWidth="1.5" />
+                <polyline points={p97Path} fill="none" stroke="#A32D2D" strokeDasharray="3 3" strokeWidth="1" />
+                {playerPath ? <polyline points={playerPath} fill="none" stroke="#185FA5" strokeWidth="2" /> : null}
+                {(selected.playerPoints ?? []).map((point) => {
+                  const coordinate = pointsToPolyline([point], xMin, xMax, yMin, yMax);
+                  const [x, y] = coordinate.split(",");
+                  return <circle key={`${point.measuredAt}-${point.value}`} cx={x} cy={y} r="3" fill="#185FA5" stroke="#ffffff" strokeWidth="1" />;
+                })}
+                <text x="22" y="112" fontSize="8" fill="#64748b">{xMin.toFixed(0)}a</text>
+                <text x="132" y="112" textAnchor="middle" fontSize="8" fill="#64748b">Edad</text>
+                <text x="242" y="112" textAnchor="end" fontSize="8" fill="#64748b">{xMax.toFixed(0)}a</text>
+                <text x="5" y="12" fontSize="8" fill="#64748b">{yMax}</text>
+                <text x="5" y="98" fontSize="8" fill="#64748b">{yMin}</text>
+              </svg>
             )}
           </div>
         );
