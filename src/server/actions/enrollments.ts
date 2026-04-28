@@ -28,6 +28,10 @@ type EnrollmentScholarshipChargeRow = {
   amount: number;
   pricing_rule_id: string | null;
 };
+type EnrollmentScholarshipAllocationRow = {
+  charge_id: string;
+  amount: number;
+};
 type EnrollmentScholarshipRow = {
   id: string;
   campus_id: string;
@@ -74,19 +78,37 @@ async function syncPendingTuitionForScholarshipChange(
 
   if (pendingChargesError) return { ok: false as const, error: "scholarship_sync_failed" };
 
-  const chargeIds = (pendingCharges ?? []).map((charge) => charge.id);
-  if (chargeIds.length > 0) {
+  const candidateCharges = pendingCharges ?? [];
+  const candidateChargeIds = candidateCharges.map((charge) => charge.id);
+  const allocationTotals = new Map<string, number>();
+
+  if (candidateChargeIds.length > 0) {
     const { data: allocations, error: allocationsError } = await supabase
       .from("payment_allocations")
-      .select("charge_id")
-      .in("charge_id", chargeIds)
-      .limit(1);
+      .select("charge_id, amount")
+      .in("charge_id", candidateChargeIds)
+      .returns<EnrollmentScholarshipAllocationRow[]>();
 
     if (allocationsError) return { ok: false as const, error: "scholarship_sync_failed" };
-    if ((allocations ?? []).length > 0) {
-      return { ok: false as const, error: "scholarship_allocated_pending_charges" };
+
+    for (const allocation of allocations ?? []) {
+      allocationTotals.set(
+        allocation.charge_id,
+        roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
+      );
     }
   }
+
+  const outstandingCharges = candidateCharges.filter((charge) => {
+    const allocatedAmount = allocationTotals.get(charge.id) ?? 0;
+    return roundMoney(charge.amount - allocatedAmount) > 0.009;
+  });
+  const allocatedOutstandingCharge = outstandingCharges.some((charge) => (allocationTotals.get(charge.id) ?? 0) > 0.009);
+  if (allocatedOutstandingCharge) {
+    return { ok: false as const, error: "scholarship_allocated_pending_charges" };
+  }
+
+  const chargeIds = outstandingCharges.map((charge) => charge.id);
 
   if (nextScholarshipStatus === "full") {
     if (chargeIds.length === 0) {
@@ -113,7 +135,7 @@ async function syncPendingTuitionForScholarshipChange(
     return { ok: false as const, error: "scholarship_rate_not_found" };
   }
 
-  for (const charge of pendingCharges ?? []) {
+  for (const charge of outstandingCharges) {
     if (!charge.period_month) continue;
     const quote =
       charge.period_month === currentPeriodMonth

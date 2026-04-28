@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.75`
+Current preview release line: `v1.16.76`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -437,6 +437,7 @@ Notes:
     - `Media beca` = 50% mensualidad
     - `Beca completa` = sin mensualidad
     - scholarship changes block if affected pending tuition already has allocations
+    - `v1.16.76` refines that blocker to use actual pending amount after allocations, so fully paid rows with stale `pending` status no longer block scholarship assignment
     - Porto mensual reporting will track `Beca completa` and `Media beca` separately
   - attendance export fixes and workflow cleanup
   - compact local date/time formatting in player-facing admin views
