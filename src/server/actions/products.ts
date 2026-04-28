@@ -20,6 +20,54 @@ async function assertDirectorAdmin() {
   }
 }
 
+function parseAllowedTrainingGroupIds(formData: FormData) {
+  return Array.from(
+    new Set(
+      formData
+        .getAll("allowedTrainingGroupIds")
+        .map((value) => value.toString().trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+async function validateTrainingGroupIds(supabase: Awaited<ReturnType<typeof createClient>>, ids: string[]) {
+  if (ids.length === 0) return true;
+  const { data, error } = await supabase
+    .from("training_groups")
+    .select("id")
+    .in("id", ids)
+    .returns<Array<{ id: string }>>();
+
+  if (error) return false;
+  return new Set((data ?? []).map((row) => row.id)).size === ids.length;
+}
+
+async function syncProductTrainingGroupRestrictions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+  allowedTrainingGroupIds: string[],
+  userId: string,
+) {
+  const { error: deleteError } = await supabase
+    .from("product_training_group_restrictions")
+    .delete()
+    .eq("product_id", productId);
+
+  if (deleteError) return false;
+  if (allowedTrainingGroupIds.length === 0) return true;
+
+  const { error: insertError } = await supabase.from("product_training_group_restrictions").insert(
+    allowedTrainingGroupIds.map((trainingGroupId) => ({
+      product_id: productId,
+      training_group_id: trainingGroupId,
+      created_by: userId,
+    })),
+  );
+
+  return !insertError;
+}
+
 // ── Create product ────────────────────────────────────────────────────────────
 
 export async function createProductAction(formData: FormData): Promise<void> {
@@ -32,6 +80,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
   const defaultAmountRaw = formData.get("defaultAmount")?.toString().trim() ?? "";
   const defaultAmount = defaultAmountRaw ? parseFloat(defaultAmountRaw) : null;
   const hasSizes = formData.get("hasSizes") === "1";
+  const allowedTrainingGroupIds = parseAllowedTrainingGroupIds(formData);
 
   if (!name || !chargeTypeId) redirect("/products?err=invalid_form");
   if (defaultAmount !== null && (isNaN(defaultAmount) || defaultAmount <= 0)) {
@@ -50,6 +99,9 @@ export async function createProductAction(formData: FormData): Promise<void> {
     .maybeSingle();
 
   if (!ct) redirect("/products?err=invalid_charge_type");
+  if (!(await validateTrainingGroupIds(supabase, allowedTrainingGroupIds))) {
+    redirect("/products?err=invalid_training_group");
+  }
 
   const { data: product, error } = await supabase
     .from("products")
@@ -58,6 +110,9 @@ export async function createProductAction(formData: FormData): Promise<void> {
     .single<{ id: string }>();
 
   if (error || !product) redirect("/products?err=product_create_failed");
+  if (!(await syncProductTrainingGroupRestrictions(supabase, product.id, allowedTrainingGroupIds, user.id))) {
+    redirect(`/products/${product.id}?err=restriction_update_failed`);
+  }
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
@@ -65,7 +120,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     action: "product.created",
     tableName: "products",
     recordId: product.id,
-    afterData: { name, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes }
+    afterData: { name, charge_type_id: chargeTypeId, default_amount: defaultAmount, has_sizes: hasSizes, allowed_training_group_ids: allowedTrainingGroupIds }
   });
 
   revalidatePath("/products");
@@ -84,6 +139,7 @@ export async function updateProductAction(productId: string, formData: FormData)
   const defaultAmount = defaultAmountRaw ? parseFloat(defaultAmountRaw) : null;
   const isActive = formData.get("isActive") === "1";
   const hasSizes = formData.get("hasSizes") === "1";
+  const allowedTrainingGroupIds = parseAllowedTrainingGroupIds(formData);
 
   if (!name) redirect(`/products/${productId}?err=invalid_form`);
   if (defaultAmount !== null && (isNaN(defaultAmount) || defaultAmount <= 0)) {
@@ -91,6 +147,9 @@ export async function updateProductAction(productId: string, formData: FormData)
   }
 
   const { supabase, user } = auth;
+  if (!(await validateTrainingGroupIds(supabase, allowedTrainingGroupIds))) {
+    redirect(`/products/${productId}?err=invalid_training_group`);
+  }
 
   const { error } = await supabase
     .from("products")
@@ -98,6 +157,9 @@ export async function updateProductAction(productId: string, formData: FormData)
     .eq("id", productId);
 
   if (error) redirect(`/products/${productId}?err=update_failed`);
+  if (!(await syncProductTrainingGroupRestrictions(supabase, productId, allowedTrainingGroupIds, user.id))) {
+    redirect(`/products/${productId}?err=restriction_update_failed`);
+  }
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
@@ -105,7 +167,7 @@ export async function updateProductAction(productId: string, formData: FormData)
     action: "product.updated",
     tableName: "products",
     recordId: productId,
-    afterData: { name, default_amount: defaultAmount, is_active: isActive, has_sizes: hasSizes }
+    afterData: { name, default_amount: defaultAmount, is_active: isActive, has_sizes: hasSizes, allowed_training_group_ids: allowedTrainingGroupIds }
   });
 
   revalidatePath("/products");

@@ -9,6 +9,8 @@ import {
   getProductRecentSalesPage,
   getProductReconciliation,
   getProductSizeStats,
+  getProductTrainingGroupOptions,
+  type ProductTrainingGroupOption,
 } from "@/lib/queries/products";
 import { deleteProductAction, updateProductAction } from "@/server/actions/products";
 
@@ -22,6 +24,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   delete_failed: "No se pudo eliminar el producto. Intenta de nuevo.",
   has_charges: "Este producto tiene cargos registrados y no puede eliminarse. Desactivalo en su lugar.",
   unauthenticated: "Sesion expirada.",
+  invalid_training_group: "Grupo de entrenamiento no valido.",
+  restriction_update_failed: "No se pudo actualizar la restriccion por grupo.",
 };
 
 function formatMoney(amount: number, currency: string) {
@@ -54,10 +58,11 @@ export default async function ProductDetailPage({
 
   await requireDirectorContext("/unauthorized");
 
-  const [product, sizeStats, recentSales] = await Promise.all([
+  const [product, sizeStats, recentSales, restrictionOptions] = await Promise.all([
     getProductDetail(productId),
     getProductSizeStats(productId),
     getProductRecentSalesPage(productId, salesPage),
+    getProductTrainingGroupOptions(),
   ]);
 
   if (!product) notFound();
@@ -136,6 +141,13 @@ export default async function ProductDetailPage({
             </div>
 
             <div className="sm:col-span-2">
+              <TrainingGroupRestrictionChecklist
+                options={restrictionOptions}
+                selectedIds={product.allowedTrainingGroupIds}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
               <button
                 type="submit"
                 className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
@@ -168,6 +180,15 @@ export default async function ProductDetailPage({
           ) : (
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               Precio libre
+            </span>
+          )}
+          {product.allowedTrainingGroupIds.length > 0 ? (
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+              Restringido a {product.allowedTrainingGroupIds.length} grupo{product.allowedTrainingGroupIds.length === 1 ? "" : "s"}
+            </span>
+          ) : (
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              Disponible para todos
             </span>
           )}
         </div>
@@ -491,5 +512,51 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{label}</p>
       <p className="mt-1 text-lg font-bold text-amber-950">{value}</p>
     </div>
+  );
+}
+
+function TrainingGroupRestrictionChecklist({
+  options,
+  selectedIds,
+}: {
+  options: ProductTrainingGroupOption[];
+  selectedIds: string[];
+}) {
+  if (options.length === 0) {
+    return (
+      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+        Sin grupos de entrenamiento disponibles para restringir.
+      </p>
+    );
+  }
+
+  const selected = new Set(selectedIds);
+
+  return (
+    <details className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2" open={selectedIds.length > 0}>
+      <summary className="cursor-pointer list-none text-xs font-semibold text-amber-800">
+        Disponibilidad por grupo de entrenamiento
+      </summary>
+      <p className="mt-2 text-xs text-amber-800">
+        Sin grupos seleccionados = producto disponible para todos. Con grupos seleccionados = Caja solo lo muestra y permite cobrarlo a alumnos asignados a esos grupos.
+      </p>
+      <div className="mt-3 max-h-64 space-y-1 overflow-auto rounded-md border border-amber-200 bg-white p-2">
+        {options.map((option) => (
+          <label key={option.id} className="flex items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-amber-50">
+            <input
+              type="checkbox"
+              name="allowedTrainingGroupIds"
+              value={option.id}
+              defaultChecked={selected.has(option.id)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300"
+            />
+            <span>
+              <span className="font-semibold text-slate-800">{option.campusName} | {option.birthYearLabel}</span>
+              <span className="block text-slate-600">{option.name}{option.status === "projected" ? " (proyectado)" : ""}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }

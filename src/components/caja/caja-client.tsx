@@ -290,16 +290,11 @@ export function CajaClient({
   const searchRef = useRef<HTMLInputElement>(null);
   const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
   const [preloadedMeta, setPreloadedMeta] = useState<CajaDrilldownMeta | null>(null);
-  const [preloadedProducts, setPreloadedProducts] = useState<CajaProductCategory[] | null>(null);
   const didAutoload = useRef(false);
 
   // Preload drill-down meta in background so "Seleccionar por categoría" is instant
   useEffect(() => {
     getCajaDrilldownMetaAction().then(setPreloadedMeta);
-  }, []);
-
-  useEffect(() => {
-    getProductsForCajaAction().then(setPreloadedProducts);
   }, []);
 
   // Auto-load enrollment when deep-linked from player profile (/caja?enrollmentId=...)
@@ -433,7 +428,7 @@ export function CajaClient({
     setError(null);
     setView({ tag: "loading-products", player, data });
     startTransition(async () => {
-      const products = await getProductsForCajaAction();
+      const products = await getProductsForCajaAction(data.enrollmentId);
       setView({ tag: "adding-charge", player, data, products });
     });
   }
@@ -525,8 +520,6 @@ export function CajaClient({
           data={view.data}
           allowedCampuses={allowedCampuses}
           defaultCampusId={defaultCampusId}
-          products={preloadedProducts ?? []}
-          productsLoading={preloadedProducts === null}
           onCancel={reset}
           onDataUpdate={(updatedData) => setView({ tag: "enrollment", player: view.player, data: updatedData })}
           onCheckoutSuccess={(receipt) => setView({ tag: "success", receipt, player: view.player })}
@@ -795,8 +788,6 @@ function PosEnrollmentPanel({
   data,
   allowedCampuses,
   defaultCampusId,
-  products,
-  productsLoading,
   onCancel,
   onDataUpdate,
   onCheckoutSuccess
@@ -805,8 +796,6 @@ function PosEnrollmentPanel({
   data: CajaEnrollmentData;
   allowedCampuses: AccessibleCampus[];
   defaultCampusId: string | null;
-  products: CajaProductCategory[];
-  productsLoading: boolean;
   onCancel: () => void;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
   onCheckoutSuccess: (receipt: Extract<CajaPaymentResult, { ok: true }>) => void;
@@ -833,7 +822,23 @@ function PosEnrollmentPanel({
     defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId
   );
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [products, setProducts] = useState<CajaProductCategory[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+    setProductsLoading(true);
+    setSelectedProduct(null);
+    getProductsForCajaAction(data.enrollmentId).then((nextProducts) => {
+      if (cancelled) return;
+      setProducts(nextProducts);
+      setProductsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.enrollmentId]);
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -1243,6 +1248,11 @@ function PosEnrollmentPanel({
                                 ? formatMoney(product.defaultAmount, data.currency)
                                 : "Cargo especial"}
                             </p>
+                            {product.isRestricted ? (
+                              <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                Grupo especifico
+                              </span>
+                            ) : null}
                           </button>
                         ))}
                       </div>
@@ -2285,6 +2295,11 @@ function ProductGridPanel({
                             ? formatMoney(product.defaultAmount, data.currency)
                             : "Precio libre"}
                         </p>
+                        {product.isRestricted ? (
+                          <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Grupo especifico
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -2391,6 +2406,7 @@ function errorMessage(code: string): string {
     payment_insert_failed: "Error al registrar el pago. Intenta de nuevo.",
     allocation_insert_failed: "Error al aplicar el pago. Verifica con el administrador.",
     product_not_found: "Producto no encontrado o inactivo.",
+    product_not_available: "Este producto no esta disponible para el grupo de entrenamiento del alumno.",
     charge_insert_failed: "Error al crear el cargo del carrito. Intenta de nuevo.",
     reload_failed: "Se cobro, pero no se pudo refrescar la vista. Busca al alumno de nuevo.",
     duplicate_period: "Ya existe una mensualidad para ese periodo.",
@@ -2406,6 +2422,7 @@ function chargeErrorMessage(code: string): string {
     invalid_form: "Verifica el producto y el monto del cargo.",
     unauthenticated: "Sesión expirada. Por favor inicia sesión de nuevo.",
     product_not_found: "Producto no encontrado o inactivo.",
+    product_not_available: "Este producto no esta disponible para el grupo de entrenamiento del alumno.",
     enrollment_not_found: "No se encontró la inscripción.",
     enrollment_inactive: "Esta inscripción está inactiva.",
     charge_insert_failed: "Error al crear el cargo. Intenta de nuevo.",
