@@ -28,6 +28,11 @@ function MetricRow({ label, value, detail }: { label: string; value: string; det
   );
 }
 
+function getPercentilePosition(percentile: number | null | undefined) {
+  if (percentile == null || !Number.isFinite(percentile)) return 50;
+  return Math.max(2, Math.min(98, percentile));
+}
+
 export default async function NutritionParentReportPage({ params }: { params: PageParams }) {
   await requireNutritionContext("/unauthorized");
   const { playerId } = await params;
@@ -37,6 +42,8 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
 
   const latestBmi = profile.growthProfile.latestBmi;
   const latest = profile.latestSession;
+  const bmiClassification = latestBmi?.classification?.label ?? null;
+  const percentilePosition = getPercentilePosition(latestBmi?.percentile);
 
   return (
     <main className="mx-auto max-w-[980px] px-4 py-5 print:max-w-none print:px-0 print:py-0">
@@ -62,8 +69,8 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
               <p className="text-xs text-slate-500">Reporte informativo para padres</p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-black tracking-[0.2em] text-portoBlue">INVICTA</p>
-              <p className="text-[10px] uppercase tracking-wide text-slate-500">Nutricion deportiva</p>
+              <p className="text-lg font-black uppercase tracking-[0.14em] text-portoBlue">Dragon Force Monterrey</p>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">Nutricion</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-[minmax(0,1fr)_120px_120px] gap-4 text-xs">
@@ -85,24 +92,33 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
         <section className="grid grid-cols-[minmax(0,1fr)_190px] gap-5 border-b border-slate-300 py-4">
           <div className="grid grid-cols-[170px_minmax(0,1fr)] gap-5">
             <div className="flex flex-col items-center justify-center">
-              <div className="relative grid h-36 w-36 place-items-center rounded-full border-[18px] border-emerald-300 bg-white">
-                <div className="absolute inset-[-18px] rounded-full border-[18px] border-transparent border-l-amber-400 border-t-amber-400" />
-                <div className="absolute inset-[-18px] rounded-full border-[18px] border-transparent border-b-rose-500" />
-                <div className="relative text-center">
-                  <p className="text-3xl font-black text-slate-900">{latestBmi ? latestBmi.percentile : "-"}</p>
-                  <p className="text-[10px] font-semibold uppercase text-portoBlue">Percentil IMC</p>
+              <div className="w-full rounded-md border border-slate-200 p-3">
+                <p className="text-center text-[10px] font-bold uppercase tracking-wide text-portoBlue">Percentil IMC</p>
+                <p className="mt-1 text-center text-3xl font-black text-slate-900">{latestBmi ? latestBmi.percentile : "-"}</p>
+                <div className="relative mt-5 h-5 overflow-visible rounded-full bg-gradient-to-r from-rose-500 via-amber-400 via-emerald-300 to-rose-500">
+                  {latestBmi ? (
+                    <div
+                      className="absolute -top-4 h-0 w-0 -translate-x-1/2 border-x-[7px] border-t-[12px] border-x-transparent border-t-slate-900"
+                      style={{ left: `${percentilePosition}%` }}
+                    />
+                  ) : null}
+                </div>
+                <div className="mt-2 flex justify-between text-[9px] font-semibold text-slate-500">
+                  <span>P3</span>
+                  <span>P50</span>
+                  <span>P97</span>
                 </div>
               </div>
-              <div className="mt-3 space-y-1 text-[10px]">
-                <p><span className="inline-block h-2 w-8 rounded bg-emerald-300" /> Rango central OMS</p>
-                <p><span className="inline-block h-2 w-8 rounded bg-amber-400" /> Seguimiento</p>
-                <p><span className="inline-block h-2 w-8 rounded bg-rose-500" /> Atencion</p>
+              <div className="mt-3 grid w-full grid-cols-3 gap-1 text-center text-[9px] font-semibold text-slate-600">
+                <span className="rounded bg-emerald-100 px-1 py-1 text-emerald-800">Rango OMS</span>
+                <span className="rounded bg-amber-100 px-1 py-1 text-amber-800">Seguimiento</span>
+                <span className="rounded bg-rose-100 px-1 py-1 text-rose-800">Atencion</span>
               </div>
             </div>
 
             <div>
               <p className="text-xl font-black text-amber-500">
-                {latestBmi?.classification?.label ?? "Seguimiento nutricional"}
+                {latestBmi ? `IMC Percentil ${latestBmi.percentile}${bmiClassification ? ` (${bmiClassification})` : ""}` : "Seguimiento nutricional"}
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
                 Este reporte resume las mediciones registradas por nutricion y las compara contra referencias OMS cuando la edad y genero lo permiten.
@@ -111,7 +127,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Observaciones y recomendaciones</span>
                 <textarea
                   rows={5}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm leading-5"
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm leading-5 print:border-0 print:px-0 print:shadow-none print:outline-none"
                   placeholder="Escribe aqui observaciones, recomendaciones o seguimiento sugerido antes de imprimir."
                 />
               </label>
@@ -141,7 +157,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
           <CompactOMSGrowthCharts profile={profile.growthProfile} height={132} />
         </section>
 
-        <section className="grid grid-cols-[minmax(0,1fr)_220px] gap-4 py-3">
+        <section className="py-3">
           <div>
             <h2 className="text-sm font-black uppercase tracking-wide text-portoBlue">Historial reciente</h2>
             <table className="mt-2 min-w-full text-xs">
@@ -172,14 +188,9 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
               </tbody>
             </table>
           </div>
-
-          <div className="rounded-md border border-slate-200 p-3">
-            <h2 className="text-sm font-black uppercase tracking-wide text-portoBlue">Notas</h2>
-            <p className="mt-2 text-[11px] leading-5 text-slate-600">
-              Reporte informativo de seguimiento nutricional. No sustituye una valoracion medica ni diagnostico clinico.
-            </p>
-            <p className="mt-3 text-[10px] text-slate-500">Generado por Dragon Force Ops.</p>
-          </div>
+          <p className="mt-3 text-[10px] leading-4 text-slate-500">
+            Reporte informativo de seguimiento nutricional. No sustituye una valoracion medica ni diagnostico clinico.
+          </p>
         </section>
       </article>
     </main>

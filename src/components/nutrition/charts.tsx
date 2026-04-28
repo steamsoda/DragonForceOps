@@ -288,7 +288,7 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
           })) ?? [];
 
         return (
-          <div key={tab.indicator} className="rounded-md border border-slate-200 bg-white p-2">
+          <div key={tab.indicator} className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-2">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">OMS {tab.label}</p>
@@ -304,10 +304,10 @@ export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrow
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={height}>
-                <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                   <XAxis dataKey="ageYears" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={28} />
+                  <YAxis tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={30} />
                   <Area stackId="band" dataKey="p3Base" stroke="none" fill="transparent" />
                   <Area stackId="band" dataKey="p3ToP15" stroke="none" fill="#fecaca" fillOpacity={0.3} />
                   <Area stackId="band" dataKey="p15ToP85" stroke="none" fill="#99f6e4" fillOpacity={0.26} />

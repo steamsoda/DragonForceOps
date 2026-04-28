@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-28 (session 129)
+
+### Nutrition Parent Report Copy + Layout Polish (v1.16.80)
+
+- Softened the parent report IMC heading:
+  - now leads with `IMC Percentil N`
+  - classification appears in parentheses instead of as the main title
+- Replaced the circular percentile graphic with a linear percentile bar and arrow marker.
+- Updated report branding from `INVICTA Nutricion deportiva` to `Dragon Force Monterrey`.
+- Removed the bottom-right notes/disclaimer card and kept the disclaimer as a small footer line.
+- Made the recommendations textarea print without a visible box outline.
+- Tightened compact OMS chart containers and margins so the IMC chart no longer clips into the neighboring chart.
+
 ## 2026-04-28 (session 128)
 
 ### Nutrition Parent Report Polish (v1.16.79)
