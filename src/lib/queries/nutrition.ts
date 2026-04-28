@@ -66,6 +66,7 @@ type MeasurementSessionRow = {
   source: "initial_intake" | "follow_up";
   weight_kg: number | string;
   height_cm: number | string;
+  waist_circumference_cm: number | string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -101,6 +102,12 @@ function toNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number(value);
   return 0;
+}
+
+function toNullableNumber(value: number | string | null | undefined) {
+  if (value == null || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getPlayerName(player: ActiveNutritionEnrollmentRow["players"] | RecentMeasurementRow["players"]) {
@@ -259,9 +266,10 @@ async function listMeasurementSessionsForPlayers(playerIds: string[]) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("player_measurement_sessions")
-    .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at")
+    .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
     .in("player_id", playerIds)
     .order("measured_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .returns<MeasurementSessionRow[]>();
 
   return data ?? [];
@@ -320,6 +328,7 @@ export type NutritionRecentSession = {
   source: "initial_intake" | "follow_up";
   weightKg: number;
   heightCm: number;
+  waistCircumferenceCm: number | null;
 };
 
 export type NutritionDashboardData = {
@@ -327,6 +336,7 @@ export type NutritionDashboardData = {
   pendingFirstMeasurement: number;
   measuredPlayers: number;
   sessionsThisMonth: number;
+  sessionsWithWaistThisMonth: number;
   latestEnrollmentsPendingIntake: number;
   activity: NutritionActivityPoint[];
   recentSessions: NutritionRecentSession[];
@@ -349,6 +359,7 @@ export type NutritionMeasurementListRow = {
   latestMeasurementAt: string | null;
   latestWeightKg: number | null;
   latestHeightCm: number | null;
+  latestWaistCircumferenceCm: number | null;
 };
 
 export type NutritionGroupedRosterRow = {
@@ -365,6 +376,7 @@ export type NutritionGroupedRosterRow = {
   latestMeasurementAt: string | null;
   latestWeightKg: number | null;
   latestHeightCm: number | null;
+  latestWaistCircumferenceCm: number | null;
 };
 
 export type NutritionGroupedRosterSection = {
@@ -396,6 +408,7 @@ export type NutritionProfileSession = {
   source: "initial_intake" | "follow_up";
   weightKg: number;
   heightCm: number;
+  waistCircumferenceCm: number | null;
   notes: string | null;
 };
 
@@ -418,8 +431,9 @@ export type NutritionProfileData = {
   previousSession: NutritionProfileSession | null;
   deltaWeightKg: number | null;
   deltaHeightCm: number | null;
+  deltaWaistCircumferenceCm: number | null;
   history: NutritionProfileSession[];
-  chartPoints: Array<{ label: string; weightKg: number; heightCm: number }>;
+  chartPoints: Array<{ label: string; weightKg: number; heightCm: number; waistCircumferenceCm: number | null }>;
   growthProfile: GrowthProfile;
 };
 
@@ -438,6 +452,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       pendingFirstMeasurement: 0,
       measuredPlayers: 0,
       sessionsThisMonth: 0,
+      sessionsWithWaistThisMonth: 0,
       latestEnrollmentsPendingIntake: 0,
       activity: buildMonthSeries(selectedMonth).map((month) => ({ label: month.label, total: 0 })),
       recentSessions: [],
@@ -455,6 +470,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       pendingFirstMeasurement: 0,
       measuredPlayers: 0,
       sessionsThisMonth: 0,
+      sessionsWithWaistThisMonth: 0,
       latestEnrollmentsPendingIntake: 0,
       activity: buildMonthSeries(selectedMonth).map((month) => ({ label: month.label, total: 0 })),
       recentSessions: [],
@@ -483,16 +499,17 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
   const [{ data: currentMonthSessions }, { data: recentRows }] = await Promise.all([
     admin
       .from("player_measurement_sessions")
-      .select("id")
+      .select("id, waist_circumference_cm")
       .in("campus_id", selectedCampusIds)
       .gte("measured_at", monthBounds.start)
       .lt("measured_at", monthBounds.end)
-      .returns<Array<{ id: string }>>(),
+      .returns<Array<{ id: string; waist_circumference_cm: number | string | null }>>(),
     admin
       .from("player_measurement_sessions")
-      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
+      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
       .in("campus_id", selectedCampusIds)
       .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(8)
       .returns<RecentMeasurementRow[]>(),
   ]);
@@ -510,6 +527,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
     pendingFirstMeasurement,
     measuredPlayers,
     sessionsThisMonth: currentMonthSessions?.length ?? 0,
+    sessionsWithWaistThisMonth: (currentMonthSessions ?? []).filter((session) => toNullableNumber(session.waist_circumference_cm) != null).length,
     latestEnrollmentsPendingIntake,
     activity: monthSeries.map((month) => ({
       label: month.label,
@@ -524,6 +542,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       source: row.source,
       weightKg: toNumber(row.weight_kg),
       heightCm: toNumber(row.height_cm),
+      waistCircumferenceCm: toNullableNumber(row.waist_circumference_cm),
     })),
   };
 }
@@ -583,6 +602,7 @@ export async function listNutritionMeasurementRows(filters: NutritionMeasurement
         latestMeasurementAt: latestPlayerSession?.measured_at ?? null,
         latestWeightKg: latestPlayerSession ? toNumber(latestPlayerSession.weight_kg) : null,
         latestHeightCm: latestPlayerSession ? toNumber(latestPlayerSession.height_cm) : null,
+        latestWaistCircumferenceCm: latestPlayerSession ? toNullableNumber(latestPlayerSession.waist_circumference_cm) : null,
       };
     })
     .filter((row) => {
@@ -702,6 +722,7 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
       latestMeasurementAt: latestSession?.measured_at ?? null,
       latestWeightKg: latestSession ? toNumber(latestSession.weight_kg) : null,
       latestHeightCm: latestSession ? toNumber(latestSession.height_cm) : null,
+      latestWaistCircumferenceCm: latestSession ? toNullableNumber(latestSession.waist_circumference_cm) : null,
     });
   }
 
@@ -751,9 +772,10 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
   const [{ data: sessionRows }, guardianContacts] = await Promise.all([
     admin
       .from("player_measurement_sessions")
-      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, notes, created_at, updated_at")
+      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
       .eq("player_id", playerId)
       .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .returns<MeasurementSessionRow[]>(),
     listGuardianContactsForPlayers([playerId]),
   ]);
@@ -766,6 +788,7 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
     source: row.source,
     weightKg: toNumber(row.weight_kg),
     heightCm: toNumber(row.height_cm),
+    waistCircumferenceCm: toNullableNumber(row.waist_circumference_cm),
     notes: row.notes,
   }));
 
@@ -813,6 +836,10 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
     previousSession,
     deltaWeightKg: latestSession && previousSession ? latestSession.weightKg - previousSession.weightKg : null,
     deltaHeightCm: latestSession && previousSession ? latestSession.heightCm - previousSession.heightCm : null,
+    deltaWaistCircumferenceCm:
+      latestSession && previousSession && latestSession.waistCircumferenceCm != null && previousSession.waistCircumferenceCm != null
+        ? latestSession.waistCircumferenceCm - previousSession.waistCircumferenceCm
+        : null,
     history,
     chartPoints: [...history]
       .reverse()
@@ -820,11 +847,14 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
         label: new Intl.DateTimeFormat("es-MX", {
           day: "2-digit",
           month: "2-digit",
-          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
           timeZone: "America/Monterrey",
         }).format(new Date(session.measuredAt)),
         weightKg: session.weightKg,
         heightCm: session.heightCm,
+        waistCircumferenceCm: session.waistCircumferenceCm,
       })),
     growthProfile,
   };

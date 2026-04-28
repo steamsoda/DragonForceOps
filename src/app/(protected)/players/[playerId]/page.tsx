@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
@@ -267,13 +268,14 @@ export default async function PlayerDetailPage({
   searchParams,
 }: {
   params: Promise<{ playerId: string }>;
-  searchParams: Promise<{ ok?: string; err?: string; nuked?: string }>;
+  searchParams: Promise<{ ok?: string; err?: string; nuked?: string; returnTo?: string }>;
 }) {
   const permissionContext = await getPermissionContext();
   if (!permissionContext?.hasOperationalAccess) redirect("/unauthorized");
 
   const { playerId } = await params;
   const sp = await searchParams;
+  const pendingReturnTo = getSafePendingReturnTo(sp.returnTo);
   const player = await getPlayerDetail(playerId);
   const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
   const isDirector = permissionContext?.isDirector ?? false;
@@ -420,6 +422,14 @@ export default async function PlayerDetailPage({
             </div>
 
             <div className="flex flex-wrap gap-2 xl:max-w-[30rem] xl:justify-end">
+              {pendingReturnTo ? (
+                <Link
+                  href={pendingReturnTo}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Volver a Pendientes
+                </Link>
+              ) : null}
               {activeEnrollmentId ? (
                 <Link
                   href={`/caja?enrollmentId=${activeEnrollmentId}`}

@@ -28,6 +28,13 @@ export type GrowthChartPoint = {
   playerValue: number | null;
 };
 
+export type GrowthPlayerPoint = {
+  ageMonths: number;
+  ageYears: number;
+  measuredAt: string;
+  value: number;
+};
+
 export type GrowthLatestMetric = {
   value: number;
   zScore: number;
@@ -44,6 +51,7 @@ export type GrowthIndicatorProfile = {
   available: boolean;
   unavailableReason: string | null;
   chartPoints: GrowthChartPoint[];
+  playerPoints: GrowthPlayerPoint[];
   latest: GrowthLatestMetric | null;
 };
 
@@ -210,6 +218,7 @@ function buildUnavailableIndicators(reason: string): GrowthIndicatorProfile[] {
     available: false,
     unavailableReason: reason,
     chartPoints: [],
+    playerPoints: [],
     latest: null,
   }));
 }
@@ -231,6 +240,7 @@ function buildIndicatorProfile(
       available: false,
       unavailableReason: "No hay referencia OMS disponible para este indicador.",
       chartPoints: [],
+      playerPoints: [],
       latest: null,
     };
   }
@@ -238,6 +248,7 @@ function buildIndicatorProfile(
   const referenceByAge = new Map(indicatorReferences.map((row) => [row.ageMonths, row]));
   const measurementsByAge = new Map<number, MeasurementInput>();
   const metrics: GrowthLatestMetric[] = [];
+  const playerPoints: GrowthPlayerPoint[] = [];
   const minAge = indicatorReferences[0]?.ageMonths ?? 0;
   const maxAge = indicatorReferences[indicatorReferences.length - 1]?.ageMonths ?? 0;
 
@@ -260,6 +271,12 @@ function buildIndicatorProfile(
       ageMonths,
       measuredAt: measurement.measuredAt,
       classification: indicator === "bmi_for_age" ? classifyBmiZScore(zScore) : null,
+    });
+    playerPoints.push({
+      ageMonths,
+      ageYears: roundMetric(ageMonths / 12, 3),
+      measuredAt: measurement.measuredAt,
+      value: roundMetric(value),
     });
   }
 
@@ -288,6 +305,7 @@ function buildIndicatorProfile(
     available: metrics.length > 0,
     unavailableReason: getUnavailableReason(indicator, hasMeasurements, minAge, maxAge),
     chartPoints,
+    playerPoints: playerPoints.sort((left, right) => left.measuredAt.localeCompare(right.measuredAt)),
     latest,
   };
 }

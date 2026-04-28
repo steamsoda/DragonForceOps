@@ -1,5 +1,90 @@
 # Devlog
 
+## 2026-04-28 (session 132)
+
+### Nutrition OMS Profile Axis Fix (v1.16.83)
+
+- Fixed the main nutrition profile OMS chart after the repeated-measurement series change.
+- The X axis now uses the WHO/OMS reference row range explicitly instead of letting Recharts infer the domain from the player-only series.
+- This restores the full OMS reference curve in the profile while preserving repeated same-age player measurement points.
+
+## 2026-04-28 (session 131)
+
+### Nutrition Report Print-Safe Chart Polish (v1.16.82)
+
+- Reverted the interactive nutrition OMS chart axes to the original full reference view while keeping same-age repeated player points.
+- Replaced the report percentile marker with a print-safe bell-curve style IMC percentile graphic.
+- Replaced compact report OMS charts with static SVG rendering so chart lines and labels survive browser PDF export more reliably than Recharts `ResponsiveContainer`.
+- Removed the printed placeholder text from the report recommendations field; helper copy now appears only on screen before printing.
+
+## 2026-04-28 (session 130)
+
+### Nutrition Measurement Timestamp + OMS Chart Zoom (v1.16.81)
+
+- Nutrition measurements now store the selected Monterrey date and time instead of forcing every record to noon.
+- Added a `Hora` field to `Nueva medicion` and tightened the input grid so `Cintura (cm)` aligns with the other measurement fields.
+- Nutrition history, current summary, parent report history, and trend labels now show date plus time, making same-day test captures distinguishable.
+- Measurement queries now sort by `measured_at` and then `created_at` for stable ordering when records share the same timestamp.
+- OMS charts now render all player measurement points instead of collapsing multiple captures in the same age-month into a single point.
+- OMS chart axes now zoom around the player's relevant age/value range so short-term weight, height, and IMC changes are easier to read.
+
+## 2026-04-28 (session 129)
+
+### Nutrition Parent Report Copy + Layout Polish (v1.16.80)
+
+- Softened the parent report IMC heading:
+  - now leads with `IMC Percentil N`
+  - classification appears in parentheses instead of as the main title
+- Replaced the circular percentile graphic with a linear percentile bar and arrow marker.
+- Updated report branding from `INVICTA Nutricion deportiva` to `Dragon Force Monterrey`.
+- Removed the bottom-right notes/disclaimer card and kept the disclaimer as a small footer line.
+- Made the recommendations textarea print without a visible box outline.
+- Tightened compact OMS chart containers and margins so the IMC chart no longer clips into the neighboring chart.
+
+## 2026-04-28 (session 128)
+
+### Nutrition Parent Report Polish (v1.16.79)
+
+- Reworked the printable nutrition parent report so it no longer feels like the standard app profile page.
+- The report now uses a dedicated single-page-oriented layout:
+  - branded header with player/report dates
+  - notes and recommendations block in the top narrative area
+  - right-side measurement sidebar for campus, category, gender, weight, height, waist, IMC, percentile, and Z-score
+  - compact OMS chart row for IMC, peso, and estatura
+  - recent measurement history and disclaimer footer
+- Added compact report-only OMS chart rendering so the print view can fit more information on one page.
+- Changed print page sizing to letter portrait with smaller margins for parent-report output.
+
+## 2026-04-28 (session 127)
+
+### Nutrition Waist Circumference + Parent Report (v1.16.78)
+
+- Added optional historical `Circunferencia de cintura (cm)` to nutrition measurement sessions.
+- Updated nutrition capture so weight and height remain required while waist circumference is optional.
+- Surfaced waist circumference in nutrition-safe views:
+  - main nutrition panel monthly KPI for sessions with waist captured
+  - recent activity cards
+  - `Toma de medidas` grouped/list views
+  - nutrition player profile latest summary, delta versus prior session, history table, and waist trend chart
+- Added a printable parent report page at `/nutrition/players/[playerId]/report`:
+  - includes player nutrition summary, OMS chart section, waist trend, measurement history, and a notes/recommendations box
+  - uses browser print / save as PDF instead of adding a server-side PDF dependency
+- Safety note:
+  - the report and new fields stay inside the nutrition-safe route boundary
+  - no finance, Caja, charges, payments, receipts, or admin mutation data was introduced
+
+## 2026-04-28 (session 126)
+
+### Pendientes Return-State UX Pass (v1.16.77)
+
+- Added explicit return-state handling for the new `Pendientes` board.
+- Category and KPI drilldowns now carry a safe `returnTo` back to the exact board state that opened them, preserving campus and month filters.
+- Player links from `/pending/detail` now carry a safe return link back to the same detail context.
+- Player profiles show `Volver a Pendientes` only when the return target is an allowed internal `/pending` route.
+- Safety note:
+  - external URLs and unrelated internal paths are rejected
+  - route-level role/campus checks remain unchanged, so URL restoration does not grant extra access
+
 ## 2026-04-27 (session 125)
 
 ### Scholarship Guard Fix (v1.16.76)

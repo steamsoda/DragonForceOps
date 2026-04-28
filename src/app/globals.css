@@ -53,13 +53,18 @@ a {
 
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 12mm;
+    size: letter portrait;
+    margin: 8mm;
   }
 
   html,
   body {
     background: #ffffff !important;
     color: #0f172a !important;
+  }
+
+  textarea {
+    resize: none !important;
+    background: #ffffff !important;
   }
 }

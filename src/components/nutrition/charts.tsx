@@ -26,8 +26,17 @@ type MeasurementTrendChartProps = {
   data: Array<{ label: string; weightKg: number; heightCm: number }>;
 };
 
+type WaistTrendChartProps = {
+  data: Array<{ label: string; waistCircumferenceCm: number | null }>;
+};
+
 type OMSGrowthChartProps = {
   profile: GrowthProfile;
+};
+
+type CompactOMSGrowthChartProps = {
+  profile: GrowthProfile;
+  height?: number;
 };
 
 const GROWTH_TABS: Array<{ indicator: GrowthIndicator; label: string }> = [
@@ -41,6 +50,37 @@ const CLASSIFICATION_CLASSES: Record<GrowthClassificationTone, string> = {
   warning: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300",
   danger: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300",
 };
+
+type GrowthChartRow = {
+  ageMonths: number;
+  ageYears: number;
+  p3: number;
+  p15: number;
+  p50: number;
+  p85: number;
+  p97: number;
+  p3Base: number;
+  p3ToP15: number;
+  p15ToP85: number;
+  p85ToP97: number;
+};
+
+function pointsToPolyline(points: Array<{ ageYears: number; value: number }>, xMin: number, xMax: number, yMin: number, yMax: number) {
+  const width = 220;
+  const height = 88;
+  const left = 22;
+  const top = 8;
+  const xRange = Math.max(xMax - xMin, 1);
+  const yRange = Math.max(yMax - yMin, 1);
+
+  return points
+    .map((point) => {
+      const x = left + ((point.ageYears - xMin) / xRange) * width;
+      const y = top + height - ((point.value - yMin) / yRange) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
 
 export function MeasurementActivityBar({ data }: MeasurementActivityBarProps) {
   if (data.length === 0) {
@@ -97,6 +137,32 @@ export function MeasurementTrendChart({ data }: MeasurementTrendChartProps) {
   );
 }
 
+export function WaistTrendChart({ data }: WaistTrendChartProps) {
+  const hasData = data.some((point) => point.waistCircumferenceCm != null);
+
+  return (
+    <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Tendencia de cintura</p>
+      {!hasData ? (
+        <p className="mt-6 text-center text-sm text-slate-400">Aun no hay circunferencias registradas.</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={40} />
+            <Tooltip
+              contentStyle={{ fontSize: 12 }}
+              formatter={(value) => [typeof value === "number" ? `${value.toFixed(1)} cm` : "-", "Cintura"]}
+            />
+            <Line type="monotone" dataKey="waistCircumferenceCm" name="Cintura (cm)" stroke="#be123c" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </article>
+  );
+}
+
 export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
   const [selectedIndicator, setSelectedIndicator] = useState<GrowthIndicator>("bmi_for_age");
   const selected = profile.indicators.find((indicator) => indicator.indicator === selectedIndicator) ?? profile.indicators[0];
@@ -108,6 +174,10 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
       p15ToP85: point.p85 - point.p15,
       p85ToP97: point.p97 - point.p85,
     })) ?? [];
+  const referenceXDomain =
+    chartData.length > 0
+      ? ([chartData[0].ageYears, chartData[chartData.length - 1].ageYears] as [number, number])
+      : (["dataMin", "dataMax"] as [string, string]);
 
   return (
     <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -181,7 +251,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <XAxis
                   dataKey="ageYears"
                   type="number"
-                  domain={["dataMin", "dataMax"]}
+                  domain={referenceXDomain}
                   tick={{ fontSize: 11, fill: "#64748b" }}
                   axisLine={false}
                   tickLine={false}
@@ -204,6 +274,7 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                       p85: "P85",
                       p97: "P97",
                       playerValue: "Jugador",
+                      value: "Jugador",
                     };
                     return [typeof value === "number" ? value.toFixed(1) : value, labelMap[String(name)] ?? String(name)];
                   }}
@@ -221,13 +292,13 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
                 <Line type="monotone" dataKey="p97" name="P97" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={1.2} />
                 <Line
                   type="monotone"
-                  dataKey="playerValue"
+                  data={selected.playerPoints}
+                  dataKey="value"
                   name="Jugador"
                   stroke="#185FA5"
                   strokeWidth={2.5}
                   dot={{ r: 5, fill: "#185FA5", stroke: "#ffffff", strokeWidth: 2 }}
                   activeDot={{ r: 6 }}
-                  connectNulls
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -235,5 +306,65 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
         </>
       )}
     </article>
+  );
+}
+
+export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrowthChartProps) {
+  return (
+    <div className="grid gap-2 md:grid-cols-3 print:grid-cols-3">
+      {GROWTH_TABS.map((tab) => {
+        const selected = profile.indicators.find((indicator) => indicator.indicator === tab.indicator);
+        const chartData = selected?.chartPoints ?? [];
+        const xMin = chartData[0]?.ageYears ?? 0;
+        const xMax = chartData[chartData.length - 1]?.ageYears ?? 19;
+        const values = chartData.flatMap((point) => [point.p3, point.p50, point.p97]);
+        const playerValues = selected?.playerPoints.map((point) => point.value) ?? [];
+        const yMin = Math.max(0, Math.floor(Math.min(...values, ...playerValues)));
+        const yMax = Math.ceil(Math.max(...values, ...playerValues));
+        const p3Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p3 })), xMin, xMax, yMin, yMax);
+        const p50Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p50 })), xMin, xMax, yMin, yMax);
+        const p97Path = pointsToPolyline(chartData.map((point) => ({ ageYears: point.ageYears, value: point.p97 })), xMin, xMax, yMin, yMax);
+        const playerPath = pointsToPolyline(selected?.playerPoints ?? [], xMin, xMax, yMin, yMax);
+
+        return (
+          <div key={tab.indicator} className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white p-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">OMS {tab.label}</p>
+                <p className="text-[10px] text-slate-500">{selected?.unit ?? ""}</p>
+              </div>
+              <p className="text-right text-[10px] font-medium text-slate-700">
+                {selected?.latest ? `P${selected.latest.percentile} / Z ${selected.latest.zScore}` : "Sin dato"}
+              </p>
+            </div>
+            {!selected?.available ? (
+              <div className="mt-2 flex items-center justify-center text-center text-[10px] text-slate-500" style={{ height }}>
+                {selected?.unavailableReason ?? "No hay datos suficientes."}
+              </div>
+            ) : (
+              <svg viewBox="0 0 260 120" width="100%" height={height} role="img" aria-label={`Curva OMS ${tab.label}`}>
+                <rect x="22" y="8" width="220" height="88" fill="#f8fafc" />
+                <line x1="22" y1="96" x2="242" y2="96" stroke="#cbd5e1" strokeWidth="0.8" />
+                <line x1="22" y1="8" x2="22" y2="96" stroke="#cbd5e1" strokeWidth="0.8" />
+                <polyline points={p3Path} fill="none" stroke="#A32D2D" strokeDasharray="3 3" strokeWidth="1" />
+                <polyline points={p50Path} fill="none" stroke="#0F6E56" strokeWidth="1.5" />
+                <polyline points={p97Path} fill="none" stroke="#A32D2D" strokeDasharray="3 3" strokeWidth="1" />
+                {playerPath ? <polyline points={playerPath} fill="none" stroke="#185FA5" strokeWidth="2" /> : null}
+                {(selected.playerPoints ?? []).map((point) => {
+                  const coordinate = pointsToPolyline([point], xMin, xMax, yMin, yMax);
+                  const [x, y] = coordinate.split(",");
+                  return <circle key={`${point.measuredAt}-${point.value}`} cx={x} cy={y} r="3" fill="#185FA5" stroke="#ffffff" strokeWidth="1" />;
+                })}
+                <text x="22" y="112" fontSize="8" fill="#64748b">{xMin.toFixed(0)}a</text>
+                <text x="132" y="112" textAnchor="middle" fontSize="8" fill="#64748b">Edad</text>
+                <text x="242" y="112" textAnchor="end" fontSize="8" fill="#64748b">{xMax.toFixed(0)}a</text>
+                <text x="5" y="12" fontSize="8" fill="#64748b">{yMax}</text>
+                <text x="5" y="98" fontSize="8" fill="#64748b">{yMin}</text>
+              </svg>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

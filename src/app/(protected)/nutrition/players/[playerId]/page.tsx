@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { OMSGrowthChart } from "@/components/nutrition/charts";
+import { OMSGrowthChart, WaistTrendChart } from "@/components/nutrition/charts";
 import { recordPlayerMeasurementAction } from "@/server/actions/nutrition";
 import { requireNutritionContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
 import type { GrowthClassificationTone } from "@/lib/nutrition/growth";
-import { formatDateMonterrey, getMonterreyDateString } from "@/lib/time";
+import { formatDateMonterrey, formatDateTimeMonterrey, getMonterreyDateString, getMonterreyTimeString } from "@/lib/time";
 
 function formatDelta(value: number | null, suffix: string) {
   if (value == null) return "Sin comparacion previa";
@@ -94,7 +94,7 @@ export default async function NutritionPlayerProfilePage({
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ultima inscripcion</p>
                 <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
@@ -114,6 +114,13 @@ export default async function NutritionPlayerProfilePage({
                   {profile.latestSession ? `${profile.latestSession.heightCm.toFixed(1)} cm` : "-"}
                 </p>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDelta(profile.deltaHeightCm, "cm")}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ultima cintura</p>
+                <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+                  {profile.latestSession?.waistCircumferenceCm != null ? `${profile.latestSession.waistCircumferenceCm.toFixed(1)} cm` : "-"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDelta(profile.deltaWaistCircumferenceCm, "cm")}</p>
               </div>
             </div>
 
@@ -160,13 +167,23 @@ export default async function NutritionPlayerProfilePage({
               <input type="hidden" name="enrollment_id" value={profile.activeEnrollmentId} />
               <input type="hidden" name="return_to" value={`/nutrition/players/${profile.playerId}`} />
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <label className="space-y-1">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</span>
                   <input
                     type="date"
                     name="measurement_date"
                     defaultValue={getMonterreyDateString()}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hora</span>
+                  <input
+                    type="time"
+                    name="measurement_time"
+                    defaultValue={getMonterreyTimeString()}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                     required
                   />
@@ -193,6 +210,17 @@ export default async function NutritionPlayerProfilePage({
                     inputMode="decimal"
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                     required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Cintura (cm)</span>
+                  <input
+                    type="number"
+                    name="waist_circumference_cm"
+                    step="0.1"
+                    min="0"
+                    inputMode="decimal"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                   />
                 </label>
               </div>
@@ -228,10 +256,11 @@ export default async function NutritionPlayerProfilePage({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Resumen actual</p>
             {profile.latestSession ? (
               <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                <p>Fecha: {formatDateMonterrey(profile.latestSession.measuredAt)}</p>
+                <p>Fecha: {formatDateTimeMonterrey(profile.latestSession.measuredAt)}</p>
                 <p>Tipo: {profile.latestSession.source === "initial_intake" ? "Primera toma" : "Seguimiento"}</p>
                 <p>Peso: {profile.latestSession.weightKg.toFixed(1)} kg</p>
                 <p>Estatura: {profile.latestSession.heightCm.toFixed(1)} cm</p>
+                <p>Cintura: {profile.latestSession.waistCircumferenceCm != null ? `${profile.latestSession.waistCircumferenceCm.toFixed(1)} cm` : "-"}</p>
                 {profile.growthProfile.latestBmi ? (
                   <>
                     <p>IMC: {profile.growthProfile.latestBmi.value.toFixed(1)} kg/m2</p>
@@ -264,6 +293,27 @@ export default async function NutritionPlayerProfilePage({
           </article>
         </div>
 
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]">
+          <WaistTrendChart
+            data={profile.chartPoints.map((point) => ({
+              label: point.label,
+              waistCircumferenceCm: point.waistCircumferenceCm,
+            }))}
+          />
+          <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Reporte para padres</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Abre una vista limpia con curvas OMS, resumen nutricional e historial para imprimir o guardar como PDF.
+            </p>
+            <Link
+              href={`/nutrition/players/${profile.playerId}/report`}
+              className="mt-4 inline-flex rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+            >
+              Abrir reporte
+            </Link>
+          </article>
+        </div>
+
         <article className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -283,25 +333,29 @@ export default async function NutritionPlayerProfilePage({
                   <th className="px-3 py-2">Tipo</th>
                   <th className="px-3 py-2">Peso</th>
                   <th className="px-3 py-2">Estatura</th>
+                  <th className="px-3 py-2">Cintura</th>
                   <th className="px-3 py-2">Notas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {profile.history.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={5}>
+                    <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={6}>
                       No hay sesiones registradas.
                     </td>
                   </tr>
                 ) : (
                   profile.history.map((session) => (
                     <tr key={session.id}>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{formatDateMonterrey(session.measuredAt)}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{formatDateTimeMonterrey(session.measuredAt)}</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                         {session.source === "initial_intake" ? "Primera toma" : "Seguimiento"}
                       </td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.weightKg.toFixed(1)} kg</td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.heightCm.toFixed(1)} cm</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                        {session.waistCircumferenceCm != null ? `${session.waistCircumferenceCm.toFixed(1)} cm` : "-"}
+                      </td>
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.notes?.trim() || "-"}</td>
                     </tr>
                   ))
