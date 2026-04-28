@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-28 (session 128)
+
+### Nutrition Parent Report Polish (v1.16.79)
+
+- Reworked the printable nutrition parent report so it no longer feels like the standard app profile page.
+- The report now uses a dedicated single-page-oriented layout:
+  - branded header with player/report dates
+  - notes and recommendations block in the top narrative area
+  - right-side measurement sidebar for campus, category, gender, weight, height, waist, IMC, percentile, and Z-score
+  - compact OMS chart row for IMC, peso, and estatura
+  - recent measurement history and disclaimer footer
+- Added compact report-only OMS chart rendering so the print view can fit more information on one page.
+- Changed print page sizing to letter portrait with smaller margins for parent-report output.
+
 ## 2026-04-28 (session 127)
 
 ### Nutrition Waist Circumference + Parent Report (v1.16.78)

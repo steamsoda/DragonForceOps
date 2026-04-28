@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.78`
+Current preview release line: `v1.16.79`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -228,6 +228,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - adds optional `Circunferencia de cintura (cm)` to historical measurement sessions
      - adds waist stats to nutrition panel, grouped/list views, player profile, deltas, history, and trend chart
      - adds a printable parent report page with OMS chart section, measurement summary/history, waist trend, and notes box
+   - `v1.16.79` polishes the parent report into a dedicated single-page-oriented layout:
+     - top narrative notes/recommendations area
+     - right-side measurement sidebar
+     - compact OMS charts and recent history
    - add `Circunferencia` measurement support:
      - v1 field is `Circunferencia de cintura (cm)`
      - store historically on measurement sessions, not as player-level overwrite fields

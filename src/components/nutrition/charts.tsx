@@ -34,6 +34,11 @@ type OMSGrowthChartProps = {
   profile: GrowthProfile;
 };
 
+type CompactOMSGrowthChartProps = {
+  profile: GrowthProfile;
+  height?: number;
+};
+
 const GROWTH_TABS: Array<{ indicator: GrowthIndicator; label: string }> = [
   { indicator: "bmi_for_age", label: "IMC" },
   { indicator: "weight_for_age", label: "Peso" },
@@ -265,5 +270,65 @@ export function OMSGrowthChart({ profile }: OMSGrowthChartProps) {
         </>
       )}
     </article>
+  );
+}
+
+export function CompactOMSGrowthCharts({ profile, height = 150 }: CompactOMSGrowthChartProps) {
+  return (
+    <div className="grid gap-2 md:grid-cols-3 print:grid-cols-3">
+      {GROWTH_TABS.map((tab) => {
+        const selected = profile.indicators.find((indicator) => indicator.indicator === tab.indicator);
+        const chartData =
+          selected?.chartPoints.map((point) => ({
+            ...point,
+            p3Base: point.p3,
+            p3ToP15: point.p15 - point.p3,
+            p15ToP85: point.p85 - point.p15,
+            p85ToP97: point.p97 - point.p85,
+          })) ?? [];
+
+        return (
+          <div key={tab.indicator} className="rounded-md border border-slate-200 bg-white p-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">OMS {tab.label}</p>
+                <p className="text-[10px] text-slate-500">{selected?.unit ?? ""}</p>
+              </div>
+              <p className="text-right text-[10px] font-medium text-slate-700">
+                {selected?.latest ? `P${selected.latest.percentile} / Z ${selected.latest.zScore}` : "Sin dato"}
+              </p>
+            </div>
+            {!selected?.available ? (
+              <div className="mt-2 flex items-center justify-center text-center text-[10px] text-slate-500" style={{ height }}>
+                {selected?.unavailableReason ?? "No hay datos suficientes."}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={height}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis dataKey="ageYears" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 8, fill: "#64748b" }} axisLine={false} tickLine={false} width={28} />
+                  <Area stackId="band" dataKey="p3Base" stroke="none" fill="transparent" />
+                  <Area stackId="band" dataKey="p3ToP15" stroke="none" fill="#fecaca" fillOpacity={0.3} />
+                  <Area stackId="band" dataKey="p15ToP85" stroke="none" fill="#99f6e4" fillOpacity={0.26} />
+                  <Area stackId="band" dataKey="p85ToP97" stroke="none" fill="#fde68a" fillOpacity={0.3} />
+                  <Line type="monotone" dataKey="p3" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={0.8} />
+                  <Line type="monotone" dataKey="p50" stroke="#0F6E56" dot={false} strokeWidth={1.4} />
+                  <Line type="monotone" dataKey="p97" stroke="#A32D2D" strokeDasharray="3 3" dot={false} strokeWidth={0.8} />
+                  <Line
+                    type="monotone"
+                    dataKey="playerValue"
+                    stroke="#185FA5"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "#185FA5", stroke: "#ffffff", strokeWidth: 1 }}
+                    connectNulls
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
