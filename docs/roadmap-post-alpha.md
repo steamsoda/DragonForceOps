@@ -1,7 +1,7 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-26.
+Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
 Current preview release line: `v1.16.76`
@@ -9,6 +9,8 @@ Current preview release line: `v1.16.76`
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
 Near-term UI/workflow planning note: operations has requested a larger UI pass; exact scope is pending, but it should be planned against the current live surfaces instead of mixing unrelated refactors into one release.
+
+New 2026-04-28 planning items logged: navigation return-state UX, nutrition circunferencia + parent PDF reports, sports grouping shift from ambiguous `Nivel` toward explicit `Futbol Para Todos` / `Selectivos`, and attendance workflow simplification/automation.
 
 ---
 
@@ -200,6 +202,74 @@ Near-term UI/workflow planning note: operations has requested a larger UI pass; 
      - validate staff scanning comfort against the live Contry/Linda Vista workbooks
      - decide whether this view should later export to Excel using the same grouping/query source
      - keep the separate `Jugadores` query-hardening lane open for the existing list path
+
+8. Navigation return-state UX pass
+   - goal:
+     - detail drilldowns should return users to the exact campus/filter/view context they came from
+     - avoid resetting to default campus or default filters after using back links
+   - first target:
+     - `Pendientes` category and KPI drilldowns
+     - preserve campus, month, bucket, category/YOB, and selected filter state when returning to the board
+   - later targets:
+     - `Jugadores` grouped roster and player profile returns
+     - `Inscripciones Torneos` category/detail returns
+     - `Nuevas Inscripciones` filtered board returns
+     - nutrition grouped roster and nutrition profile returns
+   - implementation guidance:
+     - prefer explicit query params or `returnTo` URLs over fragile browser-only state
+     - keep role/campus scoping enforced server-side even when restoring UI state
+
+9. Nutrition v2 metrics and parent report exports
+   - add `Circunferencia` measurement support after confirming exact fields:
+     - likely waist, arm, or other nutritionist-specified circumference fields
+     - store historically on measurement sessions, not as player-level overwrite fields
+   - nutrition profile follow-up:
+     - render new circumference metrics in latest summary and history
+     - chart/trend where the data is meaningful
+     - preserve the nutrition-safe boundary: no finance, Caja, payment, charge, or admin data
+   - parent PDF report:
+     - generated from nutrition-safe data only
+     - include OMS curves, latest measurements, deltas/history, and nutritionist notes/recommendations
+     - include a notes field at generation time so the nutritionist can personalize the report
+     - require authorized nutrition/director access and campus scope checks
+   - open decisions:
+     - exact circumference fields and labels
+     - report branding/layout
+     - whether reports are generated on demand only or stored for later download
+
+10. Sports grouping model simplification: program over `Nivel`
+   - planning direction:
+     - move away from ambiguous `Nivel` as the primary grouping concept
+     - make `Futbol Para Todos` vs `Selectivos` an explicit sports program axis
+     - keep training groups as the daily practice roster model
+     - keep `teams` as the competition/tournament roster model
+   - affected surfaces to audit before implementation:
+     - `Jugadores` grouped roster
+     - `Nuevas Inscripciones` sports completion
+     - `Asistencia` schedules/sessions/rosters
+     - `Inscripciones Torneos`
+     - `/teams` and hidden sports WIP surfaces
+     - products restricted by training group
+   - migration posture:
+     - do not remove `players.level` yet
+     - treat existing level strings as display/fallback until the new program/group fields are proven
+     - avoid repointing tournament objects to training groups
+
+11. Attendance workflow simplification and automation
+   - goal:
+     - make attendance usable for normal field/admin users without exposing unnecessary schedule-template internals
+   - UX follow-up:
+     - make `Hoy` clearly show generated sessions and explain empty states
+     - simplify the session capture path for regular users
+     - keep advanced schedule/template controls for directors/superadmin
+   - automation follow-up:
+     - keep Supabase `pg_cron` as the default weekly generator
+     - add an in-app manual `Generar sesiones` / regenerate-week action for authorized users
+     - keep generation idempotent and safe for backfill
+   - boundaries:
+     - no automatic baja trigger yet
+     - coach login remains deferred
+     - no finance, Caja, nutrition, or tournament-payment changes in this lane
 
 ### Immediate Sequence
 
@@ -617,7 +687,7 @@ Follow after the operational tracks above:
 | 14 | **Past receipt / ticket search** | ✅ Done | `/receipts` page with folio/name search, campus filter, links to enrollment account |
 | 15 | **Advance month payment** | ✅ Done | Month picker appears when creating a tuition charge; defaults to next month |
 | 16 | **Pendientes — call center mode** | 🟡 In progress | `/pending` now uses a lightweight follow-up workflow instead of the old `Contactado` checkbox: `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresará`, with inline note editing, required promise-date capture, and direct baja handoff for `No regresará`. Follow-up state also clears automatically when balance reaches zero or the enrollment is formally ended. |
-| NEW | **Nutrition tracking / body measurements tab** | 🟡 In progress | `v1` is now implemented on preview: new `nutritionist` role, dedicated `Nutricion` menu section, nutrition-only player profile, historical `player_measurement_sessions`, first-take pending queue, monthly panel KPIs, recent activity, append-only weight/height capture, and OMS growth curves for IMC/Peso/Estatura on the nutrition profile. Keep this open for more body metrics, richer comparisons, intake workflow polish, and any future nutrition-specific dashboard/reporting asks. |
+| NEW | **Nutrition tracking / body measurements tab** | 🟡 In progress | `v1` is now implemented on preview: new `nutritionist` role, dedicated `Nutricion` menu section, nutrition-only player profile, historical `player_measurement_sessions`, first-take pending queue, monthly panel KPIs, recent activity, append-only weight/height capture, and OMS growth curves for IMC/Peso/Estatura on the nutrition profile. Keep this open for circumference metrics, parent PDF nutrition reports with OMS curves/notes, richer comparisons, intake workflow polish, and future nutrition-specific dashboard/reporting asks. |
 | 30 | **New-enrollment tuition tiers (3 tiers)** | ✅ Done | Enrollment creation no longer trusts free-text tuition amounts. The server now resolves the correct tier by start date and pricing version: days 1-10 = full month, days 11-20 = mid-month tier, days 21+ = next-month-only tuition. This now rolls into the May 2026 price version automatically. |
 | 31 | **Re-enrollment "Retorno" pricing plan** | 🔴 Open | A practical `Regreso` workflow now exists operationally inside issue #54 without creating a separate plan family: staff can flag the player as returning and choose full / inscription-only / waived inscription while monthly tuition keeps using standard rules. Keep this item open only if future business rules require a truly separate `retorno` pricing-plan family with different recurring tuition behavior. |
 | 32 | **Absence/injury incident + optional monthly omission** | 🟡 In progress | Active enrollments can now record an operational incident (`absence`, `injury`, `other`) from the enrollment ledger, with an explicit choice to either just log it or also omit a selected tuition month. Incidents also carry optional `starts_on` / `ends_on` dates for real absence/recovery windows, and active-today `absence` / `injury` incidents now surface as soft indicators in `Jugadores`, player profile, and `Caja`. The monthly generator respects only incidents carrying `omit_period_month`, and the ledger keeps active plus historical incident visibility. Partial-month attendance/proration remains out of scope for this v1. |
