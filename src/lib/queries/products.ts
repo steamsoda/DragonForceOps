@@ -14,6 +14,7 @@ export type ProductListItem = {
   sortOrder: number;
   chargeTypeCode: string;
   chargeTypeName: string;
+  allowedTrainingGroupIds: string[];
 };
 
 export type ProductGroup = {
@@ -168,6 +169,13 @@ function normalizePage(page: number | string | null | undefined) {
   return Math.floor(parsed);
 }
 
+function formatBirthYearRange(min: number | null, max: number | null) {
+  if (min != null && max != null) return min === max ? String(min) : `${min}-${max}`;
+  if (min != null) return `${min}+`;
+  if (max != null) return `hasta ${max}`;
+  return "Sin categoria";
+}
+
 function buildPageMeta(totalCount: number, page: number, pageSize = PRODUCT_PAGE_SIZE) {
   const safePage = normalizePage(page);
   const offset = (safePage - 1) * pageSize;
@@ -246,6 +254,22 @@ export async function getProductCatalog(): Promise<ProductGroup[]> {
 
   if (error || !data) return [];
 
+  const productIds = data.map((product) => product.id);
+  const { data: restrictions } = productIds.length > 0
+    ? await supabase
+        .from("product_training_group_restrictions")
+        .select("product_id, training_group_id")
+        .in("product_id", productIds)
+        .returns<Array<{ product_id: string; training_group_id: string }>>()
+    : { data: [] as Array<{ product_id: string; training_group_id: string }> };
+
+  const allowedGroupsByProduct = new Map<string, string[]>();
+  for (const row of restrictions ?? []) {
+    const arr = allowedGroupsByProduct.get(row.product_id) ?? [];
+    arr.push(row.training_group_id);
+    allowedGroupsByProduct.set(row.product_id, arr);
+  }
+
   const items: ProductListItem[] = data.map((p) => ({
     id: p.id,
     name: p.name,
@@ -256,6 +280,7 @@ export async function getProductCatalog(): Promise<ProductGroup[]> {
     sortOrder: p.sort_order,
     chargeTypeCode: p.charge_types?.code ?? "",
     chargeTypeName: p.charge_types?.name ?? "",
+    allowedTrainingGroupIds: allowedGroupsByProduct.get(p.id) ?? [],
   }));
 
   // Always return all groups (even empty ones) so staff can create new products in any group.
@@ -280,6 +305,15 @@ export type ProductDetail = {
   isActive: boolean;
   chargeTypeCode: string;
   chargeTypeName: string;
+  allowedTrainingGroupIds: string[];
+};
+
+export type ProductTrainingGroupOption = {
+  id: string;
+  campusName: string;
+  name: string;
+  status: string;
+  birthYearLabel: string;
 };
 
 export async function getProductDetail(productId: string): Promise<ProductDetail | null> {
@@ -306,6 +340,12 @@ export async function getProductDetail(productId: string): Promise<ProductDetail
 
   if (error || !data) return null;
 
+  const { data: restrictions } = await supabase
+    .from("product_training_group_restrictions")
+    .select("training_group_id")
+    .eq("product_id", productId)
+    .returns<Array<{ training_group_id: string }>>();
+
   return {
     id: data.id,
     name: data.name,
@@ -315,10 +355,42 @@ export async function getProductDetail(productId: string): Promise<ProductDetail
     isActive: data.is_active,
     chargeTypeCode: data.charge_types?.code ?? "",
     chargeTypeName: data.charge_types?.name ?? "",
+    allowedTrainingGroupIds: (restrictions ?? []).map((row) => row.training_group_id),
   };
 }
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
+
+export async function getProductTrainingGroupOptions(): Promise<ProductTrainingGroupOption[]> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return [];
+  const supabase = await createClient();
+
+  type Row = {
+    id: string;
+    name: string;
+    status: string;
+    birth_year_min: number | null;
+    birth_year_max: number | null;
+    campuses: { name: string | null } | null;
+  };
+
+  const { data } = await supabase
+    .from("training_groups")
+    .select("id, name, status, birth_year_min, birth_year_max, campuses(name)")
+    .in("status", ["active", "projected"])
+    .order("birth_year_max", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true })
+    .returns<Row[]>();
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    campusName: row.campuses?.name ?? "Campus",
+    name: row.name,
+    status: row.status,
+    birthYearLabel: formatBirthYearRange(row.birth_year_min, row.birth_year_max),
+  }));
+}
 
 export async function getProductKpis(productId: string, currency: string): Promise<ProductKpis> {
   const permissionContext = await getPermissionContext();

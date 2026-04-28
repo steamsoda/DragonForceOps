@@ -80,6 +80,7 @@ export type CajaProduct = {
   defaultAmount: number | null;
   hasSizes: boolean;
   sortOrder: number;
+  isRestricted: boolean;
 };
 
 export type CajaProductCategory = {
@@ -124,6 +125,11 @@ type ExistingTuitionChargeLookup = {
   status: string;
   amount: number;
   pricing_rule_id: string | null;
+};
+
+type ProductRestrictionRow = {
+  product_id: string;
+  training_group_id: string;
 };
 
 function parseOptionalMoney(value: unknown): number | null {
@@ -188,6 +194,46 @@ function parseCheckoutCartItems(raw: string): CajaCartItemInput[] | null {
   }
 
   return items;
+}
+
+async function getActiveTrainingGroupIdsForEnrollment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+) {
+  const { data } = await supabase
+    .from("training_group_assignments")
+    .select("training_group_id")
+    .eq("enrollment_id", enrollmentId)
+    .is("end_date", null)
+    .returns<Array<{ training_group_id: string }>>();
+
+  return new Set((data ?? []).map((row) => row.training_group_id));
+}
+
+async function getProductRestrictionRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productIds: string[],
+) {
+  if (productIds.length === 0) return [] as ProductRestrictionRow[];
+  const { data } = await supabase
+    .from("product_training_group_restrictions")
+    .select("product_id, training_group_id")
+    .in("product_id", productIds)
+    .returns<ProductRestrictionRow[]>();
+
+  return data ?? [];
+}
+
+async function isProductAvailableForEnrollment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string,
+  enrollmentId: string,
+) {
+  const restrictionRows = await getProductRestrictionRows(supabase, [productId]);
+  if (restrictionRows.length === 0) return true;
+
+  const activeGroupIds = await getActiveTrainingGroupIdsForEnrollment(supabase, enrollmentId);
+  return restrictionRows.some((row) => activeGroupIds.has(row.training_group_id));
 }
 
 async function createResolvedAdvanceTuitionCharge(
@@ -347,7 +393,7 @@ async function createResolvedAdvanceTuitionCharge(
   };
 }
 
-export async function getProductsForCajaAction(): Promise<CajaProductCategory[]> {
+export async function getProductsForCajaAction(enrollmentId?: string): Promise<CajaProductCategory[]> {
   const supabase = await createClient();
   const {
     data: { user }
@@ -373,10 +419,29 @@ export async function getProductsForCajaAction(): Promise<CajaProductCategory[]>
 
   if (!data) return [];
 
+  const productIds = data.map((row) => row.id);
+  const restrictionRows = await getProductRestrictionRows(supabase, productIds);
+  const restrictionsByProduct = new Map<string, string[]>();
+  for (const row of restrictionRows) {
+    const arr = restrictionsByProduct.get(row.product_id) ?? [];
+    arr.push(row.training_group_id);
+    restrictionsByProduct.set(row.product_id, arr);
+  }
+
+  const activeGroupIds = enrollmentId
+    ? await getActiveTrainingGroupIdsForEnrollment(supabase, enrollmentId)
+    : null;
+
   const result: CajaProductCategory[] = [];
   for (const [i, group] of PRODUCT_GROUPS.entries()) {
     const products = data
       .filter((row) => row.charge_types && (group.codes as readonly string[]).includes(row.charge_types.code))
+      .filter((row) => {
+        const allowedGroupIds = restrictionsByProduct.get(row.id) ?? [];
+        if (allowedGroupIds.length === 0) return true;
+        if (!activeGroupIds) return false;
+        return allowedGroupIds.some((groupId) => activeGroupIds.has(groupId));
+      })
       .map((row) => ({
         id: row.id,
         name: row.name,
@@ -386,6 +451,7 @@ export async function getProductsForCajaAction(): Promise<CajaProductCategory[]>
         defaultAmount: row.default_amount,
         hasSizes: row.has_sizes,
         sortOrder: row.sort_order,
+        isRestricted: (restrictionsByProduct.get(row.id) ?? []).length > 0,
       }));
 
     if (products.length > 0) {
@@ -444,6 +510,9 @@ export async function postCajaChargeAction(
     .returns<ProductLookup | null>();
 
   if (!product) return { ok: false, error: "product_not_found" };
+  if (!(await isProductAvailableForEnrollment(supabase, product.id, enrollmentId))) {
+    return { ok: false, error: "product_not_available" };
+  }
 
   const isTuition = product.charge_types?.code === "monthly_tuition";
   const isUniform = product.charge_types?.code === "uniform_training" || product.charge_types?.code === "uniform_game";

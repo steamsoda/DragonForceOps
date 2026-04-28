@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-27 (session 124)
+
+### Product Training-Group Restrictions (v1.16.75)
+
+- Added optional product availability restrictions by training group.
+- Existing products remain unrestricted unless allowed training groups are configured.
+- Product admin can now select training groups on create/edit:
+  - no selected groups = available to all eligible Caja enrollments
+  - one or more selected groups = Caja only shows the product for players with an active assignment in those training groups
+- Added server-side Caja enforcement so restricted products cannot be charged by bypassing the UI.
+- Kept payment, allocation, receipt, product KPI, tournament, and existing unrestricted product behavior unchanged.
+
 ## 2026-04-27 (session 123)
 
 ### Inscription Price Update (v1.16.74)

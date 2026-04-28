@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-26.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.74`
+Current preview release line: `v1.16.75`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -125,6 +125,10 @@ Near-term UI/workflow planning note: operations has requested a larger UI pass; 
 
 5. Product and competition rules rework follow-up
    - continue the pending rework for product and competition rules
+   - `v1.16.75` adds the first scoped-product capability:
+     - products can optionally be restricted to one or more training groups
+     - unrestricted products keep current behavior
+     - Caja filters restricted products by the selected player's active training-group assignment and server actions enforce the same rule
    - include rule cleanup needed for current operations, not only the longer sports rethink
    - likely areas:
      - product typing and competition linkage rules

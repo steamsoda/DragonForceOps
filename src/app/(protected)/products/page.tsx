@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireDirectorContext } from "@/lib/auth/permissions";
-import { getProductCatalog } from "@/lib/queries/products";
+import { getProductCatalog, getProductTrainingGroupOptions, type ProductTrainingGroupOption } from "@/lib/queries/products";
 import { getAdHocChargeTypesAction } from "@/server/actions/products";
 import { createProductAction } from "@/server/actions/products";
 
@@ -21,6 +21,7 @@ const GROUP_ACCENT: Record<string, string> = {
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_form:          "Faltan campos obligatorios.",
   invalid_amount:        "El monto debe ser mayor a cero.",
+  invalid_training_group: "Grupo de entrenamiento no valido.",
   invalid_charge_type:   "Tipo de cargo no válido.",
   product_create_failed: "No se pudo crear el producto.",
   unauthenticated:       "Sesión expirada."
@@ -33,9 +34,10 @@ export default async function ProductsPage({
 }) {
   await requireDirectorContext("/unauthorized");
 
-  const [groups, chargeTypes, query] = await Promise.all([
+  const [groups, chargeTypes, restrictionOptions, query] = await Promise.all([
     getProductCatalog(),
     getAdHocChargeTypesAction(),
+    getProductTrainingGroupOptions(),
     searchParams
   ]);
 
@@ -104,6 +106,11 @@ export default async function ProductsPage({
                             Con tallas
                           </span>
                         )}
+                        {product.allowedTrainingGroupIds.length > 0 && (
+                          <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                            {product.allowedTrainingGroupIds.length} grupo{product.allowedTrainingGroupIds.length === 1 ? "" : "s"}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         {product.defaultAmount != null
@@ -170,6 +177,8 @@ export default async function ProductsPage({
                         <span className="text-slate-700 dark:text-slate-300">Requiere talla (uniformes)</span>
                       </label>
 
+                      <TrainingGroupRestrictionChecklist options={restrictionOptions} />
+
                       <button
                         type="submit"
                         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
@@ -186,5 +195,51 @@ export default async function ProductsPage({
 
       </div>
     </PageShell>
+  );
+}
+
+function TrainingGroupRestrictionChecklist({
+  options,
+  selectedIds = [],
+}: {
+  options: ProductTrainingGroupOption[];
+  selectedIds?: string[];
+}) {
+  if (options.length === 0) {
+    return (
+      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+        Sin grupos de entrenamiento disponibles para restringir.
+      </p>
+    );
+  }
+
+  const selected = new Set(selectedIds);
+
+  return (
+    <details className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+      <summary className="cursor-pointer list-none text-xs font-semibold text-amber-800">
+        Restringir a grupos de entrenamiento
+      </summary>
+      <p className="mt-2 text-xs text-amber-800">
+        Si no seleccionas grupos, el producto queda disponible para todos. Si seleccionas uno o mas, Caja solo lo mostrara para alumnos asignados a esos grupos.
+      </p>
+      <div className="mt-3 max-h-56 space-y-1 overflow-auto rounded-md border border-amber-200 bg-white p-2">
+        {options.map((option) => (
+          <label key={option.id} className="flex items-start gap-2 rounded px-2 py-1.5 text-xs hover:bg-amber-50">
+            <input
+              type="checkbox"
+              name="allowedTrainingGroupIds"
+              value={option.id}
+              defaultChecked={selected.has(option.id)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300"
+            />
+            <span>
+              <span className="font-semibold text-slate-800">{option.campusName} | {option.birthYearLabel}</span>
+              <span className="block text-slate-600">{option.name}{option.status === "projected" ? " (proyectado)" : ""}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }
