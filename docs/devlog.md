@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-04-28 (session 126)
+
+### Pendientes Return-State UX Pass (v1.16.77)
+
+- Added explicit return-state handling for the new `Pendientes` board.
+- Category and KPI drilldowns now carry a safe `returnTo` back to the exact board state that opened them, preserving campus and month filters.
+- Player links from `/pending/detail` now carry a safe return link back to the same detail context.
+- Player profiles show `Volver a Pendientes` only when the return target is an allowed internal `/pending` route.
+- Safety note:
+  - external URLs and unrelated internal paths are rejected
+  - route-level role/campus checks remain unchanged, so URL restoration does not grant extra access
+
 ## 2026-04-27 (session 125)
 
 ### Scholarship Guard Fix (v1.16.76)

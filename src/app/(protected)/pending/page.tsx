@@ -156,6 +156,7 @@ export default async function PendingTuitionPage({ searchParams }: { searchParam
   const selectedBoard = data.selectedCampusId
     ? data.campusBoards.find((board) => board.campusId === data.selectedCampusId) ?? null
     : allCampusesBoard;
+  const boardReturnTo = withParams("/pending", { campus: data.selectedCampusId, month: data.selectedMonth });
 
   return (
     <PageShell
@@ -193,19 +194,19 @@ export default async function PendingTuitionPage({ searchParams }: { searchParam
           <KpiCard
             label="1 mes pendiente"
             count={data.totals.oneMonth}
-            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "1", month: data.selectedMonth })}
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "1", month: data.selectedMonth, returnTo: boardReturnTo })}
           />
           <KpiCard
             label="2 meses pendientes"
             count={data.totals.twoMonths}
             tone="amber"
-            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "2", month: data.selectedMonth })}
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "2", month: data.selectedMonth, returnTo: boardReturnTo })}
           />
           <KpiCard
             label="3+ meses pendientes"
             count={data.totals.threePlusMonths}
             tone="rose"
-            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "3plus", month: data.selectedMonth })}
+            href={withParams("/pending/detail", { campus: data.selectedCampusId, bucket: "3plus", month: data.selectedMonth, returnTo: boardReturnTo })}
           />
         </div>
 
@@ -252,6 +253,7 @@ export default async function PendingTuitionPage({ searchParams }: { searchParam
                     campus: selectedBoard.campusId,
                     birthYear: category.key,
                     month: data.selectedMonth,
+                    returnTo: boardReturnTo,
                   })}
                   className="rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-portoBlue hover:shadow-sm dark:border-slate-700 dark:bg-slate-900"
                 >

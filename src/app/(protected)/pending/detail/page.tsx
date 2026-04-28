@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireOperationalContext } from "@/lib/auth/permissions";
+import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPendingTuitionCategoryDetailData, type PendingTuitionPlayer } from "@/lib/queries/tuition-pending";
 import { PageShell } from "@/components/ui/page-shell";
 
@@ -9,6 +10,7 @@ type SearchParams = Promise<{
   birthYear?: string;
   month?: string;
   bucket?: string;
+  returnTo?: string;
 }>;
 
 function withParams(path: string, params: Record<string, string | undefined>) {
@@ -56,6 +58,16 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
 
   if (!data) notFound();
 
+  const fallbackReturnTo = withParams("/pending", { campus: data.campusId, month: data.selectedMonth });
+  const boardReturnTo = getSafePendingReturnTo(params.returnTo) || fallbackReturnTo;
+  const detailReturnTo = withParams("/pending/detail", {
+    campus: data.campusId,
+    birthYear: params.bucket ? undefined : params.birthYear,
+    month: data.selectedMonth,
+    bucket: params.bucket,
+    returnTo: boardReturnTo,
+  });
+
   return (
     <PageShell
       title={`Pendientes - ${data.categoryLabel}`}
@@ -64,7 +76,7 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
     >
       <div className="space-y-4">
         <Link
-          href={withParams("/pending", { campus: data.campusId, month: data.selectedMonth })}
+          href={boardReturnTo}
           className="inline-flex rounded-md border border-slate-300 px-3 py-1.5 text-sm text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
         >
           Volver a categorias
@@ -78,7 +90,7 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
             {data.players.length > 0 ? data.players.map((player) => (
               <Link
                 key={player.enrollmentId}
-                href={`/players/${player.playerId}`}
+                href={withParams(`/players/${player.playerId}`, { returnTo: detailReturnTo })}
                 className="grid gap-3 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 md:grid-cols-[minmax(260px,1.4fr)_minmax(150px,0.8fr)_minmax(260px,1fr)_minmax(150px,auto)] md:items-center"
               >
                 <div>

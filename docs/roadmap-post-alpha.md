@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.76`
+Current preview release line: `v1.16.77`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -204,6 +204,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - keep the separate `Jugadores` query-hardening lane open for the existing list path
 
 8. Navigation return-state UX pass
+   - `v1.16.77` starts this lane with `Pendientes`:
+     - category and KPI drilldowns preserve the exact board return URL
+     - player links from pending detail pages return to the same detail context
+     - unsafe external/unrelated `returnTo` values are rejected
    - goal:
      - detail drilldowns should return users to the exact campus/filter/view context they came from
      - avoid resetting to default campus or default filters after using back links
