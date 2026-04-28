@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-27 (session 125)
+
+### Scholarship Guard Fix (v1.16.76)
+
+- Fixed a scholarship assignment blocker for accounts that are financially settled but still have historical monthly tuition rows with `status = pending`.
+- Root cause:
+  - the scholarship sync guard looked for pending-status current/future monthly tuition rows and blocked if any payment allocation existed
+  - some fully paid monthly tuition rows can still carry `status = pending` even though the ledger pending amount is `$0.00`
+  - those stale statuses made the edit form show `No se puede cambiar la beca...` even when the player was al corriente
+- The guard now computes actual pending amount from `payment_allocations` before deciding:
+  - fully paid rows are ignored for scholarship sync
+  - unallocated pending rows can still be voided/repriced normally
+  - partially paid outstanding rows still block, preserving the original safety rule
+
 ## 2026-04-27 (session 124)
 
 ### Product Training-Group Restrictions (v1.16.75)
