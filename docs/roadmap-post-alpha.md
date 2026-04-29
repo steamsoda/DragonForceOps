@@ -127,7 +127,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 
 5. Product and competition rules rework follow-up
    - planning doc:
-     - `docs/competitions-roster-builder-plan.md`
+     - `docs/planning/competitions-roster-builder-plan.md`
    - agreed sports competition model:
      - training groups define invitation/eligibility pools
      - competition signup state tracks invited/eligible/confirmed players
@@ -150,7 +150,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 
 6. Attendance tracking v1
    - planning doc:
-     - `docs/attendance-training-groups-roadmap.md` defines the next attendance + training-groups simplification pass
+     - `docs/planning/attendance-training-groups-roadmap.md` defines the next attendance + training-groups simplification pass
+     - `docs/planning/attendance-calendar-closures-plan.md` defines the future calendar, rain-day, vacation, and closure workflow
      - agreed direction: `Nivel` as ability placement becomes legacy; training groups use program/YOB/gender/campus plus `Subgrupo` (`B1/B2/B3`) as a logistics label, and competition teams stay separate until the tournament cleanup
    - `v1.16.63` adds internal attendance tracking on preview:
      - campus-scoped `attendance_admin` role
@@ -206,9 +207,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
      - future calendar/closure lane:
-       - add a literal attendance calendar view
-       - support vacation days/weeks, rain days, campus-specific closures, and special events
-       - cancelled/closed days should remain visible operationally but excluded from attendance-rate calculations
+      - add a literal attendance calendar view
+      - support vacation days/weeks, rain days, campus-specific closures, and special events
+      - recommended direction: create sessions inside planned closures as `cancelled`, not omitted, so staff can see why attendance was not required
+      - cancelled/closed days should remain visible operationally but excluded from attendance-rate calculations
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred
@@ -217,14 +219,14 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - no changes to Caja, finance, enrollment, nutrition, or existing sports signup workflows
    - follow-up before production hardening:
      - review whether attendance should be driven by `Nivel` instead of `teams`
-     - see `docs/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
+     - see `docs/planning/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
      - adjust schedule templates, session generation, roster resolution, reports, and UI copy if `Nivel` becomes the operational attendance grouping
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked
 
 7. `Jugadores` spreadsheet-style roster view
    - `v1.16.69` adds the first app-native answer to the old Excel workbook workflow:
-     - planning doc: `docs/jugadores-spreadsheet-view-plan.md`
+     - planning doc: `docs/planning/jugadores-spreadsheet-view-plan.md`
      - route state: `/players?view=groups`
      - read-only, campus-scoped, training-group organized roster
      - permanent global public player IDs in `DF-0001` format
@@ -314,7 +316,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 
 10. Sports grouping model simplification: program over `Nivel`
    - planning doc:
-     - `docs/attendance-training-groups-roadmap.md`
+     - `docs/planning/attendance-training-groups-roadmap.md`
    - planning direction:
      - move away from ambiguous `Nivel` as an ability/placement concept
      - make `Futbol Para Todos` vs `Selectivos` an explicit sports program axis

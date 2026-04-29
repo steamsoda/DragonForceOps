@@ -490,7 +490,7 @@ Move current group-management meaning out of the user-facing `Grupos` label.
 
 Separate follow-up issue.
 
-- planning doc: `docs/competitions-roster-builder-plan.md`
+- planning doc: `docs/planning/competitions-roster-builder-plan.md`
 - keep competition teams hidden until cleaned up
 - define how tournament teams are created from groups
 - clarify Selectivo defaults

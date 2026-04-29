@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-04-29 (session 143)
+
+### Planning Docs Folder + Attendance Calendar Plan
+
+- Added `docs/planning/README.md` as the index for module-specific planning docs.
+- Moved feature mini-roadmaps into `docs/planning/`:
+  - attendance/training-groups roadmap
+  - competitions roster-builder plan
+  - jugadores spreadsheet-view plan
+  - training-groups model analysis
+- Added `docs/planning/attendance-calendar-closures-plan.md`.
+- Captured the recommended attendance calendar/closure direction:
+  - start with a read-only calendar over concrete `attendance_sessions`
+  - add planned closures later via `attendance_closures`
+  - generate sessions inside closures as `cancelled` instead of omitting them
+  - keep cancelled sessions visible operationally but excluded from attendance rates
+
 ## 2026-04-29 (session 142)
 
 ### Attendance Campus-Scoped Generator (v1.16.89)
@@ -123,7 +140,7 @@
 
 ### Competitions Roster Builder Planning Doc
 
-- Added `docs/competitions-roster-builder-plan.md`.
+- Added `docs/planning/competitions-roster-builder-plan.md`.
 - Captured the three-layer sports model:
   - training groups define who can be invited
   - competition signups track invited/eligible/paid/confirmed status
@@ -136,7 +153,7 @@
 
 ### Training Groups Catalog Clarification
 
-- Updated `docs/attendance-training-groups-roadmap.md` after director review.
+- Updated `docs/planning/attendance-training-groups-roadmap.md` after director review.
 - Clarified that `B1/B2/B3` remains useful, but only as `Subgrupo` logistics inside `Futbol Para Todos`, not as player ability level.
 - Added the current Linda Vista and Contry training group catalog for FPT and Selectivo groups, including projected Selectivos and the 2012/2013 B3 Femenil exception.
 
@@ -144,7 +161,7 @@
 
 ### Attendance + Training Groups Planning Doc
 
-- Added `docs/attendance-training-groups-roadmap.md` to define the next sports/attendance simplification pass before implementation.
+- Added `docs/planning/attendance-training-groups-roadmap.md` to define the next sports/attendance simplification pass before implementation.
 - Captured the agreed operating model:
   - `Nivel` becomes legacy/display-only during transition
   - `training_groups.program` becomes the clearer axis for `Futbol Para Todos`, `Selectivo`, and `Little Dragons`
@@ -323,7 +340,7 @@
 
 ### Jugadores Spreadsheet-Style Roster Planning + Public ID v1 (v1.16.69)
 
-- Added `docs/jugadores-spreadsheet-view-plan.md` to capture the agreed UI direction before implementation:
+- Added `docs/planning/jugadores-spreadsheet-view-plan.md` to capture the agreed UI direction before implementation:
   - keep the current `Jugadores` list intact
   - add a separate spreadsheet-style view for staff who are used to Excel
   - organize by campus and training group
@@ -447,7 +464,7 @@
 
 ### Training Groups Model Analysis
 
-- Added `docs/training-groups-model-analysis.md` after reviewing the current player/team/nivel model and Julio's training-group guide.
+- Added `docs/planning/training-groups-model-analysis.md` after reviewing the current player/team/nivel model and Julio's training-group guide.
 - Recommended separating `Training Groups` from competition `Teams` instead of hardening attendance around `teams(type = 'class')`.
 - Noted that Attendance v1 should remain preview-only until the roster source is confirmed and the training-group model is decided.
 
