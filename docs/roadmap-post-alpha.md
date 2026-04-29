@@ -126,6 +126,13 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - goal: chunk/paginate or move remaining high-risk aggregations into SQL/RPC before they become another operations incident
 
 5. Product and competition rules rework follow-up
+   - planning doc:
+     - `docs/competitions-roster-builder-plan.md`
+   - agreed sports competition model:
+     - training groups define invitation/eligibility pools
+     - competition signup state tracks invited/eligible/confirmed players
+     - competition teams/rosters are tournament-specific and can be built from signed-up players
+     - paid-product detection remains a compatibility input, not the permanent source of truth
    - continue the pending rework for product and competition rules
    - `v1.16.75` adds the first scoped-product capability:
      - products can optionally be restricted to one or more training groups
@@ -133,6 +140,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - Caja filters restricted products by the selected player's active training-group assignment and server actions enforce the same rule
    - include rule cleanup needed for current operations, not only the longer sports rethink
    - likely areas:
+     - training-group invitation filters for competitions
+     - Trello-style roster builder for `Dragon Force Azul` / `Dragon Force Blanco`
      - product typing and competition linkage rules
      - signup / eligibility rules
      - cross-surface consistency between product setup, sports boards, and finance interpretation

@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-28 (session 135)
+
+### Competitions Roster Builder Planning Doc
+
+- Added `docs/competitions-roster-builder-plan.md`.
+- Captured the three-layer sports model:
+  - training groups define who can be invited
+  - competition signups track invited/eligible/paid/confirmed status
+  - competition teams/rosters are tournament-specific and can be built from signed-up players
+- Documented that current paid-product detection remains a useful compatibility input, but should not be the permanent competition source of truth.
+- Logged the need to filter `Inscripciones Torneos` by competition invitation/eligibility so irrelevant players do not appear as unpaid.
+- Noted the Trello-style roster builder direction for `Dragon Force Azul`, `Dragon Force Blanco`, and future roster columns.
+
 ## 2026-04-28 (session 134)
 
 ### Training Groups Catalog Clarification
