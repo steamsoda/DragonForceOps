@@ -13,6 +13,7 @@ import { getMonterreyDateString } from "@/lib/time";
 const VALID_STATUSES = new Set(["present", "absent", "injury", "justified"]);
 const VALID_SESSION_TYPES = new Set(["match", "special"]);
 const VALID_CANCEL_REASONS = new Set(["rain", "holiday", "other"]);
+const VALID_CLOSURE_REASONS = new Set(["rain", "holiday", "vacation", "event", "other"]);
 
 type ActiveTrainingTemplateRow = {
   id: string;
@@ -78,6 +79,12 @@ function attendanceDayOfWeek(dateOnly: string) {
   return jsDay === 0 ? 7 : jsDay;
 }
 
+function mapClosureReasonToSessionCancelReason(reasonCode: string) {
+  if (reasonCode === "rain") return "rain";
+  if (reasonCode === "holiday" || reasonCode === "vacation") return "holiday";
+  return "other";
+}
+
 async function requireScheduleManager() {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) redirect("/attendance/schedules?err=unauthorized");
@@ -87,6 +94,23 @@ async function requireScheduleManager() {
 async function requireAttendanceGenerator() {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) redirect("/attendance?err=generator_manager_required");
+  return { context, admin: createAdminClient() };
+}
+
+async function requireClosureManager(campusId: string | null) {
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) {
+    redirect("/attendance/calendar?err=closure_manager_required");
+  }
+
+  if (!campusId && !context.isDirector) {
+    redirect("/attendance/calendar?err=closure_campus_required");
+  }
+
+  if (campusId && !canWriteAttendanceCampus(context.attendanceCampusAccess, campusId)) {
+    redirect("/attendance/calendar?err=closure_unauthorized_campus");
+  }
+
   return { context, admin: createAdminClient() };
 }
 
@@ -200,6 +224,95 @@ export async function generateAttendanceSessionsAction(formData: FormData) {
   });
   if (selectedCampus) params.set("campus", selectedCampus);
   redirect(`/attendance?${params.toString()}`);
+}
+
+export async function createAttendanceClosureAction(formData: FormData) {
+  await assertDebugWritesAllowed("/attendance/calendar");
+
+  const rawCampusId = clean(formData.get("campus_id"));
+  const campusId = rawCampusId || null;
+  const startsOn = clean(formData.get("starts_on"));
+  const endsOn = clean(formData.get("ends_on")) || startsOn;
+  const reasonCode = clean(formData.get("reason_code"));
+  const title = clean(formData.get("title"));
+  const notes = clean(formData.get("notes")) || null;
+
+  const selectedMonth = isDateOnly(startsOn) ? startsOn.slice(0, 7) : getMonterreyDateString().slice(0, 7);
+  const calendarParams = new URLSearchParams({ month: selectedMonth });
+  if (campusId) calendarParams.set("campus", campusId);
+  const failureTarget = `/attendance/calendar?${calendarParams.toString()}`;
+
+  if (!isDateOnly(startsOn) || !isDateOnly(endsOn) || endsOn < startsOn || !VALID_CLOSURE_REASONS.has(reasonCode) || !title) {
+    redirect(`${failureTarget}&err=invalid_closure_form`);
+  }
+
+  const { context, admin } = await requireClosureManager(campusId);
+
+  const { data: created, error: createError } = await admin
+    .from("attendance_closures")
+    .insert({
+      campus_id: campusId,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      reason_code: reasonCode,
+      title,
+      notes,
+      created_by: context.user.id,
+    })
+    .select("id")
+    .maybeSingle<{ id: string } | null>();
+
+  if (createError || !created) redirect(`${failureTarget}&err=closure_create_failed`);
+
+  let updateQuery = admin
+    .from("attendance_sessions")
+    .update({
+      status: "cancelled",
+      cancelled_reason_code: mapClosureReasonToSessionCancelReason(reasonCode),
+      cancelled_reason: [title, notes].filter(Boolean).join(" - ") || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("status", "scheduled")
+    .gte("session_date", startsOn)
+    .lte("session_date", endsOn);
+
+  if (campusId) {
+    updateQuery = updateQuery.eq("campus_id", campusId);
+  } else {
+    const campusIds = context.attendanceCampusAccess?.campusIds ?? [];
+    if (campusIds.length > 0) updateQuery = updateQuery.in("campus_id", campusIds);
+  }
+
+  const { data: cancelledRows, error: cancelError } = await updateQuery
+    .select("id")
+    .returns<Array<{ id: string }>>();
+
+  if (cancelError) redirect(`${failureTarget}&err=closure_cancel_failed`);
+
+  await writeAuditLog(admin, {
+    actorUserId: context.user.id,
+    actorEmail: context.user.email,
+    action: "attendance_closure.created",
+    tableName: "attendance_closures",
+    recordId: created.id,
+    afterData: {
+      campus_id: campusId,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      reason_code: reasonCode,
+      title,
+      cancelled_scheduled_sessions: cancelledRows?.length ?? 0,
+    },
+  });
+
+  revalidatePath("/attendance");
+  revalidatePath("/attendance/calendar");
+  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/reports");
+
+  calendarParams.set("ok", "closure_created");
+  calendarParams.set("cancelled", String(cancelledRows?.length ?? 0));
+  redirect(`/attendance/calendar?${calendarParams.toString()}`);
 }
 
 export async function createBulkAttendanceSchedulesAction(formData: FormData) {

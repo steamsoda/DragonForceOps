@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-29 (session 145)
+
+### Attendance Closures And Generator Integration (v1.16.91)
+
+- Added `attendance_closures` as the planned closure model for rain days, holidays, vacations, special events, and other operational closures.
+- Updated `Asistencia > Calendario`:
+  - directors/admins and Director Deportivo can register closures from the calendar
+  - closures can target one campus or, for director/admin roles, all campuses
+  - closure labels now render on affected calendar days
+- Applying a closure now cancels matching already-scheduled sessions in the date range.
+- Completed sessions are intentionally not auto-cancelled by the closure action; they remain an explicit director-level decision for audit safety.
+- Updated both attendance generators:
+  - global `generate_attendance_sessions(start_date, end_date)`
+  - campus-scoped `generate_attendance_sessions_for_campus(start_date, end_date, campus_id)`
+  - future sessions generated inside a closure are created as `cancelled`, not omitted
+- Safety note:
+  - attendance rates already exclude cancelled sessions, so closures explain why attendance was not required without hurting player/group percentages
+  - no Caja, finance, enrollment, nutrition, tournament, or player-roster mutation behavior changed
+
 ## 2026-04-29 (session 144)
 
 ### Attendance Calendar Read View (v1.16.90)

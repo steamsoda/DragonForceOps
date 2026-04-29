@@ -1,7 +1,7 @@
 # Attendance Calendar And Closures Plan
 
 Date: 2026-04-29
-Status: planning
+Status: implementation started
 
 ## Purpose
 
@@ -282,3 +282,20 @@ Implement next in this order:
 3. Generator integration so future generated sessions inside closures are auto-cancelled.
 
 This avoids mixing calendar layout, closure rules, and generator mutation into one risky release.
+
+## Implementation Note
+
+`v1.16.91` implements the core closure model:
+
+- `attendance_closures`
+- calendar closure labels
+- director/sports-director closure creation
+- scheduled-session cancellation inside the closure range
+- global and campus-scoped generator integration
+
+Still deferred:
+
+- richer week view
+- special event calendar UX beyond closure labels
+- bulk editing/deleting closures
+- explicit confirmation workflow to cancel already-completed sessions from a closure

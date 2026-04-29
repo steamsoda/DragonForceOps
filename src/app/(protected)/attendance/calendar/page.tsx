@@ -2,8 +2,9 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceCalendarData } from "@/lib/queries/attendance";
+import { createAttendanceClosureAction } from "@/server/actions/attendance";
 
-type SearchParams = Promise<{ campus?: string; month?: string }>;
+type SearchParams = Promise<{ campus?: string; month?: string; ok?: string; err?: string; cancelled?: string }>;
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Pendiente",
@@ -15,6 +16,14 @@ const STATUS_STYLES: Record<string, string> = {
   scheduled: "border-amber-200 bg-amber-50 text-amber-800",
   completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
   cancelled: "border-slate-200 bg-slate-50 text-slate-600",
+};
+
+const CLOSURE_REASON_LABELS: Record<string, string> = {
+  rain: "Lluvia",
+  holiday: "Festivo",
+  vacation: "Vacaciones",
+  event: "Evento",
+  other: "Otro",
 };
 
 function addMonths(month: string, delta: number) {
@@ -43,21 +52,34 @@ function isoDayOfWeek(date: string) {
 }
 
 export default async function AttendanceCalendarPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceReadContext("/unauthorized");
+  const context = await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
   const data = await getAttendanceCalendarData({ campusId: params.campus, month: params.month });
   const selectedCampus = data.campuses.find((campus) => campus.id === data.selectedCampusId) ?? null;
   const previousMonth = addMonths(data.selectedMonth, -1);
   const nextMonth = addMonths(data.selectedMonth, 1);
   const leadingBlankDays = data.days[0] ? isoDayOfWeek(data.days[0].date) - 1 : 0;
+  const canManageClosures = context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector);
+  const defaultClosureCampusId = data.selectedCampusId ?? (context.isDirector ? "" : data.campuses[0]?.id ?? "");
 
   return (
     <PageShell
       title="Calendario de asistencia"
-      subtitle="Vista mensual de sesiones generadas. Solo lectura; las cancelaciones y cierres se planearan en el siguiente pase."
+      subtitle="Vista mensual de sesiones generadas y cierres operativos. Los cierres crean/cancelan sesiones como canceladas para que el calendario siga explicando lo ocurrido."
       wide
     >
       <div className="space-y-5">
+        {params.ok === "closure_created" ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Cierre registrado. Sesiones programadas canceladas: {params.cancelled ?? "0"}.
+          </div>
+        ) : null}
+        {params.err ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            No se pudo registrar el cierre. Codigo: {params.err}.
+          </div>
+        ) : null}
+
         <form className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
           <label className="text-sm font-medium">
             Mes
@@ -82,6 +104,60 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
             </Link>
           </div>
         </form>
+
+        {canManageClosures ? (
+          <details className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <summary className="cursor-pointer list-none">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Registrar cierre</p>
+                  <p className="text-xs text-slate-500">Cancela sesiones programadas en el rango y hace que futuras generaciones nazcan canceladas.</p>
+                </div>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Director / deportes</span>
+              </div>
+            </summary>
+            <form action={createAttendanceClosureAction} className="mt-4 grid gap-3 md:grid-cols-6">
+              <label className="text-sm font-medium">
+                Campus
+                <select name="campus_id" defaultValue={defaultClosureCampusId} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                  {context.isDirector ? <option value="">Todos los campus</option> : null}
+                  {data.campuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                Inicio
+                <input name="starts_on" type="date" defaultValue={`${data.selectedMonth}-01`} required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <label className="text-sm font-medium">
+                Fin
+                <input name="ends_on" type="date" defaultValue={`${data.selectedMonth}-01`} required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <label className="text-sm font-medium">
+                Motivo
+                <select name="reason_code" defaultValue="rain" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                  <option value="rain">Lluvia</option>
+                  <option value="holiday">Festivo</option>
+                  <option value="vacation">Vacaciones</option>
+                  <option value="event">Evento</option>
+                  <option value="other">Otro</option>
+                </select>
+              </label>
+              <label className="text-sm font-medium md:col-span-2">
+                Titulo
+                <input name="title" placeholder="Ej. Lluvia Linda Vista" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <label className="text-sm font-medium md:col-span-5">
+                Notas
+                <input name="notes" placeholder="Opcional: contexto operativo" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <div className="flex items-end">
+                <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Guardar cierre</button>
+              </div>
+            </form>
+          </details>
+        ) : null}
 
         <section className="grid gap-3 md:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
@@ -135,12 +211,34 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
                     ) : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1">
+                    {day.closures.map((closure) => (
+                      <span key={closure.id} className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                        {CLOSURE_REASON_LABELS[closure.reasonCode] ?? closure.reasonCode}
+                      </span>
+                    ))}
                     {day.scheduled > 0 ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800">Pend: {day.scheduled}</span> : null}
                     {day.completed > 0 ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-800">Tom: {day.completed}</span> : null}
                     {day.cancelled > 0 ? <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-600">Canc: {day.cancelled}</span> : null}
                     {day.total === 0 ? <span className="text-xs text-slate-400">Sin sesiones</span> : null}
                   </div>
                 </summary>
+
+                {day.closures.length > 0 ? (
+                  <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                    {day.closures.map((closure) => (
+                      <div key={closure.id} className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-900">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">{closure.title}</span>
+                          <span className="rounded-full border border-rose-300 bg-white px-2 py-0.5 font-semibold">
+                            {CLOSURE_REASON_LABELS[closure.reasonCode] ?? closure.reasonCode}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-rose-800">{closure.campusName}</p>
+                        {closure.notes ? <p className="mt-1 text-rose-800">{closure.notes}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
 
                 {day.sessions.length > 0 ? (
                   <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">

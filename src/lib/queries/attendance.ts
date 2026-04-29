@@ -204,6 +204,17 @@ export type AttendanceCalendarSession = {
   endTime: string;
 };
 
+export type AttendanceCalendarClosure = {
+  id: string;
+  campusId: string | null;
+  campusName: string;
+  startsOn: string;
+  endsOn: string;
+  reasonCode: string;
+  title: string;
+  notes: string | null;
+};
+
 export type AttendanceCalendarDay = {
   date: string;
   dayOfMonth: number;
@@ -214,6 +225,7 @@ export type AttendanceCalendarDay = {
   completed: number;
   cancelled: number;
   sessions: AttendanceCalendarSession[];
+  closures: AttendanceCalendarClosure[];
 };
 
 export type AttendanceCalendarData = {
@@ -249,6 +261,17 @@ type SessionRow = {
     coaches: { first_name: string | null; last_name: string | null } | null;
   } | null;
   training_groups: { name: string | null } | null;
+};
+
+type AttendanceClosureRow = {
+  id: string;
+  campus_id: string | null;
+  starts_on: string;
+  ends_on: string;
+  reason_code: string;
+  title: string;
+  notes: string | null;
+  campuses: { name: string | null; code?: string | null } | null;
 };
 
 type TemplateRow = {
@@ -1021,6 +1044,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
     completed: 0,
     cancelled: 0,
     sessions: [],
+    closures: [],
   }));
 
   if (!access) {
@@ -1048,20 +1072,47 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
   }
 
   const admin = createAdminClient();
-  const { data: sessionRows } = await admin
-    .from("attendance_sessions")
-    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
-    .in("campus_id", selectedCampusIds)
-    .gte("session_date", monthBounds.periodMonth)
-    .lt("session_date", monthEndDate)
-    .order("session_date", { ascending: true })
-    .order("start_time", { ascending: true })
-    .returns<SessionRow[]>();
+  const [{ data: sessionRows }, { data: closureRows }] = await Promise.all([
+    admin
+      .from("attendance_sessions")
+      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+      .in("campus_id", selectedCampusIds)
+      .gte("session_date", monthBounds.periodMonth)
+      .lt("session_date", monthEndDate)
+      .order("session_date", { ascending: true })
+      .order("start_time", { ascending: true })
+      .returns<SessionRow[]>(),
+    admin
+      .from("attendance_closures")
+      .select("id, campus_id, starts_on, ends_on, reason_code, title, notes, campuses(name, code)")
+      .lte("starts_on", monthEndDate)
+      .gte("ends_on", monthBounds.periodMonth)
+      .order("starts_on", { ascending: true })
+      .returns<AttendanceClosureRow[]>(),
+  ]);
 
   const trainingGroupIds = [...new Set((sessionRows ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
   const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
   const byDate = new Map(emptyDays.map((day) => [day.date, { ...day, sessions: [] as AttendanceCalendarSession[] }]));
   const totals = { total: 0, scheduled: 0, completed: 0, cancelled: 0 };
+
+  for (const row of closureRows ?? []) {
+    if (row.campus_id && !selectedCampusIds.includes(row.campus_id)) continue;
+    const closure: AttendanceCalendarClosure = {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campus_id ? (row.campuses?.name ?? "Campus") : "Todos los campus",
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      reasonCode: row.reason_code,
+      title: row.title,
+      notes: row.notes,
+    };
+    for (const date of dates) {
+      if (date < row.starts_on || date > row.ends_on) continue;
+      byDate.get(date)?.closures.push(closure);
+    }
+  }
 
   for (const row of sessionRows ?? []) {
     const source = getSessionSource(row, trainingGroupCoachMap);

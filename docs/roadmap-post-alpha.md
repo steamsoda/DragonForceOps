@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.90`
+Current preview release line: `v1.16.91`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -204,6 +204,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - day cards with scheduled, completed, and cancelled session counts
        - expandable day detail linking to existing session pages
        - no closure schema or mutation behavior yet
+     - `v1.16.91` adds planned attendance closures:
+       - new `attendance_closures` table for rain days, holidays, vacation periods, special events, and other closures
+       - directors/admins and Director Deportivo can register closures from `Asistencia > Calendario`
+       - applying a closure cancels matching scheduled sessions in the range
+       - future generated sessions inside a closure are created as `cancelled`, not omitted
+       - completed sessions are intentionally not auto-cancelled by the closure action
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
