@@ -184,6 +184,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - `v1.16.86` polishes the group drilldown:
        - selected group detail now appears above the grid and card clicks anchor directly to it
        - `Configuracion Grupos` moved out of the regular Asistencia nav and into the Super Admin submenu
+     - `v1.16.87` adds the compact monthly attendance matrix:
+       - selected group detail now shows one compact status cell per completed session per player
+       - markers use `P/A/J/L/-` for present, absent, justified, injury, and no record
+       - aggregate player stats remain beside the historical grid
      - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations

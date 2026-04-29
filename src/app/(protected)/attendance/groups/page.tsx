@@ -45,6 +45,26 @@ function statusChip(status: string | null) {
   );
 }
 
+function matrixStatusCell(status: string | null) {
+  const meta: Record<string, { label: string; text: string; className: string }> = {
+    present: { label: "Presente", text: "P", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    absent: { label: "Ausente", text: "A", className: "border-rose-200 bg-rose-50 text-rose-800" },
+    injury: { label: "Lesion", text: "L", className: "border-sky-200 bg-sky-50 text-sky-800" },
+    justified: { label: "Justificada", text: "J", className: "border-slate-200 bg-slate-50 text-slate-700" },
+  };
+  const resolved = status ? meta[status] : null;
+  return (
+    <span
+      title={resolved?.label ?? "Sin registro"}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border text-[11px] font-bold ${
+        resolved?.className ?? "border-slate-200 bg-white text-slate-300"
+      }`}
+    >
+      {resolved?.text ?? "-"}
+    </span>
+  );
+}
+
 function GroupCard({
   group,
   selectedCampusId,
@@ -132,6 +152,11 @@ function SelectedGroupDetail({
             <tr>
               <th className="px-3 py-2">Jugador</th>
               <th className="px-3 py-2">Categoria</th>
+              {data.selectedGroupSessions.map((session) => (
+                <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
+                  {session.sessionDate.slice(8, 10)}
+                </th>
+              ))}
               <th className="px-3 py-2">Sesiones</th>
               <th className="px-3 py-2">Ausencias</th>
               <th className="px-3 py-2">Justificadas / lesion</th>
@@ -147,6 +172,11 @@ function SelectedGroupDetail({
                   <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
                 </td>
                 <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
+                {data.selectedGroupSessions.map((session) => (
+                  <td key={`${player.enrollmentId}-${session.sessionId}`} className="px-1 py-2 text-center">
+                    {matrixStatusCell(player.statusesBySession[session.sessionId] ?? null)}
+                  </td>
+                ))}
                 <td className="px-3 py-2">{player.attended} de {player.total}</td>
                 <td className="px-3 py-2">{player.absent}</td>
                 <td className="px-3 py-2">{player.justified + player.injury}</td>
@@ -160,10 +190,18 @@ function SelectedGroupDetail({
               </tr>
             ))}
             {data.players.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
+              <tr><td colSpan={7 + data.selectedGroupSessions.length} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
             ) : null}
           </tbody>
         </table>
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+        <span className="font-semibold text-slate-600">Leyenda:</span>
+        <span>P = presente</span>
+        <span>A = ausente</span>
+        <span>J = justificada</span>
+        <span>L = lesion</span>
+        <span>- = sin registro</span>
       </div>
     </section>
   );

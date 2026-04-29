@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-29 (session 139)
+
+### Attendance Group Monthly Matrix (v1.16.87)
+
+- Added a compact monthly attendance matrix to `Asistencia > Grupos` selected-group detail.
+- The matrix adds one column per completed training session in the selected month and one row per player.
+- Compact markers show:
+  - `P` present
+  - `A` absent
+  - `J` justified
+  - `L` injury
+  - `-` no record
+- Kept aggregate player stats beside the matrix: attended sessions, absences, justified/injury count, attendance rate, and latest status.
+- Cancelled sessions remain excluded from the matrix and from attendance-rate calculations.
+- Kept this as a read-only attendance view with no finance, contact, roster mutation, or schedule mutation changes.
+
 ## 2026-04-29 (session 138)
 
 ### Attendance Groups Drilldown Polish (v1.16.86)

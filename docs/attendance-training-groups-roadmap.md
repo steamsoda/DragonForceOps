@@ -426,6 +426,11 @@ Add read-only group/month view.
   - group cards now jump to the selected detail panel
   - selected detail renders above the group grid instead of at the bottom of the page
   - selected cards have a visible selected state
+- `v1.16.87` adds the compact historical matrix:
+  - one column per completed session in the selected month
+  - one row per player
+  - `P/A/J/L/-` status markers plus aggregate stats
+  - cancelled sessions stay excluded from rates and matrix cells
 - remaining:
   - add program/YOB filters if the list becomes too dense in field use
   - consider drilldown routes or pagination if group rosters grow significantly

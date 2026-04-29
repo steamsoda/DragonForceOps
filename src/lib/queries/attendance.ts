@@ -177,6 +177,7 @@ export type AttendanceGroupMonthlyPlayerRow = {
   rate: number | null;
   lastStatus: string | null;
   lastSessionDate: string | null;
+  statusesBySession: Record<string, string | null>;
 };
 
 export type AttendanceGroupsMonthlyData = {
@@ -186,6 +187,7 @@ export type AttendanceGroupsMonthlyData = {
   selectedGroupId: string | null;
   groups: AttendanceGroupMonthlyCard[];
   selectedGroup: AttendanceGroupMonthlyCard | null;
+  selectedGroupSessions: Array<{ sessionId: string; sessionDate: string }>;
   players: AttendanceGroupMonthlyPlayerRow[];
 };
 
@@ -709,6 +711,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
+      selectedGroupSessions: [],
       players: [],
     };
   }
@@ -743,6 +746,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
+      selectedGroupSessions: [],
       players: [],
     };
   }
@@ -876,13 +880,19 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     .sort((a, b) => b.birthYearLabel.localeCompare(a.birthYearLabel, "es-MX") || a.groupName.localeCompare(b.groupName, "es-MX"));
 
   const selectedGroup = selectedGroupId ? cards.find((group) => group.groupId === selectedGroupId) ?? null : null;
-  const recordsByPlayer = new Map<string, Array<{ status: string; sessionDate: string }>>();
+  const selectedGroupSessions = selectedGroupId
+    ? sessionRows
+        .filter((session) => session.training_group_id === selectedGroupId && session.status === "completed")
+        .sort((a, b) => a.session_date.localeCompare(b.session_date))
+        .map((session) => ({ sessionId: session.id, sessionDate: session.session_date }))
+    : [];
+  const recordsByPlayer = new Map<string, Array<{ status: string; sessionId: string; sessionDate: string }>>();
   if (selectedGroupId) {
     for (const record of records ?? []) {
       const session = sessionById.get(record.session_id);
       if (!session || session.status !== "completed" || session.training_group_id !== selectedGroupId) continue;
       const rows = recordsByPlayer.get(record.player_id) ?? [];
-      rows.push({ status: record.status, sessionDate: session.session_date });
+      rows.push({ status: record.status, sessionId: session.id, sessionDate: session.session_date });
       recordsByPlayer.set(record.player_id, rows);
     }
   }
@@ -898,6 +908,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
           const justified = playerRecords.filter((record) => record.status === "justified").length;
           const total = playerRecords.length;
           const attended = total - absent;
+          const statusMap = new Map(playerRecords.map((record) => [record.sessionId, record.status]));
           return {
             playerId: player.id,
             enrollmentId: assignment.enrollment_id,
@@ -912,6 +923,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
             rate: rateFromCounts(attended, total),
             lastStatus: playerRecords[0]?.status ?? null,
             lastSessionDate: playerRecords[0]?.sessionDate ?? null,
+            statusesBySession: Object.fromEntries(selectedGroupSessions.map((session) => [session.sessionId, statusMap.get(session.sessionId) ?? null])),
           };
         })
         .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))
@@ -924,6 +936,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     selectedGroupId,
     groups: cards,
     selectedGroup,
+    selectedGroupSessions,
     players,
   };
 }
