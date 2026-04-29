@@ -433,7 +433,11 @@ Needed safeguard:
   - expected sessions based on active training-group schedule templates
 - This is a safety valve if cron fails or if schedules are created after the Sunday cron has already run.
 - Field Admin cannot use this workflow; they should only take attendance.
-- Important scope note: the current SQL generator is global, so the manual app action is director/admin-only until a campus-scoped SQL generator exists.
+- `v1.16.89` adds the campus-scoped SQL generator:
+  - `public.generate_attendance_sessions_for_campus(start_date, end_date, campus_id)`
+  - `Asistencia > Hoy` requires a specific campus before manual generation
+  - directors/admins and Director Deportivo can generate only the selected campus week within their attendance scope
+  - the existing global Sunday cron remains unchanged
 - Live cron verification note: the repo is currently linked to the preview Supabase project, not production; reading production `cron.job` requires a direct prod SQL path, not the local linked CLI context.
 
 ### Future Phase — Attendance Calendar / Operational Closures

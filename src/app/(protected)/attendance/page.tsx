@@ -32,9 +32,10 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
   const context = await requireAttendanceWriteContext("/unauthorized");
   const params = await searchParams;
   const canManageAttendanceSetup = context.isDirector || context.isSportsDirector;
-  const canGenerateWeeklySessions = context.isDirector;
+  const canUseGenerationTool = context.isDirector || context.isSportsDirector;
   const data = await listAttendanceSessions({ date: params.date, campusId: params.campus });
   const setup = canManageAttendanceSetup ? await listAttendanceScheduleTemplates() : null;
+  const selectedCampus = data.campuses.find((campus) => campus.id === data.selectedCampusId) ?? null;
 
   const grouped = new Map<string, typeof data.sessions>();
   for (const session of data.sessions) {
@@ -108,22 +109,30 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
           </div>
         </div>
 
-        {canGenerateWeeklySessions ? (
+        {canUseGenerationTool ? (
           <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-100">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-semibold">Generar sesiones de la semana</p>
                 <p className="mt-1 text-blue-900/80 dark:text-blue-100/80">
-                  Usa los horarios activos para materializar entrenamientos de lunes a domingo. Es seguro repetirlo: no duplica sesiones existentes.
+                  {selectedCampus
+                    ? `Usa los horarios activos de ${selectedCampus.name} para materializar entrenamientos de lunes a domingo. Es seguro repetirlo: no duplica sesiones existentes.`
+                    : "Selecciona un campus para generar solo esa semana/campus. La generacion desde la app no usa Todos los campus para evitar cambios accidentales."}
                 </p>
               </div>
-              <form action={generateAttendanceSessionsAction} className="flex shrink-0 items-center gap-2">
-                <input type="hidden" name="date" value={data.selectedDate} />
-                <input type="hidden" name="campus" value={data.selectedCampusId ?? ""} />
-                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
-                  Generar semana
-                </button>
-              </form>
+              {selectedCampus ? (
+                <form action={generateAttendanceSessionsAction} className="flex shrink-0 items-center gap-2">
+                  <input type="hidden" name="date" value={data.selectedDate} />
+                  <input type="hidden" name="campus" value={selectedCampus.id} />
+                  <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                    Generar {selectedCampus.name}
+                  </button>
+                </form>
+              ) : (
+                <span className="rounded-md border border-blue-300 px-4 py-2 text-sm font-semibold text-blue-900 dark:border-blue-800 dark:text-blue-100">
+                  Elige campus
+                </span>
+              )}
             </div>
           </section>
         ) : null}

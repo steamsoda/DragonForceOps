@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-04-29 (session 142)
+
+### Attendance Campus-Scoped Generator (v1.16.89)
+
+- Added a campus-scoped SQL generator:
+  - `public.generate_attendance_sessions_for_campus(start_date, end_date, campus_id)`
+  - uses the same active training-group schedule-template logic as the global cron function
+  - remains idempotent and skips already-created group/date/time training sessions
+- Updated `Asistencia > Hoy` manual generation:
+  - directors/admins and Director Deportivo can generate the selected campus week
+  - the app requires a specific campus selection instead of allowing `Todos los campus`
+  - result copy still shows expected, created, and already-existing session counts
+- Kept the production Supabase `pg_cron` job unchanged:
+  - `generate-attendance-sessions`
+  - Sundays at `06:00 UTC`
+  - global next-week generation for all active training-group templates
+- Safety note:
+  - Field Admin users still cannot generate sessions
+  - scoped sports users cannot generate outside their attendance campus scope
+
 ## 2026-04-29 (session 141)
 
 ### Attendance Manual Session Generation Safeguard (v1.16.88)

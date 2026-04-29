@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.88`
+Current preview release line: `v1.16.89`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -192,7 +192,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - directors/admins can generate the selected Monday-Sunday week from `Asistencia > Hoy`
        - the action reuses the idempotent SQL generator and reports expected, created, and already-existing session counts
        - Field Admin remains excluded from generation; their workflow stays daily capture only
-       - the current SQL generator is global, so the manual action remains director/admin-only until a campus-scoped generator exists
+     - `v1.16.89` adds campus-scoped session generation:
+       - new SQL function `generate_attendance_sessions_for_campus(start_date, end_date, campus_id)`
+       - `Asistencia > Hoy` now requires a specific campus before manual generation
+       - directors/admins and Director Deportivo can generate only the selected campus week within their scope
+       - the global Sunday Supabase cron remains unchanged
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`

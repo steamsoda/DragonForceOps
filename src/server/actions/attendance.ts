@@ -86,7 +86,7 @@ async function requireScheduleManager() {
 
 async function requireAttendanceGenerator() {
   const context = await getPermissionContext();
-  if (!context?.isDirector) redirect("/attendance?err=generator_director_required");
+  if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) redirect("/attendance?err=generator_manager_required");
   return { context, admin: createAdminClient() };
 }
 
@@ -94,11 +94,13 @@ async function getAttendanceGenerationSnapshot(
   admin: ReturnType<typeof createAdminClient>,
   startDate: string,
   endDate: string,
+  campusId: string,
 ) {
   const [{ data: templates }, { data: existingSessions }] = await Promise.all([
     admin
       .from("attendance_schedule_templates")
       .select("id, training_group_id, day_of_week, start_time, effective_start, effective_end, training_groups!inner(id, status)")
+      .eq("campus_id", campusId)
       .eq("is_active", true)
       .not("training_group_id", "is", null)
       .lte("effective_start", endDate)
@@ -110,6 +112,7 @@ async function getAttendanceGenerationSnapshot(
       .select("training_group_id, session_date, start_time, session_type")
       .not("training_group_id", "is", null)
       .eq("session_type", "training")
+      .eq("campus_id", campusId)
       .gte("session_date", startDate)
       .lte("session_date", endDate)
       .returns<ExistingTrainingSessionRow[]>(),
@@ -147,13 +150,17 @@ export async function generateAttendanceSessionsAction(formData: FormData) {
   const selectedDate = clean(formData.get("date")) || getMonterreyDateString();
   const selectedCampus = clean(formData.get("campus"));
   if (!isDateOnly(selectedDate)) redirect("/attendance?err=invalid_generation_date");
+  if (!selectedCampus || !canWriteAttendanceCampus(context.attendanceCampusAccess, selectedCampus)) {
+    redirect(`/attendance?date=${selectedDate}&err=generator_campus_required`);
+  }
 
   const { startDate, endDate } = getWeekRangeForDate(selectedDate);
-  const before = await getAttendanceGenerationSnapshot(admin, startDate, endDate);
+  const before = await getAttendanceGenerationSnapshot(admin, startDate, endDate, selectedCampus);
 
-  const { data, error } = await admin.rpc("generate_attendance_sessions", {
+  const { data, error } = await admin.rpc("generate_attendance_sessions_for_campus", {
     p_start_date: startDate,
     p_end_date: endDate,
+    p_campus_id: selectedCampus,
   });
 
   if (error) redirect(`/attendance?date=${selectedDate}&err=generate_failed`);
@@ -169,6 +176,7 @@ export async function generateAttendanceSessionsAction(formData: FormData) {
     tableName: "attendance_sessions",
     afterData: {
       selected_date: selectedDate,
+      campus_id: selectedCampus,
       start_date: startDate,
       end_date: endDate,
       expected: before.expected,
