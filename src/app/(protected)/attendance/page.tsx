@@ -2,9 +2,9 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, listAttendanceScheduleTemplates, listAttendanceSessions } from "@/lib/queries/attendance";
-import { createManualAttendanceSessionAction } from "@/server/actions/attendance";
+import { createManualAttendanceSessionAction, generateAttendanceSessionsAction } from "@/server/actions/attendance";
 
-type SearchParams = Promise<{ date?: string; campus?: string; ok?: string; err?: string }>;
+type SearchParams = Promise<{ date?: string; campus?: string; ok?: string; err?: string; start?: string; end?: string; expected?: string; existing?: string; created?: string }>;
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Pendiente",
@@ -32,6 +32,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
   const context = await requireAttendanceWriteContext("/unauthorized");
   const params = await searchParams;
   const canManageAttendanceSetup = context.isDirector || context.isSportsDirector;
+  const canGenerateWeeklySessions = context.isDirector;
   const data = await listAttendanceSessions({ date: params.date, campusId: params.campus });
   const setup = canManageAttendanceSetup ? await listAttendanceScheduleTemplates() : null;
 
@@ -57,6 +58,11 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
         {params.err ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
             No se pudo completar la accion: {params.err}
+          </div>
+        ) : null}
+        {params.ok === "generated" ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Sesiones generadas para la semana {params.start ?? "-"} a {params.end ?? "-"}. Esperadas: {params.expected ?? "0"} | Creadas: {params.created ?? "0"} | Ya existian: {params.existing ?? "0"}.
           </div>
         ) : null}
 
@@ -101,6 +107,26 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
             <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{summary.cancelled}</p>
           </div>
         </div>
+
+        {canGenerateWeeklySessions ? (
+          <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-100">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold">Generar sesiones de la semana</p>
+                <p className="mt-1 text-blue-900/80 dark:text-blue-100/80">
+                  Usa los horarios activos para materializar entrenamientos de lunes a domingo. Es seguro repetirlo: no duplica sesiones existentes.
+                </p>
+              </div>
+              <form action={generateAttendanceSessionsAction} className="flex shrink-0 items-center gap-2">
+                <input type="hidden" name="date" value={data.selectedDate} />
+                <input type="hidden" name="campus" value={data.selectedCampusId ?? ""} />
+                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                  Generar semana
+                </button>
+              </form>
+            </div>
+          </section>
+        ) : null}
 
         {setup?.canCreateManualSessions ? (
           <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

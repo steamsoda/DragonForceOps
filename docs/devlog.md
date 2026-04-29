@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-29 (session 141)
+
+### Attendance Manual Session Generation Safeguard (v1.16.88)
+
+- Added a director/admin-only `Generar semana` action to `Asistencia > Hoy`.
+- The action calls the existing idempotent SQL generator `public.generate_attendance_sessions(start_date, end_date)` for the selected Monday-Sunday week.
+- Added result copy showing:
+  - expected sessions from active training-group schedule templates
+  - sessions created by the run
+  - sessions that already existed before the run
+- Kept Field Admin users out of this workflow; they continue to only see the daily capture path.
+- Scope note:
+  - the current SQL generator is global, so the manual action is limited to director/admin roles until a campus-scoped generator exists.
+- Verified the repo-defined production cron expectation remains:
+  - Supabase `pg_cron` job name: `generate-attendance-sessions`
+  - schedule: Sundays at `06:00 UTC`
+  - range: next Monday through next Sunday
+  - source: active training-group schedule templates
+
 ## 2026-04-29 (session 140)
 
 ### Attendance Cron And Calendar Planning Note

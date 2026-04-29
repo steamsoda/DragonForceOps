@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.83`
+Current preview release line: `v1.16.88`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -188,12 +188,17 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - selected group detail now shows one compact status cell per completed session per player
        - markers use `P/A/J/L/-` for present, absent, justified, injury, and no record
        - aggregate player stats remain beside the historical grid
+     - `v1.16.88` adds the manual generation safeguard:
+       - directors/admins can generate the selected Monday-Sunday week from `Asistencia > Hoy`
+       - the action reuses the idempotent SQL generator and reports expected, created, and already-existing session counts
+       - Field Admin remains excluded from generation; their workflow stays daily capture only
+       - the current SQL generator is global, so the manual action remains director/admin-only until a campus-scoped generator exists
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
        - creates next Monday-Sunday training sessions from active training-group schedule templates
        - generator is idempotent and skips already-created group/date/time training sessions
-     - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
+     - live Supabase cron verification still requires a direct prod SQL path to inspect `cron.job`; the repo migration and expected cron definition are documented, but the local linked project is not prod
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
      - future calendar/closure lane:

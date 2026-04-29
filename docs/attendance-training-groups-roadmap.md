@@ -425,14 +425,16 @@ Current intended automation:
 
 Needed safeguard:
 
-- Add an in-app director/superadmin action to generate sessions for the selected week.
-- Surface it when `Asistencia > Hoy` has no sessions or when a director is reviewing a week.
-- Result copy should distinguish:
+- `v1.16.88` adds an in-app director/admin action to generate sessions for the selected Monday-Sunday week.
+- The action lives in `Asistencia > Hoy` so directors can fix a missing week without leaving the daily operations surface.
+- Result copy distinguishes:
   - sessions created
   - sessions already existing / skipped
-  - invalid or inactive templates
-- This should be a safety valve if cron fails or if schedules are created after the Sunday cron has already run.
-- Field Admin should not use this workflow; they should only take attendance.
+  - expected sessions based on active training-group schedule templates
+- This is a safety valve if cron fails or if schedules are created after the Sunday cron has already run.
+- Field Admin cannot use this workflow; they should only take attendance.
+- Important scope note: the current SQL generator is global, so the manual app action is director/admin-only until a campus-scoped SQL generator exists.
+- Live cron verification note: the repo is currently linked to the preview Supabase project, not production; reading production `cron.job` requires a direct prod SQL path, not the local linked CLI context.
 
 ### Future Phase — Attendance Calendar / Operational Closures
 
@@ -511,7 +513,7 @@ Implement in preview in this order:
 1. UX/copy simplification for `Asistencia > Hoy`
 2. New read-only `Asistencia > Grupos` monthly view
 3. Rename/reposition current group-management tab as configuration
-4. Add safer manual session generation shortcut
+4. Add safer manual session generation shortcut (`v1.16.88`)
 5. Then move to tournament/team cleanup
 
 This preserves current group data, keeps attendance safe, and avoids mixing tournament cleanup into the attendance UX pass.
