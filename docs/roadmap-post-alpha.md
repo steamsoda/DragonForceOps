@@ -188,9 +188,18 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - selected group detail now shows one compact status cell per completed session per player
        - markers use `P/A/J/L/-` for present, absent, justified, injury, and no record
        - aggregate player stats remain beside the historical grid
+     - confirmed current automation:
+       - Supabase `pg_cron` job `generate-attendance-sessions`
+       - runs Sundays at `06:00 UTC`
+       - creates next Monday-Sunday training sessions from active training-group schedule templates
+       - generator is idempotent and skips already-created group/date/time training sessions
      - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
+     - future calendar/closure lane:
+       - add a literal attendance calendar view
+       - support vacation days/weeks, rain days, campus-specific closures, and special events
+       - cancelled/closed days should remain visible operationally but excluded from attendance-rate calculations
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred

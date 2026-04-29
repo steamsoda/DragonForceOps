@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-04-29 (session 140)
+
+### Attendance Cron And Calendar Planning Note
+
+- Confirmed the repo-defined Supabase `pg_cron` attendance job:
+  - job name: `generate-attendance-sessions`
+  - schedule: Sundays at `06:00 UTC`
+  - range: next Monday through next Sunday
+  - function: `public.generate_attendance_sessions(start_date, end_date)`
+  - source: active schedule templates linked to active training groups
+  - behavior: idempotent; skips existing group/date/time training sessions
+- Added roadmap notes for the next safety pass:
+  - in-app manual generation safeguard for directors/superadmin
+  - clear result copy for created vs already-existing sessions
+  - field/admin users continue taking attendance only
+- Added future roadmap notes for a literal attendance calendar with vacation days/weeks, rain days, campus-specific closures, and special events.
+
 ## 2026-04-29 (session 139)
 
 ### Attendance Group Monthly Matrix (v1.16.87)

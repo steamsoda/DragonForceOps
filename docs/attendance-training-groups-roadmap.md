@@ -412,6 +412,41 @@ Focus on existing data model and current training-group attendance implementatio
 - add admin-only manual generation shortcut if today/week has no sessions
 - keep cancellation/correction permissions intact
 
+### Phase 2B — Session Generation Safeguard
+
+Current intended automation:
+
+- Supabase `pg_cron` job: `generate-attendance-sessions`
+- Schedule: `0 6 * * 0` (Sundays at 06:00 UTC)
+- Function: `public.generate_attendance_sessions(p_start_date date, p_end_date date)`
+- Current function source: active `attendance_schedule_templates` linked to active `training_groups`
+- Current generated range: next Monday through next Sunday
+- Idempotency: the function skips existing `training_group_id + session_date + start_time + training` sessions.
+
+Needed safeguard:
+
+- Add an in-app director/superadmin action to generate sessions for the selected week.
+- Surface it when `Asistencia > Hoy` has no sessions or when a director is reviewing a week.
+- Result copy should distinguish:
+  - sessions created
+  - sessions already existing / skipped
+  - invalid or inactive templates
+- This should be a safety valve if cron fails or if schedules are created after the Sunday cron has already run.
+- Field Admin should not use this workflow; they should only take attendance.
+
+### Future Phase — Attendance Calendar / Operational Closures
+
+Add a literal calendar view after the manual generation safeguard is stable.
+
+Planned use cases:
+
+- See generated training sessions by day and campus.
+- Mark vacation days or full vacation weeks.
+- Mark rain days, including campus-specific closures such as `Contry only` or `Linda Vista only`.
+- Show cancelled sessions on the calendar, but continue excluding cancelled sessions from monthly attendance-rate calculations.
+- Add special events or exceptions without forcing staff to edit raw schedule templates.
+- Keep this separate from the first generation-safeguard pass to avoid mixing calendar UX, closure rules, and session generation in one release.
+
 ### Phase 3 — New `Asistencia > Grupos` Operational View
 
 Add read-only group/month view.
