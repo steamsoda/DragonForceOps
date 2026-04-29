@@ -19,7 +19,8 @@ function groupHref(params: { campus?: string | null; month: string; group?: stri
   if (params.month) search.set("month", params.month);
   if (params.group) search.set("group", params.group);
   const query = search.toString();
-  return query ? `/attendance/groups?${query}` : "/attendance/groups";
+  const path = query ? `/attendance/groups?${query}` : "/attendance/groups";
+  return params.group ? `${path}#detalle` : path;
 }
 
 function rateClass(rate: number | null) {
@@ -44,11 +45,25 @@ function statusChip(status: string | null) {
   );
 }
 
-function GroupCard({ group, selectedCampusId, selectedMonth }: { group: AttendanceGroupMonthlyCard; selectedCampusId: string | null; selectedMonth: string }) {
+function GroupCard({
+  group,
+  selectedCampusId,
+  selectedMonth,
+  isSelected,
+}: {
+  group: AttendanceGroupMonthlyCard;
+  selectedCampusId: string | null;
+  selectedMonth: string;
+  isSelected: boolean;
+}) {
   return (
     <Link
       href={groupHref({ campus: selectedCampusId, month: selectedMonth, group: group.groupId })}
-      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-portoBlue dark:border-slate-700 dark:bg-slate-900"
+      className={`rounded-xl border bg-white p-4 shadow-sm transition hover:border-portoBlue dark:bg-slate-900 ${
+        isSelected
+          ? "border-portoBlue ring-2 ring-blue-100 dark:border-blue-500 dark:ring-blue-950"
+          : "border-slate-200 dark:border-slate-700"
+      }`}
     >
       <div className="flex flex-col gap-3">
         <div className="space-y-1">
@@ -85,6 +100,72 @@ function GroupCard({ group, selectedCampusId, selectedMonth }: { group: Attendan
         ) : null}
       </div>
     </Link>
+  );
+}
+
+function SelectedGroupDetail({
+  data,
+}: {
+  data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
+}) {
+  if (!data.selectedGroup) return null;
+
+  return (
+    <section id="detalle" className="scroll-mt-6 space-y-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/60 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-portoBlue">Detalle del grupo seleccionado</p>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {data.selectedGroup.birthYearLabel} - {data.selectedGroup.groupName}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {data.selectedGroup.campusName} | {data.selectedGroup.programLabel} | {data.selectedGroup.genderLabel} | Coach {data.selectedGroup.coachName ?? "-"}
+          </p>
+        </div>
+        <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth })} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+          Cerrar detalle
+        </Link>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
+            <tr>
+              <th className="px-3 py-2">Jugador</th>
+              <th className="px-3 py-2">Categoria</th>
+              <th className="px-3 py-2">Sesiones</th>
+              <th className="px-3 py-2">Ausencias</th>
+              <th className="px-3 py-2">Justificadas / lesion</th>
+              <th className="px-3 py-2">Tasa</th>
+              <th className="px-3 py-2">Ultima</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.players.map((player) => (
+              <tr key={player.enrollmentId}>
+                <td className="px-3 py-2">
+                  <Link href={`/players/${player.playerId}`} className="font-medium text-portoBlue hover:underline">{player.playerName}</Link>
+                  <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
+                </td>
+                <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
+                <td className="px-3 py-2">{player.attended} de {player.total}</td>
+                <td className="px-3 py-2">{player.absent}</td>
+                <td className="px-3 py-2">{player.justified + player.injury}</td>
+                <td className={`px-3 py-2 font-semibold ${rateClass(player.rate)}`}>{formatRate(player.rate)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {statusChip(player.lastStatus)}
+                    <span className="text-xs text-slate-500">{player.lastSessionDate ?? "-"}</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {data.players.length === 0 ? (
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -136,6 +217,8 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           </div>
         </section>
 
+        <SelectedGroupDetail data={data} />
+
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Grupos</h2>
@@ -143,70 +226,19 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.groups.map((group) => (
-              <GroupCard key={group.groupId} group={group} selectedCampusId={data.selectedCampusId} selectedMonth={data.selectedMonth} />
+              <GroupCard
+                key={group.groupId}
+                group={group}
+                selectedCampusId={data.selectedCampusId}
+                selectedMonth={data.selectedMonth}
+                isSelected={data.selectedGroupId === group.groupId}
+              />
             ))}
             {data.groups.length === 0 ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Sin grupos activos para el alcance seleccionado.</div>
             ) : null}
           </div>
         </section>
-
-        {data.selectedGroup ? (
-          <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {data.selectedGroup.birthYearLabel} - {data.selectedGroup.groupName}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  {data.selectedGroup.campusName} | {data.selectedGroup.programLabel} | {data.selectedGroup.genderLabel} | Coach {data.selectedGroup.coachName ?? "-"}
-                </p>
-              </div>
-              <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth })} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
-                Cerrar detalle
-              </Link>
-            </div>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
-                  <tr>
-                    <th className="px-3 py-2">Jugador</th>
-                    <th className="px-3 py-2">Categoria</th>
-                    <th className="px-3 py-2">Sesiones</th>
-                    <th className="px-3 py-2">Ausencias</th>
-                    <th className="px-3 py-2">Justificadas / lesion</th>
-                    <th className="px-3 py-2">Tasa</th>
-                    <th className="px-3 py-2">Ultima</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {data.players.map((player) => (
-                    <tr key={player.enrollmentId}>
-                      <td className="px-3 py-2">
-                        <Link href={`/players/${player.playerId}`} className="font-medium text-portoBlue hover:underline">{player.playerName}</Link>
-                        <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
-                      </td>
-                      <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
-                      <td className="px-3 py-2">{player.attended} de {player.total}</td>
-                      <td className="px-3 py-2">{player.absent}</td>
-                      <td className="px-3 py-2">{player.justified + player.injury}</td>
-                      <td className={`px-3 py-2 font-semibold ${rateClass(player.rate)}`}>{formatRate(player.rate)}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {statusChip(player.lastStatus)}
-                          <span className="text-xs text-slate-500">{player.lastSessionDate ?? "-"}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {data.players.length === 0 ? (
-                    <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
       </div>
     </PageShell>
   );

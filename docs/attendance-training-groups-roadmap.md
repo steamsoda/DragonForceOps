@@ -422,6 +422,10 @@ Add read-only group/month view.
   - selected-group detail table with player public ID, category, attended sessions, absences, justified/injury count, rate, and last status
   - front desk read-only access
   - no finance/contact exposure
+- `v1.16.86` polishes the drilldown:
+  - group cards now jump to the selected detail panel
+  - selected detail renders above the group grid instead of at the bottom of the page
+  - selected cards have a visible selected state
 - remaining:
   - add program/YOB filters if the list becomes too dense in field use
   - consider drilldown routes or pagination if group rosters grow significantly
@@ -432,6 +436,7 @@ Add read-only group/month view.
 Move current group-management meaning out of the user-facing `Grupos` label.
 
 - `v1.16.85` moves current group management to `Asistencia > Configuracion`
+- `v1.16.86` moves the nav entry to `Super Admin > Configuracion Grupos` so group setup is no longer presented as a normal field-attendance tab
 - preserve existing management functionality
 - do not break current training group assignments
 

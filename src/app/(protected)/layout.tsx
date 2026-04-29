@@ -49,7 +49,6 @@ const ATTENDANCE_BASE_SECTION: NavSection = {
   items: [
     { href: "/attendance", label: "Hoy" },
     { href: "/attendance/groups", label: "Grupos" },
-    { href: "/attendance/settings", label: "Configuracion" },
     { href: "/attendance/schedules", label: "Horarios" },
     { href: "/attendance/reports", label: "Reportes" },
   ],
@@ -118,6 +117,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     { href: "/admin/actividad", label: "Auditoria" },
     { href: "/admin/access-audit", label: "Auditoria accesos" },
     { href: "/admin/finance-sanity", label: "Sanidad financiera" },
+    { href: "/attendance/settings", label: "Configuracion Grupos" },
     { href: "/admin/regularizacion-historica", label: "Regularización histórica" },
     ...(debugContext.canManage ? [{ href: "/admin/debug-view", label: "Debug permisos" }] : []),
   ];

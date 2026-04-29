@@ -181,6 +181,9 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - the editable training-group catalog moved to `Asistencia > Configuracion`
        - Field Admin and Front Desk can see the read-only group view without schedule/group mutation access
        - player profiles now sort recent attendance by session date and show recent-session dates in the attendance widget
+     - `v1.16.86` polishes the group drilldown:
+       - selected group detail now appears above the grid and card clicks anchor directly to it
+       - `Configuracion Grupos` moved out of the regular Asistencia nav and into the Super Admin submenu
      - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations

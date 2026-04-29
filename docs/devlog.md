@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-04-29 (session 138)
+
+### Attendance Groups Drilldown Polish (v1.16.86)
+
+- Fixed the `Asistencia > Grupos` drilldown UX:
+  - group cards now link directly to the selected detail anchor
+  - selected group detail renders above the group grid instead of after every card
+  - selected group cards now get a visible selected state
+- Clarified the wide bottom panel behavior by making it an explicit `Detalle del grupo seleccionado` section.
+- Removed `Configuracion` from the regular `Asistencia` navigation.
+- Added `Configuracion Grupos` under the `Super Admin` submenu so group setup is no longer presented as a normal attendance workflow.
+- Kept the underlying group-management route and server actions intact for existing director/sports-admin workflows.
+
 ## 2026-04-29 (session 137)
 
 ### Attendance Group Monthly View (v1.16.85)
