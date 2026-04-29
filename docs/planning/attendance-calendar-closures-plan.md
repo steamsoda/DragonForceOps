@@ -232,11 +232,11 @@ Closures:
 
 ### Phase 1 — Planning And Calendar Read View
 
-- Add `Asistencia > Calendario`
-- Read concrete sessions by campus/month
-- No new closure table yet
-- Show scheduled/completed/cancelled counts per day
-- Day drilldown links to existing sessions
+- `v1.16.90` adds `Asistencia > Calendario`.
+- Reads concrete sessions by campus/month.
+- No new closure table yet.
+- Shows scheduled/completed/cancelled counts per day.
+- Day drilldown links to existing sessions.
 
 ### Phase 2 — Manual Day/Campus Closure
 

@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.89`
+Current preview release line: `v1.16.90`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -198,6 +198,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `Asistencia > Hoy` now requires a specific campus before manual generation
        - directors/admins and Director Deportivo can generate only the selected campus week within their scope
        - the global Sunday Supabase cron remains unchanged
+     - `v1.16.90` adds the first read-only attendance calendar:
+       - route: `/attendance/calendar`
+       - month/campus filters
+       - day cards with scheduled, completed, and cancelled session counts
+       - expandable day detail linking to existing session pages
+       - no closure schema or mutation behavior yet
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
@@ -207,7 +213,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
      - future calendar/closure lane:
-      - add a literal attendance calendar view
+      - expand the literal attendance calendar from read-only session visibility into closure workflows
       - support vacation days/weeks, rain days, campus-specific closures, and special events
       - recommended direction: create sessions inside planned closures as `cancelled`, not omitted, so staff can see why attendance was not required
       - cancelled/closed days should remain visible operationally but excluded from attendance-rate calculations

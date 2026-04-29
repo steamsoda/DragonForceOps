@@ -191,6 +191,44 @@ export type AttendanceGroupsMonthlyData = {
   players: AttendanceGroupMonthlyPlayerRow[];
 };
 
+export type AttendanceCalendarSession = {
+  id: string;
+  campusId: string;
+  campusName: string;
+  sourceName: string;
+  coachName: string | null;
+  sourceType: "team" | "training_group";
+  sessionType: string;
+  status: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type AttendanceCalendarDay = {
+  date: string;
+  dayOfMonth: number;
+  weekdayLabel: string;
+  isToday: boolean;
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  sessions: AttendanceCalendarSession[];
+};
+
+export type AttendanceCalendarData = {
+  campuses: AttendanceCampusOption[];
+  selectedCampusId: string | null;
+  selectedMonth: string;
+  days: AttendanceCalendarDay[];
+  totals: {
+    total: number;
+    scheduled: number;
+    completed: number;
+    cancelled: number;
+  };
+};
+
 type SessionRow = {
   id: string;
   campus_id: string;
@@ -261,6 +299,30 @@ function monthLabel(month: string) {
   const [, m] = month.split("-");
   const labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   return labels[Number(m) - 1] ?? month;
+}
+
+function isMonthOnly(value: string | null | undefined) {
+  return Boolean(value && /^\d{4}-\d{2}$/.test(value));
+}
+
+function listDatesBetween(startDate: string, endDateExclusive: string) {
+  const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endDateExclusive.split("-").map(Number);
+  const cursor = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12));
+  const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12));
+  const dates: string[] = [];
+  while (cursor < end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function weekdayLabel(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-MX", { weekday: "short" })
+    .format(new Date(Date.UTC(year, month - 1, day, 12)))
+    .replace(".", "");
 }
 
 function rateFromCounts(covered: number, total: number) {
@@ -938,6 +1000,110 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     selectedGroup,
     selectedGroupSessions,
     players,
+  };
+}
+
+export async function getAttendanceCalendarData(filters: { campusId?: string; month?: string }): Promise<AttendanceCalendarData> {
+  const access = await getAttendanceScope();
+  const selectedMonth = isMonthOnly(filters.month) ? filters.month! : getMonterreyMonthString();
+  const monthBounds = getMonterreyMonthBounds(selectedMonth);
+  const monthEndDate = monthBounds.end.slice(0, 10);
+  const dates = listDatesBetween(monthBounds.periodMonth, monthEndDate);
+  const today = getMonterreyDateString();
+
+  const emptyDays = dates.map((date): AttendanceCalendarDay => ({
+    date,
+    dayOfMonth: Number(date.slice(8, 10)),
+    weekdayLabel: weekdayLabel(date),
+    isToday: date === today,
+    total: 0,
+    scheduled: 0,
+    completed: 0,
+    cancelled: 0,
+    sessions: [],
+  }));
+
+  if (!access) {
+    return {
+      campuses: [],
+      selectedCampusId: null,
+      selectedMonth,
+      days: emptyDays,
+      totals: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+    };
+  }
+
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
+  if (selectedCampusIds.length === 0) {
+    return {
+      campuses: access.campuses,
+      selectedCampusId,
+      selectedMonth,
+      days: emptyDays,
+      totals: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: sessionRows } = await admin
+    .from("attendance_sessions")
+    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+    .in("campus_id", selectedCampusIds)
+    .gte("session_date", monthBounds.periodMonth)
+    .lt("session_date", monthEndDate)
+    .order("session_date", { ascending: true })
+    .order("start_time", { ascending: true })
+    .returns<SessionRow[]>();
+
+  const trainingGroupIds = [...new Set((sessionRows ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
+  const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
+  const byDate = new Map(emptyDays.map((day) => [day.date, { ...day, sessions: [] as AttendanceCalendarSession[] }]));
+  const totals = { total: 0, scheduled: 0, completed: 0, cancelled: 0 };
+
+  for (const row of sessionRows ?? []) {
+    const source = getSessionSource(row, trainingGroupCoachMap);
+    const day = byDate.get(row.session_date);
+    if (!day) continue;
+
+    const session: AttendanceCalendarSession = {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? "Campus",
+      sourceName: source.name,
+      coachName: source.coach,
+      sourceType: source.sourceType,
+      sessionType: row.session_type,
+      status: row.status,
+      startTime: normalizeTime(row.start_time),
+      endTime: normalizeTime(row.end_time),
+    };
+
+    day.sessions.push(session);
+    day.total += 1;
+    totals.total += 1;
+    if (row.status === "scheduled") {
+      day.scheduled += 1;
+      totals.scheduled += 1;
+    }
+    if (row.status === "completed") {
+      day.completed += 1;
+      totals.completed += 1;
+    }
+    if (row.status === "cancelled") {
+      day.cancelled += 1;
+      totals.cancelled += 1;
+    }
+  }
+
+  return {
+    campuses: access.campuses,
+    selectedCampusId,
+    selectedMonth,
+    days: dates.map((date) => byDate.get(date)!),
+    totals,
   };
 }
 

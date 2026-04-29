@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-29 (session 144)
+
+### Attendance Calendar Read View (v1.16.90)
+
+- Added `Asistencia > Calendario` as the first implementation from the calendar/closures plan.
+- The calendar is read-only and uses existing generated `attendance_sessions`; no closure schema or mutation behavior was added.
+- The monthly view supports:
+  - month filter
+  - campus/all-campus scope using existing attendance permissions
+  - day cards with scheduled, completed, and cancelled counts
+  - expandable day detail with links to existing attendance sessions
+- Added the calendar to the Asistencia navigation for attendance writers and read-only attendance roles.
+- Safety note:
+  - no payment, Caja, enrollment, nutrition, tournament, schedule-template, or attendance-record mutation behavior changed
+  - cancelled sessions remain visible in the calendar and continue to be excluded from attendance-rate calculations elsewhere
+
 ## 2026-04-29 (session 143)
 
 ### Planning Docs Folder + Attendance Calendar Plan

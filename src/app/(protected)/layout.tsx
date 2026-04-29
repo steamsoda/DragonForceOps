@@ -48,6 +48,7 @@ const ATTENDANCE_BASE_SECTION: NavSection = {
   label: "Asistencia",
   items: [
     { href: "/attendance", label: "Hoy" },
+    { href: "/attendance/calendar", label: "Calendario" },
     { href: "/attendance/groups", label: "Grupos" },
     { href: "/attendance/schedules", label: "Horarios" },
     { href: "/attendance/reports", label: "Reportes" },
@@ -156,8 +157,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     items: canManageAttendanceSetup
       ? ATTENDANCE_BASE_SECTION.items
       : hasAttendanceWriteAccess
-        ? ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance" || item.href === "/attendance/groups" || item.href === "/attendance/reports")
-        : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/groups" || item.href === "/attendance/reports"),
+        ? ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance" || item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports")
+        : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports"),
   };
 
   const sections: NavSection[] = [
