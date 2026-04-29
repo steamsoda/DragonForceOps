@@ -176,6 +176,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - adds clearer daily session summary cards and capture-oriented session cards
        - hides group/schedule setup from pure `attendance_admin` navigation
        - protects attendance group/schedule setup routes so only directors/admins or Director Deportivo can access them directly
+     - `v1.16.85` adds the read-only monthly group attendance view:
+       - `Asistencia > Grupos` now shows training-group cards and player-level monthly attendance detail
+       - the editable training-group catalog moved to `Asistencia > Configuracion`
+       - Field Admin and Front Desk can see the read-only group view without schedule/group mutation access
+       - player profiles now sort recent attendance by session date and show recent-session dates in the attendance widget
      - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
@@ -310,6 +315,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - `v1.16.84` narrows the Field Admin navigation to daily capture plus reports
      - `Asistencia > Hoy` now uses capture-oriented copy, status KPIs, and clearer session cards
      - setup pages remain available to directors/admins and Director Deportivo, not regular field users
+     - `v1.16.85` adds the first read-only group/month board and moves editable group setup under `Configuracion`
    - UX follow-up:
      - make `Hoy` clearly show generated sessions and explain empty states
      - simplify the session capture path for regular users

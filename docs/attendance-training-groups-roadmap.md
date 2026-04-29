@@ -416,17 +416,22 @@ Focus on existing data model and current training-group attendance implementatio
 
 Add read-only group/month view.
 
-- campus/month/program/YOB filters
-- group cards
-- group detail table with monthly attendance
-- front desk read-only access
-- no finance/contact exposure
+- `v1.16.85` adds the first implementation:
+  - campus/month filters
+  - group cards with active players, completed sessions, absences, cancellations, and attendance rate
+  - selected-group detail table with player public ID, category, attended sessions, absences, justified/injury count, rate, and last status
+  - front desk read-only access
+  - no finance/contact exposure
+- remaining:
+  - add program/YOB filters if the list becomes too dense in field use
+  - consider drilldown routes or pagination if group rosters grow significantly
+  - add export only after the screen proves useful operationally
 
 ### Phase 4 — Rename/Reposition Settings
 
 Move current group-management meaning out of the user-facing `Grupos` label.
 
-- current group management becomes configuration/settings
+- `v1.16.85` moves current group management to `Asistencia > Configuracion`
 - preserve existing management functionality
 - do not break current training group assignments
 

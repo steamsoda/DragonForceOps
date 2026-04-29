@@ -1,4 +1,5 @@
 import type { AttendancePlayerSummary } from "@/lib/queries/attendance";
+import { formatDateOnlyDdMmYyyy } from "@/lib/time";
 
 const STATUS_META: Record<string, { symbol: string; className: string; label: string }> = {
   present: { symbol: "P", className: "bg-emerald-100 text-emerald-800 border-emerald-300", label: "Presente" },
@@ -38,6 +39,7 @@ export function PlayerAttendanceSummary({ summary }: { summary: AttendancePlayer
                   <span title={meta.label} className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold ${meta.className}`}>
                     {meta.symbol}
                   </span>
+                  <p className="mt-1 text-[10px] text-slate-500">{formatDateOnlyDdMmYyyy(item.sessionDate).slice(0, 5)}</p>
                 </div>
               );
             })

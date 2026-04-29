@@ -35,7 +35,7 @@ function isDateOnly(value: string) {
 async function requireTrainingGroupManager() {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) {
-    redirect("/attendance/groups?err=unauthorized");
+    redirect("/attendance/settings?err=unauthorized");
   }
   return { context, admin: createAdminClient() };
 }
@@ -141,7 +141,7 @@ async function upsertTrainingGroupAssignment(params: {
 }
 
 export async function createTrainingGroupAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const campusId = clean(formData.get("campus_id"));
   const name = clean(formData.get("name"));
@@ -159,10 +159,10 @@ export async function createTrainingGroupAction(formData: FormData) {
   const primaryCoachId = clean(formData.get("primary_coach_id")) || null;
 
   if (!campusId || !name || !canWriteAttendanceCampus(context.attendanceCampusAccess, campusId)) {
-    redirect("/attendance/groups?err=invalid_group");
+    redirect("/attendance/settings?err=invalid_group");
   }
   if ((startTime && !isTimeOnly(startTime)) || (endTime && !isTimeOnly(endTime))) {
-    redirect("/attendance/groups?err=invalid_time");
+    redirect("/attendance/settings?err=invalid_time");
   }
 
   const { data: created, error } = await admin
@@ -184,7 +184,7 @@ export async function createTrainingGroupAction(formData: FormData) {
     .select("id")
     .maybeSingle<{ id: string } | null>();
 
-  if (error || !created) redirect("/attendance/groups?err=create_failed");
+  if (error || !created) redirect("/attendance/settings?err=create_failed");
 
   await syncGroupCoaches({ admin, trainingGroupId: created.id, coachIds, primaryCoachId });
 
@@ -198,14 +198,14 @@ export async function createTrainingGroupAction(formData: FormData) {
   });
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=group_created");
+  redirect("/attendance/settings?ok=group_created");
 }
 
 export async function updateTrainingGroupAction(groupId: string, formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const name = clean(formData.get("name"));
   const program = normalizeTrainingGroupProgram(clean(formData.get("program")));
@@ -221,9 +221,9 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
   const coachIds = formData.getAll("coach_ids").map((value) => String(value));
   const primaryCoachId = clean(formData.get("primary_coach_id")) || null;
 
-  if (!groupId || !name) redirect("/attendance/groups?err=invalid_group");
+  if (!groupId || !name) redirect("/attendance/settings?err=invalid_group");
   if ((startTime && !isTimeOnly(startTime)) || (endTime && !isTimeOnly(endTime))) {
-    redirect("/attendance/groups?err=invalid_time");
+    redirect("/attendance/settings?err=invalid_time");
   }
 
   const { data: existing } = await admin
@@ -233,7 +233,7 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
     .maybeSingle<{ id: string; campus_id: string } | null>();
 
   if (!existing || !canWriteAttendanceCampus(context.attendanceCampusAccess, existing.campus_id)) {
-    redirect("/attendance/groups?err=unauthorized");
+    redirect("/attendance/settings?err=unauthorized");
   }
 
   const { error } = await admin
@@ -254,7 +254,7 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
     })
     .eq("id", groupId);
 
-  if (error) redirect("/attendance/groups?err=update_failed");
+  if (error) redirect("/attendance/settings?err=update_failed");
 
   await syncGroupCoaches({ admin, trainingGroupId: groupId, coachIds, primaryCoachId });
 
@@ -268,21 +268,21 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
   });
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=group_updated");
+  redirect("/attendance/settings?ok=group_updated");
 }
 
 export async function assignTrainingGroupAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const enrollmentId = clean(formData.get("enrollment_id"));
   const trainingGroupId = clean(formData.get("training_group_id"));
   const assignmentStart = clean(formData.get("assignment_start")) || getMonterreyDateString();
 
   if (!enrollmentId || !trainingGroupId || !isDateOnly(assignmentStart)) {
-    redirect("/attendance/groups?err=invalid_assignment");
+    redirect("/attendance/settings?err=invalid_assignment");
   }
 
   const ok = await upsertTrainingGroupAssignment({
@@ -294,18 +294,18 @@ export async function assignTrainingGroupAction(formData: FormData) {
     assignmentStart,
   });
 
-  if (!ok) redirect("/attendance/groups?err=assignment_failed");
+  if (!ok) redirect("/attendance/settings?err=assignment_failed");
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/attendance/reports");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=assignment_saved");
+  redirect("/attendance/settings?ok=assignment_saved");
 }
 
 export async function applySuggestedTrainingGroupsAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const campusId = clean(formData.get("campus_id")) || null;
   const birthYear = clean(formData.get("birth_year")) || null;
@@ -314,7 +314,7 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
     ? [campusId]
     : context.attendanceCampusAccess?.campusIds ?? [];
 
-  if (campusIds.length === 0) redirect("/attendance/groups?err=unauthorized");
+  if (campusIds.length === 0) redirect("/attendance/settings?err=unauthorized");
 
   const [{ data: groups }, { data: assignments }, { data: enrollments }, { data: competitionAssignments }] = await Promise.all([
     admin
@@ -396,9 +396,9 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
   }
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/attendance/reports");
   revalidatePath("/new-enrollments");
-  redirect(`/attendance/groups?ok=suggestions_applied&count=${applied}`);
+  redirect(`/attendance/settings?ok=suggestions_applied&count=${applied}`);
 }

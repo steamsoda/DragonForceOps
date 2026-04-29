@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-04-29 (session 137)
+
+### Attendance Group Monthly View (v1.16.85)
+
+- Added a read-only `Asistencia > Grupos` operational view for monthly attendance by training group.
+- The new group view shows:
+  - campus/month filters
+  - group cards with active players, completed sessions, absences, cancellations, and attendance rate
+  - player-level detail for a selected group with public ID, category, sessions attended, absences, justified/injury count, rate, and last status
+- Moved the editable training-group catalog from `Asistencia > Grupos` to `Asistencia > Configuracion`.
+- Updated training-group server-action redirects and revalidation paths to the new settings route.
+- Adjusted attendance navigation:
+  - Field Admin sees `Hoy`, `Grupos`, and `Reportes`
+  - Front Desk sees read-only `Grupos` and `Reportes`
+  - directors/admins and Director Deportivo keep `Configuracion` and `Horarios`
+- Tightened the player-profile attendance widget ordering so recent attendance is sorted by session date, with visible recent-session dates.
+- Kept finance, Caja, nutrition, payments, competition signups, and attendance mutation logic unchanged.
+
 ## 2026-04-28 (session 136)
 
 ### Attendance Field Admin UX Simplification (v1.16.84)
