@@ -1850,11 +1850,11 @@
   - `.github/workflows/security-secrets.yml` for TruffleHog-based secret scanning on `preview`, `main`, and PRs targeting those branches
   - `.github/workflows/security-dependencies.yml` for lockfile-based `npm audit` reporting on the same branch/PR surfaces
 - Kept both workflows advisory in `v1` so findings can be reviewed and tuned before becoming hard release gates.
-- Extended `docs/security-performance-baseline.md` so the repo now documents:
+- Extended `docs/legacy/security-performance-baseline.md` so the repo now documents:
   - public vs server-only env expectations
   - why public Supabase anon/publishable keys are not automatically a breach
   - scanner policy for advisory CI
-- Added `docs/security-review-2026-04-07.md` as the first concrete findings memo for this repo.
+- Added `docs/legacy/security-review-2026-04-07.md` as the first concrete findings memo for this repo.
 - Current repo-specific findings from this pass:
   - no obvious client-side leak of `SUPABASE_SERVICE_ROLE_KEY`
   - `QZ_PRIVATE_KEY` remains server-side
@@ -2687,7 +2687,7 @@
 ### Preview Demo Seed + Enrollment Ledger Payment Wiring Fix (v1.1.4)
 
 **Preview-only demo SQL seed**
-- Added `docs/preview-demo-seed.sql`: paste-ready SQL for the Supabase editor, intentionally **not** a migration.
+- Added `docs/legacy/preview-demo-seed.sql`: paste-ready SQL for the Supabase editor, intentionally **not** a migration.
 - Scope: 20 clearly fake players across both campuses, guardians, active enrollments, mixed tuition/inscription charges, mixed payments, and coherent allocations for UI/testing.
 - Additive only: does not alter schema and does not auto-run on push because it lives in `docs/`, not `supabase/migrations/`.
 
@@ -3191,7 +3191,7 @@
 
 ### Process and Planning
 - Added `docs/branching-workflow.md` to standardize preview-first delivery.
-- Added `docs/roadmap-execution.md` with phase priorities and delivery criteria.
+- Added `docs/legacy/roadmap-execution.md` with phase priorities and delivery criteria.
 
 ### Product
 - Replaced dashboard placeholder with live KPI cards:
@@ -3214,7 +3214,7 @@
   - charges (selected month vs previous month)
 
 ### Security and Performance Guardrails
-- Added `docs/security-performance-baseline.md` with mandatory PR gates.
+- Added `docs/legacy/security-performance-baseline.md` with mandatory PR gates.
 - Hardened bootstrap admin fallback to never grant access in production runtime.
 
 ### Billing and Collections Milestone

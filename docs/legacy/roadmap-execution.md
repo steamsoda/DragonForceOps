@@ -1,6 +1,6 @@
 # Product Roadmap (Execution)
 
-This complements `docs/phase-1-sdd.md` with a practical delivery plan.
+This complements `docs/legacy/phase-1-sdd.md` with a practical delivery plan.
 
 ## Active Task List
 See **`docs/roadmap-post-alpha.md`** for the current prioritized bug + feature list (updated after alpha testing started 2026-03-19).

@@ -1,8 +1,8 @@
 # Dragon Force Ops — Software Design Document (SDD)
 
 This is the consolidated, living SDD. It merges and preserves the content from:
-- `docs/new-sdd.md` (foundation notes + environment safety)
-- `docs/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
+- `docs/legacy/new-sdd.md` (foundation notes + environment safety)
+- `docs/legacy/phase-1-sdd.md` (Phase 1 MVP SDD: schema, workflows, RLS, performance)
 
 ## 0) Status
 - Current stage: v0.9 — Live testing day 1 (2026-03-19). Production stable.
