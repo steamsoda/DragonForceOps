@@ -1,7 +1,7 @@
 # Attendance And Training Groups Operational Roadmap
 
 Date: 2026-04-28
-Status: planning / pre-implementation
+Status: active implementation on preview
 
 ## Purpose
 
@@ -400,9 +400,15 @@ No schema changes.
 
 Focus on existing data model and current training-group attendance implementation.
 
-- simplify `Asistencia > Hoy`
-- make session cards more field-friendly
-- add clearer empty states
+- `v1.16.84` started this phase:
+  - simplified `Asistencia > Hoy` for Field Admin daily capture
+  - added daily status summary cards
+  - made session cards more field-friendly with clearer time, roster count, status, and action copy
+  - hid group/schedule setup from pure `attendance_admin` navigation
+  - protected group/schedule setup routes for directors/admins and Director Deportivo only
+- remaining:
+  - add more explicit grouping by campus/start time if field testing needs it
+  - continue refining empty states after live session-generation behavior is validated
 - add admin-only manual generation shortcut if today/week has no sessions
 - keep cancellation/correction permissions intact
 

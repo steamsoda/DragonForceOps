@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-04-28 (session 136)
+
+### Attendance Field Admin UX Simplification (v1.16.84)
+
+- Started the attendance/training-groups roadmap implementation with the Field Admin capture path.
+- Simplified `Asistencia > Hoy` around the real field workflow:
+  - open today's sessions
+  - choose a group/session
+  - take attendance
+  - avoid schedule/group setup concepts during daily capture
+- Added session summary cards for total, pending, registered, and cancelled sessions.
+- Made session cards more field-friendly with clearer time, roster count, status, and primary action copy.
+- Hid `Grupos` and `Horarios` setup pages from pure `attendance_admin` navigation.
+- Added direct-route protection so only directors/admins or Director Deportivo can access attendance group/schedule setup pages.
+- Kept attendance data, roster resolution, reports, cancellation, correction, Caja, finance, nutrition, and sports signup workflows unchanged.
+
 ## 2026-04-28 (session 135)
 
 ### Competitions Roster Builder Planning Doc

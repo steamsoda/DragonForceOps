@@ -190,7 +190,9 @@ function GroupEditor({
 }
 
 export default async function TrainingGroupsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceWriteContext("/unauthorized");
+  const context = await requireAttendanceWriteContext("/unauthorized");
+  if (!context.isDirector && !context.isSportsDirector) redirect("/unauthorized");
+
   const params = await searchParams;
   const data = await getTrainingGroupsManagementData({
     campusId: params.campus,

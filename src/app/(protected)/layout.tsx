@@ -106,6 +106,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasAttendanceWriteAccess = ATTENDANCE_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasAttendanceReadAccess = hasAttendanceWriteAccess || roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const canManageAttendanceSetup = isDirectorOrAbove || hasSportsAccess;
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
   const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
 
@@ -151,9 +152,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const attendanceSection: NavSection = {
     ...ATTENDANCE_BASE_SECTION,
-    items: hasAttendanceWriteAccess
+    items: canManageAttendanceSetup
       ? ATTENDANCE_BASE_SECTION.items
-      : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/reports"),
+      : hasAttendanceWriteAccess
+        ? ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance" || item.href === "/attendance/reports")
+        : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/reports"),
   };
 
   const sections: NavSection[] = [

@@ -171,6 +171,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - auto-create missing weekly templates for all active training groups with seeded time slots
      - skips projected/no-time groups and avoids duplicating active overlapping templates
    - continuation follow-up:
+     - `v1.16.84` starts the attendance/training-groups roadmap execution:
+       - simplifies `Asistencia > Hoy` for Field Admin users
+       - adds clearer daily session summary cards and capture-oriented session cards
+       - hides group/schedule setup from pure `attendance_admin` navigation
+       - protects attendance group/schedule setup routes so only directors/admins or Director Deportivo can access them directly
      - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
@@ -301,6 +306,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 11. Attendance workflow simplification and automation
    - goal:
      - make attendance usable for normal field/admin users without exposing unnecessary schedule-template internals
+   - first implementation:
+     - `v1.16.84` narrows the Field Admin navigation to daily capture plus reports
+     - `Asistencia > Hoy` now uses capture-oriented copy, status KPIs, and clearer session cards
+     - setup pages remain available to directors/admins and Director Deportivo, not regular field users
    - UX follow-up:
      - make `Hoy` clearly show generated sessions and explain empty states
      - simplify the session capture path for regular users
