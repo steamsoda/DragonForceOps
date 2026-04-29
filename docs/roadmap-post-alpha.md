@@ -142,7 +142,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 6. Attendance tracking v1
    - planning doc:
      - `docs/attendance-training-groups-roadmap.md` defines the next attendance + training-groups simplification pass
-     - agreed direction: `Nivel` becomes legacy, training groups use program/YOB/gender/campus as the operational model, and competition teams stay separate until the tournament cleanup
+     - agreed direction: `Nivel` as ability placement becomes legacy; training groups use program/YOB/gender/campus plus `Subgrupo` (`B1/B2/B3`) as a logistics label, and competition teams stay separate until the tournament cleanup
    - `v1.16.63` adds internal attendance tracking on preview:
      - campus-scoped `attendance_admin` role
      - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`
@@ -272,8 +272,9 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
    - planning doc:
      - `docs/attendance-training-groups-roadmap.md`
    - planning direction:
-     - move away from ambiguous `Nivel` as the primary grouping concept
+     - move away from ambiguous `Nivel` as an ability/placement concept
      - make `Futbol Para Todos` vs `Selectivos` an explicit sports program axis
+     - keep `B1/B2/B3` as `Subgrupo` logistics for FPT where needed
      - keep training groups as the daily practice roster model
      - keep `teams` as the competition/tournament roster model
    - affected surfaces to audit before implementation:

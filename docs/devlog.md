@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-04-28 (session 134)
+
+### Training Groups Catalog Clarification
+
+- Updated `docs/attendance-training-groups-roadmap.md` after director review.
+- Clarified that `B1/B2/B3` remains useful, but only as `Subgrupo` logistics inside `Futbol Para Todos`, not as player ability level.
+- Added the current Linda Vista and Contry training group catalog for FPT and Selectivo groups, including projected Selectivos and the 2012/2013 B3 Femenil exception.
+
 ## 2026-04-28 (session 133)
 
 ### Attendance + Training Groups Planning Doc

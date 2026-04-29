@@ -7,7 +7,9 @@ Status: planning / pre-implementation
 
 This document defines the next operational pass for sports grouping and attendance.
 
-The academy is moving away from the old `B1/B2` level-first organization. Growth has made it possible to operate mostly by category / year of birth, with a clearer program split:
+The academy is moving away from the old `B1/B2` as an ability-level concept. `B1/B2/B3` can still exist, but it should mean a logistical subgroup inside `Futbol Para Todos`, not a statement about player quality.
+
+Growth has made it possible to operate mostly by category / year of birth, with a clearer program split:
 
 - `Futbol Para Todos`
 - `Selectivo`
@@ -21,33 +23,124 @@ The app should reflect that reality without mixing daily training groups with to
 |---|---|---|
 | Categoria / YOB | Birth-year cohort. Example: `2014`. | `players.birth_date` |
 | Programa | Main sports track. Example: `Futbol Para Todos`, `Selectivo`, `Little Dragons`. | `training_groups.program` |
+| Subgrupo | Logistical split inside `Futbol Para Todos`. Example: `B1`, `B2`, `B3`. Not an ability label. | Prefer a future `training_groups.subgroup_label`; current transition can map from `training_groups.level_label` |
 | Grupo de entrenamiento | Who trains together year-round, at a campus, on days/times, with coach(es). | `training_groups` + `training_group_assignments` |
 | Equipo de competencia | Tournament/league roster. Can be created from a group but is not always equal to that group. | `teams` + tournament stack |
-| Nivel | Legacy/development label. Useful as fallback/display during transition, but not the operating source of truth. | `players.level` / `training_groups.level_label` as legacy display |
+| Nivel | Legacy wording. It should no longer mean ability placement. | `players.level` as legacy/fallback only |
 
 ## Operating Decisions
 
-1. `Nivel` becomes legacy.
+1. `Nivel` as ability placement becomes legacy.
    - Do not delete it yet.
    - Do not use it as the primary attendance or grouping axis going forward.
-   - Treat `training_groups.program` plus YOB/gender/campus as the cleaner operational model.
+   - Treat `training_groups.program` plus YOB/gender/campus/subgroup as the cleaner operational model.
+   - In the UI, prefer `Subgrupo` over `Nivel` for `B1/B2/B3`.
 
-2. Competition teams remain hidden / WIP until the tournament model is cleaned up.
+2. `B1/B2/B3` means logistical subgroup, not ability.
+   - Most categories will only have `B1`.
+   - `B2` is commonly used when a category is split by gender or size.
+   - `B3` currently exists only for the Linda Vista 2012/2013 female mixed-YOB group.
+   - These labels should not drive competition eligibility, ability evaluation, scholarship logic, or player quality decisions.
+
+3. Competition teams remain hidden / WIP until the tournament model is cleaned up.
    - `teams`, `team_assignments`, tournament source teams, squads, and signup logic should not be repointed casually.
    - Tournament cleanup should be the next major sports issue after attendance/group simplification.
 
-3. Front desk can see attendance group views read-only.
+4. Front desk can see attendance group views read-only.
    - They should not manage schedules, cancel sessions, or correct attendance.
    - They can use group/month views to answer operational questions.
 
-4. Monthly attendance is strict calendar month.
+5. Monthly attendance is strict calendar month.
    - Use Monterrey calendar month boundaries.
    - Do not map attendance months to tuition periods if they ever differ.
    - Historical attendance must remain queryable month by month and eventually year-round per player.
 
-5. Cancelled sessions remain visible in calendar/session context.
+6. Cancelled sessions remain visible in calendar/session context.
    - Cancelled sessions should not affect attendance percentage.
    - Monthly summary views can omit cancelled sessions from the main counted rows because they do not contribute to rate calculations.
+
+## Actual Training Group Catalog
+
+This is the current operational group list provided by directors. It should be treated as the reference catalog for the next seed/review pass.
+
+### Linda Vista / Futbol Para Todos
+
+| Program | Group display | YOB | Subgroup | Gender | Coach(es) | Notes |
+|---|---|---:|---|---|---|---|
+| Little Dragons | Little Dragons | mixed | - | mixed | TBD | Linda Vista has Little Dragons. |
+| Futbol Para Todos | Basico B1 | 2020 | B1 | mixed/male default | Felipe |  |
+| Futbol Para Todos | Basico B1 | 2019 | B1 | mixed/male default | Mabel |  |
+| Futbol Para Todos | Basico B1 | 2018 | B1 | mixed/male default | Johan |  |
+| Futbol Para Todos | Intermedio B1 | 2017 | B1 | mixed/male default | Merino |  |
+| Futbol Para Todos | Intermedio B1 | 2016 | B1 | mixed/male default | David |  |
+| Futbol Para Todos | Avanzado B1 | 2015 | B1 | mixed/male default | Nelson |  |
+| Futbol Para Todos | Avanzado B1 | 2014 | B1 | mixed/male default | Arturo |  |
+| Futbol Para Todos | Expert B1 | 2013 | B1 | mixed/male default | Alex |  |
+| Futbol Para Todos | Expert B1 | 2012 | B1 | mixed/male default | Villalba |  |
+| Futbol Para Todos | Expert B2 | 2012/2013 | B2 | mixed | Nelson | Mixed-YOB exception. |
+| Futbol Para Todos | PreJuvenil B1 | 2011 | B1 | mixed/male default | Villalba, Johan |  |
+| Futbol Para Todos | PreJuvenil B1 | 2010 | B1 | mixed/male default | Alex |  |
+| Futbol Para Todos | Avanzado B2 Femenil | 2014/2015 | B2 | female | Mabel | Female mixed-YOB group. |
+| Futbol Para Todos | Expert B3 Femenil | 2012/2013 | B3 | female | David | Only current B3 exception. |
+| Futbol Para Todos | PreJuvenil B2 Femenil | 2010/2011 | B2 | female | Felipe | Female mixed-YOB group. |
+
+### Linda Vista / Selectivos
+
+| Program | Group display | YOB | Gender | Coach(es) | Notes |
+|---|---|---:|---|---|---|
+| Selectivo | Selectivo 2018 | 2018 | mixed/male default | Johan |  |
+| Selectivo | Selectivo 2017 | 2017 | mixed/male default | Arturo |  |
+| Selectivo | Selectivo 2016 | 2016 | mixed/male default | Alex, David |  |
+| Selectivo | Selectivo 2015 | 2015 | mixed/male default | Felipe |  |
+| Selectivo | Selectivo 2014 | 2014 | mixed/male default | Merino |  |
+| Selectivo | Selectivo 2008/2009 | 2008/2009 | mixed/male default | David, Arturo |  |
+| Selectivo | Selectivo 2013 | 2013 | mixed/male default | Villalba | Projected, currently no players. |
+| Selectivo | Selectivo 2012 | 2012 | mixed/male default | Merino | Projected, currently no players. |
+| Selectivo | Selectivo 2011 | 2011 | mixed/male default | TBD | Currently no players. |
+| Selectivo | Selectivo 2010 | 2010 | mixed/male default | TBD | Currently no players. |
+
+### Contry / Futbol Para Todos
+
+| Program | Group display | YOB | Subgroup | Gender | Coach(es) | Notes |
+|---|---|---:|---|---|---|---|
+| Futbol Para Todos | Iniciacion B1 | 2020/2021 | B1 | mixed/male default | Ailin | Contry has Iniciacion, not Little Dragons. |
+| Futbol Para Todos | Basico B1 | 2018/2019 | B1 | mixed/male default | Angel |  |
+| Futbol Para Todos | Intermedio B1 | 2016/2017 | B1 | mixed/male default | Sebastian, Angel |  |
+| Futbol Para Todos | Avanzado B1 | 2015 | B1 | mixed/male default | Joel |  |
+| Futbol Para Todos | Avanzado B1 | 2014 | B1 | mixed/male default | Sebastian, Daniel |  |
+| Futbol Para Todos | Expert B1 | 2012/2013 | B1 | mixed/male default | Ailin |  |
+| Futbol Para Todos | PreJuvenil B1 | 2010/2011 | B1 | mixed/male default | Joel, Daniel |  |
+| Futbol Para Todos | Avanzado B2 Femenil | 2014/2015 | B2 | female | Ailin | Female mixed-YOB group. |
+| Futbol Para Todos | Expert B2 Femenil | 2012/2013 | B2 | female | Joel | Female mixed-YOB group. |
+| Futbol Para Todos | PreJuvenil B2 Femenil | 2010/2011 | B2 | female | Angel | Female mixed-YOB group. |
+
+### Contry / Selectivos
+
+| Program | Group display | YOB | Gender | Coach(es) | Notes |
+|---|---|---:|---|---|---|
+| Selectivo | Selectivo 2016 | 2016 | mixed/male default | Ailin |  |
+| Selectivo | Selectivo 2015 | 2015 | mixed/male default | Joel |  |
+| Selectivo | Selectivo 2014 | 2014 | mixed/male default | Sebastian, Daniel |  |
+| Selectivo | Selectivo 2012/2013 | 2012/2013 | mixed/male default | Angel |  |
+| Selectivo | Selectivo 2010/2011 | 2010/2011 | mixed/male default | Joel, Daniel |  |
+
+## Group Naming Rules
+
+Recommended display format:
+
+```text
+{YOB or YOB range} - {Program} - {Subgroup if FPT} - {Gender if female/mixed special}
+```
+
+Examples:
+
+- `2015 - Futbol Para Todos - B1`
+- `2014/2015 - Futbol Para Todos - B2 Femenil`
+- `2012/2013 - Futbol Para Todos - B3 Femenil`
+- `2014 - Selectivo`
+- `2008/2009 - Selectivo`
+
+The app can keep a shorter group `name`, but UI should avoid implying that `B1/B2/B3` is an ability tier.
 
 ## Training Groups Vs Competition Teams
 
@@ -63,9 +156,9 @@ Training groups answer:
 
 Examples:
 
-- `2014 Linda Vista Varonil Futbol Para Todos`
+- `2014 Linda Vista Futbol Para Todos B1`
 - `2014 Contry Selectivo`
-- `2016 Contry Femenil Futbol Para Todos`
+- `2014/2015 Contry Futbol Para Todos B2 Femenil`
 
 These groups are year-round operational units and should drive:
 
