@@ -1,9 +1,10 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useActionState, useCallback, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { AttendanceRosterPlayer } from "@/lib/queries/attendance";
 import { saveAttendanceSessionAction } from "@/server/actions/attendance";
+import type { AttendanceSaveResult } from "@/server/actions/attendance";
 
 const STATUS_META = {
   present: { label: "Presente", short: "P", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
@@ -92,21 +93,29 @@ const AttendancePlayerRow = memo(function AttendancePlayerRow({
 
 function SaveAttendanceButton({
   disabled,
+  saved,
 }: {
   disabled: boolean;
+  saved: boolean;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={disabled || pending}
+      disabled={disabled || pending || saved}
       className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {pending ? "Guardando..." : "Guardar asistencia"}
+      {pending ? "Guardando..." : saved ? "Guardado" : "Guardar asistencia"}
     </button>
   );
 }
+
+const SAVE_ERROR_LABELS: Record<string, string> = {
+  cancelled: "La sesion ya fue cancelada.",
+  director_required: "Solo direccion puede corregir una sesion ya registrada.",
+  save_failed: "No se pudo guardar la asistencia. Intenta de nuevo.",
+};
 
 export function AttendanceRecorder({
   sessionId,
@@ -124,6 +133,11 @@ export function AttendanceRecorder({
     [roster]
   );
   const [statuses, setStatuses] = useState<Record<string, Status>>(initial);
+  const [state, formAction] = useActionState(
+    async (_previous: AttendanceSaveResult | null, formData: FormData) => saveAttendanceSessionAction(sessionId, formData),
+    null
+  );
+  const saved = state?.ok === true;
 
   const presentCount = Object.values(statuses).filter((status) => status !== "absent").length;
   const saveDisabled = disabled || roster.length === 0;
@@ -142,7 +156,17 @@ export function AttendanceRecorder({
   }, []);
 
   return (
-    <form action={saveAttendanceSessionAction.bind(null, sessionId)} className="space-y-4">
+    <form action={formAction} className="space-y-4">
+      {state?.ok === true ? (
+        <div aria-live="polite" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Asistencia guardada. La captura quedo bloqueada para evitar envios duplicados.
+        </div>
+      ) : null}
+      {state?.ok === false ? (
+        <div aria-live="polite" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          {SAVE_ERROR_LABELS[state.error] ?? "No se pudo guardar la asistencia. Intenta de nuevo."}
+        </div>
+      ) : null}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           {presentCount}/{roster.length} cuentan como asistencia
@@ -158,7 +182,7 @@ export function AttendanceRecorder({
             key={player.enrollmentId}
             player={player}
             status={statuses[player.enrollmentId] ?? "present"}
-            disabled={disabled}
+            disabled={disabled || saved}
             onToggle={handleToggle}
             onSetStatus={handleSetStatus}
           />
@@ -171,7 +195,7 @@ export function AttendanceRecorder({
           <textarea
             name="session_notes"
             defaultValue={sessionNotes ?? ""}
-            disabled={disabled}
+            disabled={disabled || saved}
             rows={3}
             className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
             placeholder="Ej. Entrenamiento reducido por lluvia, trabajo fisico, observaciones generales."
@@ -183,7 +207,7 @@ export function AttendanceRecorder({
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           Listo para guardar: {presentCount}/{roster.length} cuentan como asistencia
         </p>
-        <SaveAttendanceButton disabled={saveDisabled} />
+        <SaveAttendanceButton disabled={saveDisabled} saved={saved} />
       </div>
     </form>
   );

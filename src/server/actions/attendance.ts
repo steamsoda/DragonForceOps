@@ -64,6 +64,10 @@ type AttendanceSaveIncident = {
   incident_type: string;
 };
 
+export type AttendanceSaveResult =
+  | { ok: true; savedAt: string; rosterCount: number; statusBefore: string }
+  | { ok: false; error: string };
+
 function clean(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
@@ -712,7 +716,7 @@ export async function cancelAttendanceSessionAction(sessionId: string, formData:
   redirect(`/attendance/sessions/${sessionId}?ok=cancelled`);
 }
 
-export async function saveAttendanceSessionAction(sessionId: string, formData: FormData) {
+export async function saveAttendanceSessionAction(sessionId: string, formData: FormData): Promise<AttendanceSaveResult> {
   const perf = createPerfTimer("attendance.save");
   const context = await requireAttendanceSaveContext(`/attendance/sessions/${sessionId}`);
   perf.mark("attendance_write_context");
@@ -722,8 +726,8 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   const sessionNotes = clean(formData.get("session_notes")) || null;
 
   if (!snapshot || !canWriteAttendanceCampus(context.attendanceCampusAccess, snapshot.session.campus_id)) redirect("/unauthorized");
-  if (snapshot.session.status === "cancelled") redirect(`/attendance/sessions/${sessionId}?err=cancelled`);
-  if (snapshot.session.status === "completed" && !context.isDirector) redirect(`/attendance/sessions/${sessionId}?err=director_required`);
+  if (snapshot.session.status === "cancelled") return { ok: false, error: "cancelled" };
+  if (snapshot.session.status === "completed" && !context.isDirector) return { ok: false, error: "director_required" };
 
   const existingByEnrollment = new Map(
     snapshot.records.map((record) => [record.enrollment_id, record])
@@ -785,7 +789,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     : { error: null };
   perf.mark("records_upsert");
 
-  if (error) redirect(`/attendance/sessions/${sessionId}?err=save_failed`);
+  if (error) return { ok: false, error: "save_failed" };
 
   if (auditRows.length > 0 && context.isDirector) {
     await admin.from("attendance_record_audit").insert(auditRows);
@@ -818,13 +822,14 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   revalidatePath(`/attendance/sessions/${sessionId}`);
   revalidatePath("/attendance/reports");
   perf.mark("revalidate");
+  const savedAt = new Date().toISOString();
   perf.end({
     rosterCount: rows.length,
     auditRows: auditRows.length,
     statusBefore: snapshot.session.status,
     hasSessionNotes: Boolean(sessionNotes),
   });
-  redirect(`/attendance/sessions/${sessionId}?ok=saved`);
+  return { ok: true, savedAt, rosterCount: rows.length, statusBefore: snapshot.session.status };
 }
 
 async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {

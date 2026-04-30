@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-29 (session 155)
+
+### Attendance Save Inline Result UX (v1.16.100)
+
+- Changed the attendance recorder submit flow from a normal redirect-after-save form to an inline server-action result.
+- Successful saves now:
+  - return a typed success result to the client
+  - show an immediate success message in the recorder
+  - lock the form to prevent duplicate submissions
+  - avoid the forced `303` redirect back to the same session page
+- Save failures now render inline for expected business errors:
+  - cancelled session
+  - director-required correction
+  - attendance-record save failure
+- Security-sensitive failures still redirect through the existing authorization path.
+- Safety note:
+  - attendance record writes, session completion, session notes, audit logs, correction rules, and revalidation remain unchanged
+  - this pass targets perceived latency by removing the unnecessary post-save route reload
+
 ## 2026-04-29 (session 154)
 
 ### Attendance Save Permission-Path Optimization (v1.16.99)

@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.99`
+Current preview release line: `v1.16.100`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -246,6 +246,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - replaces duplicated debug/auth permission work with a lean attendance-save context
        - resolves only debug read-only state, attendance write role, and scoped/global attendance campus write access
        - keeps Field Admin campus scope, Director Deportivo sports scope, and director correction rights intact
+     - `v1.16.100` changes attendance save UX to an inline action result:
+       - successful saves show immediately and lock the form to prevent duplicate submissions
+       - expected business errors render inline
+       - removes the forced post-save `303` redirect/page reload while keeping writes and audit behavior unchanged
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
