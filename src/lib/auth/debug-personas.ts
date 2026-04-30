@@ -84,6 +84,18 @@ const PERSONAS: DebugPersonaSpec[] = [
     campusTarget: "contry",
   },
   {
+    key: "fieldadmin-lindavista",
+    email: "admin.campo.lindavista.debug@preview",
+    roleCode: APP_ROLES.ATTENDANCE_ADMIN,
+    campusTarget: "linda_vista",
+  },
+  {
+    key: "fieldadmin-contry",
+    email: "admin.campo.contry.debug@preview",
+    roleCode: APP_ROLES.ATTENDANCE_ADMIN,
+    campusTarget: "contry",
+  },
+  {
     key: "director",
     email: "director.debug@preview",
     roleCode: APP_ROLES.DIRECTOR_ADMIN,

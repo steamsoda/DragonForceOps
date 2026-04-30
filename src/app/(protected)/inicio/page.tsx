@@ -43,6 +43,20 @@ export default async function InicioPage() {
           },
         ]
       : []),
+    ...(context?.hasAttendanceReadAccess
+      ? [
+          {
+            href: "/attendance",
+            title: "Asistencia de hoy",
+            description: "Sesiones del dia para tomar asistencia en cancha.",
+          },
+          {
+            href: "/attendance/groups",
+            title: "Grupos y asistencia",
+            description: "Vista mensual de grupos, sesiones y asistencia registrada.",
+          },
+        ]
+      : []),
     ...(context?.isDirector
       ? [
           {

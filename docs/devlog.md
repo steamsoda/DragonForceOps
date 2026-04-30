@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-04-29 (session 146)
+
+### Field Admin Role Audit Polish (v1.16.92)
+
+- Audited the `attendance_admin` / `Admin de Campo` role path.
+- Added preview debug personas for Field Admin:
+  - Linda Vista
+  - Contry
+- Updated `/inicio` so attendance-only users land on the same welcome page but now see useful attendance entry cards instead of an empty card grid.
+- Tightened the preview debug read-only shortcut bar so it only shows links allowed for the effective role.
+  - This avoids showing Caja, Pendientes, Corte, Recibos, or other finance/operations shortcuts while viewing as `attendance_admin`.
+- Confirmed intended role boundary:
+  - Field Admin can access attendance capture/read surfaces in assigned campus scope.
+  - Field Admin does not get Diario, Gestion, Competencias, Nutrition, reports with money, admin, Caja, player finance, receipts, or financial correction tools.
+
 ## 2026-04-29 (session 145)
 
 ### Attendance Closures And Generator Integration (v1.16.91)
