@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.97`
+Current preview release line: `v1.16.98`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -238,6 +238,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - logs `[perf] attendance.save` in Vercel
        - records segment timings for auth, detail loading, record upsert, session update, audit log, and revalidation
        - intentionally logs counts/timings only, not player names, notes, secrets, or row payloads
+     - `v1.16.98` optimizes the attendance save snapshot:
+       - replaces the full display-oriented session detail query during submit
+       - loads only session guard fields, roster assignment ids, existing records, and active incident ids
+       - preserves correction audit and incident source tagging while removing display-only reads
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`

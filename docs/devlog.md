@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-04-29 (session 153)
+
+### Attendance Save Snapshot Optimization (v1.16.98)
+
+- Replaced the heavy attendance save-time call to `getAttendanceSessionDetail()` with a lean save-only snapshot query.
+- The save action now loads only the data needed to validate and write attendance:
+  - session id/campus/source/status/date
+  - current roster assignment ids
+  - existing attendance records for correction audit
+  - active absence/injury incident ids for source tagging
+- Removed display-only reads from the submit path:
+  - player names
+  - coach names
+  - campus labels
+  - session display metadata
+  - roster display fields
+- Updated performance instrumentation segment from `session_detail` to `save_snapshot`.
+- Expected effect:
+  - fewer Supabase GETs during attendance submit
+  - lower server wait time before the write path
+- Safety note:
+  - campus write access, cancelled/completed guards, incident source tagging, correction audit, and attendance upsert semantics remain intact
+
 ## 2026-04-29 (session 152)
 
 ### Attendance Save Performance Instrumentation (v1.16.97)

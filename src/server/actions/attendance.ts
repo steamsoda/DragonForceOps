@@ -7,7 +7,6 @@ import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
 import { getPermissionContext, requireAttendanceWriteContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { createPerfTimer } from "@/lib/perf/timing";
-import { getAttendanceSessionDetail } from "@/lib/queries/attendance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyDateString } from "@/lib/time";
 
@@ -31,6 +30,36 @@ type ExistingTrainingSessionRow = {
   session_date: string;
   start_time: string;
   session_type: string;
+};
+
+type AttendanceSaveSessionSnapshot = {
+  id: string;
+  campus_id: string;
+  team_id: string | null;
+  training_group_id: string | null;
+  session_date: string;
+  status: string;
+};
+
+type AttendanceSaveRosterRow = {
+  assignment_id: string;
+  assignment_source: "team" | "training_group";
+  enrollment_id: string;
+  player_id: string;
+};
+
+type AttendanceSaveExistingRecord = {
+  id: string;
+  enrollment_id: string;
+  status: string;
+  source: string;
+  note: string | null;
+};
+
+type AttendanceSaveIncident = {
+  id: string;
+  enrollment_id: string;
+  incident_type: string;
 };
 
 function clean(value: FormDataEntryValue | null) {
@@ -84,6 +113,87 @@ function mapClosureReasonToSessionCancelReason(reasonCode: string) {
   if (reasonCode === "rain") return "rain";
   if (reasonCode === "holiday" || reasonCode === "vacation") return "holiday";
   return "other";
+}
+
+async function getAttendanceSaveSnapshot(admin: ReturnType<typeof createAdminClient>, sessionId: string) {
+  const { data: session } = await admin
+    .from("attendance_sessions")
+    .select("id, campus_id, team_id, training_group_id, session_date, status")
+    .eq("id", sessionId)
+    .maybeSingle<AttendanceSaveSessionSnapshot | null>();
+
+  if (!session) return null;
+
+  const rosterResult = session.training_group_id
+    ? await admin
+        .from("training_group_assignments")
+        .select("id, enrollment_id, enrollments!inner(id, player_id, status)")
+        .eq("training_group_id", session.training_group_id)
+        .lte("start_date", session.session_date)
+        .or(`end_date.is.null,end_date.gte.${session.session_date}`)
+        .eq("enrollments.status", "active")
+        .returns<Array<{
+          id: string;
+          enrollment_id: string;
+          enrollments: { id: string; player_id: string; status: string } | null;
+        }>>()
+    : await admin
+        .from("team_assignments")
+        .select("id, enrollment_id, enrollments!inner(id, player_id, status)")
+        .eq("team_id", session.team_id!)
+        .eq("is_primary", true)
+        .lte("start_date", session.session_date)
+        .or(`end_date.is.null,end_date.gte.${session.session_date}`)
+        .eq("enrollments.status", "active")
+        .returns<Array<{
+          id: string;
+          enrollment_id: string;
+          enrollments: { id: string; player_id: string; status: string } | null;
+        }>>();
+
+  const roster: AttendanceSaveRosterRow[] = (rosterResult.data ?? [])
+    .filter((row) => row.enrollments?.player_id)
+    .map((row) => ({
+      assignment_id: row.id,
+      assignment_source: session.training_group_id ? "training_group" : "team",
+      enrollment_id: row.enrollment_id,
+      player_id: row.enrollments!.player_id,
+    }));
+
+  const enrollmentIds = roster.map((row) => row.enrollment_id);
+  const [{ data: records }, incidentsResult] = await Promise.all([
+    admin
+      .from("attendance_records")
+      .select("id, enrollment_id, status, source, note")
+      .eq("session_id", sessionId)
+      .returns<AttendanceSaveExistingRecord[]>(),
+    enrollmentIds.length === 0
+      ? Promise.resolve({ data: [] as AttendanceSaveIncident[] })
+      : admin
+          .from("enrollment_incidents")
+          .select("id, enrollment_id, incident_type")
+          .in("enrollment_id", enrollmentIds)
+          .in("incident_type", ["injury", "absence"])
+          .is("cancelled_at", null)
+          .or(`starts_on.is.null,starts_on.lte.${session.session_date}`)
+          .or(`ends_on.is.null,ends_on.gte.${session.session_date}`)
+          .returns<AttendanceSaveIncident[]>(),
+  ]);
+
+  const incidentByEnrollment = new Map<string, AttendanceSaveIncident>();
+  for (const incident of incidentsResult.data ?? []) {
+    const existing = incidentByEnrollment.get(incident.enrollment_id);
+    if (!existing || incident.incident_type === "injury") {
+      incidentByEnrollment.set(incident.enrollment_id, incident);
+    }
+  }
+
+  return {
+    session,
+    roster,
+    records: records ?? [],
+    incidentByEnrollment,
+  };
 }
 
 async function requireScheduleManager() {
@@ -607,47 +717,41 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   const context = await requireAttendanceWriteContext("/unauthorized");
   perf.mark("auth_context");
   const admin = createAdminClient();
-  const detail = await getAttendanceSessionDetail(sessionId);
-  perf.mark("session_detail");
+  const snapshot = await getAttendanceSaveSnapshot(admin, sessionId);
+  perf.mark("save_snapshot");
   const sessionNotes = clean(formData.get("session_notes")) || null;
 
-  if (!detail || !canWriteAttendanceCampus(context.attendanceCampusAccess, detail.campusId)) redirect("/unauthorized");
-  if (detail.status === "cancelled") redirect(`/attendance/sessions/${sessionId}?err=cancelled`);
-  if (detail.status === "completed" && !context.isDirector) redirect(`/attendance/sessions/${sessionId}?err=director_required`);
+  if (!snapshot || !canWriteAttendanceCampus(context.attendanceCampusAccess, snapshot.session.campus_id)) redirect("/unauthorized");
+  if (snapshot.session.status === "cancelled") redirect(`/attendance/sessions/${sessionId}?err=cancelled`);
+  if (snapshot.session.status === "completed" && !context.isDirector) redirect(`/attendance/sessions/${sessionId}?err=director_required`);
 
   const existingByEnrollment = new Map(
-    detail.roster
-      .filter((player) => player.recordId)
-      .map((player) => [player.enrollmentId, {
-        id: player.recordId!,
-        status: player.currentStatus,
-        source: player.source,
-        note: player.note,
-      }])
+    snapshot.records.map((record) => [record.enrollment_id, record])
   );
   perf.mark("prepare_existing_map");
 
-  const rows = detail.roster.map((player) => {
-    const rawStatus = clean(formData.get(`status:${player.enrollmentId}`));
+  const rows = snapshot.roster.map((player) => {
+    const rawStatus = clean(formData.get(`status:${player.enrollment_id}`));
     const status = VALID_STATUSES.has(rawStatus) ? rawStatus : "present";
-    const note = clean(formData.get(`note:${player.enrollmentId}`)) || null;
+    const note = clean(formData.get(`note:${player.enrollment_id}`)) || null;
+    const incident = snapshot.incidentByEnrollment.get(player.enrollment_id) ?? null;
     const source =
-      detail.status === "completed"
+      snapshot.session.status === "completed"
         ? "correction"
-        : player.incidentId && (status === "injury" || status === "justified")
+        : incident && (status === "injury" || status === "justified")
           ? "incident"
           : status === "present" && !note
             ? "default"
             : "manual";
     return {
       session_id: sessionId,
-      team_assignment_id: player.assignmentSource === "team" ? player.assignmentId : null,
-      training_group_assignment_id: player.assignmentSource === "training_group" ? player.assignmentId : null,
-      enrollment_id: player.enrollmentId,
-      player_id: player.playerId,
+      team_assignment_id: player.assignment_source === "team" ? player.assignment_id : null,
+      training_group_assignment_id: player.assignment_source === "training_group" ? player.assignment_id : null,
+      enrollment_id: player.enrollment_id,
+      player_id: player.player_id,
       status,
       source,
-      incident_id: source === "incident" ? player.incidentId : null,
+      incident_id: source === "incident" ? incident?.id ?? null : null,
       note,
       recorded_by: context.user.id,
       updated_by: context.user.id,
@@ -674,9 +778,11 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   });
   perf.mark("prepare_audit_rows");
 
-  const { error } = await admin
-    .from("attendance_records")
-    .upsert(rows, { onConflict: "session_id,enrollment_id" });
+  const { error } = rows.length > 0
+    ? await admin
+        .from("attendance_records")
+        .upsert(rows, { onConflict: "session_id,enrollment_id" })
+    : { error: null };
   perf.mark("records_upsert");
 
   if (error) redirect(`/attendance/sessions/${sessionId}?err=save_failed`);
@@ -701,7 +807,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   await writeAuditLog(admin, {
     actorUserId: context.user.id,
     actorEmail: context.user.email,
-    action: detail.status === "completed" ? "attendance_session.corrected" : "attendance_session.completed",
+    action: snapshot.session.status === "completed" ? "attendance_session.corrected" : "attendance_session.completed",
     tableName: "attendance_sessions",
     recordId: sessionId,
     afterData: { records: rows.length, has_session_notes: Boolean(sessionNotes) },
@@ -715,7 +821,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   perf.end({
     rosterCount: rows.length,
     auditRows: auditRows.length,
-    statusBefore: detail.status,
+    statusBefore: snapshot.session.status,
     hasSessionNotes: Boolean(sessionNotes),
   });
   redirect(`/attendance/sessions/${sessionId}?ok=saved`);
