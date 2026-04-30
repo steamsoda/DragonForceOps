@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.100",
+  "version": "1.16.101",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,11 +11,17 @@
     "test:pricing": "node scripts/assert-enrollment-pricing-rules.mjs",
     "diagnose:finance": "node scripts/export-finance-anomaly-report.mjs",
     "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs",
-    "apply:finance-repair": "node scripts/apply-finance-repair-pass.mjs"
+    "apply:finance-repair": "node scripts/apply-finance-repair-pass.mjs",
+    "supabase": "supabase",
+    "db:inspect:outliers": "supabase inspect db outliers",
+    "db:inspect:blocking": "supabase inspect db blocking",
+    "db:inspect:calls": "supabase inspect db calls",
+    "db:inspect:indexes": "supabase inspect db index-stats"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.57.2",
+    "@vercel/speed-insights": "^2.0.0",
     "exceljs": "^4.4.0",
     "next": "^16.2.2",
     "react": "19.0.0",
@@ -32,6 +38,7 @@
     "eslint-config-next": "^16.1.6",
     "pg": "^8.20.0",
     "postcss": "^8.5.3",
+    "supabase": "^2.95.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2"
   }

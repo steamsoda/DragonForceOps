@@ -739,9 +739,16 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     const status = VALID_STATUSES.has(rawStatus) ? rawStatus : "present";
     const note = clean(formData.get(`note:${player.enrollment_id}`)) || null;
     const incident = snapshot.incidentByEnrollment.get(player.enrollment_id) ?? null;
+    const before = existingByEnrollment.get(player.enrollment_id);
+    const completedCorrectionChanged =
+      snapshot.session.status === "completed" &&
+      before &&
+      (before.status !== status || (before.note ?? null) !== note);
     const source =
-      snapshot.session.status === "completed"
+      completedCorrectionChanged || (snapshot.session.status === "completed" && !before)
         ? "correction"
+        : snapshot.session.status === "completed" && before
+          ? before.source
         : incident && (status === "injury" || status === "justified")
           ? "incident"
           : status === "present" && !note
@@ -764,10 +771,15 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   });
   perf.mark("prepare_rows");
 
-  const auditRows = rows.flatMap((row) => {
+  const rowsToUpsert = rows.filter((row) => {
+    const before = existingByEnrollment.get(row.enrollment_id);
+    if (!before) return true;
+    return before.status !== row.status || (before.note ?? null) !== row.note || before.source !== row.source;
+  });
+
+  const auditRows = rowsToUpsert.flatMap((row) => {
     const before = existingByEnrollment.get(row.enrollment_id);
     if (!before) return [];
-    if (before.status === row.status && (before.note ?? null) === row.note && before.source === row.source) return [];
     return [{
       attendance_record_id: before.id,
       session_id: sessionId,
@@ -782,10 +794,10 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   });
   perf.mark("prepare_audit_rows");
 
-  const { error } = rows.length > 0
+  const { error } = rowsToUpsert.length > 0
     ? await admin
         .from("attendance_records")
-        .upsert(rows, { onConflict: "session_id,enrollment_id" })
+        .upsert(rowsToUpsert, { onConflict: "session_id,enrollment_id" })
     : { error: null };
   perf.mark("records_upsert");
 
@@ -814,7 +826,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     action: snapshot.session.status === "completed" ? "attendance_session.corrected" : "attendance_session.completed",
     tableName: "attendance_sessions",
     recordId: sessionId,
-    afterData: { records: rows.length, has_session_notes: Boolean(sessionNotes) },
+    afterData: { records: rows.length, upserted_records: rowsToUpsert.length, has_session_notes: Boolean(sessionNotes) },
   });
   perf.mark("audit_log");
 
@@ -825,6 +837,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   const savedAt = new Date().toISOString();
   perf.end({
     rosterCount: rows.length,
+    upsertRows: rowsToUpsert.length,
     auditRows: auditRows.length,
     statusBefore: snapshot.session.status,
     hasSessionNotes: Boolean(sessionNotes),

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Aoboshi_One } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const aoboshi = Aoboshi_One({
@@ -25,7 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        {children}
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

@@ -1,5 +1,33 @@
 # Devlog
 
+## 2026-04-29 (session 156)
+
+### Attendance Correction Audit + Observability Pass (v1.16.101)
+
+- Reduced unnecessary attendance correction writes:
+  - completed sessions now preserve each existing row's `source` when status/note did not change
+  - unchanged completed rows are skipped from `attendance_records` upsert
+  - unchanged completed rows no longer create `attendance_record_audit` rows
+  - performance logs now include `upsertRows` in addition to roster and audit counts
+- Disabled Next.js prefetch on global app navigation links:
+  - desktop sidebar
+  - mobile menu links
+  - debug quick links
+  - goal is to reduce background `_rsc` request noise from heavy internal pages
+- Added Vercel Speed Insights:
+  - installed `@vercel/speed-insights`
+  - mounted `<SpeedInsights />` in the root app layout
+  - this gives browser-side/Core Web Vitals visibility in Vercel without exposing app secrets
+- Added Supabase CLI as a dev dependency with DB inspect scripts:
+  - `npm run supabase -- inspect db --help`
+  - `npm run db:inspect:outliers`
+  - `npm run db:inspect:calls`
+  - `npm run db:inspect:blocking`
+  - `npm run db:inspect:indexes`
+- Safety note:
+  - no production database schema or RLS behavior changed
+  - Supabase CLI scripts are local/dev diagnostics only and require an authenticated/linked project or explicit DB URL
+
 ## 2026-04-29 (session 155)
 
 ### Attendance Save Inline Result UX (v1.16.100)

@@ -28,6 +28,7 @@ export function AppSidebar({ sections }: { sections: NavSection[] }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      prefetch={false}
                       className={`flex items-center rounded-md px-2 py-1.5 text-sm transition-colors ${
                         isActive
                           ? "bg-portoBlue/10 font-medium text-portoBlue dark:bg-portoBlue/20 dark:text-blue-300"

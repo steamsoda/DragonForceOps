@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.100`
+Current preview release line: `v1.16.101`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -250,6 +250,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - successful saves show immediately and lock the form to prevent duplicate submissions
        - expected business errors render inline
        - removes the forced post-save `303` redirect/page reload while keeping writes and audit behavior unchanged
+     - `v1.16.101` continues the performance pass:
+       - skips unchanged completed-session attendance rows from upsert/audit writes
+       - disables global navigation prefetch to reduce background `_rsc` request noise from heavy app pages
+       - adds Vercel Speed Insights for browser-side performance visibility
+       - adds Supabase CLI DB inspect scripts for query/index/blocking diagnostics
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
