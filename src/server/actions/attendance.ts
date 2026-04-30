@@ -6,6 +6,7 @@ import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
 import { getPermissionContext, requireAttendanceWriteContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
+import { createPerfTimer } from "@/lib/perf/timing";
 import { getAttendanceSessionDetail } from "@/lib/queries/attendance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyDateString } from "@/lib/time";
@@ -600,10 +601,14 @@ export async function cancelAttendanceSessionAction(sessionId: string, formData:
 }
 
 export async function saveAttendanceSessionAction(sessionId: string, formData: FormData) {
+  const perf = createPerfTimer("attendance.save");
   await assertDebugWritesAllowed(`/attendance/sessions/${sessionId}`);
+  perf.mark("debug_guard");
   const context = await requireAttendanceWriteContext("/unauthorized");
+  perf.mark("auth_context");
   const admin = createAdminClient();
   const detail = await getAttendanceSessionDetail(sessionId);
+  perf.mark("session_detail");
   const sessionNotes = clean(formData.get("session_notes")) || null;
 
   if (!detail || !canWriteAttendanceCampus(context.attendanceCampusAccess, detail.campusId)) redirect("/unauthorized");
@@ -620,6 +625,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
         note: player.note,
       }])
   );
+  perf.mark("prepare_existing_map");
 
   const rows = detail.roster.map((player) => {
     const rawStatus = clean(formData.get(`status:${player.enrollmentId}`));
@@ -648,6 +654,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
       updated_at: new Date().toISOString(),
     };
   });
+  perf.mark("prepare_rows");
 
   const auditRows = rows.flatMap((row) => {
     const before = existingByEnrollment.get(row.enrollment_id);
@@ -665,16 +672,19 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
       after_note: row.note,
     }];
   });
+  perf.mark("prepare_audit_rows");
 
   const { error } = await admin
     .from("attendance_records")
     .upsert(rows, { onConflict: "session_id,enrollment_id" });
+  perf.mark("records_upsert");
 
   if (error) redirect(`/attendance/sessions/${sessionId}?err=save_failed`);
 
   if (auditRows.length > 0 && context.isDirector) {
     await admin.from("attendance_record_audit").insert(auditRows);
   }
+  perf.mark("correction_audit");
 
   await admin
     .from("attendance_sessions")
@@ -686,6 +696,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
       updated_at: new Date().toISOString(),
     })
     .eq("id", sessionId);
+  perf.mark("session_update");
 
   await writeAuditLog(admin, {
     actorUserId: context.user.id,
@@ -695,9 +706,17 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     recordId: sessionId,
     afterData: { records: rows.length, has_session_notes: Boolean(sessionNotes) },
   });
+  perf.mark("audit_log");
 
   revalidatePath("/attendance");
   revalidatePath(`/attendance/sessions/${sessionId}`);
   revalidatePath("/attendance/reports");
+  perf.mark("revalidate");
+  perf.end({
+    rosterCount: rows.length,
+    auditRows: auditRows.length,
+    statusBefore: detail.status,
+    hasSessionNotes: Boolean(sessionNotes),
+  });
   redirect(`/attendance/sessions/${sessionId}?ok=saved`);
 }

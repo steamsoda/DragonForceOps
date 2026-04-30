@@ -1,5 +1,29 @@
 # Devlog
 
+## 2026-04-29 (session 152)
+
+### Attendance Save Performance Instrumentation (v1.16.97)
+
+- Added a small reusable server timing helper at `src/lib/perf/timing.ts`.
+- Instrumented `saveAttendanceSessionAction()` with safe segment timing logs.
+- New Vercel log line format:
+  - `[perf] attendance.save`
+  - includes total duration, segment durations, roster count, audit-row count, prior session status, and whether session notes were present
+- Timing segments now tracked:
+  - debug guard
+  - auth/context load
+  - session detail load
+  - row preparation
+  - audit-row preparation
+  - attendance-record upsert
+  - correction audit insert
+  - session update
+  - audit log
+  - revalidation
+- Safety note:
+  - logs do not include player names, notes, payment data, secrets, or row payloads
+  - this is measurement-only; attendance save behavior did not change
+
 ## 2026-04-29 (session 151)
 
 ### Front Desk Performance Audit Planning
