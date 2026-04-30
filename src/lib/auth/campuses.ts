@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
@@ -38,7 +39,7 @@ function chooseDefaultCampus(campuses: AccessibleCampus[]) {
   })[0];
 }
 
-async function loadAllCampuses() {
+const loadAllCampuses = cache(async function loadAllCampuses() {
   const supabase = await createClient();
   const admin = tryCreateAdminClient();
 
@@ -70,7 +71,7 @@ async function loadAllCampuses() {
   }
 
   return fallback.data ?? primary.data ?? [];
-}
+});
 
 export type OperationalCampusAccess = {
   userId: string;
@@ -107,7 +108,7 @@ export type AttendanceCampusAccess = {
   defaultCampusId: string | null;
 };
 
-export async function getOperationalCampusAccess(): Promise<OperationalCampusAccess | null> {
+export const getOperationalCampusAccess = cache(async function getOperationalCampusAccess(): Promise<OperationalCampusAccess | null> {
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
@@ -163,9 +164,9 @@ export async function getOperationalCampusAccess(): Promise<OperationalCampusAcc
     campusIds: campuses.map((campus) => campus.id),
     defaultCampusId: defaultCampus?.id ?? null,
   };
-}
+});
 
-export async function getAttendanceCampusAccess(): Promise<AttendanceCampusAccess | null> {
+export const getAttendanceCampusAccess = cache(async function getAttendanceCampusAccess(): Promise<AttendanceCampusAccess | null> {
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
@@ -222,9 +223,9 @@ export async function getAttendanceCampusAccess(): Promise<AttendanceCampusAcces
     campusIds: campuses.map((campus) => campus.id),
     defaultCampusId: defaultCampus?.id ?? null,
   };
-}
+});
 
-export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess | null> {
+export const getNutritionCampusAccess = cache(async function getNutritionCampusAccess(): Promise<NutritionCampusAccess | null> {
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
@@ -273,7 +274,7 @@ export async function getNutritionCampusAccess(): Promise<NutritionCampusAccess 
     campusIds: campuses.map((campus) => campus.id),
     defaultCampusId: defaultCampus?.id ?? null,
   };
-}
+});
 
 export function canAccessCampus(access: OperationalCampusAccess | null, campusId: string | null | undefined) {
   if (!access || !campusId) return false;

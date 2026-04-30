@@ -1,10 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-28.
+Updated continuously. Last updated: 2026-04-30.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.101`
+Current preview release line: `v1.16.104`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -122,8 +122,16 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
        - `Corte Diario` does not currently show the same issue at present payment volumes
-       - next hardening target is `Jugadores`, where all-campus / `pendingMonth` / enrollment-linked follow-up queries still use the same risky pattern and can fail at current prod scale
-       - goal: chunk/paginate or move remaining high-risk aggregations into SQL/RPC before they become another operations incident
+       - `v1.16.103` hardens `Jugadores` all-campus / `pendingMonth` / enrollment-linked follow-up queries with paged base reads and chunked follow-up `.in(...)` reads
+       - continue scanning remaining high-risk aggregations and move them into chunked reads or SQL/RPC before they become another operations incident
+     - advisor/security hardening:
+       - `v1.16.104` records the first Supabase/Vercel advisor pass before the next production merge
+       - migration hardens flagged `SECURITY DEFINER` function search paths, optimizes auth-heavy RLS policy predicates, and keeps internal RLS tables explicitly closed to clients
+       - second migration adds the 49 production-advisor foreign-key indexes
+       - preview branch has been migrated and rerun through Supabase advisor with no remaining findings in the targeted categories and no advisor errors
+       - Vercel checks showed no active project alerts, failed checks, or security incidents in the inspected window
+       - defer the `pg_trgm` extension relocation warning into its own tested migration because existing trigram behavior/indexes may depend on the current extension placement
+       - defer multiple permissive policy consolidation and unused-index cleanup until after role-flow regression testing and real preview traffic
 
 5. Product and competition rules rework follow-up
    - planning doc:
@@ -255,12 +263,18 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - disables global navigation prefetch to reduce background `_rsc` request noise from heavy app pages
        - adds Vercel Speed Insights for browser-side performance visibility
        - adds Supabase CLI DB inspect scripts for query/index/blocking diagnostics
+     - `v1.16.102` establishes the first DB inspect baseline with restored preview/prod SQL access:
+       - production blocking check returned no active blockers
+       - raw local reports are kept under ignored `.tmp/db-inspect-2026-04-30/`
+       - first patch adds request-scoped caching around access/campus resolution
+       - first SQL hardening adds `idx_charges_enrollment_created_at` for the repeated enrollment-ledger charge query
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
        - creates next Monday-Sunday training sessions from active training-group schedule templates
        - generator is idempotent and skips already-created group/date/time training sessions
-     - live Supabase cron verification still requires a direct prod SQL path to inspect `cron.job`; the repo migration and expected cron definition are documented, but the local linked project is not prod
+     - direct SQL access has now verified `cron.job` on both preview (`eqefgwdsqabnmpnbpqbq`) and production (`hjvytfaalnfcqfgbxsmj`)
+     - both branches have active Supabase `pg_cron` jobs for attendance generation and monthly charge generation
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
      - add a broader performance audit lane for slow staff workflows:

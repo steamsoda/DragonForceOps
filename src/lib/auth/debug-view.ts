@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { APP_ROLES } from "@/lib/auth/roles";
@@ -127,7 +128,7 @@ function buildResolvedUser(
   };
 }
 
-export async function getDebugViewContext(): Promise<DebugViewContext | null> {
+export const getDebugViewContext = cache(async function getDebugViewContext(): Promise<DebugViewContext | null> {
   const supabase = await createClient();
   const admin = tryCreateAdminClient();
   const {
@@ -171,7 +172,7 @@ export async function getDebugViewContext(): Promise<DebugViewContext | null> {
     activeView,
     isReadOnly: activeView !== null,
   };
-}
+});
 
 export async function requireDebugManagerContext(redirectTo = "/unauthorized") {
   const context = await getDebugViewContext();

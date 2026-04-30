@@ -24,6 +24,7 @@ supabase/.temp/
 .vercel
 .vscode/
 tmp/
+.tmp/
 
 # QZ Tray private key — never commit
 qz-private.pem

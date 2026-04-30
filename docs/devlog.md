@@ -1,5 +1,97 @@
 # Devlog
 
+## 2026-04-30 (session 157)
+
+### Advisor Security Hardening Pass (v1.16.104)
+
+- Ran Supabase advisor and Vercel advisor/security checks against the preview and production branches.
+- Stored raw advisor output locally under ignored `.tmp/advisor-2026-04-30/`.
+- Supabase findings were mostly advisory/performance noise, but the first actionable security cleanup is now migration-backed:
+  - set explicit `search_path = public` on eight flagged `SECURITY DEFINER` functions
+  - rewrote nine RLS policies so `auth.uid()`, role helper calls, and authenticated-role checks can be evaluated as initPlans instead of per row
+  - added explicit no-client-access policies for internal RLS tables with no policies:
+    - `campus_folio_counters`
+    - `finance_reconciliation_snapshots`
+- Added migration `20260430201000_advisor_foreign_key_indexes.sql` for the 49 production-advisor unindexed foreign-key findings.
+- Applied the pending migrations to the preview Supabase branch and reran the preview advisor.
+- Added follow-up migration `20260430202000_advisor_preview_policy_cleanup.sql` after the preview rerun caught advisor regressions:
+  - explicitly enables RLS on the internal no-client-access tables before their deny policies
+  - restores auth-role predicates for `app_settings` and `uniform_orders` without reintroducing auth initplan warnings
+- Preview advisor confirmation after cleanup:
+  - no `function_search_path_mutable` findings
+  - no `auth_rls_initplan` findings
+  - no `rls_enabled_no_policy` findings
+  - no `unindexed_foreign_keys` findings
+  - no advisor errors
+- Vercel checks did not show active project alerts, failed checks, or firewall/security incidents in the inspected window.
+- Deferred the `pg_trgm` extension warning:
+  - it is installed in `public` and backs trigram behavior/indexes
+  - moving it should be handled as a separate tested migration, not bundled into this low-risk cleanup pass
+- Remaining preview advisor buckets after this pass:
+  - `extension_in_public` for `pg_trgm`
+  - `multiple_permissive_policies`
+  - `unused_index` noise, including freshly-created FK indexes that need traffic before usage stats become meaningful
+- Validated the advisor migrations against both preview and production inside rollback transactions.
+
+### Jugadores Large-Query Hardening (v1.16.103)
+
+- Hardened `Jugadores` against the same Supabase/PostgREST scaling risks previously found in `Pendientes`.
+- Updated `listPlayers()` so the base active-player query pages through all rows instead of relying on the default PostgREST response cap.
+- Replaced large unchunked `.in(...)` follow-up queries with small chunked + paged reads for:
+  - guardian links
+  - primary team assignments
+  - uniform orders when that tag is enabled
+  - selected-month tuition charges
+  - active incident indicators
+- Paged the pending-balance RPC read and narrowed it to the selected/single accessible campus when possible.
+- Paged `listBirthYears()` so the player filter metadata does not silently truncate as the academy grows.
+- Behavior intentionally unchanged:
+  - filters, sort order, tags, monthly pending markers, incident markers, and pagination output remain the same
+  - this is query-shape hardening only
+
+### DB Inspect Baseline + First Performance Patch (v1.16.102)
+
+- Ran Supabase DB inspect diagnostics against both preview and production:
+  - `calls`
+  - `outliers`
+  - `blocking`
+  - `index-stats`
+- Stored raw diagnostic output locally under ignored `.tmp/db-inspect-2026-04-30/`.
+- Production findings:
+  - no active blocking detected
+  - repeated Supabase Auth/session queries are the highest call-count system-level traffic
+  - highest repeated app-level reads are campus/role access resolution and enrollment ledger charge/payment reads
+  - the enrollment ledger charge query is the clearest low-risk index target: `charges` filtered by `enrollment_id` and ordered by `created_at desc`
+- Added request-scoped React cache around:
+  - debug/effective-user access context resolution
+  - operational campus access resolution
+  - attendance campus access resolution
+  - nutrition campus access resolution
+  - active-campus bootstrap loading
+- Added migration `20260430190000_ledger_charge_created_at_index.sql`:
+  - `idx_charges_enrollment_created_at` on `public.charges (enrollment_id, created_at desc)`
+- Added `.tmp/` to `.gitignore` so local diagnostics are not accidentally committed.
+- Safety note:
+  - no production data was changed locally
+  - the new DB change is migration-only and will follow the existing preview-first migration flow
+
+### Supabase Branch Access Restored
+
+- Restored local direct SQL access for both Supabase branches without exposing credentials:
+  - preview branch project ref: `eqefgwdsqabnmpnbpqbq`
+  - production/main project ref: `hjvytfaalnfcqfgbxsmj`
+- Added local ignored DB URL env entries so Supabase CLI diagnostics can target each branch:
+  - `SUPABASE_PREVIEW_DB_URL` in `.env.local`
+  - `SUPABASE_PROD_DB_URL` in `.env.prod.local`
+- Verified direct SQL connectivity to both branches as Postgres user `postgres`.
+- Verified `cron.job` on both branches:
+  - `generate-attendance-sessions` is active at `0 6 * * 0`
+  - `generate-monthly-charges` is active at `0 6 1 * *`
+- This resolves the previous blocker around production cron verification for attendance generation.
+- Safety note:
+  - no schema, RLS, application, or production data changes were made
+  - secrets were not printed to terminal output or committed
+
 ## 2026-04-29 (session 156)
 
 ### Attendance Correction Audit + Observability Pass (v1.16.101)
