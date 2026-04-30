@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import type { AttendanceRosterPlayer } from "@/lib/queries/attendance";
 import { saveAttendanceSessionAction } from "@/server/actions/attendance";
 
@@ -15,6 +16,96 @@ type Status = keyof typeof STATUS_META;
 
 function nextStatus(current: Status) {
   return current === "absent" ? "present" : "absent";
+}
+
+const INCIDENT_STATUS_OPTIONS: Status[] = ["injury", "justified"];
+
+const AttendancePlayerRow = memo(function AttendancePlayerRow({
+  player,
+  status,
+  disabled,
+  onToggle,
+  onSetStatus,
+}: {
+  player: AttendanceRosterPlayer;
+  status: Status;
+  disabled: boolean;
+  onToggle: (enrollmentId: string) => void;
+  onSetStatus: (enrollmentId: string, status: Status) => void;
+}) {
+  const meta = STATUS_META[status];
+  const isIncident = player.source === "incident";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <input type="hidden" name={`status:${player.enrollmentId}`} value={status} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onToggle(player.enrollmentId)}
+          className={`flex min-h-16 flex-1 items-center justify-between rounded-lg border px-4 py-3 text-left transition ${meta.className} disabled:cursor-not-allowed disabled:opacity-70`}
+        >
+          <span>
+            <span className="block text-base font-semibold">{player.playerName}</span>
+            <span className="block text-xs opacity-80">
+              Cat. {player.birthYear ?? "-"}{isIncident ? " | prellenado por incidente" : ""}
+            </span>
+          </span>
+          <span className="rounded-full border border-current px-3 py-1 text-sm font-bold">{meta.short}</span>
+        </button>
+
+        {isIncident ? (
+          <div className="flex gap-2">
+            {INCIDENT_STATUS_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSetStatus(player.enrollmentId, option)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:hover:bg-slate-800"
+              >
+                {STATUS_META[option].label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {player.incidentNote ? (
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Incidente: {player.incidentNote}
+        </p>
+      ) : null}
+      <label className="mt-3 block text-xs font-medium text-slate-500 dark:text-slate-400">
+        Nota opcional
+        <input
+          name={`note:${player.enrollmentId}`}
+          defaultValue={player.note ?? ""}
+          disabled={disabled}
+          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+          placeholder="Observacion breve"
+        />
+      </label>
+    </div>
+  );
+});
+
+function SaveAttendanceButton({
+  disabled,
+}: {
+  disabled: boolean;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {pending ? "Guardando..." : "Guardar asistencia"}
+    </button>
+  );
 }
 
 export function AttendanceRecorder({
@@ -35,6 +126,20 @@ export function AttendanceRecorder({
   const [statuses, setStatuses] = useState<Record<string, Status>>(initial);
 
   const presentCount = Object.values(statuses).filter((status) => status !== "absent").length;
+  const saveDisabled = disabled || roster.length === 0;
+  const handleToggle = useCallback((enrollmentId: string) => {
+    setStatuses((current) => {
+      const currentStatus = current[enrollmentId] ?? "present";
+      return { ...current, [enrollmentId]: nextStatus(currentStatus) };
+    });
+  }, []);
+
+  const handleSetStatus = useCallback((enrollmentId: string, status: Status) => {
+    setStatuses((current) => {
+      if (current[enrollmentId] === status) return current;
+      return { ...current, [enrollmentId]: status };
+    });
+  }, []);
 
   return (
     <form action={saveAttendanceSessionAction.bind(null, sessionId)} className="space-y-4">
@@ -48,66 +153,16 @@ export function AttendanceRecorder({
       </div>
 
       <div className="grid gap-3">
-        {roster.map((player) => {
-          const status = statuses[player.enrollmentId] ?? "present";
-          const meta = STATUS_META[status];
-          const isIncident = player.source === "incident";
-          return (
-            <div
-              key={player.enrollmentId}
-              className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
-            >
-              <input type="hidden" name={`status:${player.enrollmentId}`} value={status} />
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => setStatuses((current) => ({ ...current, [player.enrollmentId]: nextStatus(status) }))}
-                  className={`flex min-h-16 flex-1 items-center justify-between rounded-lg border px-4 py-3 text-left transition ${meta.className} disabled:cursor-not-allowed disabled:opacity-70`}
-                >
-                  <span>
-                    <span className="block text-base font-semibold">{player.playerName}</span>
-                    <span className="block text-xs opacity-80">
-                      Cat. {player.birthYear ?? "-"}{isIncident ? " | prellenado por incidente" : ""}
-                    </span>
-                  </span>
-                  <span className="rounded-full border border-current px-3 py-1 text-sm font-bold">{meta.short}</span>
-                </button>
-
-                {isIncident ? (
-                  <div className="flex gap-2">
-                    {(["injury", "justified"] as Status[]).map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setStatuses((current) => ({ ...current, [player.enrollmentId]: option }))}
-                        className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:hover:bg-slate-800"
-                      >
-                        {STATUS_META[option].label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              {player.incidentNote ? (
-                <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  Incidente: {player.incidentNote}
-                </p>
-              ) : null}
-              <label className="mt-3 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                Nota opcional
-                <input
-                  name={`note:${player.enrollmentId}`}
-                  defaultValue={player.note ?? ""}
-                  disabled={disabled}
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder="Observacion breve"
-                />
-              </label>
-            </div>
-          );
-        })}
+        {roster.map((player) => (
+          <AttendancePlayerRow
+            key={player.enrollmentId}
+            player={player}
+            status={statuses[player.enrollmentId] ?? "present"}
+            disabled={disabled}
+            onToggle={handleToggle}
+            onSetStatus={handleSetStatus}
+          />
+        ))}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -128,13 +183,7 @@ export function AttendanceRecorder({
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           Listo para guardar: {presentCount}/{roster.length} cuentan como asistencia
         </p>
-        <button
-          type="submit"
-          disabled={disabled || roster.length === 0}
-          className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Guardar asistencia
-        </button>
+        <SaveAttendanceButton disabled={saveDisabled} />
       </div>
     </form>
   );

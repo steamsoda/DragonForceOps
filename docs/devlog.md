@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-04-29 (session 150)
+
+### Attendance Recorder Render Performance (v1.16.96)
+
+- Optimized the attendance capture UI after Vercel interaction timing showed a full-page/main rerender around roster toggles.
+- Extracted each roster player card into a memoized row component so changing one player's status does not rerender every row.
+- Added stable status-change callbacks for row toggles and incident status buttons.
+- Added form pending state to the save button:
+  - button shows `Guardando...`
+  - duplicate submits are blocked while the save action is pending
+- Scope note:
+  - this is a client-render responsiveness pass only
+  - no attendance schema, save semantics, role access, or report logic changed
+
 ## 2026-04-29 (session 149)
 
 ### Attendance Capture Field UX + Save Path Polish (v1.16.95)

@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.95`
+Current preview release line: `v1.16.96`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -230,6 +230,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - adds general session notes stored on `attendance_sessions.notes`
        - moves cancellation into a collapsed danger zone with a required confirmation checkbox
        - removes a duplicate attendance-record read from the save action to reduce save latency
+     - `v1.16.96` improves attendance recorder render performance:
+       - memoizes roster player cards so one status toggle does not rerender the full roster
+       - keeps status-change callbacks stable
+       - adds pending state to the save button to prevent duplicate submits
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
