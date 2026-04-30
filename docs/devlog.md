@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-04-29 (session 147)
+
+### Training Group Auto-Assignment Second Pass (v1.16.93)
+
+- Tightened the `Configuracion Grupos` review workflow for the remaining active players without training-group assignment.
+- Centralized the training-group matching logic so the dry-run table and the apply action use the same rules.
+- The automatic pass now only applies `auto-safe` matches:
+  - active group only
+  - same campus
+  - compatible category/YOB
+  - compatible gender
+  - compatible program
+  - compatible FPT subgrupo (`B1/B2/B3`) when known
+- Projected groups, missing birth year, missing compatible gender, multiple active candidates, and unresolved subgrupo cases stay in manual review.
+- Updated review counts so the bucket summary reflects the selected campus/category scope before the review filter is applied.
+- Safety note:
+  - no raw SQL assignment pass was added
+  - no finance, Caja, enrollment, nutrition, competition, or attendance-record data is mutated
+  - the apply button only creates normal `training_group_assignments` through the existing audited assignment path
+
 ## 2026-04-29 (session 146)
 
 ### Field Admin Role Audit Polish (v1.16.92)

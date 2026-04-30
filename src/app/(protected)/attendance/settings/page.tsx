@@ -423,14 +423,16 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Revision de asignaciones</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Autoasigna solo coincidencias unicas; el resto queda en revision manual.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Pase seguro: solo aplica grupos activos con coincidencia unica por campus, categoria, genero, programa y subgrupo. Proyectados o ambiguos quedan manuales.
+              </p>
             </div>
             {data.canManage ? (
               <form action={applySuggestedTrainingGroupsAction}>
                 {data.selectedCampusId ? <input type="hidden" name="campus_id" value={data.selectedCampusId} /> : null}
                 {data.selectedBirthYear ? <input type="hidden" name="birth_year" value={data.selectedBirthYear} /> : null}
                 <button className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30">
-                  Aplicar sugerencias unicas
+                  Aplicar pase automatico seguro
                 </button>
               </form>
             ) : null}
@@ -480,6 +482,11 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
                         </div>
                       </td>
                       <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
+                        <div className="mb-1 flex flex-wrap gap-1.5">
+                          {row.suggestionConfidence === "auto_safe" ? chip("Auto seguro", "emerald") : null}
+                          {row.suggestionConfidence === "manual_review" ? chip("Manual", "amber") : null}
+                          {row.suggestionConfidence === "no_match" ? chip("Sin match", "rose") : null}
+                        </div>
                         <p>{row.suggestionGroupName ?? "Sin sugerencia"}</p>
                         <p className="text-xs">{row.suggestionReason}</p>
                       </td>

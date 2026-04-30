@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.92`
+Current preview release line: `v1.16.93`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -214,6 +214,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - adds preview Debug permisos personas for `attendance_admin` in Contry and Linda Vista
        - `/inicio` now shows attendance entry cards for attendance-only users
        - preview debug shortcut links now respect the effective role, so Field Admin views do not show finance/operations shortcuts
+     - `v1.16.93` adds the second safe training-group auto-assignment pass:
+       - centralizes matching so the review table and apply action use the same logic
+       - auto-applies only active, unambiguous campus/YOB/gender/program/subgrupo matches
+       - projected, ambiguous, missing-data, or no-match cases stay in manual review
+       - keeps assignment writes on the existing audited `training_group_assignments` path
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`

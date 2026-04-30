@@ -8,6 +8,10 @@ import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  resolveTrainingGroupSuggestion,
+  type TrainingGroupCandidate,
+} from "@/lib/training-groups/matching";
+import {
   normalizeTrainingGroupGender,
   normalizeTrainingGroupProgram,
   normalizeTrainingGroupStatus,
@@ -359,6 +363,17 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
 
   const assignedEnrollments = new Set((assignments ?? []).map((row) => row.enrollment_id));
   const competitionByEnrollment = new Map((competitionAssignments ?? []).map((row) => [row.enrollment_id, row.teams?.level ?? null]));
+  const candidateGroups: TrainingGroupCandidate[] = (groups ?? []).map((group) => ({
+    id: group.id,
+    name: group.name,
+    campusId: group.campus_id,
+    program: group.program,
+    groupCode: group.group_code,
+    gender: group.gender,
+    birthYearMin: group.birth_year_min,
+    birthYearMax: group.birth_year_max,
+    status: group.status,
+  }));
 
   let applied = 0;
   for (const enrollment of enrollments ?? []) {
@@ -366,30 +381,22 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
     const year = enrollment.players?.birth_date ? Number.parseInt(enrollment.players.birth_date.slice(0, 4), 10) : null;
     if (birthYear && String(year ?? "") !== birthYear) continue;
     const resolvedLevel = competitionByEnrollment.get(enrollment.id) ?? enrollment.players?.level ?? null;
-    const levelCodeMatch = /\b(B1|B2|B3)\b/i.exec(resolvedLevel ?? "");
-    const levelCode = levelCodeMatch ? levelCodeMatch[1].toUpperCase() : null;
-    const program = resolvedLevel === "Selectivo" ? "selectivo" : resolvedLevel === "Little Dragons" ? "little_dragons" : "futbol_para_todos";
-    const candidates = (groups ?? []).filter((group) => {
-      if (group.campus_id !== enrollment.campus_id) return false;
-      if (group.program !== program) return false;
-      if (year != null) {
-        if (group.birth_year_min != null && year < group.birth_year_min) return false;
-        if (group.birth_year_max != null && year > group.birth_year_max) return false;
-      }
-      if (group.gender !== "mixed" && enrollment.players?.gender && group.gender !== enrollment.players.gender) return false;
-      if (group.gender !== "mixed" && !enrollment.players?.gender) return false;
-      if (program === "futbol_para_todos" && levelCode && group.group_code && group.group_code !== levelCode) return false;
-      return true;
+    const suggestion = resolveTrainingGroupSuggestion({
+      groups: candidateGroups,
+      campusId: enrollment.campus_id,
+      birthYear: year,
+      gender: enrollment.players?.gender ?? null,
+      resolvedLevel,
     });
 
-    if (candidates.length !== 1) continue;
+    if (suggestion.confidence !== "auto_safe" || !suggestion.suggestionGroupId) continue;
 
     const ok = await upsertTrainingGroupAssignment({
       admin,
       actorUserId: context.user.id,
       actorEmail: context.user.email,
       enrollmentId: enrollment.id,
-      trainingGroupId: candidates[0].id,
+      trainingGroupId: suggestion.suggestionGroupId,
       assignmentStart: enrollment.start_date || getMonterreyDateString(),
     });
     if (ok) applied += 1;
