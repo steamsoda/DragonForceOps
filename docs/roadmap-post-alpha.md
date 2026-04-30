@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.83`
+Current preview release line: `v1.16.93`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -126,6 +126,13 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - goal: chunk/paginate or move remaining high-risk aggregations into SQL/RPC before they become another operations incident
 
 5. Product and competition rules rework follow-up
+   - planning doc:
+     - `docs/planning/competitions-roster-builder-plan.md`
+   - agreed sports competition model:
+     - training groups define invitation/eligibility pools
+     - competition signup state tracks invited/eligible/confirmed players
+     - competition teams/rosters are tournament-specific and can be built from signed-up players
+     - paid-product detection remains a compatibility input, not the permanent source of truth
    - continue the pending rework for product and competition rules
    - `v1.16.75` adds the first scoped-product capability:
      - products can optionally be restricted to one or more training groups
@@ -133,6 +140,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - Caja filters restricted products by the selected player's active training-group assignment and server actions enforce the same rule
    - include rule cleanup needed for current operations, not only the longer sports rethink
    - likely areas:
+     - training-group invitation filters for competitions
+     - Trello-style roster builder for `Dragon Force Azul` / `Dragon Force Blanco`
      - product typing and competition linkage rules
      - signup / eligibility rules
      - cross-surface consistency between product setup, sports boards, and finance interpretation
@@ -140,6 +149,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - this should be shaped with the current operational surfaces in mind, especially `Inscripciones Torneos`, instead of reviving heavier abstractions prematurely
 
 6. Attendance tracking v1
+   - planning doc:
+     - `docs/planning/attendance-training-groups-roadmap.md` defines the next attendance + training-groups simplification pass
+     - `docs/planning/attendance-calendar-closures-plan.md` defines the future calendar, rain-day, vacation, and closure workflow
+     - agreed direction: `Nivel` as ability placement becomes legacy; training groups use program/YOB/gender/campus plus `Subgrupo` (`B1/B2/B3`) as a logistics label, and competition teams stay separate until the tournament cleanup
    - `v1.16.63` adds internal attendance tracking on preview:
      - campus-scoped `attendance_admin` role
      - top-level `Asistencia` lane with `Hoy`, `Horarios`, and `Reportes`
@@ -159,9 +172,66 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - auto-create missing weekly templates for all active training groups with seeded time slots
      - skips projected/no-time groups and avoids duplicating active overlapping templates
    - continuation follow-up:
-     - add an in-app `Generar sesiones` shortcut so staff can materialize `attendance_sessions` for the current/selected week without needing Supabase SQL
+     - `v1.16.84` starts the attendance/training-groups roadmap execution:
+       - simplifies `Asistencia > Hoy` for Field Admin users
+       - adds clearer daily session summary cards and capture-oriented session cards
+       - hides group/schedule setup from pure `attendance_admin` navigation
+       - protects attendance group/schedule setup routes so only directors/admins or Director Deportivo can access them directly
+     - `v1.16.85` adds the read-only monthly group attendance view:
+       - `Asistencia > Grupos` now shows training-group cards and player-level monthly attendance detail
+       - the editable training-group catalog moved to `Asistencia > Configuracion`
+       - Field Admin and Front Desk can see the read-only group view without schedule/group mutation access
+       - player profiles now sort recent attendance by session date and show recent-session dates in the attendance widget
+     - `v1.16.86` polishes the group drilldown:
+       - selected group detail now appears above the grid and card clicks anchor directly to it
+       - `Configuracion Grupos` moved out of the regular Asistencia nav and into the Super Admin submenu
+     - `v1.16.87` adds the compact monthly attendance matrix:
+       - selected group detail now shows one compact status cell per completed session per player
+       - markers use `P/A/J/L/-` for present, absent, justified, injury, and no record
+       - aggregate player stats remain beside the historical grid
+     - `v1.16.88` adds the manual generation safeguard:
+       - directors/admins can generate the selected Monday-Sunday week from `Asistencia > Hoy`
+       - the action reuses the idempotent SQL generator and reports expected, created, and already-existing session counts
+       - Field Admin remains excluded from generation; their workflow stays daily capture only
+     - `v1.16.89` adds campus-scoped session generation:
+       - new SQL function `generate_attendance_sessions_for_campus(start_date, end_date, campus_id)`
+       - `Asistencia > Hoy` now requires a specific campus before manual generation
+       - directors/admins and Director Deportivo can generate only the selected campus week within their scope
+       - the global Sunday Supabase cron remains unchanged
+     - `v1.16.90` adds the first read-only attendance calendar:
+       - route: `/attendance/calendar`
+       - month/campus filters
+       - day cards with scheduled, completed, and cancelled session counts
+       - expandable day detail linking to existing session pages
+       - no closure schema or mutation behavior yet
+     - `v1.16.91` adds planned attendance closures:
+       - new `attendance_closures` table for rain days, holidays, vacation periods, special events, and other closures
+       - directors/admins and Director Deportivo can register closures from `Asistencia > Calendario`
+       - applying a closure cancels matching scheduled sessions in the range
+       - future generated sessions inside a closure are created as `cancelled`, not omitted
+       - completed sessions are intentionally not auto-cancelled by the closure action
+     - `v1.16.92` audits and polishes Field Admin access:
+       - adds preview Debug permisos personas for `attendance_admin` in Contry and Linda Vista
+       - `/inicio` now shows attendance entry cards for attendance-only users
+       - preview debug shortcut links now respect the effective role, so Field Admin views do not show finance/operations shortcuts
+     - `v1.16.93` adds the second safe training-group auto-assignment pass:
+       - centralizes matching so the review table and apply action use the same logic
+       - auto-applies only active, unambiguous campus/YOB/gender/program/subgrupo matches
+       - projected, ambiguous, missing-data, or no-match cases stay in manual review
+       - keeps assignment writes on the existing audited `training_group_assignments` path
+     - confirmed current automation:
+       - Supabase `pg_cron` job `generate-attendance-sessions`
+       - runs Sundays at `06:00 UTC`
+       - creates next Monday-Sunday training sessions from active training-group schedule templates
+       - generator is idempotent and skips already-created group/date/time training sessions
+     - live Supabase cron verification still requires a direct prod SQL path to inspect `cron.job`; the repo migration and expected cron definition are documented, but the local linked project is not prod
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
+     - future calendar/closure lane:
+      - expand the literal attendance calendar from read-only session visibility into closure workflows
+      - support vacation days/weeks, rain days, campus-specific closures, and special events
+      - recommended direction: create sessions inside planned closures as `cancelled`, not omitted, so staff can see why attendance was not required
+      - cancelled/closed days should remain visible operationally but excluded from attendance-rate calculations
    - safety boundaries:
      - parent-facing attendance remains out of scope
      - coach login/workflows remain deferred
@@ -170,14 +240,14 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - no changes to Caja, finance, enrollment, nutrition, or existing sports signup workflows
    - follow-up before production hardening:
      - review whether attendance should be driven by `Nivel` instead of `teams`
-     - see `docs/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
+     - see `docs/planning/training-groups-model-analysis.md` for the recommended `Training Groups` vs `Teams` split
      - adjust schedule templates, session generation, roster resolution, reports, and UI copy if `Nivel` becomes the operational attendance grouping
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked
 
 7. `Jugadores` spreadsheet-style roster view
    - `v1.16.69` adds the first app-native answer to the old Excel workbook workflow:
-     - planning doc: `docs/jugadores-spreadsheet-view-plan.md`
+     - planning doc: `docs/planning/jugadores-spreadsheet-view-plan.md`
      - route state: `/players?view=groups`
      - read-only, campus-scoped, training-group organized roster
      - permanent global public player IDs in `DF-0001` format
@@ -266,9 +336,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - whether reports are generated on demand only or stored for later download
 
 10. Sports grouping model simplification: program over `Nivel`
+   - planning doc:
+     - `docs/planning/attendance-training-groups-roadmap.md`
    - planning direction:
-     - move away from ambiguous `Nivel` as the primary grouping concept
+     - move away from ambiguous `Nivel` as an ability/placement concept
      - make `Futbol Para Todos` vs `Selectivos` an explicit sports program axis
+     - keep `B1/B2/B3` as `Subgrupo` logistics for FPT where needed
      - keep training groups as the daily practice roster model
      - keep `teams` as the competition/tournament roster model
    - affected surfaces to audit before implementation:
@@ -286,6 +359,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 11. Attendance workflow simplification and automation
    - goal:
      - make attendance usable for normal field/admin users without exposing unnecessary schedule-template internals
+   - first implementation:
+     - `v1.16.84` narrows the Field Admin navigation to daily capture plus reports
+     - `Asistencia > Hoy` now uses capture-oriented copy, status KPIs, and clearer session cards
+     - setup pages remain available to directors/admins and Director Deportivo, not regular field users
+     - `v1.16.85` adds the first read-only group/month board and moves editable group setup under `Configuracion`
    - UX follow-up:
      - make `Hoy` clearly show generated sessions and explain empty states
      - simplify the session capture path for regular users
@@ -937,7 +1015,7 @@ Decision pending — revisit once parent app scope is finalized.
 | ✅ | Corte Diario shortcuts in Caja header | 16 | v1.1.0: "Corte Linda Vista" / "Corte Contry" link buttons for directors; pre-filters campus for today |
 | ✅ | Patch 1 data migration | 16 | v1.1.1: 11 name/birthdate corrections, 3 duplicate deletions, 4 bajas, 2 new players (Mitre brothers), 45 March payment backfills |
 | ✅ | Receipt reprint + multi-month tuition selection in Caja | 17 | v1.1.3: `/receipts` can reprint historical receipts through QZ Tray; Caja advance tuition no longer forces immediate payment and can be stacked/charged together |
-| ✅ | Preview demo SQL seed + ledger/Caja payment wiring alignment | 18 | v1.1.4: added manual `docs/preview-demo-seed.sql` for preview-only fake data; ledger payments now share folio/session/audit/cache side effects with Caja and `/receipts?payment=...` lookup works |
+| ✅ | Preview demo SQL seed + ledger/Caja payment wiring alignment | 18 | v1.1.4: added manual `docs/legacy/preview-demo-seed.sql` for preview-only fake data; ledger payments now share folio/session/audit/cache side effects with Caja and `/receipts?payment=...` lookup works |
 | ✅ | Preview build hotfix for shared payment helper | 18 | v1.1.5: fixed Next.js server-action build error by making `revalidatePaymentSurfaces()` async inside `"use server"` module and awaiting it from ledger/Caja payment flows |
 | ✅ | Receipts search regression fix | 18 | v1.1.6: `/receipts` now loads payments first and resolves enrollment/player/campus labels in a second query, avoiding null nested relation rows that hid all receipts |
 | ✅ | Receipts filtering hotfix | 18 | v1.1.7: removed DB-side prefiltering by enrollment/player for `/receipts`; filtering now happens after loading posted payments and enrollment metadata, which fixes zero-result searches in preview |

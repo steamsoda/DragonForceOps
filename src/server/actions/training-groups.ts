@@ -8,6 +8,10 @@ import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  resolveTrainingGroupSuggestion,
+  type TrainingGroupCandidate,
+} from "@/lib/training-groups/matching";
+import {
   normalizeTrainingGroupGender,
   normalizeTrainingGroupProgram,
   normalizeTrainingGroupStatus,
@@ -35,7 +39,7 @@ function isDateOnly(value: string) {
 async function requireTrainingGroupManager() {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) {
-    redirect("/attendance/groups?err=unauthorized");
+    redirect("/attendance/settings?err=unauthorized");
   }
   return { context, admin: createAdminClient() };
 }
@@ -141,7 +145,7 @@ async function upsertTrainingGroupAssignment(params: {
 }
 
 export async function createTrainingGroupAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const campusId = clean(formData.get("campus_id"));
   const name = clean(formData.get("name"));
@@ -159,10 +163,10 @@ export async function createTrainingGroupAction(formData: FormData) {
   const primaryCoachId = clean(formData.get("primary_coach_id")) || null;
 
   if (!campusId || !name || !canWriteAttendanceCampus(context.attendanceCampusAccess, campusId)) {
-    redirect("/attendance/groups?err=invalid_group");
+    redirect("/attendance/settings?err=invalid_group");
   }
   if ((startTime && !isTimeOnly(startTime)) || (endTime && !isTimeOnly(endTime))) {
-    redirect("/attendance/groups?err=invalid_time");
+    redirect("/attendance/settings?err=invalid_time");
   }
 
   const { data: created, error } = await admin
@@ -184,7 +188,7 @@ export async function createTrainingGroupAction(formData: FormData) {
     .select("id")
     .maybeSingle<{ id: string } | null>();
 
-  if (error || !created) redirect("/attendance/groups?err=create_failed");
+  if (error || !created) redirect("/attendance/settings?err=create_failed");
 
   await syncGroupCoaches({ admin, trainingGroupId: created.id, coachIds, primaryCoachId });
 
@@ -198,14 +202,14 @@ export async function createTrainingGroupAction(formData: FormData) {
   });
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=group_created");
+  redirect("/attendance/settings?ok=group_created");
 }
 
 export async function updateTrainingGroupAction(groupId: string, formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const name = clean(formData.get("name"));
   const program = normalizeTrainingGroupProgram(clean(formData.get("program")));
@@ -221,9 +225,9 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
   const coachIds = formData.getAll("coach_ids").map((value) => String(value));
   const primaryCoachId = clean(formData.get("primary_coach_id")) || null;
 
-  if (!groupId || !name) redirect("/attendance/groups?err=invalid_group");
+  if (!groupId || !name) redirect("/attendance/settings?err=invalid_group");
   if ((startTime && !isTimeOnly(startTime)) || (endTime && !isTimeOnly(endTime))) {
-    redirect("/attendance/groups?err=invalid_time");
+    redirect("/attendance/settings?err=invalid_time");
   }
 
   const { data: existing } = await admin
@@ -233,7 +237,7 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
     .maybeSingle<{ id: string; campus_id: string } | null>();
 
   if (!existing || !canWriteAttendanceCampus(context.attendanceCampusAccess, existing.campus_id)) {
-    redirect("/attendance/groups?err=unauthorized");
+    redirect("/attendance/settings?err=unauthorized");
   }
 
   const { error } = await admin
@@ -254,7 +258,7 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
     })
     .eq("id", groupId);
 
-  if (error) redirect("/attendance/groups?err=update_failed");
+  if (error) redirect("/attendance/settings?err=update_failed");
 
   await syncGroupCoaches({ admin, trainingGroupId: groupId, coachIds, primaryCoachId });
 
@@ -268,21 +272,21 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
   });
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=group_updated");
+  redirect("/attendance/settings?ok=group_updated");
 }
 
 export async function assignTrainingGroupAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const enrollmentId = clean(formData.get("enrollment_id"));
   const trainingGroupId = clean(formData.get("training_group_id"));
   const assignmentStart = clean(formData.get("assignment_start")) || getMonterreyDateString();
 
   if (!enrollmentId || !trainingGroupId || !isDateOnly(assignmentStart)) {
-    redirect("/attendance/groups?err=invalid_assignment");
+    redirect("/attendance/settings?err=invalid_assignment");
   }
 
   const ok = await upsertTrainingGroupAssignment({
@@ -294,18 +298,18 @@ export async function assignTrainingGroupAction(formData: FormData) {
     assignmentStart,
   });
 
-  if (!ok) redirect("/attendance/groups?err=assignment_failed");
+  if (!ok) redirect("/attendance/settings?err=assignment_failed");
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/attendance/reports");
   revalidatePath("/new-enrollments");
-  redirect("/attendance/groups?ok=assignment_saved");
+  redirect("/attendance/settings?ok=assignment_saved");
 }
 
 export async function applySuggestedTrainingGroupsAction(formData: FormData) {
-  await assertDebugWritesAllowed("/attendance/groups");
+  await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
   const campusId = clean(formData.get("campus_id")) || null;
   const birthYear = clean(formData.get("birth_year")) || null;
@@ -314,7 +318,7 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
     ? [campusId]
     : context.attendanceCampusAccess?.campusIds ?? [];
 
-  if (campusIds.length === 0) redirect("/attendance/groups?err=unauthorized");
+  if (campusIds.length === 0) redirect("/attendance/settings?err=unauthorized");
 
   const [{ data: groups }, { data: assignments }, { data: enrollments }, { data: competitionAssignments }] = await Promise.all([
     admin
@@ -359,6 +363,17 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
 
   const assignedEnrollments = new Set((assignments ?? []).map((row) => row.enrollment_id));
   const competitionByEnrollment = new Map((competitionAssignments ?? []).map((row) => [row.enrollment_id, row.teams?.level ?? null]));
+  const candidateGroups: TrainingGroupCandidate[] = (groups ?? []).map((group) => ({
+    id: group.id,
+    name: group.name,
+    campusId: group.campus_id,
+    program: group.program,
+    groupCode: group.group_code,
+    gender: group.gender,
+    birthYearMin: group.birth_year_min,
+    birthYearMax: group.birth_year_max,
+    status: group.status,
+  }));
 
   let applied = 0;
   for (const enrollment of enrollments ?? []) {
@@ -366,39 +381,31 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
     const year = enrollment.players?.birth_date ? Number.parseInt(enrollment.players.birth_date.slice(0, 4), 10) : null;
     if (birthYear && String(year ?? "") !== birthYear) continue;
     const resolvedLevel = competitionByEnrollment.get(enrollment.id) ?? enrollment.players?.level ?? null;
-    const levelCodeMatch = /\b(B1|B2|B3)\b/i.exec(resolvedLevel ?? "");
-    const levelCode = levelCodeMatch ? levelCodeMatch[1].toUpperCase() : null;
-    const program = resolvedLevel === "Selectivo" ? "selectivo" : resolvedLevel === "Little Dragons" ? "little_dragons" : "futbol_para_todos";
-    const candidates = (groups ?? []).filter((group) => {
-      if (group.campus_id !== enrollment.campus_id) return false;
-      if (group.program !== program) return false;
-      if (year != null) {
-        if (group.birth_year_min != null && year < group.birth_year_min) return false;
-        if (group.birth_year_max != null && year > group.birth_year_max) return false;
-      }
-      if (group.gender !== "mixed" && enrollment.players?.gender && group.gender !== enrollment.players.gender) return false;
-      if (group.gender !== "mixed" && !enrollment.players?.gender) return false;
-      if (program === "futbol_para_todos" && levelCode && group.group_code && group.group_code !== levelCode) return false;
-      return true;
+    const suggestion = resolveTrainingGroupSuggestion({
+      groups: candidateGroups,
+      campusId: enrollment.campus_id,
+      birthYear: year,
+      gender: enrollment.players?.gender ?? null,
+      resolvedLevel,
     });
 
-    if (candidates.length !== 1) continue;
+    if (suggestion.confidence !== "auto_safe" || !suggestion.suggestionGroupId) continue;
 
     const ok = await upsertTrainingGroupAssignment({
       admin,
       actorUserId: context.user.id,
       actorEmail: context.user.email,
       enrollmentId: enrollment.id,
-      trainingGroupId: candidates[0].id,
+      trainingGroupId: suggestion.suggestionGroupId,
       assignmentStart: enrollment.start_date || getMonterreyDateString(),
     });
     if (ok) applied += 1;
   }
 
   revalidatePath("/attendance");
-  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/settings");
   revalidatePath("/attendance/schedules");
   revalidatePath("/attendance/reports");
   revalidatePath("/new-enrollments");
-  redirect(`/attendance/groups?ok=suggestions_applied&count=${applied}`);
+  redirect(`/attendance/settings?ok=suggestions_applied&count=${applied}`);
 }

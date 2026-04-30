@@ -1,514 +1,280 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
-import { getTrainingGroupsManagementData, type TrainingGroupReviewState, type TrainingGroupSummaryRow } from "@/lib/queries/training-groups";
+import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import {
-  createTrainingGroupAction,
-  updateTrainingGroupAction,
-  assignTrainingGroupAction,
-  applySuggestedTrainingGroupsAction,
-} from "@/server/actions/training-groups";
-import {
-  TRAINING_GROUP_GENDER_LABELS,
-  TRAINING_GROUP_GENDER_OPTIONS,
-  TRAINING_GROUP_PROGRAM_LABELS,
-  TRAINING_GROUP_PROGRAM_OPTIONS,
-  TRAINING_GROUP_STATUS_LABELS,
-  TRAINING_GROUP_STATUS_OPTIONS,
-} from "@/lib/training-groups/shared";
-import { getMonterreyDateString } from "@/lib/time";
+  ATTENDANCE_STATUS_LABELS,
+  getAttendanceGroupsMonthlyData,
+  type AttendanceGroupMonthlyCard,
+} from "@/lib/queries/attendance";
 
-type SearchParams = Promise<{
-  campus?: string;
-  program?: string;
-  status?: string;
-  review?: string;
-  birthYear?: string;
-  ok?: string;
-  err?: string;
-  count?: string;
-}>;
+type SearchParams = Promise<{ campus?: string; month?: string; group?: string }>;
 
-const REVIEW_LABELS: Record<TrainingGroupReviewState, string> = {
-  assigned: "Con grupo",
-  suggested: "Sugerencia unica",
-  ambiguous: "Revision manual",
-  unmatched: "Sin grupo",
-};
+function formatRate(rate: number | null) {
+  return rate == null ? "Sin datos" : `${rate}%`;
+}
 
-function chip(label: string, tone: "slate" | "amber" | "emerald" | "blue" | "rose" = "slate") {
-  const tones = {
-    slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    amber: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
-    blue: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200",
-    rose: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200",
+function groupHref(params: { campus?: string | null; month: string; group?: string | null }) {
+  const search = new URLSearchParams();
+  if (params.campus) search.set("campus", params.campus);
+  if (params.month) search.set("month", params.month);
+  if (params.group) search.set("group", params.group);
+  const query = search.toString();
+  const path = query ? `/attendance/groups?${query}` : "/attendance/groups";
+  return params.group ? `${path}#detalle` : path;
+}
+
+function rateClass(rate: number | null) {
+  if (rate == null) return "text-slate-500";
+  if (rate < 70) return "text-rose-700 dark:text-rose-300";
+  if (rate < 85) return "text-amber-700 dark:text-amber-300";
+  return "text-emerald-700 dark:text-emerald-300";
+}
+
+function statusChip(status: string | null) {
+  if (!status) return <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-500">Sin sesiones</span>;
+  const tones: Record<string, string> = {
+    present: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    absent: "border-rose-200 bg-rose-50 text-rose-800",
+    injury: "border-sky-200 bg-sky-50 text-sky-800",
+    justified: "border-slate-200 bg-slate-50 text-slate-700",
   };
-
   return (
-    <span className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${tones[tone]}`}>
-      {label}
+    <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${tones[status] ?? tones.present}`}>
+      {ATTENDANCE_STATUS_LABELS[status] ?? status}
     </span>
   );
 }
 
-function buildHref(params: {
-  campus?: string;
-  program?: string;
-  status?: string;
-  review?: string;
-  birthYear?: string;
-}) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value) search.set(key, value);
-  }
-  const query = search.toString();
-  return query ? `/attendance/groups?${query}` : "/attendance/groups";
-}
-
-function GroupEditor({
-  group,
-  coachOptions,
-  canManage,
-}: {
-  group: TrainingGroupSummaryRow;
-  coachOptions: Array<{ id: string; campusId: string; name: string }>;
-  canManage: boolean;
-}) {
-  const campusCoachOptions = coachOptions.filter((coach) => coach.campusId === group.campusId);
-
+function matrixStatusCell(status: string | null) {
+  const meta: Record<string, { label: string; text: string; className: string }> = {
+    present: { label: "Presente", text: "P", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    absent: { label: "Ausente", text: "A", className: "border-rose-200 bg-rose-50 text-rose-800" },
+    injury: { label: "Lesion", text: "L", className: "border-sky-200 bg-sky-50 text-sky-800" },
+    justified: { label: "Justificada", text: "J", className: "border-slate-200 bg-slate-50 text-slate-700" },
+  };
+  const resolved = status ? meta[status] : null;
   return (
-    <details className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{group.name}</p>
-            {chip(group.programLabel, "blue")}
-            {chip(group.statusLabel, group.status === "active" ? "emerald" : group.status === "projected" ? "amber" : "slate")}
-            {group.groupCode ? chip(group.groupCode, "slate") : null}
-          </div>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            {group.campusName} | Cat. {group.birthYearLabel} | {group.genderLabel}
-            {group.startTime && group.endTime ? ` | ${group.startTime}-${group.endTime}` : ""}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {chip(`${group.activeAssignments} activos`, group.activeAssignments > 0 ? "emerald" : "slate")}
-            {group.levelLabel ? chip(group.levelLabel, "slate") : null}
-            {group.coachNamesLabel ? chip(`Coach ${group.coachNamesLabel}`, "slate") : chip("Sin coach", "rose")}
-          </div>
-          {group.notes ? <p className="text-xs text-slate-500 dark:text-slate-400">{group.notes}</p> : null}
-        </div>
-        <span className="text-sm font-medium text-portoBlue">Editar</span>
-      </summary>
-      <div className="border-t border-slate-200 px-4 py-4 dark:border-slate-700">
-        {canManage ? (
-          <form action={updateTrainingGroupAction.bind(null, group.id)} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Nombre</span>
-              <input name="name" defaultValue={group.name} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Programa</span>
-              <select name="program" defaultValue={group.program} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                {TRAINING_GROUP_PROGRAM_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{TRAINING_GROUP_PROGRAM_LABELS[value]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Nivel</span>
-              <input name="level_label" defaultValue={group.levelLabel ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Codigo</span>
-              <input name="group_code" defaultValue={group.groupCode ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Genero</span>
-              <select name="gender" defaultValue={group.gender} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                {TRAINING_GROUP_GENDER_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{TRAINING_GROUP_GENDER_LABELS[value]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Ano minimo</span>
-              <input name="birth_year_min" type="number" defaultValue={group.birthYearMin ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Ano maximo</span>
-              <input name="birth_year_max" type="number" defaultValue={group.birthYearMax ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Estado</span>
-              <select name="status" defaultValue={group.status} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                {TRAINING_GROUP_STATUS_OPTIONS.map((value) => (
-                  <option key={value} value={value}>{TRAINING_GROUP_STATUS_LABELS[value]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Inicio</span>
-              <input name="start_time" type="time" defaultValue={group.startTime ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Fin</span>
-              <input name="end_time" type="time" defaultValue={group.endTime ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="grid gap-1 text-sm xl:col-span-2">
-              <span className="font-medium">Coach principal</span>
-              <select name="primary_coach_id" defaultValue={group.primaryCoachId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                <option value="">Sin coach principal</option>
-                {campusCoachOptions.map((coach) => (
-                  <option key={coach.id} value={coach.id}>{coach.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm xl:col-span-2">
-              <span className="font-medium">Coaches vinculados</span>
-              <select name="coach_ids" multiple defaultValue={group.coachIds} size={Math.min(6, Math.max(3, campusCoachOptions.length))} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                {campusCoachOptions.map((coach) => (
-                  <option key={coach.id} value={coach.id}>{coach.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm xl:col-span-4">
-              <span className="font-medium">Notas</span>
-              <textarea name="notes" defaultValue={group.notes ?? ""} rows={2} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <div className="xl:col-span-4">
-              <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Guardar grupo</button>
-            </div>
-          </form>
-        ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Solo directores y Director Deportivo pueden editar grupos.</p>
-        )}
-      </div>
-    </details>
+    <span
+      title={resolved?.label ?? "Sin registro"}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border text-[11px] font-bold ${
+        resolved?.className ?? "border-slate-200 bg-white text-slate-300"
+      }`}
+    >
+      {resolved?.text ?? "-"}
+    </span>
   );
 }
 
-export default async function TrainingGroupsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceWriteContext("/unauthorized");
-  const params = await searchParams;
-  const data = await getTrainingGroupsManagementData({
-    campusId: params.campus,
-    program: params.program,
-    status: params.status,
-    review: params.review,
-    birthYear: params.birthYear,
-  });
+function GroupCard({
+  group,
+  selectedCampusId,
+  selectedMonth,
+  isSelected,
+}: {
+  group: AttendanceGroupMonthlyCard;
+  selectedCampusId: string | null;
+  selectedMonth: string;
+  isSelected: boolean;
+}) {
+  return (
+    <Link
+      href={groupHref({ campus: selectedCampusId, month: selectedMonth, group: group.groupId })}
+      className={`rounded-xl border bg-white p-4 shadow-sm transition hover:border-portoBlue dark:bg-slate-900 ${
+        isSelected
+          ? "border-portoBlue ring-2 ring-blue-100 dark:border-blue-500 dark:ring-blue-950"
+          : "border-slate-200 dark:border-slate-700"
+      }`}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-slate-900 dark:text-slate-100">{group.birthYearLabel} - {group.groupName}</p>
+            {group.subgroupLabel ? <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-800">{group.subgroupLabel}</span> : null}
+          </div>
+          <p className="text-xs text-slate-500">
+            {group.campusName} | {group.programLabel} | {group.genderLabel}
+            {group.startTime && group.endTime ? ` | ${group.startTime}-${group.endTime}` : ""}
+          </p>
+          <p className="text-xs text-slate-500">Coach {group.coachName ?? "-"}</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2 text-center text-xs">
+          <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
+            <p className="text-slate-500">Jug.</p>
+            <p className="text-base font-bold text-slate-900 dark:text-slate-100">{group.activePlayers}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
+            <p className="text-slate-500">Ses.</p>
+            <p className="text-base font-bold text-slate-900 dark:text-slate-100">{group.completedSessions}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
+            <p className="text-slate-500">Aus.</p>
+            <p className="text-base font-bold text-slate-900 dark:text-slate-100">{group.absent}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
+            <p className="text-slate-500">Tasa</p>
+            <p className={`text-base font-bold ${rateClass(group.rate)}`}>{formatRate(group.rate)}</p>
+          </div>
+        </div>
+        {group.cancelledSessions > 0 ? (
+          <p className="text-xs text-slate-500">{group.cancelledSessions} cancelada(s), fuera del calculo.</p>
+        ) : null}
+      </div>
+    </Link>
+  );
+}
 
-  if (!data) redirect("/unauthorized");
-
-  const successMessage =
-    params.ok === "group_created"
-      ? "Grupo creado correctamente."
-      : params.ok === "group_updated"
-        ? "Grupo actualizado correctamente."
-        : params.ok === "assignment_saved"
-          ? "Asignacion guardada correctamente."
-          : params.ok === "suggestions_applied"
-            ? `Sugerencias aplicadas: ${params.count ?? "0"}`
-            : null;
-
-  const today = getMonterreyDateString();
+function SelectedGroupDetail({
+  data,
+}: {
+  data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
+}) {
+  if (!data.selectedGroup) return null;
 
   return (
-    <PageShell
-      title="Grupos de entrenamiento"
-      subtitle="Roster operativo para asistencia y seguimiento deportivo. No cambia el flujo de competencias."
-      breadcrumbs={[{ label: "Asistencia", href: "/attendance" }, { label: "Grupos" }]}
-      wide
-    >
-      <div className="space-y-6">
-        {params.err ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">Error: {params.err}</div>
-        ) : null}
-        {successMessage ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{successMessage}</div>
-        ) : null}
+    <section id="detalle" className="scroll-mt-6 space-y-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/60 dark:bg-slate-900">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-portoBlue">Detalle del grupo seleccionado</p>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {data.selectedGroup.birthYearLabel} - {data.selectedGroup.groupName}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {data.selectedGroup.campusName} | {data.selectedGroup.programLabel} | {data.selectedGroup.genderLabel} | Coach {data.selectedGroup.coachName ?? "-"}
+          </p>
+        </div>
+        <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth })} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+          Cerrar detalle
+        </Link>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
+            <tr>
+              <th className="px-3 py-2">Jugador</th>
+              <th className="px-3 py-2">Categoria</th>
+              {data.selectedGroupSessions.map((session) => (
+                <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
+                  {session.sessionDate.slice(8, 10)}
+                </th>
+              ))}
+              <th className="px-3 py-2">Sesiones</th>
+              <th className="px-3 py-2">Ausencias</th>
+              <th className="px-3 py-2">Justificadas / lesion</th>
+              <th className="px-3 py-2">Tasa</th>
+              <th className="px-3 py-2">Ultima</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.players.map((player) => (
+              <tr key={player.enrollmentId}>
+                <td className="px-3 py-2">
+                  <Link href={`/players/${player.playerId}`} className="font-medium text-portoBlue hover:underline">{player.playerName}</Link>
+                  <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
+                </td>
+                <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
+                {data.selectedGroupSessions.map((session) => (
+                  <td key={`${player.enrollmentId}-${session.sessionId}`} className="px-1 py-2 text-center">
+                    {matrixStatusCell(player.statusesBySession[session.sessionId] ?? null)}
+                  </td>
+                ))}
+                <td className="px-3 py-2">{player.attended} de {player.total}</td>
+                <td className="px-3 py-2">{player.absent}</td>
+                <td className="px-3 py-2">{player.justified + player.injury}</td>
+                <td className={`px-3 py-2 font-semibold ${rateClass(player.rate)}`}>{formatRate(player.rate)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {statusChip(player.lastStatus)}
+                    <span className="text-xs text-slate-500">{player.lastSessionDate ?? "-"}</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {data.players.length === 0 ? (
+              <tr><td colSpan={7 + data.selectedGroupSessions.length} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+        <span className="font-semibold text-slate-600">Leyenda:</span>
+        <span>P = presente</span>
+        <span>A = ausente</span>
+        <span>J = justificada</span>
+        <span>L = lesion</span>
+        <span>- = sin registro</span>
+      </div>
+    </section>
+  );
+}
 
-        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto]">
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Campus</span>
-            <select name="campus" defaultValue={data.selectedCampusId} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
+export default async function AttendanceGroupsPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireAttendanceReadContext("/unauthorized");
+  const params = await searchParams;
+  const data = await getAttendanceGroupsMonthlyData({
+    campusId: params.campus,
+    month: params.month,
+    groupId: params.group,
+  });
+
+  return (
+    <PageShell title="Grupos de asistencia" subtitle="Vista mensual por grupo de entrenamiento. Sin datos financieros ni contacto." wide>
+      <div className="space-y-6">
+        <form className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto]">
+          <label className="text-sm font-medium">
+            Campus
+            <select name="campus" defaultValue={data.selectedCampusId ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
               <option value="">Todos</option>
-              {data.campuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>{campus.name}</option>
-              ))}
+              {data.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Programa</span>
-            <select name="program" defaultValue={data.selectedProgram} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-              <option value="">Todos</option>
-              {TRAINING_GROUP_PROGRAM_OPTIONS.map((value) => (
-                <option key={value} value={value}>{TRAINING_GROUP_PROGRAM_LABELS[value]}</option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Estado grupo</span>
-            <select name="status" defaultValue={data.selectedStatus} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-              <option value="">Todos</option>
-              {TRAINING_GROUP_STATUS_OPTIONS.map((value) => (
-                <option key={value} value={value}>{TRAINING_GROUP_STATUS_LABELS[value]}</option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Revision</span>
-            <select name="review" defaultValue={data.selectedReview} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-              <option value="all">Todas</option>
-              <option value="assigned">Con grupo</option>
-              <option value="suggested">Sugerencia unica</option>
-              <option value="ambiguous">Revision manual</option>
-              <option value="unmatched">Sin grupo</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium">Categoria</span>
-            <input name="birthYear" type="number" defaultValue={data.selectedBirthYear} placeholder="2014" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
+          <label className="text-sm font-medium">
+            Mes
+            <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <div className="flex items-end">
             <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar</button>
           </div>
-          <div className="flex items-end">
-            <a href="/attendance/groups" className="w-full rounded-md border border-slate-300 px-4 py-2 text-center text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
-              Limpiar
-            </a>
-          </div>
         </form>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs uppercase tracking-wide text-slate-400">Grupos visibles</p>
-            <p className="mt-1 text-3xl font-semibold">{data.groups.length}</p>
+        <section className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Grupos</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{data.groups.length}</p>
           </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
-            <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Con grupo</p>
-            <p className="mt-1 text-3xl font-semibold text-emerald-900 dark:text-emerald-100">{data.reviewCounts.assigned}</p>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Jugadores activos</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{data.groups.reduce((sum, group) => sum + group.activePlayers, 0)}</p>
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
-            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">Sugerencia unica</p>
-            <p className="mt-1 text-3xl font-semibold text-amber-900 dark:text-amber-100">{data.reviewCounts.suggested}</p>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Sesiones tomadas</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{data.groups.reduce((sum, group) => sum + group.completedSessions, 0)}</p>
           </div>
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/20">
-            <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">Revision / sin grupo</p>
-            <p className="mt-1 text-3xl font-semibold text-rose-900 dark:text-rose-100">{data.reviewCounts.ambiguous + data.reviewCounts.unmatched}</p>
-          </div>
-        </div>
-
-        {data.canManage ? (
-          <details className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">Crear grupo</summary>
-            <form action={createTrainingGroupAction} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Campus</span>
-                <select name="campus_id" required className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  {data.campuses.map((campus) => (
-                    <option key={campus.id} value={campus.id}>{campus.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Nombre</span>
-                <input name="name" required className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Programa</span>
-                <select name="program" defaultValue="futbol_para_todos" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  {TRAINING_GROUP_PROGRAM_OPTIONS.map((value) => (
-                    <option key={value} value={value}>{TRAINING_GROUP_PROGRAM_LABELS[value]}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Nivel</span>
-                <input name="level_label" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Codigo</span>
-                <input name="group_code" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Genero</span>
-                <select name="gender" defaultValue="mixed" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  {TRAINING_GROUP_GENDER_OPTIONS.map((value) => (
-                    <option key={value} value={value}>{TRAINING_GROUP_GENDER_LABELS[value]}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Ano minimo</span>
-                <input name="birth_year_min" type="number" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Ano maximo</span>
-                <input name="birth_year_max" type="number" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Inicio</span>
-                <input name="start_time" type="time" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Fin</span>
-                <input name="end_time" type="time" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Estado</span>
-                <select name="status" defaultValue="active" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  {TRAINING_GROUP_STATUS_OPTIONS.map((value) => (
-                    <option key={value} value={value}>{TRAINING_GROUP_STATUS_LABELS[value]}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Coach principal</span>
-                <select name="primary_coach_id" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  <option value="">Sin coach principal</option>
-                  {data.coachOptions.map((coach) => (
-                    <option key={coach.id} value={coach.id}>{coach.campusName} | {coach.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm xl:col-span-2">
-                <span className="font-medium">Coaches vinculados</span>
-                <select name="coach_ids" multiple size={6} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
-                  {data.coachOptions.map((coach) => (
-                    <option key={coach.id} value={coach.id}>{coach.campusName} | {coach.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm xl:col-span-4">
-                <span className="font-medium">Notas</span>
-                <textarea name="notes" rows={2} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <div className="xl:col-span-4">
-                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Crear grupo</button>
-              </div>
-            </form>
-          </details>
-        ) : null}
-
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Catalogo de grupos</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Modelo operativo para asistencia y asignacion deportiva.</p>
-            </div>
-          </div>
-          <div className="grid gap-3">
-            {data.groups.map((group) => (
-              <GroupEditor
-                key={group.id}
-                group={group}
-                coachOptions={data.coachOptions.map((coach) => ({ id: coach.id, campusId: coach.campusId, name: coach.name }))}
-                canManage={data.canManage}
-              />
-            ))}
-            {data.groups.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                No hay grupos con esos filtros.
-              </div>
-            ) : null}
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Canceladas</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{data.groups.reduce((sum, group) => sum + group.cancelledSessions, 0)}</p>
           </div>
         </section>
 
+        <SelectedGroupDetail data={data} />
+
         <section className="space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Revision de asignaciones</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Autoasigna solo coincidencias unicas; el resto queda en revision manual.</p>
-            </div>
-            {data.canManage ? (
-              <form action={applySuggestedTrainingGroupsAction}>
-                {data.selectedCampusId ? <input type="hidden" name="campus_id" value={data.selectedCampusId} /> : null}
-                {data.selectedBirthYear ? <input type="hidden" name="birth_year" value={data.selectedBirthYear} /> : null}
-                <button className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30">
-                  Aplicar sugerencias unicas
-                </button>
-              </form>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Grupos</h2>
+            <p className="text-sm text-slate-500">Abre un grupo para ver asistencia mensual por jugador.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {data.groups.map((group) => (
+              <GroupCard
+                key={group.groupId}
+                group={group}
+                selectedCampusId={data.selectedCampusId}
+                selectedMonth={data.selectedMonth}
+                isSelected={data.selectedGroupId === group.groupId}
+              />
+            ))}
+            {data.groups.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">Sin grupos activos para el alcance seleccionado.</div>
             ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "assigned" })}>{chip(`Con grupo ${data.reviewCounts.assigned}`, "emerald")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "suggested" })}>{chip(`Sugerencia ${data.reviewCounts.suggested}`, "amber")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "ambiguous" })}>{chip(`Revision manual ${data.reviewCounts.ambiguous}`, "rose")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "unmatched" })}>{chip(`Sin grupo ${data.reviewCounts.unmatched}`, "rose")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined })}>{chip("Ver todo", "slate")}</a>
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                <tr>
-                  <th className="px-3 py-2">Jugador</th>
-                  <th className="px-3 py-2">Contexto</th>
-                  <th className="px-3 py-2">Estado</th>
-                  <th className="px-3 py-2">Sugerencia</th>
-                  <th className="px-3 py-2">Asignacion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.reviewRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-slate-500 dark:text-slate-400">No hay jugadores con esos filtros.</td>
-                  </tr>
-                ) : (
-                  data.reviewRows.map((row) => (
-                    <tr key={row.enrollmentId} className="align-top">
-                      <td className="px-3 py-3">
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">{row.playerName}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{row.campusName} | Cat. {row.birthYear ?? "-"}</p>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
-                        <p>{row.genderLabel}</p>
-                        <p className="text-xs">Programa {row.resolvedProgramLabel}</p>
-                        <p className="text-xs">Nivel {row.resolvedLevel ?? row.playerLevel ?? "-"}</p>
-                        <p className="text-xs">{row.competitionTeamNames.length > 0 ? row.competitionTeamNames.join(", ") : "Sin equipo de competencia"}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {chip(REVIEW_LABELS[row.reviewState], row.reviewState === "assigned" ? "emerald" : row.reviewState === "suggested" ? "amber" : "rose")}
-                          {row.currentTrainingGroupName ? chip(row.currentTrainingGroupName, "blue") : null}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
-                        <p>{row.suggestionGroupName ?? "Sin sugerencia"}</p>
-                        <p className="text-xs">{row.suggestionReason}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        {data.canManage ? (
-                          <form action={assignTrainingGroupAction} className="grid gap-2">
-                            <input type="hidden" name="enrollment_id" value={row.enrollmentId} />
-                            <input type="hidden" name="assignment_start" value={row.enrollmentStartDate || today} />
-                            <select
-                              name="training_group_id"
-                              defaultValue={row.currentTrainingGroupId ?? row.suggestionGroupId ?? ""}
-                              className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
-                            >
-                              <option value="">Selecciona grupo</option>
-                              {row.manualOptions.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                            <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
-                              Guardar
-                            </button>
-                          </form>
-                        ) : (
-                          <span className="text-xs text-slate-400">Solo lectura</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </section>
       </div>

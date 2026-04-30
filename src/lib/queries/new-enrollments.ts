@@ -161,7 +161,7 @@ function buildSportsHref(row: NewEnrollmentIntakeRow) {
   const params = new URLSearchParams();
   params.set("campus", row.campusId);
   if (row.birthYear) params.set("birthYear", String(row.birthYear));
-  return `/attendance/groups?${params.toString()}`;
+  return `/attendance/settings?${params.toString()}`;
 }
 
 function countRows(rows: NewEnrollmentIntakeRow[]) {

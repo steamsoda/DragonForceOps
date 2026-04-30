@@ -2,6 +2,12 @@ import { canAccessAttendanceCampus, canWriteAttendanceCampus } from "@/lib/auth/
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  resolveTrainingGroupSuggestion,
+  type TrainingGroupCandidate,
+  type TrainingGroupReviewState,
+  type TrainingGroupSuggestionConfidence,
+} from "@/lib/training-groups/matching";
+import {
   TRAINING_GROUP_GENDER_LABELS,
   TRAINING_GROUP_PROGRAM_LABELS,
   TRAINING_GROUP_STATUS_LABELS,
@@ -12,6 +18,8 @@ import {
   normalizeTrainingGroupProgram,
   normalizeTrainingGroupStatus,
 } from "@/lib/training-groups/shared";
+
+export type { TrainingGroupReviewState } from "@/lib/training-groups/matching";
 
 type GroupRow = {
   id: string;
@@ -80,8 +88,6 @@ type CompetitionAssignmentRow = {
   } | null;
 };
 
-export type TrainingGroupReviewState = "assigned" | "suggested" | "ambiguous" | "unmatched";
-
 export type TrainingGroupFilters = {
   campusId?: string;
   program?: string;
@@ -141,6 +147,7 @@ export type TrainingGroupReviewRow = {
   currentTrainingGroupName: string | null;
   competitionTeamNames: string[];
   reviewState: TrainingGroupReviewState;
+  suggestionConfidence: TrainingGroupSuggestionConfidence;
   suggestionGroupId: string | null;
   suggestionGroupName: string | null;
   suggestionReason: string;
@@ -160,17 +167,6 @@ export type TrainingGroupsManagementData = {
   groups: TrainingGroupSummaryRow[];
   reviewRows: TrainingGroupReviewRow[];
   reviewCounts: Record<TrainingGroupReviewState, number>;
-};
-
-type CandidateGroup = {
-  id: string;
-  name: string;
-  campusId: string;
-  program: string;
-  gender: string;
-  birthYearMin: number | null;
-  birthYearMax: number | null;
-  groupCode: string | null;
 };
 
 function getBirthYear(value: string | null | undefined) {
@@ -200,33 +196,6 @@ function getGenderLabel(value: string | null | undefined) {
 
 function normalizeReviewState(value: string | null | undefined) {
   return value === "assigned" || value === "suggested" || value === "ambiguous" || value === "unmatched" ? value : "all";
-}
-
-function matchesGroup(group: CandidateGroup, params: {
-  campusId: string;
-  birthYear: number | null;
-  gender: string | null;
-  program: string;
-  levelCode: string | null;
-}) {
-  if (group.campusId !== params.campusId) return false;
-  if (group.program !== params.program) return false;
-  if (params.birthYear != null) {
-    if (group.birthYearMin != null && params.birthYear < group.birthYearMin) return false;
-    if (group.birthYearMax != null && params.birthYear > group.birthYearMax) return false;
-  }
-  if (group.gender !== "mixed") {
-    if (!params.gender || group.gender !== params.gender) return false;
-  }
-  if (params.program === "futbol_para_todos" && params.levelCode && group.groupCode && group.groupCode !== params.levelCode) {
-    return false;
-  }
-  return true;
-}
-
-function getLevelCode(level: string | null | undefined) {
-  const match = /\b(B1|B2|B3)\b/i.exec(level ?? "");
-  return match ? match[1].toUpperCase() : null;
 }
 
 function sortReviewRows(left: TrainingGroupReviewRow, right: TrainingGroupReviewRow) {
@@ -362,7 +331,7 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
     competitionByEnrollment.set(row.enrollment_id, arr);
   }
 
-  const candidateGroups: CandidateGroup[] = (groups ?? [])
+  const candidateGroups: TrainingGroupCandidate[] = (groups ?? [])
     .filter((group) => group.status === "active" || group.status === "projected")
     .map((group) => ({
       id: group.id,
@@ -373,9 +342,10 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
       birthYearMin: group.birth_year_min,
       birthYearMax: group.birth_year_max,
       groupCode: group.group_code,
+      status: group.status,
     }));
 
-  const reviewRows: TrainingGroupReviewRow[] = (enrollments ?? [])
+  const scopedReviewRows: TrainingGroupReviewRow[] = (enrollments ?? [])
     .filter((row) => !selectedCampusId || row.campus_id === selectedCampusId)
     .map((row) => {
       const birthYear = getBirthYear(row.players?.birth_date);
@@ -383,38 +353,31 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
       const primaryCompetition = competitionTeams[0] ?? null;
       const resolvedLevel = primaryCompetition?.level ?? row.players?.level ?? null;
       const resolvedProgram = deriveTrainingGroupProgramFromLevel(resolvedLevel);
-      const levelCode = getLevelCode(resolvedLevel);
       const currentAssignment = activeAssignmentByEnrollment.get(row.id) ?? null;
-      const candidates = candidateGroups.filter((group) =>
-        matchesGroup(group, {
-          campusId: row.campus_id,
-          birthYear,
-          gender: row.players?.gender ?? null,
-          program: resolvedProgram,
-          levelCode,
-        })
-      );
+      const suggestion = resolveTrainingGroupSuggestion({
+        groups: candidateGroups,
+        campusId: row.campus_id,
+        birthYear,
+        gender: row.players?.gender ?? null,
+        resolvedLevel,
+      });
 
       let reviewState: TrainingGroupReviewState = "unmatched";
+      let suggestionConfidence: TrainingGroupSuggestionConfidence = suggestion.confidence;
       let suggestionGroupId: string | null = null;
       let suggestionGroupName: string | null = null;
-      let suggestionReason = "Sin sugerencia automatica";
+      let suggestionReason = suggestion.suggestionReason;
 
       if (currentAssignment) {
         reviewState = "assigned";
+        suggestionConfidence = "assigned";
         suggestionGroupId = currentAssignment.training_group_id;
         suggestionGroupName = currentAssignment.training_groups?.name ?? "Grupo";
         suggestionReason = "Ya tiene grupo activo";
-      } else if (candidates.length === 1) {
-        reviewState = "suggested";
-        suggestionGroupId = candidates[0].id;
-        suggestionGroupName = candidates[0].name;
-        suggestionReason = levelCode
-          ? `Coincidencia unica por campus, categoria y ${levelCode}`
-          : "Coincidencia unica por campus, categoria y programa";
-      } else if (candidates.length > 1) {
-        reviewState = "ambiguous";
-        suggestionReason = `${candidates.length} grupos posibles`;
+      } else {
+        reviewState = suggestion.reviewState;
+        suggestionGroupId = suggestion.suggestionGroupId;
+        suggestionGroupName = suggestion.suggestionGroupName;
       }
 
       const manualOptions = candidateGroups
@@ -447,23 +410,25 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
         currentTrainingGroupName: currentAssignment?.training_groups?.name ?? null,
         competitionTeamNames: competitionTeams.map((team) => team.name),
         reviewState,
+        suggestionConfidence,
         suggestionGroupId,
         suggestionGroupName,
         suggestionReason,
-        suggestionCount: candidates.length,
+        suggestionCount: currentAssignment ? 1 : suggestion.suggestionCount,
         manualOptions,
       };
     })
     .filter((row) => !selectedBirthYear || String(row.birthYear ?? "") === selectedBirthYear)
-    .filter((row) => selectedReview === "all" || row.reviewState === selectedReview)
     .sort(sortReviewRows);
 
   const reviewCounts: Record<TrainingGroupReviewState, number> = {
-    assigned: reviewRows.filter((row) => row.reviewState === "assigned").length,
-    suggested: reviewRows.filter((row) => row.reviewState === "suggested").length,
-    ambiguous: reviewRows.filter((row) => row.reviewState === "ambiguous").length,
-    unmatched: reviewRows.filter((row) => row.reviewState === "unmatched").length,
+    assigned: scopedReviewRows.filter((row) => row.reviewState === "assigned").length,
+    suggested: scopedReviewRows.filter((row) => row.reviewState === "suggested").length,
+    ambiguous: scopedReviewRows.filter((row) => row.reviewState === "ambiguous").length,
+    unmatched: scopedReviewRows.filter((row) => row.reviewState === "unmatched").length,
   };
+
+  const reviewRows = scopedReviewRows.filter((row) => selectedReview === "all" || row.reviewState === selectedReview);
 
   return {
     campuses: access.campuses.map((campus) => ({ id: campus.id, name: campus.name })),

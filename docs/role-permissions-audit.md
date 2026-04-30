@@ -179,6 +179,34 @@ Current guardrail:
 - Nutritionist production access should be verified with `Super Admin > Auditoria accesos`, `/nutrition`, and `/nutrition/measurements`.
 - If a nutritionist authenticates but resolves as role-less, inspect `user_roles`, `app_roles`, campus scope, and the Supabase env match before changing policies.
 
+### `attendance_admin`
+
+Purpose: field attendance operator, campus-scoped only.
+
+Expected navigation:
+
+- `Asistencia`: Hoy, Calendario, Grupos, Reportes
+
+Expected permissions:
+
+- Login to the protected app and land on `/inicio`.
+- See attendance-only entry cards on the welcome page.
+- Read attendance sessions, group/month attendance, calendar, and attendance reports for assigned campus scope.
+- Record attendance for scheduled sessions in assigned campus scope.
+- Cancel individual sessions only through the attendance workflow where allowed by current attendance rules.
+- No Caja.
+- No player finance/account profile.
+- No payments, charges, balances, receipts, Corte, or financial reports.
+- No `Diario`, `Gestion`, `Competencias`, `Nutricion`, `Admin`, or `Super Admin` navigation.
+- No schedule/template/group setup pages; those are director/admin or Director Deportivo surfaces.
+- No user/role management.
+
+Current guardrail:
+
+- Preview `Debug permisos` includes Field Admin personas for Contry and Linda Vista as of `v1.16.92`.
+- Preview debug shortcut links must remain role-aware so the Field Admin view does not show finance/operations shortcuts even in read-only impersonation mode.
+- Production verification should smoke test `/inicio`, `/attendance`, `/attendance/calendar`, `/attendance/groups`, and `/attendance/reports` with an actual `attendance_admin` account.
+
 ### `coach`
 
 Purpose: future coach module.

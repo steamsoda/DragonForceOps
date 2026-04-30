@@ -2,6 +2,11 @@ import { canAccessAttendanceCampus, canWriteAttendanceCampus, getAttendanceCampu
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyDateString, getMonterreyMonthBounds, getMonterreyMonthString, getMonterreyWeekBounds } from "@/lib/time";
+import {
+  TRAINING_GROUP_GENDER_LABELS,
+  TRAINING_GROUP_PROGRAM_LABELS,
+  formatTrainingGroupBirthYearRange,
+} from "@/lib/training-groups/shared";
 
 export const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
   present: "Presente",
@@ -136,6 +141,106 @@ export type AttendanceTeamReportRow = {
   rate: number | null;
 };
 
+export type AttendanceGroupMonthlyCard = {
+  groupId: string;
+  campusId: string;
+  campusName: string;
+  groupName: string;
+  programLabel: string;
+  genderLabel: string;
+  birthYearLabel: string;
+  subgroupLabel: string | null;
+  coachName: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  activePlayers: number;
+  completedSessions: number;
+  cancelledSessions: number;
+  totalRecords: number;
+  absent: number;
+  injury: number;
+  justified: number;
+  rate: number | null;
+};
+
+export type AttendanceGroupMonthlyPlayerRow = {
+  playerId: string;
+  enrollmentId: string;
+  publicPlayerId: string | null;
+  playerName: string;
+  birthYear: number | null;
+  attended: number;
+  absent: number;
+  injury: number;
+  justified: number;
+  total: number;
+  rate: number | null;
+  lastStatus: string | null;
+  lastSessionDate: string | null;
+  statusesBySession: Record<string, string | null>;
+};
+
+export type AttendanceGroupsMonthlyData = {
+  campuses: AttendanceCampusOption[];
+  selectedCampusId: string | null;
+  selectedMonth: string;
+  selectedGroupId: string | null;
+  groups: AttendanceGroupMonthlyCard[];
+  selectedGroup: AttendanceGroupMonthlyCard | null;
+  selectedGroupSessions: Array<{ sessionId: string; sessionDate: string }>;
+  players: AttendanceGroupMonthlyPlayerRow[];
+};
+
+export type AttendanceCalendarSession = {
+  id: string;
+  campusId: string;
+  campusName: string;
+  sourceName: string;
+  coachName: string | null;
+  sourceType: "team" | "training_group";
+  sessionType: string;
+  status: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type AttendanceCalendarClosure = {
+  id: string;
+  campusId: string | null;
+  campusName: string;
+  startsOn: string;
+  endsOn: string;
+  reasonCode: string;
+  title: string;
+  notes: string | null;
+};
+
+export type AttendanceCalendarDay = {
+  date: string;
+  dayOfMonth: number;
+  weekdayLabel: string;
+  isToday: boolean;
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  sessions: AttendanceCalendarSession[];
+  closures: AttendanceCalendarClosure[];
+};
+
+export type AttendanceCalendarData = {
+  campuses: AttendanceCampusOption[];
+  selectedCampusId: string | null;
+  selectedMonth: string;
+  days: AttendanceCalendarDay[];
+  totals: {
+    total: number;
+    scheduled: number;
+    completed: number;
+    cancelled: number;
+  };
+};
+
 type SessionRow = {
   id: string;
   campus_id: string;
@@ -158,6 +263,17 @@ type SessionRow = {
   training_groups: { name: string | null } | null;
 };
 
+type AttendanceClosureRow = {
+  id: string;
+  campus_id: string | null;
+  starts_on: string;
+  ends_on: string;
+  reason_code: string;
+  title: string;
+  notes: string | null;
+  campuses: { name: string | null; code?: string | null } | null;
+};
+
 type TemplateRow = {
   id: string;
   campus_id: string;
@@ -172,6 +288,21 @@ type TemplateRow = {
   campuses: { name: string | null } | null;
   teams: { name: string | null; coaches: { first_name: string | null; last_name: string | null } | null } | null;
   training_groups: { name: string | null } | null;
+};
+
+type AttendanceGroupRow = {
+  id: string;
+  campus_id: string;
+  name: string;
+  program: string;
+  gender: string;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+  level_label: string | null;
+  group_code: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  campuses: { name: string | null; code?: string | null } | null;
 };
 
 function coachName(coach: { first_name: string | null; last_name: string | null } | null | undefined) {
@@ -191,6 +322,30 @@ function monthLabel(month: string) {
   const [, m] = month.split("-");
   const labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   return labels[Number(m) - 1] ?? month;
+}
+
+function isMonthOnly(value: string | null | undefined) {
+  return Boolean(value && /^\d{4}-\d{2}$/.test(value));
+}
+
+function listDatesBetween(startDate: string, endDateExclusive: string) {
+  const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endDateExclusive.split("-").map(Number);
+  const cursor = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12));
+  const end = new Date(Date.UTC(endYear, endMonth - 1, endDay, 12));
+  const dates: string[] = [];
+  while (cursor < end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function weekdayLabel(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-MX", { weekday: "short" })
+    .format(new Date(Date.UTC(year, month - 1, day, 12)))
+    .replace(".", "");
 }
 
 function rateFromCounts(covered: number, total: number) {
@@ -588,7 +743,12 @@ export async function getPlayerAttendanceSummary(playerId: string): Promise<Atte
       attendance_sessions: { id: string; session_date: string; session_type: string; status: string } | null;
     }>>();
 
-  const validRows = (rows ?? []).filter((row) => row.attendance_sessions);
+  const validRows = (rows ?? [])
+    .filter((row) => row.attendance_sessions)
+    .sort((a, b) => {
+      const dateCompare = b.attendance_sessions!.session_date.localeCompare(a.attendance_sessions!.session_date);
+      return dateCompare || b.recorded_at.localeCompare(a.recorded_at);
+    });
   const currentMonth = getMonterreyMonthString();
   const monthBounds = getMonterreyMonthBounds(currentMonth);
   const currentMonthRows = validRows.filter((row) => {
@@ -622,6 +782,379 @@ export async function getPlayerAttendanceSummary(playerId: string): Promise<Atte
       rate: rateFromCounts(covered, currentMonthRows.length),
     },
     recentMonths,
+  };
+}
+
+export async function getAttendanceGroupsMonthlyData(filters: { campusId?: string; month?: string; groupId?: string }): Promise<AttendanceGroupsMonthlyData> {
+  const access = await getAttendanceScope();
+  const selectedMonth = filters.month && /^\d{4}-\d{2}$/.test(filters.month) ? filters.month : getMonterreyMonthString();
+  if (!access) {
+    return {
+      campuses: [],
+      selectedCampusId: null,
+      selectedMonth,
+      selectedGroupId: null,
+      groups: [],
+      selectedGroup: null,
+      selectedGroupSessions: [],
+      players: [],
+    };
+  }
+
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
+  const admin = createAdminClient();
+  const monthBounds = getMonterreyMonthBounds(selectedMonth);
+  const monthEndDate = monthBounds.end.slice(0, 10);
+
+  const { data: groups } = await admin
+    .from("training_groups")
+    .select("id, campus_id, name, program, gender, birth_year_min, birth_year_max, level_label, group_code, start_time, end_time, campuses(name, code)")
+    .in("campus_id", selectedCampusIds)
+    .eq("status", "active")
+    .order("campus_id", { ascending: true })
+    .order("birth_year_max", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true })
+    .returns<AttendanceGroupRow[]>();
+
+  const groupRows = groups ?? [];
+  const groupIds = groupRows.map((group) => group.id);
+  const selectedGroupId = filters.groupId && groupIds.includes(filters.groupId) ? filters.groupId : null;
+
+  if (groupIds.length === 0) {
+    return {
+      campuses: access.campuses,
+      selectedCampusId,
+      selectedMonth,
+      selectedGroupId: null,
+      groups: [],
+      selectedGroup: null,
+      selectedGroupSessions: [],
+      players: [],
+    };
+  }
+
+  const [{ data: assignments }, { data: sessions }, { data: coachRows }] = await Promise.all([
+    admin
+      .from("training_group_assignments")
+      .select("id, training_group_id, enrollment_id, player_id, enrollments!inner(id, status, players!inner(id, first_name, last_name, birth_date, public_player_id))")
+      .in("training_group_id", groupIds)
+      .is("end_date", null)
+      .eq("enrollments.status", "active")
+      .returns<Array<{
+        id: string;
+        training_group_id: string;
+        enrollment_id: string;
+        player_id: string;
+        enrollments: {
+          id: string;
+          status: string;
+          players: {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            birth_date: string | null;
+            public_player_id: string | null;
+          } | null;
+        } | null;
+      }>>(),
+    admin
+      .from("attendance_sessions")
+      .select("id, training_group_id, status, session_date")
+      .in("training_group_id", groupIds)
+      .gte("session_date", monthBounds.periodMonth)
+      .lt("session_date", monthEndDate)
+      .returns<Array<{ id: string; training_group_id: string; status: string; session_date: string }>>(),
+    admin
+      .from("training_group_coaches")
+      .select("training_group_id, is_primary, coaches(first_name, last_name)")
+      .in("training_group_id", groupIds)
+      .returns<Array<{
+        training_group_id: string;
+        is_primary: boolean;
+        coaches: { first_name: string | null; last_name: string | null } | null;
+      }>>(),
+  ]);
+
+  const sessionRows = sessions ?? [];
+  const sessionIds = sessionRows.map((session) => session.id);
+  const { data: records } = sessionIds.length > 0
+    ? await admin
+        .from("attendance_records")
+        .select("status, player_id, enrollment_id, session_id")
+        .in("session_id", sessionIds)
+        .returns<Array<{ status: string; player_id: string; enrollment_id: string; session_id: string }>>()
+    : { data: [] as Array<{ status: string; player_id: string; enrollment_id: string; session_id: string }> };
+
+  const coachMap = new Map<string, string | null>();
+  const coachEntries = new Map<string, Array<{ isPrimary: boolean; name: string | null }>>();
+  for (const row of coachRows ?? []) {
+    const entries = coachEntries.get(row.training_group_id) ?? [];
+    entries.push({ isPrimary: row.is_primary, name: coachName(row.coaches) });
+    coachEntries.set(row.training_group_id, entries);
+  }
+  for (const [groupId, entries] of coachEntries) {
+    coachMap.set(
+      groupId,
+      entries
+        .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+        .map((entry) => entry.name)
+        .filter(Boolean)
+        .join(", ") || null,
+    );
+  }
+
+  const activePlayersByGroup = new Map<string, number>();
+  for (const assignment of assignments ?? []) {
+    activePlayersByGroup.set(assignment.training_group_id, (activePlayersByGroup.get(assignment.training_group_id) ?? 0) + 1);
+  }
+
+  const sessionById = new Map(sessionRows.map((session) => [session.id, session]));
+  const completedSessionsByGroup = new Map<string, Set<string>>();
+  const cancelledSessionsByGroup = new Map<string, number>();
+  for (const session of sessionRows) {
+    if (session.status === "completed") {
+      const set = completedSessionsByGroup.get(session.training_group_id) ?? new Set<string>();
+      set.add(session.id);
+      completedSessionsByGroup.set(session.training_group_id, set);
+    }
+    if (session.status === "cancelled") {
+      cancelledSessionsByGroup.set(session.training_group_id, (cancelledSessionsByGroup.get(session.training_group_id) ?? 0) + 1);
+    }
+  }
+
+  const groupRecordCounts = new Map<string, { total: number; absent: number; injury: number; justified: number }>();
+  for (const record of records ?? []) {
+    const session = sessionById.get(record.session_id);
+    if (!session || session.status !== "completed") continue;
+    const counts = groupRecordCounts.get(session.training_group_id) ?? { total: 0, absent: 0, injury: 0, justified: 0 };
+    counts.total += 1;
+    if (record.status === "absent") counts.absent += 1;
+    if (record.status === "injury") counts.injury += 1;
+    if (record.status === "justified") counts.justified += 1;
+    groupRecordCounts.set(session.training_group_id, counts);
+  }
+
+  const cards = groupRows
+    .map((group): AttendanceGroupMonthlyCard => {
+      const counts = groupRecordCounts.get(group.id) ?? { total: 0, absent: 0, injury: 0, justified: 0 };
+      return {
+        groupId: group.id,
+        campusId: group.campus_id,
+        campusName: group.campuses?.name ?? "Campus",
+        groupName: group.name,
+        programLabel: TRAINING_GROUP_PROGRAM_LABELS[group.program] ?? group.program,
+        genderLabel: TRAINING_GROUP_GENDER_LABELS[group.gender] ?? group.gender,
+        birthYearLabel: formatTrainingGroupBirthYearRange(group.birth_year_min, group.birth_year_max),
+        subgroupLabel: group.group_code ?? group.level_label,
+        coachName: coachMap.get(group.id) ?? null,
+        startTime: group.start_time ? normalizeTime(group.start_time) : null,
+        endTime: group.end_time ? normalizeTime(group.end_time) : null,
+        activePlayers: activePlayersByGroup.get(group.id) ?? 0,
+        completedSessions: completedSessionsByGroup.get(group.id)?.size ?? 0,
+        cancelledSessions: cancelledSessionsByGroup.get(group.id) ?? 0,
+        totalRecords: counts.total,
+        absent: counts.absent,
+        injury: counts.injury,
+        justified: counts.justified,
+        rate: rateFromCounts(counts.total - counts.absent, counts.total),
+      };
+    })
+    .sort((a, b) => b.birthYearLabel.localeCompare(a.birthYearLabel, "es-MX") || a.groupName.localeCompare(b.groupName, "es-MX"));
+
+  const selectedGroup = selectedGroupId ? cards.find((group) => group.groupId === selectedGroupId) ?? null : null;
+  const selectedGroupSessions = selectedGroupId
+    ? sessionRows
+        .filter((session) => session.training_group_id === selectedGroupId && session.status === "completed")
+        .sort((a, b) => a.session_date.localeCompare(b.session_date))
+        .map((session) => ({ sessionId: session.id, sessionDate: session.session_date }))
+    : [];
+  const recordsByPlayer = new Map<string, Array<{ status: string; sessionId: string; sessionDate: string }>>();
+  if (selectedGroupId) {
+    for (const record of records ?? []) {
+      const session = sessionById.get(record.session_id);
+      if (!session || session.status !== "completed" || session.training_group_id !== selectedGroupId) continue;
+      const rows = recordsByPlayer.get(record.player_id) ?? [];
+      rows.push({ status: record.status, sessionId: session.id, sessionDate: session.session_date });
+      recordsByPlayer.set(record.player_id, rows);
+    }
+  }
+
+  const players = selectedGroupId
+    ? (assignments ?? [])
+        .filter((assignment) => assignment.training_group_id === selectedGroupId && assignment.enrollments?.players)
+        .map((assignment): AttendanceGroupMonthlyPlayerRow => {
+          const player = assignment.enrollments!.players!;
+          const playerRecords = [...(recordsByPlayer.get(assignment.player_id) ?? [])].sort((a, b) => b.sessionDate.localeCompare(a.sessionDate));
+          const absent = playerRecords.filter((record) => record.status === "absent").length;
+          const injury = playerRecords.filter((record) => record.status === "injury").length;
+          const justified = playerRecords.filter((record) => record.status === "justified").length;
+          const total = playerRecords.length;
+          const attended = total - absent;
+          const statusMap = new Map(playerRecords.map((record) => [record.sessionId, record.status]));
+          return {
+            playerId: player.id,
+            enrollmentId: assignment.enrollment_id,
+            publicPlayerId: player.public_player_id,
+            playerName: `${player.first_name ?? ""} ${player.last_name ?? ""}`.replace(/\s+/g, " ").trim() || "Jugador",
+            birthYear: birthYear(player.birth_date),
+            attended,
+            absent,
+            injury,
+            justified,
+            total,
+            rate: rateFromCounts(attended, total),
+            lastStatus: playerRecords[0]?.status ?? null,
+            lastSessionDate: playerRecords[0]?.sessionDate ?? null,
+            statusesBySession: Object.fromEntries(selectedGroupSessions.map((session) => [session.sessionId, statusMap.get(session.sessionId) ?? null])),
+          };
+        })
+        .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))
+    : [];
+
+  return {
+    campuses: access.campuses,
+    selectedCampusId,
+    selectedMonth,
+    selectedGroupId,
+    groups: cards,
+    selectedGroup,
+    selectedGroupSessions,
+    players,
+  };
+}
+
+export async function getAttendanceCalendarData(filters: { campusId?: string; month?: string }): Promise<AttendanceCalendarData> {
+  const access = await getAttendanceScope();
+  const selectedMonth = isMonthOnly(filters.month) ? filters.month! : getMonterreyMonthString();
+  const monthBounds = getMonterreyMonthBounds(selectedMonth);
+  const monthEndDate = monthBounds.end.slice(0, 10);
+  const dates = listDatesBetween(monthBounds.periodMonth, monthEndDate);
+  const today = getMonterreyDateString();
+
+  const emptyDays = dates.map((date): AttendanceCalendarDay => ({
+    date,
+    dayOfMonth: Number(date.slice(8, 10)),
+    weekdayLabel: weekdayLabel(date),
+    isToday: date === today,
+    total: 0,
+    scheduled: 0,
+    completed: 0,
+    cancelled: 0,
+    sessions: [],
+    closures: [],
+  }));
+
+  if (!access) {
+    return {
+      campuses: [],
+      selectedCampusId: null,
+      selectedMonth,
+      days: emptyDays,
+      totals: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+    };
+  }
+
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
+  if (selectedCampusIds.length === 0) {
+    return {
+      campuses: access.campuses,
+      selectedCampusId,
+      selectedMonth,
+      days: emptyDays,
+      totals: { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+    };
+  }
+
+  const admin = createAdminClient();
+  const [{ data: sessionRows }, { data: closureRows }] = await Promise.all([
+    admin
+      .from("attendance_sessions")
+      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+      .in("campus_id", selectedCampusIds)
+      .gte("session_date", monthBounds.periodMonth)
+      .lt("session_date", monthEndDate)
+      .order("session_date", { ascending: true })
+      .order("start_time", { ascending: true })
+      .returns<SessionRow[]>(),
+    admin
+      .from("attendance_closures")
+      .select("id, campus_id, starts_on, ends_on, reason_code, title, notes, campuses(name, code)")
+      .lte("starts_on", monthEndDate)
+      .gte("ends_on", monthBounds.periodMonth)
+      .order("starts_on", { ascending: true })
+      .returns<AttendanceClosureRow[]>(),
+  ]);
+
+  const trainingGroupIds = [...new Set((sessionRows ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
+  const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
+  const byDate = new Map(emptyDays.map((day) => [day.date, { ...day, sessions: [] as AttendanceCalendarSession[] }]));
+  const totals = { total: 0, scheduled: 0, completed: 0, cancelled: 0 };
+
+  for (const row of closureRows ?? []) {
+    if (row.campus_id && !selectedCampusIds.includes(row.campus_id)) continue;
+    const closure: AttendanceCalendarClosure = {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campus_id ? (row.campuses?.name ?? "Campus") : "Todos los campus",
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      reasonCode: row.reason_code,
+      title: row.title,
+      notes: row.notes,
+    };
+    for (const date of dates) {
+      if (date < row.starts_on || date > row.ends_on) continue;
+      byDate.get(date)?.closures.push(closure);
+    }
+  }
+
+  for (const row of sessionRows ?? []) {
+    const source = getSessionSource(row, trainingGroupCoachMap);
+    const day = byDate.get(row.session_date);
+    if (!day) continue;
+
+    const session: AttendanceCalendarSession = {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? "Campus",
+      sourceName: source.name,
+      coachName: source.coach,
+      sourceType: source.sourceType,
+      sessionType: row.session_type,
+      status: row.status,
+      startTime: normalizeTime(row.start_time),
+      endTime: normalizeTime(row.end_time),
+    };
+
+    day.sessions.push(session);
+    day.total += 1;
+    totals.total += 1;
+    if (row.status === "scheduled") {
+      day.scheduled += 1;
+      totals.scheduled += 1;
+    }
+    if (row.status === "completed") {
+      day.completed += 1;
+      totals.completed += 1;
+    }
+    if (row.status === "cancelled") {
+      day.cancelled += 1;
+      totals.cancelled += 1;
+    }
+  }
+
+  return {
+    campuses: access.campuses,
+    selectedCampusId,
+    selectedMonth,
+    days: dates.map((date) => byDate.get(date)!),
+    totals,
   };
 }
 

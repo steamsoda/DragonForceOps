@@ -48,6 +48,7 @@ const ATTENDANCE_BASE_SECTION: NavSection = {
   label: "Asistencia",
   items: [
     { href: "/attendance", label: "Hoy" },
+    { href: "/attendance/calendar", label: "Calendario" },
     { href: "/attendance/groups", label: "Grupos" },
     { href: "/attendance/schedules", label: "Horarios" },
     { href: "/attendance/reports", label: "Reportes" },
@@ -106,6 +107,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasAttendanceWriteAccess = ATTENDANCE_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasAttendanceReadAccess = hasAttendanceWriteAccess || roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const canManageAttendanceSetup = isDirectorOrAbove || hasSportsAccess;
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
   const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
 
@@ -116,6 +118,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     { href: "/admin/actividad", label: "Auditoria" },
     { href: "/admin/access-audit", label: "Auditoria accesos" },
     { href: "/admin/finance-sanity", label: "Sanidad financiera" },
+    { href: "/attendance/settings", label: "Configuracion Grupos" },
     { href: "/admin/regularizacion-historica", label: "Regularización histórica" },
     ...(debugContext.canManage ? [{ href: "/admin/debug-view", label: "Debug permisos" }] : []),
   ];
@@ -151,9 +154,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const attendanceSection: NavSection = {
     ...ATTENDANCE_BASE_SECTION,
-    items: hasAttendanceWriteAccess
+    items: canManageAttendanceSetup
       ? ATTENDANCE_BASE_SECTION.items
-      : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/reports"),
+      : hasAttendanceWriteAccess
+        ? ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance" || item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports")
+        : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports"),
   };
 
   const sections: NavSection[] = [
@@ -164,6 +169,22 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(hasAttendanceReadAccess ? [attendanceSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
+  ];
+  const debugQuickLinks = [
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/players", label: "Jugadores" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/caja", label: "Caja" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [{ href: "/sports-signups", label: "Torneos" }] : []),
+    ...(hasNutritionAccess ? [{ href: "/nutrition", label: "Nutricion" }] : []),
+    ...(hasAttendanceReadAccess
+      ? [
+          { href: "/attendance", label: "Asistencia" },
+          { href: "/attendance/groups", label: "Grupos" },
+          { href: "/attendance/reports", label: "Reportes asistencia" },
+        ]
+      : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/reports/corte-diario", label: "Corte Diario" }, { href: "/receipts", label: "Recibos" }] : []),
+    ...(debugContext.canManage ? [{ href: "/admin/debug-view", label: "Panel debug" }] : []),
   ];
 
   const [printerName, debugUsers, recentDebugUserIds] = await Promise.all([
@@ -441,14 +462,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Link href="/caja" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Caja</Link>
-                <Link href="/players" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Jugadores</Link>
-                <Link href="/new-enrollments" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Nuevas</Link>
-                <Link href="/pending" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Pendientes</Link>
-                <Link href="/llamadas" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Llamadas</Link>
-                <Link href="/reports/corte-diario" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Corte Diario</Link>
-                <Link href="/receipts" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Recibos</Link>
-                <Link href="/admin/debug-view" className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">Panel debug</Link>
+                {debugQuickLinks.map((item) => (
+                  <Link key={item.href} href={item.href} className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">
+                    {item.label}
+                  </Link>
+                ))}
                 <form action={clearDebugViewAction}>
                   <button type="submit" className="rounded-md bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600">
                     Salir de vista

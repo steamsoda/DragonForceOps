@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
 import { listAttendanceScheduleTemplates } from "@/lib/queries/attendance";
@@ -17,7 +18,9 @@ const DAYS = [
 type SearchParams = Promise<{ ok?: string; err?: string; count?: string }>;
 
 export default async function AttendanceSchedulesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceWriteContext("/unauthorized");
+  const context = await requireAttendanceWriteContext("/unauthorized");
+  if (!context.isDirector && !context.isSportsDirector) redirect("/unauthorized");
+
   const params = await searchParams;
   const data = await listAttendanceScheduleTemplates();
   const bulkCreatedCount = params.ok === "bulk_created" ? Number(params.count ?? "0") : null;
