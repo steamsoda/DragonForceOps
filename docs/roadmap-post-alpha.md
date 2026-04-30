@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-04-28.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.94`
+Current preview release line: `v1.16.95`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -225,6 +225,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - player names link to their profiles
        - assignment dropdowns show compatible groups instead of every campus group
        - multiple selected rows can be saved in one batch submit
+     - `v1.16.95` polishes field attendance capture after live use:
+       - moves `Guardar asistencia` to the bottom sticky footer
+       - adds general session notes stored on `attendance_sessions.notes`
+       - moves cancellation into a collapsed danger zone with a required confirmation checkbox
+       - removes a duplicate attendance-record read from the save action to reduce save latency
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
@@ -233,6 +238,11 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - live Supabase cron verification still requires a direct prod SQL path to inspect `cron.job`; the repo migration and expected cron definition are documented, but the local linked project is not prod
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
+     - add a broader performance audit lane for slow staff workflows:
+       - attendance save latency after larger rosters
+       - Caja payment posting
+       - receipt/thermal-printer handoff time
+       - Supabase query volume and server-action revalidation cost
      - future calendar/closure lane:
       - expand the literal attendance calendar from read-only session visibility into closure workflows
       - support vacation days/weeks, rain days, campus-specific closures, and special events

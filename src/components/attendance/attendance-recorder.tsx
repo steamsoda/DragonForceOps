@@ -20,10 +20,12 @@ function nextStatus(current: Status) {
 export function AttendanceRecorder({
   sessionId,
   roster,
+  sessionNotes,
   disabled,
 }: {
   sessionId: string;
   roster: AttendanceRosterPlayer[];
+  sessionNotes: string | null;
   disabled: boolean;
 }) {
   const initial = useMemo(
@@ -36,17 +38,13 @@ export function AttendanceRecorder({
 
   return (
     <form action={saveAttendanceSessionAction.bind(null, sessionId)} className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           {presentCount}/{roster.length} cuentan como asistencia
         </p>
-        <button
-          type="submit"
-          disabled={disabled || roster.length === 0}
-          className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Guardar asistencia
-        </button>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Marca ausentes conforme recorres la lista. Guarda al final de la pagina.
+        </p>
       </div>
 
       <div className="grid gap-3">
@@ -110,6 +108,33 @@ export function AttendanceRecorder({
             </div>
           );
         })}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <label className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+          Notas generales de la sesion
+          <textarea
+            name="session_notes"
+            defaultValue={sessionNotes ?? ""}
+            disabled={disabled}
+            rows={3}
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+            placeholder="Ej. Entrenamiento reducido por lluvia, trabajo fisico, observaciones generales."
+          />
+        </label>
+      </div>
+
+      <div className="sticky bottom-3 z-10 flex flex-col gap-2 rounded-xl border border-blue-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-blue-900 dark:bg-slate-950/95 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+          Listo para guardar: {presentCount}/{roster.length} cuentan como asistencia
+        </p>
+        <button
+          type="submit"
+          disabled={disabled || roster.length === 0}
+          className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Guardar asistencia
+        </button>
       </div>
     </form>
   );

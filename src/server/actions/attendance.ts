@@ -559,7 +559,9 @@ export async function cancelAttendanceSessionAction(sessionId: string, formData:
   const admin = createAdminClient();
   const reasonCode = clean(formData.get("cancelled_reason_code"));
   const reason = clean(formData.get("cancelled_reason")) || null;
+  const confirmed = clean(formData.get("confirm_cancel")) === "1";
 
+  if (!confirmed) redirect(`/attendance/sessions/${sessionId}?err=cancel_confirmation_required`);
   if (!VALID_CANCEL_REASONS.has(reasonCode)) redirect(`/attendance/sessions/${sessionId}?err=invalid_form`);
 
   const { data: session } = await admin
@@ -602,17 +604,22 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
   const context = await requireAttendanceWriteContext("/unauthorized");
   const admin = createAdminClient();
   const detail = await getAttendanceSessionDetail(sessionId);
+  const sessionNotes = clean(formData.get("session_notes")) || null;
 
   if (!detail || !canWriteAttendanceCampus(context.attendanceCampusAccess, detail.campusId)) redirect("/unauthorized");
   if (detail.status === "cancelled") redirect(`/attendance/sessions/${sessionId}?err=cancelled`);
   if (detail.status === "completed" && !context.isDirector) redirect(`/attendance/sessions/${sessionId}?err=director_required`);
 
-  const { data: existingRecords } = await admin
-    .from("attendance_records")
-    .select("id, enrollment_id, status, source, note")
-    .eq("session_id", sessionId)
-    .returns<Array<{ id: string; enrollment_id: string; status: string; source: string; note: string | null }>>();
-  const existingByEnrollment = new Map((existingRecords ?? []).map((record) => [record.enrollment_id, record]));
+  const existingByEnrollment = new Map(
+    detail.roster
+      .filter((player) => player.recordId)
+      .map((player) => [player.enrollmentId, {
+        id: player.recordId!,
+        status: player.currentStatus,
+        source: player.source,
+        note: player.note,
+      }])
+  );
 
   const rows = detail.roster.map((player) => {
     const rawStatus = clean(formData.get(`status:${player.enrollmentId}`));
@@ -673,6 +680,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     .from("attendance_sessions")
     .update({
       status: "completed",
+      notes: sessionNotes,
       completed_by: context.user.id,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -685,7 +693,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     action: detail.status === "completed" ? "attendance_session.corrected" : "attendance_session.completed",
     tableName: "attendance_sessions",
     recordId: sessionId,
-    afterData: { records: rows.length },
+    afterData: { records: rows.length, has_session_notes: Boolean(sessionNotes) },
   });
 
   revalidatePath("/attendance");

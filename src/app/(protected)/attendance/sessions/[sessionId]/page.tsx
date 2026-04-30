@@ -60,7 +60,7 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
         {session.opponentName || session.notes ? (
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
             {session.opponentName ? <p><strong>Rival:</strong> {session.opponentName}</p> : null}
-            {session.notes ? <p><strong>Notas:</strong> {session.notes}</p> : null}
+            {session.notes ? <p><strong>Notas de sesion:</strong> {session.notes}</p> : null}
           </div>
         ) : null}
 
@@ -69,16 +69,21 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
             Sesion cancelada. Motivo: {session.cancelledReasonCode ?? "-"} {session.cancelledReason ? `| ${session.cancelledReason}` : ""}
           </div>
         ) : (
-          <AttendanceRecorder sessionId={session.id} roster={session.roster} disabled={disabled} />
+          <AttendanceRecorder sessionId={session.id} roster={session.roster} sessionNotes={session.notes} disabled={disabled} />
         )}
 
         {session.canWrite && session.status !== "cancelled" ? (
-          <details className="rounded-lg border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
-            <summary className="cursor-pointer list-none text-sm font-semibold text-rose-800 dark:text-rose-300">Cancelar sesion</summary>
+          <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Zona de cancelacion de sesion
+            </summary>
             <form action={cancelAttendanceSessionAction.bind(null, session.id)} className="mt-3 grid gap-3 md:grid-cols-3">
+              <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 md:col-span-3">
+                Esta accion cancela toda la sesion y la excluye de reportes de asistencia. Usala solo por lluvia, feriado u otra cancelacion real.
+              </p>
               <label className="text-sm font-medium">
                 Motivo
-                <select name="cancelled_reason_code" className="mt-1 block w-full rounded-md border border-rose-300 bg-white px-3 py-2 text-sm dark:border-rose-800 dark:bg-slate-950">
+                <select name="cancelled_reason_code" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
                   <option value="rain">Lluvia</option>
                   <option value="holiday">Dia festivo</option>
                   <option value="other">Otro</option>
@@ -86,7 +91,11 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
               </label>
               <label className="text-sm font-medium md:col-span-2">
                 Detalle opcional
-                <input name="cancelled_reason" className="mt-1 block w-full rounded-md border border-rose-300 bg-white px-3 py-2 text-sm dark:border-rose-800 dark:bg-slate-950" />
+                <input name="cancelled_reason" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300 md:col-span-3">
+                <input type="checkbox" name="confirm_cancel" value="1" required className="mt-1" />
+                Confirmo que quiero cancelar esta sesion completa.
               </label>
               <button className="rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950">
                 Confirmar cancelacion

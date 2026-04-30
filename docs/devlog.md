@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-04-29 (session 149)
+
+### Attendance Capture Field UX + Save Path Polish (v1.16.95)
+
+- Updated the attendance session capture page after the first field-admin live run.
+- Moved the primary `Guardar asistencia` control to the bottom of the recorder as a sticky footer so field staff can save after scrolling through the roster.
+- Added a session-level notes field:
+  - stored on `attendance_sessions.notes`
+  - separate from per-player attendance notes
+  - intended for general practice observations such as weather, reduced training, or session context
+- Moved cancellation into a collapsed `Zona de cancelacion de sesion`.
+- Added a required cancellation confirmation checkbox and server-side validation before a session can be cancelled.
+- Reduced save-path overhead by removing a duplicate `attendance_records` read during save:
+  - the action now reuses record state already loaded in the session detail
+  - correction audit behavior remains intact for director corrections
+- Performance note:
+  - this is a focused attendance-capture improvement
+  - broader slow operations reported by Front Desk, especially payment posting and thermal printing, still need a separate performance audit lane
+
 ## 2026-04-29 (session 148)
 
 ### Training Group Batch Assignment UX (v1.16.94)
