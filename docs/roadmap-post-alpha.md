@@ -265,7 +265,46 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked
 
-7. `Jugadores` spreadsheet-style roster view
+7. Front Desk performance instrumentation and slowdown audit
+   - new Priority 0 lane after live Front Desk and Field Admin reports of slow interactions.
+   - reported hotspots:
+     - Caja payment posting
+     - receipt / thermal-printer handoff
+     - general Front Desk workflows after long active sessions
+     - attendance save latency on larger rosters
+   - working hypothesis:
+     - not all delay is database latency
+     - likely contributors include server-action query volume, broad revalidation, React rerenders, QZ/printer connection state, browser memory/session state, and possibly Supabase query/index hot paths
+   - long-session concern to verify:
+     - staff may experience worse performance after posting many payments without refreshing
+     - possible causes include accumulated client state, stale QZ connection state, browser memory pressure, repeated listeners, cached receipt/printer objects, or progressively heavier UI state
+   - required first pass:
+     - add timing instrumentation around critical server actions rather than guessing
+     - target `post payment`, `create enrollment`, `attendance save`, and receipt print handoff
+     - log safe timing segments only; no secrets, card data, payment details, or PII-heavy payloads
+   - timing segments to capture:
+     - permission/context load
+     - account/ledger reads
+     - payment insert
+     - allocation insert/update
+     - audit log
+     - revalidation
+     - receipt data load
+     - browser/QZ/printer connection and print command duration
+   - likely optimization directions after measurement:
+     - batch sequential Supabase reads/writes
+     - move payment posting/allocation into transactional SQL/RPC if needed
+     - narrow `revalidatePath()` calls
+     - add or verify indexes for charges, payments, allocations, attendance records, and hot dashboard queries
+     - decouple save from print so payments complete before printer work blocks the user
+     - add a visible "printer reconnect/retry" workflow if QZ state is the bottleneck
+   - success criteria:
+     - Front Desk can post repeated payments in one long session without progressive slowdown
+     - payment save path has clear measured timings in logs
+     - receipt printing delay is separated from payment-save delay
+     - performance issues can be traced to exact segments instead of staff guessing or app-wide speculation
+
+8. `Jugadores` spreadsheet-style roster view
    - `v1.16.69` adds the first app-native answer to the old Excel workbook workflow:
      - planning doc: `docs/planning/jugadores-spreadsheet-view-plan.md`
      - route state: `/players?view=groups`
@@ -293,7 +332,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - decide whether this view should later export to Excel using the same grouping/query source
      - keep the separate `Jugadores` query-hardening lane open for the existing list path
 
-8. Navigation return-state UX pass
+9. Navigation return-state UX pass
    - `v1.16.77` starts this lane with `Pendientes`:
      - category and KPI drilldowns preserve the exact board return URL
      - player links from pending detail pages return to the same detail context
@@ -313,7 +352,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - prefer explicit query params or `returnTo` URLs over fragile browser-only state
      - keep role/campus scoping enforced server-side even when restoring UI state
 
-9. Nutrition v2 metrics and parent report exports
+10. Nutrition v2 metrics and parent report exports
    - `v1.16.78` starts this lane:
      - adds optional `Circunferencia de cintura (cm)` to historical measurement sessions
      - adds waist stats to nutrition panel, grouped/list views, player profile, deltas, history, and trend chart
@@ -355,7 +394,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - report branding/layout
      - whether reports are generated on demand only or stored for later download
 
-10. Sports grouping model simplification: program over `Nivel`
+11. Sports grouping model simplification: program over `Nivel`
    - planning doc:
      - `docs/planning/attendance-training-groups-roadmap.md`
    - planning direction:
@@ -376,7 +415,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - treat existing level strings as display/fallback until the new program/group fields are proven
      - avoid repointing tournament objects to training groups
 
-11. Attendance workflow simplification and automation
+12. Attendance workflow simplification and automation
    - goal:
      - make attendance usable for normal field/admin users without exposing unnecessary schedule-template internals
    - first implementation:

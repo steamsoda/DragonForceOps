@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-04-29 (session 151)
+
+### Front Desk Performance Audit Planning
+
+- Added a dedicated Priority 0 roadmap lane for Front Desk performance instrumentation.
+- Captured current reported hotspots:
+  - Caja payment posting
+  - receipt / thermal-printer handoff
+  - general Front Desk workflows after long active sessions
+  - attendance save latency on larger rosters
+- Logged the long-session slowdown hypothesis for investigation:
+  - accumulated client state
+  - stale QZ/printer connection state
+  - browser memory pressure
+  - repeated listeners
+  - cached receipt/printer objects
+  - progressively heavier UI state
+- Defined the recommended first pass:
+  - add safe timing instrumentation around critical server actions
+  - separate payment-save timing from receipt-print timing
+  - avoid guessing before measuring exact segments
+
 ## 2026-04-29 (session 150)
 
 ### Attendance Recorder Render Performance (v1.16.96)
