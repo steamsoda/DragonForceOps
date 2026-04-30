@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-04-29 (session 154)
+
+### Attendance Save Permission-Path Optimization (v1.16.99)
+
+- Replaced the attendance save action's duplicated debug/write permission path with a lean attendance-save context.
+- The save action now resolves:
+  - debug read-only state
+  - attendance write role
+  - scoped/global sports campus write access
+  - attendance-admin campus write access
+- Removed the save-time dependency on the full permission context, which was also loading operational and nutrition campus access that the attendance submit path does not need.
+- Updated performance instrumentation:
+  - old segments: `debug_guard` + `auth_context`
+  - new segment: `attendance_write_context`
+- Expected effect:
+  - fewer Supabase GETs during attendance submit
+  - lower server wait time before the save snapshot and write steps
+- Safety note:
+  - no attendance data model or write semantics changed
+  - Field Admin remains campus-scoped
+  - Director Deportivo keeps assigned/global sports attendance write scope
+  - director/admin roles keep correction rights
+
 ## 2026-04-29 (session 153)
 
 ### Attendance Save Snapshot Optimization (v1.16.98)

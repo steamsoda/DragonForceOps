@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
+import { assertDebugWritesAllowed, getDebugViewContext } from "@/lib/auth/debug-view";
 import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
+import type { AttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext, requireAttendanceWriteContext } from "@/lib/auth/permissions";
+import { APP_ROLES } from "@/lib/auth/roles";
 import { writeAuditLog } from "@/lib/audit";
 import { createPerfTimer } from "@/lib/perf/timing";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -712,10 +714,8 @@ export async function cancelAttendanceSessionAction(sessionId: string, formData:
 
 export async function saveAttendanceSessionAction(sessionId: string, formData: FormData) {
   const perf = createPerfTimer("attendance.save");
-  await assertDebugWritesAllowed(`/attendance/sessions/${sessionId}`);
-  perf.mark("debug_guard");
-  const context = await requireAttendanceWriteContext("/unauthorized");
-  perf.mark("auth_context");
+  const context = await requireAttendanceSaveContext(`/attendance/sessions/${sessionId}`);
+  perf.mark("attendance_write_context");
   const admin = createAdminClient();
   const snapshot = await getAttendanceSaveSnapshot(admin, sessionId);
   perf.mark("save_snapshot");
@@ -825,4 +825,46 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
     hasSessionNotes: Boolean(sessionNotes),
   });
   redirect(`/attendance/sessions/${sessionId}?ok=saved`);
+}
+
+async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {
+  const debugContext = await getDebugViewContext();
+  if (!debugContext) redirect("/unauthorized");
+  if (debugContext.isReadOnly) redirect(`${readOnlyRedirectTo}?err=debug_read_only`);
+
+  const roleRows = debugContext.effective.roleRows;
+  const roleCodes = debugContext.effective.roleCodes;
+  const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
+  const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
+  const sportsRows = roleRows.filter((row) => row.app_roles?.code === APP_ROLES.DIRECTOR_DEPORTIVO);
+  const isSportsDirector = isDirector || sportsRows.length > 0;
+  const isGlobalSportsDirector = sportsRows.some((row) => row.campus_id === null);
+  const attendanceRows = roleRows.filter((row) => row.app_roles?.code === APP_ROLES.ATTENDANCE_ADMIN);
+  const isAttendanceAdmin = attendanceRows.some((row) => row.campus_id !== null);
+
+  if (!isDirector && !isSportsDirector && !isAttendanceAdmin) redirect("/unauthorized");
+
+  const scopedCampusIds = new Set(
+    [...sportsRows, ...attendanceRows]
+      .map((row) => row.campus_id)
+      .filter((campusId): campusId is string => Boolean(campusId))
+  );
+  const campusAccess: AttendanceCampusAccess = {
+    userId: debugContext.effective.id,
+    isDirector,
+    isSportsDirector,
+    isGlobalSportsDirector,
+    isAttendanceAdmin,
+    isFrontDesk: roleCodes.includes(APP_ROLES.FRONT_DESK),
+    canWrite: true,
+    campuses: [],
+    campusIds: [...scopedCampusIds],
+    defaultCampusId: scopedCampusIds.values().next().value ?? null,
+  };
+
+  return {
+    user: { id: debugContext.effective.id, email: debugContext.effective.email ?? null },
+    attendanceCampusAccess: campusAccess,
+    isDirector,
+  };
 }
