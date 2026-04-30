@@ -2,6 +2,7 @@ import { canAccessAttendanceCampus, canWriteAttendanceCampus } from "@/lib/auth/
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  getTrainingGroupLevelCode,
   resolveTrainingGroupSuggestion,
   type TrainingGroupCandidate,
   type TrainingGroupReviewState,
@@ -94,6 +95,7 @@ export type TrainingGroupFilters = {
   status?: string;
   review?: string;
   birthYear?: string;
+  gender?: string;
 };
 
 export type TrainingGroupCoachOption = {
@@ -162,6 +164,7 @@ export type TrainingGroupsManagementData = {
   selectedStatus: string;
   selectedReview: string;
   selectedBirthYear: string;
+  selectedGender: string;
   canManage: boolean;
   coachOptions: TrainingGroupCoachOption[];
   groups: TrainingGroupSummaryRow[];
@@ -195,7 +198,48 @@ function getGenderLabel(value: string | null | undefined) {
 }
 
 function normalizeReviewState(value: string | null | undefined) {
-  return value === "assigned" || value === "suggested" || value === "ambiguous" || value === "unmatched" ? value : "all";
+  if (value === "all" || value === "pending" || value === "assigned" || value === "suggested" || value === "ambiguous" || value === "unmatched") {
+    return value;
+  }
+  return "pending";
+}
+
+function genderMatchesForManual(groupGender: string, playerGender: string | null | undefined) {
+  if (groupGender === "mixed") return true;
+  if (!playerGender) return false;
+  return groupGender === playerGender;
+}
+
+function birthYearMatchesForManual(group: TrainingGroupCandidate, birthYear: number | null) {
+  if (birthYear == null) return true;
+  if (group.birthYearMin != null && birthYear < group.birthYearMin) return false;
+  if (group.birthYearMax != null && birthYear > group.birthYearMax) return false;
+  return true;
+}
+
+function getManualGroupOptions(params: {
+  groups: TrainingGroupCandidate[];
+  campusId: string;
+  gender: string | null;
+  birthYear: number | null;
+  resolvedProgram: string;
+  resolvedLevel: string | null;
+}) {
+  const baseMatches = params.groups.filter((group) =>
+    group.campusId === params.campusId &&
+    genderMatchesForManual(group.gender, params.gender) &&
+    birthYearMatchesForManual(group, params.birthYear)
+  );
+  const programMatches = baseMatches.filter((group) => group.program === params.resolvedProgram);
+  let options = programMatches.length > 0 ? programMatches : baseMatches;
+
+  const levelCode = getTrainingGroupLevelCode(params.resolvedLevel);
+  if (params.resolvedProgram === "futbol_para_todos" && levelCode) {
+    const codeMatches = options.filter((group) => group.groupCode?.trim().toUpperCase() === levelCode);
+    if (codeMatches.length > 0) options = codeMatches;
+  }
+
+  return options;
 }
 
 function sortReviewRows(left: TrainingGroupReviewRow, right: TrainingGroupReviewRow) {
@@ -222,6 +266,7 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
   const selectedStatus = normalizeTrainingGroupStatus(filters.status || "active");
   const selectedReview = normalizeReviewState(filters.review);
   const selectedBirthYear = /^\d{4}$/.test(filters.birthYear ?? "") ? String(filters.birthYear) : "";
+  const selectedGender = filters.gender === "male" || filters.gender === "female" || filters.gender === "mixed" ? filters.gender : "";
   const admin = createAdminClient();
 
   const [{ data: groups }, { data: coachRows }, { data: activeAssignments }, { data: coachOptions }, { data: enrollments }, { data: competitionAssignments }] =
@@ -380,8 +425,14 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
         suggestionGroupName = suggestion.suggestionGroupName;
       }
 
-      const manualOptions = candidateGroups
-        .filter((group) => group.campusId === row.campus_id)
+      const manualOptions = getManualGroupOptions({
+        groups: candidateGroups,
+        campusId: row.campus_id,
+        gender: row.players?.gender ?? null,
+        birthYear,
+        resolvedProgram,
+        resolvedLevel,
+      })
         .sort((a, b) => {
           const leftYear = `${a.birthYearMax ?? 0}`.padStart(4, "0");
           const rightYear = `${b.birthYearMax ?? 0}`.padStart(4, "0");
@@ -419,6 +470,7 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
       };
     })
     .filter((row) => !selectedBirthYear || String(row.birthYear ?? "") === selectedBirthYear)
+    .filter((row) => !selectedGender || row.gender === selectedGender)
     .sort(sortReviewRows);
 
   const reviewCounts: Record<TrainingGroupReviewState, number> = {
@@ -428,7 +480,11 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
     unmatched: scopedReviewRows.filter((row) => row.reviewState === "unmatched").length,
   };
 
-  const reviewRows = scopedReviewRows.filter((row) => selectedReview === "all" || row.reviewState === selectedReview);
+  const reviewRows = scopedReviewRows.filter((row) => {
+    if (selectedReview === "all") return true;
+    if (selectedReview === "pending") return row.reviewState !== "assigned";
+    return row.reviewState === selectedReview;
+  });
 
   return {
     campuses: access.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
@@ -437,6 +493,7 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
     selectedStatus: filters.status ? selectedStatus : "",
     selectedReview,
     selectedBirthYear,
+    selectedGender,
     canManage: context.isDirector || context.isSportsDirector,
     coachOptions: (coachOptions ?? []).map((coach) => ({
       id: coach.id,

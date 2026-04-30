@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-04-29 (session 148)
+
+### Training Group Batch Assignment UX (v1.16.94)
+
+- Improved `Configuracion Grupos` for manual cleanup of players without training group.
+- Changed the review table default to `Pendientes de asignar` so the page no longer starts by showing every active player.
+- Added a gender filter to the review controls.
+- Replaced one-row-at-a-time assignment forms with a batch form:
+  - select groups on multiple player rows
+  - save once
+  - only rows with a selected changed group are applied
+- Player names in the review table now link to their player profiles.
+- Narrowed assignment dropdowns to compatible groups:
+  - same campus
+  - compatible category/YOB when known
+  - compatible gender
+  - preferred matching program and FPT subgrupo when available
+- Safety note:
+  - no schema changes
+  - no raw SQL backfill
+  - assignments still go through the existing audited `training_group_assignments` server path
+
 ## 2026-04-29 (session 147)
 
 ### Training Group Auto-Assignment Second Pass (v1.16.93)

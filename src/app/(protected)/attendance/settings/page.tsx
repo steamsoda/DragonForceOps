@@ -5,7 +5,7 @@ import { getTrainingGroupsManagementData, type TrainingGroupReviewState, type Tr
 import {
   createTrainingGroupAction,
   updateTrainingGroupAction,
-  assignTrainingGroupAction,
+  assignTrainingGroupsBatchAction,
   applySuggestedTrainingGroupsAction,
 } from "@/server/actions/training-groups";
 import {
@@ -24,6 +24,7 @@ type SearchParams = Promise<{
   status?: string;
   review?: string;
   birthYear?: string;
+  gender?: string;
   ok?: string;
   err?: string;
   count?: string;
@@ -58,6 +59,7 @@ function buildHref(params: {
   status?: string;
   review?: string;
   birthYear?: string;
+  gender?: string;
 }) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -200,6 +202,7 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
     status: params.status,
     review: params.review,
     birthYear: params.birthYear,
+    gender: params.gender,
   });
 
   if (!data) redirect("/unauthorized");
@@ -211,6 +214,8 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
         ? "Grupo actualizado correctamente."
         : params.ok === "assignment_saved"
           ? "Asignacion guardada correctamente."
+          : params.ok === "batch_assignments_saved"
+            ? `Asignaciones guardadas: ${params.count ?? "0"}`
           : params.ok === "suggestions_applied"
             ? `Sugerencias aplicadas: ${params.count ?? "0"}`
             : null;
@@ -232,7 +237,7 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{successMessage}</div>
         ) : null}
 
-        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto]">
+        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto_auto]">
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Campus</span>
             <select name="campus" defaultValue={data.selectedCampusId} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
@@ -263,6 +268,7 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Revision</span>
             <select name="review" defaultValue={data.selectedReview} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
+              <option value="pending">Pendientes de asignar</option>
               <option value="all">Todas</option>
               <option value="assigned">Con grupo</option>
               <option value="suggested">Sugerencia unica</option>
@@ -273,6 +279,15 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
           <label className="grid gap-1 text-sm">
             <span className="font-medium">Categoria</span>
             <input name="birthYear" type="number" defaultValue={data.selectedBirthYear} placeholder="2014" className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950" />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">Genero</span>
+            <select name="gender" defaultValue={data.selectedGender} className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
+              <option value="">Todos</option>
+              {TRAINING_GROUP_GENDER_OPTIONS.map((value) => (
+                <option key={value} value={value}>{TRAINING_GROUP_GENDER_LABELS[value]}</option>
+              ))}
+            </select>
           </label>
           <div className="flex items-end">
             <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar</button>
@@ -439,86 +454,110 @@ export default async function TrainingGroupsPage({ searchParams }: { searchParam
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "assigned" })}>{chip(`Con grupo ${data.reviewCounts.assigned}`, "emerald")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "suggested" })}>{chip(`Sugerencia ${data.reviewCounts.suggested}`, "amber")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "ambiguous" })}>{chip(`Revision manual ${data.reviewCounts.ambiguous}`, "rose")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, review: "unmatched" })}>{chip(`Sin grupo ${data.reviewCounts.unmatched}`, "rose")}</a>
-            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined })}>{chip("Ver todo", "slate")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "pending" })}>{chip(`Pendientes ${data.reviewCounts.suggested + data.reviewCounts.ambiguous + data.reviewCounts.unmatched}`, "amber")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "assigned" })}>{chip(`Con grupo ${data.reviewCounts.assigned}`, "emerald")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "suggested" })}>{chip(`Sugerencia ${data.reviewCounts.suggested}`, "amber")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "ambiguous" })}>{chip(`Revision manual ${data.reviewCounts.ambiguous}`, "rose")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "unmatched" })}>{chip(`Sin grupo ${data.reviewCounts.unmatched}`, "rose")}</a>
+            <a href={buildHref({ campus: data.selectedCampusId || undefined, program: data.selectedProgram || undefined, status: data.selectedStatus || undefined, birthYear: data.selectedBirthYear || undefined, gender: data.selectedGender || undefined, review: "all" })}>{chip("Ver todo", "slate")}</a>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                <tr>
-                  <th className="px-3 py-2">Jugador</th>
-                  <th className="px-3 py-2">Contexto</th>
-                  <th className="px-3 py-2">Estado</th>
-                  <th className="px-3 py-2">Sugerencia</th>
-                  <th className="px-3 py-2">Asignacion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.reviewRows.length === 0 ? (
+          <form action={assignTrainingGroupsBatchAction} className="space-y-3">
+            <input type="hidden" name="campus" value={data.selectedCampusId} />
+            <input type="hidden" name="program" value={data.selectedProgram} />
+            <input type="hidden" name="status" value={data.selectedStatus} />
+            <input type="hidden" name="review" value={data.selectedReview} />
+            <input type="hidden" name="birthYear" value={data.selectedBirthYear} />
+            <input type="hidden" name="gender" value={data.selectedGender} />
+            {data.canManage ? (
+              <div className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-100 md:flex-row md:items-center md:justify-between">
+                <span>Selecciona grupos en varias filas y guarda todo en un solo envio.</span>
+                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                  Guardar asignaciones seleccionadas
+                </button>
+              </div>
+            ) : null}
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-slate-500 dark:text-slate-400">No hay jugadores con esos filtros.</td>
+                    <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">Contexto</th>
+                    <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Sugerencia</th>
+                    <th className="px-3 py-2">Asignacion</th>
                   </tr>
-                ) : (
-                  data.reviewRows.map((row) => (
-                    <tr key={row.enrollmentId} className="align-top">
-                      <td className="px-3 py-3">
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">{row.playerName}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{row.campusName} | Cat. {row.birthYear ?? "-"}</p>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
-                        <p>{row.genderLabel}</p>
-                        <p className="text-xs">Programa {row.resolvedProgramLabel}</p>
-                        <p className="text-xs">Nivel {row.resolvedLevel ?? row.playerLevel ?? "-"}</p>
-                        <p className="text-xs">{row.competitionTeamNames.length > 0 ? row.competitionTeamNames.join(", ") : "Sin equipo de competencia"}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {chip(REVIEW_LABELS[row.reviewState], row.reviewState === "assigned" ? "emerald" : row.reviewState === "suggested" ? "amber" : "rose")}
-                          {row.currentTrainingGroupName ? chip(row.currentTrainingGroupName, "blue") : null}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
-                        <div className="mb-1 flex flex-wrap gap-1.5">
-                          {row.suggestionConfidence === "auto_safe" ? chip("Auto seguro", "emerald") : null}
-                          {row.suggestionConfidence === "manual_review" ? chip("Manual", "amber") : null}
-                          {row.suggestionConfidence === "no_match" ? chip("Sin match", "rose") : null}
-                        </div>
-                        <p>{row.suggestionGroupName ?? "Sin sugerencia"}</p>
-                        <p className="text-xs">{row.suggestionReason}</p>
-                      </td>
-                      <td className="px-3 py-3">
-                        {data.canManage ? (
-                          <form action={assignTrainingGroupAction} className="grid gap-2">
-                            <input type="hidden" name="enrollment_id" value={row.enrollmentId} />
-                            <input type="hidden" name="assignment_start" value={row.enrollmentStartDate || today} />
-                            <select
-                              name="training_group_id"
-                              defaultValue={row.currentTrainingGroupId ?? row.suggestionGroupId ?? ""}
-                              className="rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
-                            >
-                              <option value="">Selecciona grupo</option>
-                              {row.manualOptions.map((option) => (
-                                <option key={option.id} value={option.id}>{option.label}</option>
-                              ))}
-                            </select>
-                            <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
-                              Guardar
-                            </button>
-                          </form>
-                        ) : (
-                          <span className="text-xs text-slate-400">Solo lectura</span>
-                        )}
-                      </td>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {data.reviewRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-slate-500 dark:text-slate-400">No hay jugadores con esos filtros.</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    data.reviewRows.map((row) => (
+                      <tr key={row.enrollmentId} className="align-top">
+                        <td className="px-3 py-3">
+                          <a href={`/players/${row.playerId}`} className="font-semibold text-portoBlue hover:underline">{row.playerName}</a>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{row.campusName} | Cat. {row.birthYear ?? "-"}</p>
+                        </td>
+                        <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
+                          <p>{row.genderLabel}</p>
+                          <p className="text-xs">Programa {row.resolvedProgramLabel}</p>
+                          <p className="text-xs">Nivel {row.resolvedLevel ?? row.playerLevel ?? "-"}</p>
+                          <p className="text-xs">{row.competitionTeamNames.length > 0 ? row.competitionTeamNames.join(", ") : "Sin equipo de competencia"}</p>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            {chip(REVIEW_LABELS[row.reviewState], row.reviewState === "assigned" ? "emerald" : row.reviewState === "suggested" ? "amber" : "rose")}
+                            {row.currentTrainingGroupName ? chip(row.currentTrainingGroupName, "blue") : null}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
+                          <div className="mb-1 flex flex-wrap gap-1.5">
+                            {row.suggestionConfidence === "auto_safe" ? chip("Auto seguro", "emerald") : null}
+                            {row.suggestionConfidence === "manual_review" ? chip("Manual", "amber") : null}
+                            {row.suggestionConfidence === "no_match" ? chip("Sin match", "rose") : null}
+                          </div>
+                          <p>{row.suggestionGroupName ?? "Sin sugerencia"}</p>
+                          <p className="text-xs">{row.suggestionReason}</p>
+                        </td>
+                        <td className="px-3 py-3">
+                          {data.canManage ? (
+                            <div className="grid gap-2">
+                              <input type="hidden" name="enrollment_id" value={row.enrollmentId} />
+                              <input type="hidden" name={`assignment_start:${row.enrollmentId}`} value={row.enrollmentStartDate || today} />
+                              <input type="hidden" name={`current_training_group_id:${row.enrollmentId}`} value={row.currentTrainingGroupId ?? ""} />
+                              <select
+                                name={`training_group_id:${row.enrollmentId}`}
+                                defaultValue={row.currentTrainingGroupId ?? row.suggestionGroupId ?? ""}
+                                className="min-w-72 rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
+                              >
+                                <option value="">Selecciona grupo</option>
+                                {row.manualOptions.map((option) => (
+                                  <option key={option.id} value={option.id}>{option.label}</option>
+                                ))}
+                              </select>
+                              <p className="text-xs text-slate-400">{row.manualOptions.length} opciones compatibles</p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">Solo lectura</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {data.canManage && data.reviewRows.length > 0 ? (
+              <div className="flex justify-end">
+                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                  Guardar asignaciones seleccionadas
+                </button>
+              </div>
+            ) : null}
+          </form>
         </section>
       </div>
     </PageShell>
