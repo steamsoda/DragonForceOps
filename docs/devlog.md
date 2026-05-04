@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-05-04 (session 160)
+
+### Jugadores Grouped Roster Client/API Boundary (v1.16.108)
+
+- Reverted the first `v1.16.107` virtualized rendering attempt after live production testing showed it made `/players` slower.
+- Kept the successful `v1.16.106` RPC optimization and changed the next pass to target the actual remaining bottleneck: the large `/players` RSC stream.
+- Added a dedicated authenticated `/api/players/grouped-roster` endpoint for the grouped roster data.
+- Changed the default grouped `Jugadores` page to render the shell immediately, then fetch and render the full grouped roster client-side.
+
 ## 2026-05-04 (session 159)
 
 ### Jugadores Grouped Roster RPC Optimization (v1.16.106)

@@ -1,0 +1,29 @@
+import { NextResponse } from "next/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { getPlayerRosterGroupsData } from "@/lib/queries/player-roster-groups";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  const context = await getPermissionContext();
+  if (!context) return NextResponse.json({ message: "No autenticado." }, { status: 401 });
+  if (!context.hasOperationalAccess) return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
+
+  const url = new URL(request.url);
+  const gender = url.searchParams.get("gender") ?? undefined;
+  const birthYear = url.searchParams.get("year") ?? undefined;
+  const campusId = url.searchParams.get("campus") ?? undefined;
+
+  const data = await getPlayerRosterGroupsData({
+    campusId,
+    gender,
+    birthYear,
+  });
+
+  return NextResponse.json(data, {
+    headers: {
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
