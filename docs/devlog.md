@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-05-04 (session 159)
+
+### Jugadores Grouped Roster RPC Optimization (v1.16.106)
+
+- Followed up on the production network log from `Jugadores > Vista por grupos`.
+- Confirmed the first hotfix removed the player-detail prefetch storm, but the page still assembled the full roster through several Supabase/PostgREST reads.
+- Added a live `get_player_roster_group_rows` RPC that returns flat spreadsheet-style roster rows for the selected campus, gender, category, and three visible tuition months.
+- Refactored the grouped roster loader so TypeScript keeps only small metadata reads for campus/group/filter labels while the player rows and tuition states come from the RPC.
+- Kept the current full-roster UX:
+  - all groups remain visible at once
+  - `Sin grupo` remains available
+  - tuition labels and visual states remain unchanged
+  - no cached/materialized roster table was added
+
 ## 2026-05-03 (session 158)
 
 ### Pre-Merge Role/Advisor/Query Hardening (v1.16.105)

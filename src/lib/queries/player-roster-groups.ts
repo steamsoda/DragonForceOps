@@ -7,24 +7,10 @@ import {
   formatTrainingGroupBirthYearRange,
 } from "@/lib/training-groups/shared";
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 1000;
 
 type RosterEnrollmentRow = {
-  id: string;
-  campus_id: string;
-  start_date: string;
-  inscription_date: string;
-  campuses: { name: string | null; code: string | null } | null;
-  players: {
-    id: string;
-    public_player_id: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    birth_date: string | null;
-    gender: string | null;
-    level: string | null;
-    status: string;
-  } | null;
+  players: { birth_date: string | null } | null;
 };
 
 type TrainingGroupRow = {
@@ -42,27 +28,22 @@ type TrainingGroupRow = {
   status: string;
 };
 
-type TrainingGroupAssignmentRow = {
+type RosterRpcRow = {
   enrollment_id: string;
-  training_group_id: string;
-  training_groups: TrainingGroupRow | null;
-};
-
-type TuitionChargeRow = {
-  id: string;
-  enrollment_id: string;
-  amount: number | string;
-  status: string;
-  period_month: string | null;
-  payment_allocations: Array<{
-    amount: number | string | null;
-    payments: {
-      paid_at: string | null;
-      method: string | null;
-      external_source: string | null;
-      status: string | null;
-    } | null;
-  }> | null;
+  player_id: string;
+  public_player_id: string | null;
+  full_name: string | null;
+  birth_year: number | null;
+  player_level: string | null;
+  inscription_date: string | null;
+  start_date: string;
+  training_group_id: string | null;
+  month_1_state: RosterTuitionCell["state"];
+  month_1_latest_paid_at: string | null;
+  month_2_state: RosterTuitionCell["state"];
+  month_2_latest_paid_at: string | null;
+  month_3_state: RosterTuitionCell["state"];
+  month_3_latest_paid_at: string | null;
 };
 
 export type RosterTuitionMonth = {
@@ -113,11 +94,6 @@ export type PlayerRosterGroupsData = {
   totalPlayers: number;
   unassignedCount: number;
 };
-
-function parseAmount(value: number | string | null | undefined) {
-  const amount = typeof value === "string" ? Number(value) : (value ?? 0);
-  return Number.isFinite(amount) ? amount : 0;
-}
 
 async function fetchAll<T>(loadPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>, label: string) {
   const rows: T[] = [];
@@ -254,48 +230,19 @@ function groupMatchesBirthYear(group: TrainingGroupRow, birthYear: number | null
   return birthYear === (min ?? max);
 }
 
-function buildTuitionCells(months: RosterTuitionMonth[], charges: TuitionChargeRow[]) {
-  const byPeriod = new Map<string, TuitionChargeRow[]>();
-  for (const charge of charges) {
-    if (!charge.period_month) continue;
-    const arr = byPeriod.get(charge.period_month) ?? [];
-    arr.push(charge);
-    byPeriod.set(charge.period_month, arr);
-  }
+function buildTuitionCell(month: RosterTuitionMonth, state: RosterTuitionCell["state"], latestPaidAt: string | null): RosterTuitionCell {
+  if (state === "empty") return { periodMonth: month.periodMonth, label: month.label, value: "-", state };
+  if (state === "pending") return { periodMonth: month.periodMonth, label: month.label, value: "Pendiente", state };
+  if (state === "platform") return { periodMonth: month.periodMonth, label: month.label, value: "MES P", state };
+  return { periodMonth: month.periodMonth, label: month.label, value: formatDateShort(latestPaidAt), state: "paid" };
+}
 
-  return months.map((month): RosterTuitionCell => {
-    const periodCharges = byPeriod.get(month.periodMonth) ?? [];
-    if (periodCharges.length === 0) {
-      return { periodMonth: month.periodMonth, label: month.label, value: "-", state: "empty" };
-    }
-
-    let total = 0;
-    let allocated = 0;
-    let latestPaidAt: string | null = null;
-    let hasPlatformPayment = false;
-
-    for (const charge of periodCharges) {
-      total += parseAmount(charge.amount);
-      for (const allocation of charge.payment_allocations ?? []) {
-        const payment = allocation.payments;
-        if (payment?.status && payment.status !== "posted") continue;
-        const allocationAmount = parseAmount(allocation.amount);
-        allocated += allocationAmount;
-        if (allocationAmount > 0 && payment?.method === "stripe_360player") hasPlatformPayment = true;
-        if (payment?.paid_at && (!latestPaidAt || payment.paid_at > latestPaidAt)) latestPaidAt = payment.paid_at;
-      }
-    }
-
-    if (total - allocated > 0.009) {
-      return { periodMonth: month.periodMonth, label: month.label, value: "Pendiente", state: "pending" };
-    }
-
-    if (hasPlatformPayment) {
-      return { periodMonth: month.periodMonth, label: month.label, value: "MES P", state: "platform" };
-    }
-
-    return { periodMonth: month.periodMonth, label: month.label, value: formatDateShort(latestPaidAt), state: "paid" };
-  });
+function buildTuitionCellsFromRpc(months: RosterTuitionMonth[], row: RosterRpcRow) {
+  return [
+    buildTuitionCell(months[0], row.month_1_state, row.month_1_latest_paid_at),
+    buildTuitionCell(months[1], row.month_2_state, row.month_2_latest_paid_at),
+    buildTuitionCell(months[2], row.month_3_state, row.month_3_latest_paid_at),
+  ];
 }
 
 export async function getPlayerRosterGroupsData(filters: { campusId?: string; gender?: string; birthYear?: string | number } = {}): Promise<PlayerRosterGroupsData | null> {
@@ -315,14 +262,13 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
   const months = getRosterMonths();
   const supabase = await createClient();
 
-  const buildEnrollmentQuery = (from: number, to: number) => {
+  const buildBirthYearsQuery = (from: number, to: number) => {
     let query = supabase
       .from("enrollments")
-      .select("id, campus_id, start_date, inscription_date, campuses(name, code), players!inner(id, public_player_id, first_name, last_name, birth_date, gender, level, status)")
+      .select("players!inner(birth_date, gender, status)")
       .eq("status", "active")
       .eq("campus_id", selectedCampusId)
       .eq("players.status", "active")
-      .order("start_date", { ascending: true })
       .range(from, to);
 
     if (selectedGender) {
@@ -349,55 +295,36 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     return query.returns<TrainingGroupRow[]>();
   };
 
-  const [enrollments, groups, assignments, charges] = await Promise.all([
+  const [birthYearRows, groups, rosterRows] = await Promise.all([
     fetchAll<RosterEnrollmentRow>(
-      buildEnrollmentQuery,
-      "player roster enrollments",
+      buildBirthYearsQuery,
+      "player roster birth years",
     ),
     fetchAll<TrainingGroupRow>(
       buildGroupsQuery,
       "player roster training groups",
     ),
-    fetchAll<TrainingGroupAssignmentRow>(
-      (from, to) =>
-        supabase
-          .from("training_group_assignments")
-          .select("enrollment_id, training_group_id, training_groups!inner(id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status)")
-          .is("end_date", null)
-          .eq("training_groups.campus_id", selectedCampusId)
-          .range(from, to)
-          .returns<TrainingGroupAssignmentRow[]>(),
-      "player roster training group assignments",
-    ),
-    fetchAll<TuitionChargeRow>(
-      (from, to) =>
-        supabase
-          .from("charges")
-          .select("id, enrollment_id, amount, status, period_month, charge_types!inner(code), enrollments!inner(campus_id, status), payment_allocations(amount, payments(paid_at, method, external_source, status))")
-          .eq("charge_types.code", "monthly_tuition")
-          .eq("enrollments.campus_id", selectedCampusId)
-          .eq("enrollments.status", "active")
-          .in("period_month", months.map((month) => month.periodMonth))
-          .neq("status", "void")
-          .range(from, to)
-          .returns<TuitionChargeRow[]>(),
-      "player roster tuition charges",
+    fetchAll<RosterRpcRow>(
+      async (from, to) => {
+        const response = await supabase
+          .rpc("get_player_roster_group_rows", {
+            p_campus_id: selectedCampusId,
+            p_month_1: months[0].periodMonth,
+            p_month_2: months[1].periodMonth,
+            p_month_3: months[2].periodMonth,
+            p_gender: selectedGender || null,
+            p_birth_year: selectedBirthYear,
+          })
+          .range(from, to);
+
+        return response as unknown as { data: RosterRpcRow[] | null; error: { message?: string } | null };
+      },
+      "player roster rpc rows",
     ),
   ]);
 
-  const birthYears = [...new Set(enrollments.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
-  const visibleEnrollments = selectedBirthYear
-    ? enrollments.filter((row) => getBirthYear(row.players?.birth_date) === selectedBirthYear)
-    : enrollments;
+  const birthYears = [...new Set(birthYearRows.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
   const groupsById = new Map(groups.map((group) => [group.id, group]));
-  const assignmentByEnrollment = new Map(assignments.map((assignment) => [assignment.enrollment_id, assignment.training_groups]));
-  const chargesByEnrollment = new Map<string, TuitionChargeRow[]>();
-
-  for (const charge of charges) {
-    const arr = chargesByEnrollment.get(charge.enrollment_id) ?? [];
-    arr.push(charge);
-    chargesByEnrollment.set(charge.enrollment_id, arr);
-  }
 
   const sectionMap = new Map<string, PlayerRosterGroupSection>();
   for (const group of [...groups].sort((a, b) => {
@@ -436,30 +363,27 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     rows: [],
   };
 
-  for (const enrollment of visibleEnrollments) {
-    const player = enrollment.players;
-    if (!player) continue;
-    const assignedGroup = assignmentByEnrollment.get(enrollment.id) ?? null;
-    const canonicalGroup = assignedGroup?.id ? groupsById.get(assignedGroup.id) ?? assignedGroup : null;
+  for (const row of rosterRows) {
+    const canonicalGroup = row.training_group_id ? groupsById.get(row.training_group_id) ?? null : null;
     const targetSection = canonicalGroup?.id ? sectionMap.get(canonicalGroup.id) ?? unassignedSection : unassignedSection;
-    const fullName = `${player.first_name ?? ""} ${player.last_name ?? ""}`.replace(/\s+/g, " ").trim();
+    const fullName = row.full_name?.replace(/\s+/g, " ").trim() || "Jugador";
     const levelGroup =
       canonicalGroup?.level_label?.trim() ||
       canonicalGroup?.group_code?.trim() ||
-      player.level?.trim() ||
+      row.player_level?.trim() ||
       canonicalGroup?.name ||
       "Sin nivel";
 
     targetSection.rows.push({
-      enrollmentId: enrollment.id,
-      playerId: player.id,
-      publicPlayerId: player.public_player_id ?? "Pendiente",
+      enrollmentId: row.enrollment_id,
+      playerId: row.player_id,
+      publicPlayerId: row.public_player_id ?? "Pendiente",
       fullName,
-      birthYear: getBirthYear(player.birth_date),
+      birthYear: row.birth_year,
       levelGroup,
-      inscriptionDate: formatDateOnly(enrollment.inscription_date ?? enrollment.start_date),
-      startDate: enrollment.start_date,
-      tuition: buildTuitionCells(months, chargesByEnrollment.get(enrollment.id) ?? []),
+      inscriptionDate: formatDateOnly(row.inscription_date ?? row.start_date),
+      startDate: row.start_date,
+      tuition: buildTuitionCellsFromRpc(months, row),
     });
   }
 
@@ -485,7 +409,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
     birthYears,
     months,
     sections,
-    totalPlayers: visibleEnrollments.length,
+    totalPlayers: rosterRows.length,
     unassignedCount: unassignedSection.rows.length,
   };
 }
