@@ -438,7 +438,7 @@ Needed safeguard:
   - `Asistencia > Hoy` requires a specific campus before manual generation
   - directors/admins and Director Deportivo can generate only the selected campus week within their attendance scope
   - the existing global Sunday cron remains unchanged
-- Live cron verification note: the repo is currently linked to the preview Supabase project, not production; reading production `cron.job` requires a direct prod SQL path, not the local linked CLI context.
+- Live cron verification note: direct SQL access has now verified `cron.job` on both preview (`eqefgwdsqabnmpnbpqbq`) and production (`hjvytfaalnfcqfgbxsmj`). Both branches have active `generate-attendance-sessions` and `generate-monthly-charges` Supabase cron jobs.
 
 ### Future Phase — Attendance Calendar / Operational Closures
 

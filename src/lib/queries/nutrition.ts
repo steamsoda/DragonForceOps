@@ -17,6 +17,9 @@ import {
   formatTrainingGroupBirthYearRange,
 } from "@/lib/training-groups/shared";
 
+const PAGE_SIZE = 500;
+const CHUNK_SIZE = 100;
+
 type ActiveNutritionEnrollmentRow = {
   id: string;
   player_id: string;
@@ -89,6 +92,11 @@ type GuardianLinkRow = {
     relationship_label: string | null;
   } | null;
 };
+
+type SupabaseArrayResult<T> = PromiseLike<{
+  data: T[] | null;
+  error?: { message?: string } | null;
+}>;
 
 export type NutritionGuardianContact = {
   name: string;
@@ -215,19 +223,43 @@ function buildMonthSeries(selectedMonth: string, count = 6) {
   });
 }
 
+async function fetchPagedRows<T>(loadPage: (from: number, to: number) => SupabaseArrayResult<T>) {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await loadPage(from, to);
+    if (error) throw new Error(error.message ?? "nutrition_query_failed");
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchChunkedRows<T>(ids: string[], loadChunkPage: (chunk: string[], from: number, to: number) => SupabaseArrayResult<T>) {
+  const rows: T[] = [];
+  const uniqueIds = [...new Set(ids)].filter(Boolean);
+  for (let index = 0; index < uniqueIds.length; index += CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(index, index + CHUNK_SIZE);
+    rows.push(...await fetchPagedRows((from, to) => loadChunkPage(chunk, from, to)));
+  }
+  return rows;
+}
+
 async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
   if (selectedCampusIds.length === 0) return [] as ActiveNutritionEnrollmentRow[];
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("enrollments")
-    .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(public_player_id, first_name, last_name, birth_date, gender, medical_notes, level)")
-    .eq("status", "active")
-    .in("campus_id", selectedCampusIds)
-    .order("created_at", { ascending: false })
-    .returns<ActiveNutritionEnrollmentRow[]>();
-
-  return data ?? [];
+  return fetchPagedRows<ActiveNutritionEnrollmentRow>((from, to) =>
+    admin
+      .from("enrollments")
+      .select("id, player_id, campus_id, created_at, start_date, inscription_date, campuses(name), players(public_player_id, first_name, last_name, birth_date, gender, medical_notes, level)")
+      .eq("status", "active")
+      .in("campus_id", selectedCampusIds)
+      .order("created_at", { ascending: false })
+      .range(from, to)
+      .returns<ActiveNutritionEnrollmentRow[]>()
+  );
 }
 
 async function listNutritionTrainingGroups(selectedCampusId: string, selectedGender: "male" | "female" | "") {
@@ -250,44 +282,49 @@ async function listNutritionTrainingGroups(selectedCampusId: string, selectedGen
 
 async function listNutritionTrainingGroupAssignments(selectedCampusId: string) {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("training_group_assignments")
-    .select("enrollment_id, training_group_id, training_groups!inner(id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status)")
-    .is("end_date", null)
-    .eq("training_groups.campus_id", selectedCampusId)
-    .returns<NutritionTrainingGroupAssignmentRow[]>();
-
-  return data ?? [];
+  return fetchPagedRows<NutritionTrainingGroupAssignmentRow>((from, to) =>
+    admin
+      .from("training_group_assignments")
+      .select("enrollment_id, training_group_id, training_groups!inner(id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status)")
+      .is("end_date", null)
+      .eq("training_groups.campus_id", selectedCampusId)
+      .range(from, to)
+      .returns<NutritionTrainingGroupAssignmentRow[]>()
+  );
 }
 
 async function listMeasurementSessionsForPlayers(playerIds: string[]) {
   if (playerIds.length === 0) return [] as MeasurementSessionRow[];
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("player_measurement_sessions")
-    .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
-    .in("player_id", playerIds)
-    .order("measured_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .returns<MeasurementSessionRow[]>();
-
-  return data ?? [];
+  return fetchChunkedRows<MeasurementSessionRow>(playerIds, (chunk, from, to) =>
+    admin
+      .from("player_measurement_sessions")
+      .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
+      .in("player_id", chunk)
+      .order("measured_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to)
+      .returns<MeasurementSessionRow[]>()
+  );
 }
 
 async function listGuardianContactsForPlayers(playerIds: string[]) {
   if (playerIds.length === 0) return new Map<string, NutritionGuardianContact>();
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("player_guardians")
-    .select("player_id, is_primary, guardians(first_name, last_name, phone_primary, phone_secondary, email, relationship_label)")
-    .in("player_id", playerIds)
-    .order("is_primary", { ascending: false })
-    .returns<GuardianLinkRow[]>();
+  const rows = await fetchChunkedRows<GuardianLinkRow>(playerIds, (chunk, from, to) =>
+    admin
+      .from("player_guardians")
+      .select("player_id, is_primary, guardians(first_name, last_name, phone_primary, phone_secondary, email, relationship_label)")
+      .in("player_id", chunk)
+      .order("is_primary", { ascending: false })
+      .range(from, to)
+      .returns<GuardianLinkRow[]>()
+  );
 
   const byPlayer = new Map<string, NutritionGuardianContact>();
-  for (const row of data ?? []) {
+  for (const row of rows) {
     if (byPlayer.has(row.player_id)) continue;
     const contact = mapGuardianContact(row);
     if (contact) byPlayer.set(row.player_id, contact);
@@ -496,14 +533,17 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
   ).length;
 
   const admin = createAdminClient();
-  const [{ data: currentMonthSessions }, { data: recentRows }] = await Promise.all([
-    admin
-      .from("player_measurement_sessions")
-      .select("id, waist_circumference_cm")
-      .in("campus_id", selectedCampusIds)
-      .gte("measured_at", monthBounds.start)
-      .lt("measured_at", monthBounds.end)
-      .returns<Array<{ id: string; waist_circumference_cm: number | string | null }>>(),
+  const [currentMonthSessions, { data: recentRows }] = await Promise.all([
+    fetchPagedRows<{ id: string; waist_circumference_cm: number | string | null }>((from, to) =>
+      admin
+        .from("player_measurement_sessions")
+        .select("id, waist_circumference_cm")
+        .in("campus_id", selectedCampusIds)
+        .gte("measured_at", monthBounds.start)
+        .lt("measured_at", monthBounds.end)
+        .range(from, to)
+        .returns<Array<{ id: string; waist_circumference_cm: number | string | null }>>()
+    ),
     admin
       .from("player_measurement_sessions")
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
@@ -526,8 +566,8 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
     selectedMonth,
     pendingFirstMeasurement,
     measuredPlayers,
-    sessionsThisMonth: currentMonthSessions?.length ?? 0,
-    sessionsWithWaistThisMonth: (currentMonthSessions ?? []).filter((session) => toNullableNumber(session.waist_circumference_cm) != null).length,
+    sessionsThisMonth: currentMonthSessions.length,
+    sessionsWithWaistThisMonth: currentMonthSessions.filter((session) => toNullableNumber(session.waist_circumference_cm) != null).length,
     latestEnrollmentsPendingIntake,
     activity: monthSeries.map((month) => ({
       label: month.label,

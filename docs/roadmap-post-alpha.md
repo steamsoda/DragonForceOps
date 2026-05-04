@@ -1,10 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-28.
+Updated continuously. Last updated: 2026-05-03.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.94`
+Current preview release line: `v1.16.105`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -122,8 +122,23 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
        - `Corte Diario` does not currently show the same issue at present payment volumes
-       - next hardening target is `Jugadores`, where all-campus / `pendingMonth` / enrollment-linked follow-up queries still use the same risky pattern and can fail at current prod scale
-       - goal: chunk/paginate or move remaining high-risk aggregations into SQL/RPC before they become another operations incident
+       - `v1.16.103` hardens `Jugadores` all-campus / `pendingMonth` / enrollment-linked follow-up queries with paged base reads and chunked follow-up `.in(...)` reads
+       - `v1.16.105` continues the large-query pass on attendance export and nutrition roster/dashboard reads
+       - continue scanning remaining high-risk aggregations and move them into chunked reads or SQL/RPC before they become another operations incident
+     - advisor/security hardening:
+       - `v1.16.104` records the first Supabase/Vercel advisor pass before the next production merge
+       - migration hardens flagged `SECURITY DEFINER` function search paths, optimizes auth-heavy RLS policy predicates, and keeps internal RLS tables explicitly closed to clients
+       - second migration adds the 49 production-advisor foreign-key indexes
+       - preview branch has been migrated and rerun through Supabase advisor with no remaining findings in the targeted categories and no advisor errors
+       - Vercel checks showed no active project alerts, failed checks, or security incidents in the inspected window
+       - `v1.16.105` adds pre-merge role/advisor hardening:
+         - revokes anonymous RPC execution on advisor-flagged `SECURITY DEFINER` functions
+         - removes authenticated execution from trigger/cron/service-only functions
+         - adds database-side role checks to `list_auth_users`, `merge_players`, and `nuke_player`
+         - keeps authenticated execution only where app/RLS paths still need user-scoped RPC calls
+         - moves `pg_trgm` to the `extensions` schema and restores `security_invoker = true` on the refund-aware `v_enrollment_balances` view
+         - the CLI security advisor now reports no warning/error findings on preview
+       - defer multiple permissive policy consolidation and unused-index cleanup until after role-flow regression testing and real preview traffic
 
 5. Product and competition rules rework follow-up
    - planning doc:
@@ -225,14 +240,55 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - player names link to their profiles
        - assignment dropdowns show compatible groups instead of every campus group
        - multiple selected rows can be saved in one batch submit
+     - `v1.16.95` polishes field attendance capture after live use:
+       - moves `Guardar asistencia` to the bottom sticky footer
+       - adds general session notes stored on `attendance_sessions.notes`
+       - moves cancellation into a collapsed danger zone with a required confirmation checkbox
+       - removes a duplicate attendance-record read from the save action to reduce save latency
+     - `v1.16.96` improves attendance recorder render performance:
+       - memoizes roster player cards so one status toggle does not rerender the full roster
+       - keeps status-change callbacks stable
+       - adds pending state to the save button to prevent duplicate submits
+     - `v1.16.97` adds safe server timing instrumentation for attendance saves:
+       - logs `[perf] attendance.save` in Vercel
+       - records segment timings for auth, detail loading, record upsert, session update, audit log, and revalidation
+       - intentionally logs counts/timings only, not player names, notes, secrets, or row payloads
+     - `v1.16.98` optimizes the attendance save snapshot:
+       - replaces the full display-oriented session detail query during submit
+       - loads only session guard fields, roster assignment ids, existing records, and active incident ids
+       - preserves correction audit and incident source tagging while removing display-only reads
+     - `v1.16.99` optimizes the attendance save permission path:
+       - replaces duplicated debug/auth permission work with a lean attendance-save context
+       - resolves only debug read-only state, attendance write role, and scoped/global attendance campus write access
+       - keeps Field Admin campus scope, Director Deportivo sports scope, and director correction rights intact
+     - `v1.16.100` changes attendance save UX to an inline action result:
+       - successful saves show immediately and lock the form to prevent duplicate submissions
+       - expected business errors render inline
+       - removes the forced post-save `303` redirect/page reload while keeping writes and audit behavior unchanged
+     - `v1.16.101` continues the performance pass:
+       - skips unchanged completed-session attendance rows from upsert/audit writes
+       - disables global navigation prefetch to reduce background `_rsc` request noise from heavy app pages
+       - adds Vercel Speed Insights for browser-side performance visibility
+       - adds Supabase CLI DB inspect scripts for query/index/blocking diagnostics
+     - `v1.16.102` establishes the first DB inspect baseline with restored preview/prod SQL access:
+       - production blocking check returned no active blockers
+       - raw local reports are kept under ignored `.tmp/db-inspect-2026-04-30/`
+       - first patch adds request-scoped caching around access/campus resolution
+       - first SQL hardening adds `idx_charges_enrollment_created_at` for the repeated enrollment-ledger charge query
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
        - creates next Monday-Sunday training sessions from active training-group schedule templates
        - generator is idempotent and skips already-created group/date/time training sessions
-     - live Supabase cron verification still requires a direct prod SQL path to inspect `cron.job`; the repo migration and expected cron definition are documented, but the local linked project is not prod
+     - direct SQL access has now verified `cron.job` on both preview (`eqefgwdsqabnmpnbpqbq`) and production (`hjvytfaalnfcqfgbxsmj`)
+     - both branches have active Supabase `pg_cron` jobs for attendance generation and monthly charge generation
      - make the difference between weekly templates (`Horarios`) and concrete generated sessions (`Hoy`) explicit in the UI
      - keep Supabase `pg_cron` as the default weekly generator, but add a safe manual backfill/regeneration path for live operations
+     - add a broader performance audit lane for slow staff workflows:
+       - attendance save latency after larger rosters
+       - Caja payment posting
+       - receipt/thermal-printer handoff time
+       - Supabase query volume and server-action revalidation cost
      - future calendar/closure lane:
       - expand the literal attendance calendar from read-only session visibility into closure workflows
       - support vacation days/weeks, rain days, campus-specific closures, and special events
@@ -251,7 +307,46 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - preserve the current v1 preview implementation until the final field workflow is confirmed
      - avoid migrating production attendance data until the grouping model is locked
 
-7. `Jugadores` spreadsheet-style roster view
+7. Front Desk performance instrumentation and slowdown audit
+   - new Priority 0 lane after live Front Desk and Field Admin reports of slow interactions.
+   - reported hotspots:
+     - Caja payment posting
+     - receipt / thermal-printer handoff
+     - general Front Desk workflows after long active sessions
+     - attendance save latency on larger rosters
+   - working hypothesis:
+     - not all delay is database latency
+     - likely contributors include server-action query volume, broad revalidation, React rerenders, QZ/printer connection state, browser memory/session state, and possibly Supabase query/index hot paths
+   - long-session concern to verify:
+     - staff may experience worse performance after posting many payments without refreshing
+     - possible causes include accumulated client state, stale QZ connection state, browser memory pressure, repeated listeners, cached receipt/printer objects, or progressively heavier UI state
+   - required first pass:
+     - add timing instrumentation around critical server actions rather than guessing
+     - target `post payment`, `create enrollment`, `attendance save`, and receipt print handoff
+     - log safe timing segments only; no secrets, card data, payment details, or PII-heavy payloads
+   - timing segments to capture:
+     - permission/context load
+     - account/ledger reads
+     - payment insert
+     - allocation insert/update
+     - audit log
+     - revalidation
+     - receipt data load
+     - browser/QZ/printer connection and print command duration
+   - likely optimization directions after measurement:
+     - batch sequential Supabase reads/writes
+     - move payment posting/allocation into transactional SQL/RPC if needed
+     - narrow `revalidatePath()` calls
+     - add or verify indexes for charges, payments, allocations, attendance records, and hot dashboard queries
+     - decouple save from print so payments complete before printer work blocks the user
+     - add a visible "printer reconnect/retry" workflow if QZ state is the bottleneck
+   - success criteria:
+     - Front Desk can post repeated payments in one long session without progressive slowdown
+     - payment save path has clear measured timings in logs
+     - receipt printing delay is separated from payment-save delay
+     - performance issues can be traced to exact segments instead of staff guessing or app-wide speculation
+
+8. `Jugadores` spreadsheet-style roster view
    - `v1.16.69` adds the first app-native answer to the old Excel workbook workflow:
      - planning doc: `docs/planning/jugadores-spreadsheet-view-plan.md`
      - route state: `/players?view=groups`
@@ -279,7 +374,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - decide whether this view should later export to Excel using the same grouping/query source
      - keep the separate `Jugadores` query-hardening lane open for the existing list path
 
-8. Navigation return-state UX pass
+9. Navigation return-state UX pass
    - `v1.16.77` starts this lane with `Pendientes`:
      - category and KPI drilldowns preserve the exact board return URL
      - player links from pending detail pages return to the same detail context
@@ -299,7 +394,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - prefer explicit query params or `returnTo` URLs over fragile browser-only state
      - keep role/campus scoping enforced server-side even when restoring UI state
 
-9. Nutrition v2 metrics and parent report exports
+10. Nutrition v2 metrics and parent report exports
    - `v1.16.78` starts this lane:
      - adds optional `Circunferencia de cintura (cm)` to historical measurement sessions
      - adds waist stats to nutrition panel, grouped/list views, player profile, deltas, history, and trend chart
@@ -341,7 +436,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - report branding/layout
      - whether reports are generated on demand only or stored for later download
 
-10. Sports grouping model simplification: program over `Nivel`
+11. Sports grouping model simplification: program over `Nivel`
    - planning doc:
      - `docs/planning/attendance-training-groups-roadmap.md`
    - planning direction:
@@ -362,7 +457,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - treat existing level strings as display/fallback until the new program/group fields are proven
      - avoid repointing tournament objects to training groups
 
-11. Attendance workflow simplification and automation
+12. Attendance workflow simplification and automation
    - goal:
      - make attendance usable for normal field/admin users without exposing unnecessary schedule-template internals
    - first implementation:

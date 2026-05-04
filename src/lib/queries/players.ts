@@ -4,6 +4,8 @@ import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { getEnrollmentLedger, type EnrollmentLedger } from "@/lib/queries/billing";
 
 const PAGE_SIZE = 20;
+const POSTGREST_PAGE_SIZE = 1000;
+const IN_FILTER_CHUNK_SIZE = 100;
 
 export type PlayerListFilters = {
   q?: string;
@@ -214,6 +216,43 @@ function normalizePendingMonth(value: string | undefined) {
   return `${match[1]}-${match[2]}-01`;
 }
 
+type SupabaseArrayResult<T> = PromiseLike<{ data: T[] | null }>;
+
+async function fetchPagedRows<T>(
+  loadPage: (from: number, to: number) => SupabaseArrayResult<T>
+): Promise<T[]> {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += POSTGREST_PAGE_SIZE) {
+    const { data } = await loadPage(from, from + POSTGREST_PAGE_SIZE - 1);
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < POSTGREST_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+async function fetchChunkedRows<T>(
+  ids: string[],
+  loadChunkPage: (chunk: string[], from: number, to: number) => SupabaseArrayResult<T>
+): Promise<T[]> {
+  const uniqueIds = uniqueValues(ids);
+  const rows: T[] = [];
+
+  for (let index = 0; index < uniqueIds.length; index += IN_FILTER_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(index, index + IN_FILTER_CHUNK_SIZE);
+    rows.push(...await fetchPagedRows((from, to) => loadChunkPage(chunk, from, to)));
+  }
+
+  return rows;
+}
+
 export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
@@ -234,11 +273,16 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   let phonePlayerIds: string[] | null = null;
   if (filters.phone?.trim()) {
-    const { data: linksByPhone } = await supabase
-      .from("player_guardians")
-      .select("player_id, guardians!inner(phone_primary)")
-      .ilike("guardians.phone_primary", `%${filters.phone.trim()}%`);
-    phonePlayerIds = [...new Set((linksByPhone ?? []).map((row) => row.player_id as string))];
+    const phoneQuery = filters.phone.trim();
+    const linksByPhone = await fetchPagedRows<{ player_id: string }>((from, to) =>
+      supabase
+        .from("player_guardians")
+        .select("player_id, guardians!inner(phone_primary)")
+        .ilike("guardians.phone_primary", `%${phoneQuery}%`)
+        .range(from, to)
+        .returns<Array<{ player_id: string }>>()
+    );
+    phonePlayerIds = uniqueValues(linksByPhone.map((row) => row.player_id));
     if (phonePlayerIds.length === 0) {
       return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
     }
@@ -246,62 +290,85 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   const pendingMonth = normalizePendingMonth(filters.pendingMonth);
 
-  const { data: players } = await supabase
-    .from("players")
-    .select("id, public_player_id, first_name, last_name, birth_date, status, gender, level, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))")
-    .eq("enrollments.status", "active")
-    .in("enrollments.campus_id", selectedCampusIds)
-    .order("first_name", { ascending: true })
-    .order("last_name", { ascending: true })
-    .returns<PlayerWithEnrollmentRow[]>();
+  const players = await fetchPagedRows<PlayerWithEnrollmentRow>((from, to) =>
+    supabase
+      .from("players")
+      .select("id, public_player_id, first_name, last_name, birth_date, status, gender, level, is_goalkeeper, enrollments!inner(id, campus_id, status, campuses(name, code))")
+      .eq("enrollments.status", "active")
+      .in("enrollments.campus_id", selectedCampusIds)
+      .order("first_name", { ascending: true })
+      .order("last_name", { ascending: true })
+      .range(from, to)
+      .returns<PlayerWithEnrollmentRow[]>()
+  );
 
-  const playerIds = (players ?? []).map((player) => player.id);
+  const playerIds = players.map((player) => player.id);
   if (playerIds.length === 0) {
     return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
   }
 
-  const enrollmentIds = (players ?? []).map((player) => player.enrollments[0]?.id).filter(Boolean) as string[];
+  const enrollmentIds = players.map((player) => player.enrollments[0]?.id).filter(Boolean) as string[];
+  const enrollmentIdSet = new Set(enrollmentIds);
   const needsUniform = filters.enabledTags?.uniform === true;
+  const pendingBalanceCampusId = selectedCampusIds.length === 1 ? selectedCampusIds[0] : null;
 
-  const [{ data: guardianLinks }, { data: pendingBalanceRowsRaw }, { data: teamRows }, uniformResult, pendingMonthResult, { data: incidentRows }] =
+  const [guardianLinks, pendingBalanceRowsRaw, teamRows, uniformRows, pendingMonthRows, incidentRows] =
     await Promise.all([
-      supabase
-        .from("player_guardians")
-        .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
-        .in("player_id", playerIds)
-        .returns<GuardianLinkRow[]>(),
-      supabase
-        .rpc("list_pending_enrollments_full", { p_campus_id: filters.campusId ?? null })
-        .returns<ListPendingBalanceRpcRow[]>(),
-      supabase
-        .from("team_assignments")
-        .select("enrollment_id, teams(name, type, level)")
-        .in("enrollment_id", enrollmentIds)
-        .is("end_date", null)
-        .eq("is_primary", true)
-        .returns<ListTeamRow[]>(),
+      fetchChunkedRows<GuardianLinkRow>(playerIds, (chunk, from, to) =>
+        supabase
+          .from("player_guardians")
+          .select("player_id, is_primary, guardians(phone_primary, first_name, last_name)")
+          .in("player_id", chunk)
+          .range(from, to)
+          .returns<GuardianLinkRow[]>()
+      ),
+      fetchPagedRows<ListPendingBalanceRpcRow>((from, to) =>
+        supabase
+          .rpc("list_pending_enrollments_full", { p_campus_id: pendingBalanceCampusId })
+          .range(from, to)
+          .returns<ListPendingBalanceRpcRow[]>() as unknown as SupabaseArrayResult<ListPendingBalanceRpcRow>
+      ),
+      fetchChunkedRows<ListTeamRow>(enrollmentIds, (chunk, from, to) =>
+        supabase
+          .from("team_assignments")
+          .select("enrollment_id, teams(name, type, level)")
+          .in("enrollment_id", chunk)
+          .is("end_date", null)
+          .eq("is_primary", true)
+          .range(from, to)
+          .returns<ListTeamRow[]>()
+      ),
       needsUniform
-        ? supabase
-            .from("uniform_orders")
-            .select("player_id, status")
-            .in("enrollment_id", enrollmentIds)
-            .returns<UniformOrderRow[]>()
-        : Promise.resolve({ data: null }),
+        ? fetchChunkedRows<UniformOrderRow>(enrollmentIds, (chunk, from, to) =>
+            supabase
+              .from("uniform_orders")
+              .select("player_id, status")
+              .in("enrollment_id", chunk)
+              .range(from, to)
+              .returns<UniformOrderRow[]>()
+          )
+        : Promise.resolve([]),
       pendingMonth
-        ? supabase
-            .from("charges")
-            .select("enrollment_id, amount, charge_types!inner(code), payment_allocations(amount)")
-            .in("enrollment_id", enrollmentIds)
-            .eq("charge_types.code", "monthly_tuition")
-            .eq("period_month", pendingMonth)
-            .neq("status", "void")
-            .returns<PendingMonthChargeRow[]>()
-        : Promise.resolve({ data: null }),
-      supabase
-        .from("enrollment_incidents")
-        .select("enrollment_id, incident_type, starts_on, ends_on, created_at, cancelled_at")
-        .in("enrollment_id", enrollmentIds)
-        .returns<EnrollmentIncidentListRow[]>(),
+        ? fetchChunkedRows<PendingMonthChargeRow>(enrollmentIds, (chunk, from, to) =>
+            supabase
+              .from("charges")
+              .select("enrollment_id, amount, charge_types!inner(code), payment_allocations(amount)")
+              .in("enrollment_id", chunk)
+              .eq("charge_types.code", "monthly_tuition")
+              .eq("period_month", pendingMonth)
+              .neq("status", "void")
+              .range(from, to)
+              .returns<PendingMonthChargeRow[]>()
+          )
+        : Promise.resolve([]),
+      fetchChunkedRows<EnrollmentIncidentListRow>(enrollmentIds, (chunk, from, to) =>
+        supabase
+          .from("enrollment_incidents")
+          .select("enrollment_id, incident_type, starts_on, ends_on, created_at, cancelled_at")
+          .in("enrollment_id", chunk)
+          .range(from, to)
+          .returns<EnrollmentIncidentListRow[]>()
+      ),
     ]);
 
   const pendingBalanceRows = Array.isArray(pendingBalanceRowsRaw)
@@ -309,9 +376,9 @@ export async function listPlayers(filters: PlayerListFilters) {
     : [];
 
   const uniformStatusByPlayer = new Map<string, "pending" | "delivered">();
-  if (needsUniform && uniformResult.data) {
+  if (needsUniform && uniformRows) {
     const ordersByPlayer = new Map<string, string[]>();
-    for (const row of uniformResult.data) {
+    for (const row of uniformRows) {
       const arr = ordersByPlayer.get(row.player_id) ?? [];
       arr.push(row.status);
       ordersByPlayer.set(row.player_id, arr);
@@ -325,7 +392,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   }
 
   const guardiansByPlayer = new Map<string, GuardianLinkRow[]>();
-  for (const link of guardianLinks ?? []) {
+  for (const link of guardianLinks) {
     const arr = guardiansByPlayer.get(link.player_id) ?? [];
     arr.push(link);
     guardiansByPlayer.set(link.player_id, arr);
@@ -333,10 +400,10 @@ export async function listPlayers(filters: PlayerListFilters) {
 
   const balanceByEnrollment = new Map(
     pendingBalanceRows
-      .filter((row) => enrollmentIds.includes(row.enrollment_id))
+      .filter((row) => enrollmentIdSet.has(row.enrollment_id))
       .map((row) => [row.enrollment_id, typeof row.balance === "string" ? Number(row.balance) : (row.balance ?? 0)]),
   );
-  const teamByEnrollment = new Map((teamRows ?? []).map((row) => [row.enrollment_id, row.teams ?? null]));
+  const teamByEnrollment = new Map(teamRows.map((row) => [row.enrollment_id, row.teams ?? null]));
   const activeIncidentByEnrollment = new Map<string, ActiveIncident>();
 
   if (incidentRows) {
@@ -364,7 +431,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   }
 
   const pendingEnrollmentIds = new Set<string>();
-  for (const charge of pendingMonthResult.data ?? []) {
+  for (const charge of pendingMonthRows) {
     const allocated = (charge.payment_allocations ?? []).reduce((sum, allocation) => sum + (allocation.amount ?? 0), 0);
     if (charge.amount - allocated > 0.009) {
       pendingEnrollmentIds.add(charge.enrollment_id);
@@ -375,7 +442,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   const genderFilter = filters.gender?.trim() ?? "";
   const phoneFilterSet = phonePlayerIds ? new Set(phonePlayerIds) : null;
 
-  const allRows = (players ?? []).map((player) => {
+  const allRows = players.map((player) => {
     const guardians = guardiansByPlayer.get(player.id) ?? [];
     const primaryPhone =
       guardians.find((guardian) => guardian.is_primary)?.guardians?.phone_primary ??
@@ -521,14 +588,17 @@ export async function listBirthYears(): Promise<number[]> {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) return [];
 
-  const { data } = await supabase
-    .from("players")
-    .select("birth_date, enrollments!inner(campus_id, status)")
-    .eq("enrollments.status", "active")
-    .in("enrollments.campus_id", campusAccess.campusIds)
-    .returns<Array<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>>();
+  const rows = await fetchPagedRows<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>((from, to) =>
+    supabase
+      .from("players")
+      .select("birth_date, enrollments!inner(campus_id, status)")
+      .eq("enrollments.status", "active")
+      .in("enrollments.campus_id", campusAccess.campusIds)
+      .range(from, to)
+      .returns<Array<{ birth_date: string; enrollments: Array<{ campus_id: string; status: string }> }>>()
+  );
 
-  return [...new Set((data ?? []).map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort((a, b) => a - b);
+  return [...new Set(rows.map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort((a, b) => a - b);
 }
 
 export async function getPlayerDetail(playerId: string) {

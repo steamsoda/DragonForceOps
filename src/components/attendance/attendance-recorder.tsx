@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useActionState, useCallback, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import type { AttendanceRosterPlayer } from "@/lib/queries/attendance";
 import { saveAttendanceSessionAction } from "@/server/actions/attendance";
+import type { AttendanceSaveResult } from "@/server/actions/attendance";
 
 const STATUS_META = {
   present: { label: "Presente", short: "P", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
@@ -17,13 +19,113 @@ function nextStatus(current: Status) {
   return current === "absent" ? "present" : "absent";
 }
 
+const INCIDENT_STATUS_OPTIONS: Status[] = ["injury", "justified"];
+
+const AttendancePlayerRow = memo(function AttendancePlayerRow({
+  player,
+  status,
+  disabled,
+  onToggle,
+  onSetStatus,
+}: {
+  player: AttendanceRosterPlayer;
+  status: Status;
+  disabled: boolean;
+  onToggle: (enrollmentId: string) => void;
+  onSetStatus: (enrollmentId: string, status: Status) => void;
+}) {
+  const meta = STATUS_META[status];
+  const isIncident = player.source === "incident";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <input type="hidden" name={`status:${player.enrollmentId}`} value={status} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onToggle(player.enrollmentId)}
+          className={`flex min-h-16 flex-1 items-center justify-between rounded-lg border px-4 py-3 text-left transition ${meta.className} disabled:cursor-not-allowed disabled:opacity-70`}
+        >
+          <span>
+            <span className="block text-base font-semibold">{player.playerName}</span>
+            <span className="block text-xs opacity-80">
+              Cat. {player.birthYear ?? "-"}{isIncident ? " | prellenado por incidente" : ""}
+            </span>
+          </span>
+          <span className="rounded-full border border-current px-3 py-1 text-sm font-bold">{meta.short}</span>
+        </button>
+
+        {isIncident ? (
+          <div className="flex gap-2">
+            {INCIDENT_STATUS_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                disabled={disabled}
+                onClick={() => onSetStatus(player.enrollmentId, option)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:hover:bg-slate-800"
+              >
+                {STATUS_META[option].label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {player.incidentNote ? (
+        <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          Incidente: {player.incidentNote}
+        </p>
+      ) : null}
+      <label className="mt-3 block text-xs font-medium text-slate-500 dark:text-slate-400">
+        Nota opcional
+        <input
+          name={`note:${player.enrollmentId}`}
+          defaultValue={player.note ?? ""}
+          disabled={disabled}
+          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+          placeholder="Observacion breve"
+        />
+      </label>
+    </div>
+  );
+});
+
+function SaveAttendanceButton({
+  disabled,
+  saved,
+}: {
+  disabled: boolean;
+  saved: boolean;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={disabled || pending || saved}
+      className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {pending ? "Guardando..." : saved ? "Guardado" : "Guardar asistencia"}
+    </button>
+  );
+}
+
+const SAVE_ERROR_LABELS: Record<string, string> = {
+  cancelled: "La sesion ya fue cancelada.",
+  director_required: "Solo direccion puede corregir una sesion ya registrada.",
+  save_failed: "No se pudo guardar la asistencia. Intenta de nuevo.",
+};
+
 export function AttendanceRecorder({
   sessionId,
   roster,
+  sessionNotes,
   disabled,
 }: {
   sessionId: string;
   roster: AttendanceRosterPlayer[];
+  sessionNotes: string | null;
   disabled: boolean;
 }) {
   const initial = useMemo(
@@ -31,85 +133,81 @@ export function AttendanceRecorder({
     [roster]
   );
   const [statuses, setStatuses] = useState<Record<string, Status>>(initial);
+  const [state, formAction] = useActionState(
+    async (_previous: AttendanceSaveResult | null, formData: FormData) => saveAttendanceSessionAction(sessionId, formData),
+    null
+  );
+  const saved = state?.ok === true;
 
   const presentCount = Object.values(statuses).filter((status) => status !== "absent").length;
+  const saveDisabled = disabled || roster.length === 0;
+  const handleToggle = useCallback((enrollmentId: string) => {
+    setStatuses((current) => {
+      const currentStatus = current[enrollmentId] ?? "present";
+      return { ...current, [enrollmentId]: nextStatus(currentStatus) };
+    });
+  }, []);
+
+  const handleSetStatus = useCallback((enrollmentId: string, status: Status) => {
+    setStatuses((current) => {
+      if (current[enrollmentId] === status) return current;
+      return { ...current, [enrollmentId]: status };
+    });
+  }, []);
 
   return (
-    <form action={saveAttendanceSessionAction.bind(null, sessionId)} className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+    <form action={formAction} className="space-y-4">
+      {state?.ok === true ? (
+        <div aria-live="polite" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Asistencia guardada. La captura quedo bloqueada para evitar envios duplicados.
+        </div>
+      ) : null}
+      {state?.ok === false ? (
+        <div aria-live="polite" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          {SAVE_ERROR_LABELS[state.error] ?? "No se pudo guardar la asistencia. Intenta de nuevo."}
+        </div>
+      ) : null}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
         <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           {presentCount}/{roster.length} cuentan como asistencia
         </p>
-        <button
-          type="submit"
-          disabled={disabled || roster.length === 0}
-          className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Guardar asistencia
-        </button>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Marca ausentes conforme recorres la lista. Guarda al final de la pagina.
+        </p>
       </div>
 
       <div className="grid gap-3">
-        {roster.map((player) => {
-          const status = statuses[player.enrollmentId] ?? "present";
-          const meta = STATUS_META[status];
-          const isIncident = player.source === "incident";
-          return (
-            <div
-              key={player.enrollmentId}
-              className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
-            >
-              <input type="hidden" name={`status:${player.enrollmentId}`} value={status} />
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => setStatuses((current) => ({ ...current, [player.enrollmentId]: nextStatus(status) }))}
-                  className={`flex min-h-16 flex-1 items-center justify-between rounded-lg border px-4 py-3 text-left transition ${meta.className} disabled:cursor-not-allowed disabled:opacity-70`}
-                >
-                  <span>
-                    <span className="block text-base font-semibold">{player.playerName}</span>
-                    <span className="block text-xs opacity-80">
-                      Cat. {player.birthYear ?? "-"}{isIncident ? " | prellenado por incidente" : ""}
-                    </span>
-                  </span>
-                  <span className="rounded-full border border-current px-3 py-1 text-sm font-bold">{meta.short}</span>
-                </button>
+        {roster.map((player) => (
+          <AttendancePlayerRow
+            key={player.enrollmentId}
+            player={player}
+            status={statuses[player.enrollmentId] ?? "present"}
+            disabled={disabled || saved}
+            onToggle={handleToggle}
+            onSetStatus={handleSetStatus}
+          />
+        ))}
+      </div>
 
-                {isIncident ? (
-                  <div className="flex gap-2">
-                    {(["injury", "justified"] as Status[]).map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setStatuses((current) => ({ ...current, [player.enrollmentId]: option }))}
-                        className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:hover:bg-slate-800"
-                      >
-                        {STATUS_META[option].label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              {player.incidentNote ? (
-                <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  Incidente: {player.incidentNote}
-                </p>
-              ) : null}
-              <label className="mt-3 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                Nota opcional
-                <input
-                  name={`note:${player.enrollmentId}`}
-                  defaultValue={player.note ?? ""}
-                  disabled={disabled}
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder="Observacion breve"
-                />
-              </label>
-            </div>
-          );
-        })}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <label className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+          Notas generales de la sesion
+          <textarea
+            name="session_notes"
+            defaultValue={sessionNotes ?? ""}
+            disabled={disabled || saved}
+            rows={3}
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+            placeholder="Ej. Entrenamiento reducido por lluvia, trabajo fisico, observaciones generales."
+          />
+        </label>
+      </div>
+
+      <div className="sticky bottom-3 z-10 flex flex-col gap-2 rounded-xl border border-blue-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-blue-900 dark:bg-slate-950/95 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+          Listo para guardar: {presentCount}/{roster.length} cuentan como asistencia
+        </p>
+        <SaveAttendanceButton disabled={saveDisabled} saved={saved} />
       </div>
     </form>
   );

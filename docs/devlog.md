@@ -1,5 +1,299 @@
 # Devlog
 
+## 2026-05-03 (session 158)
+
+### Pre-Merge Role/Advisor/Query Hardening (v1.16.105)
+
+- Confirmed Speed Insights is still preview-only until `preview` is merged into `main`.
+- Performed the pre-merge role regression review against the changes after `main` (`v1.16.94`):
+  - no broad finance-role expansion was found in the app navigation or route guards
+  - recent permission-sensitive code changes are scoped to attendance save optimization, request-scoped access caching, and advisor-backed RLS cleanup
+  - director-only dashboard/report routes still call `requireDirectorContext`
+- Added a SECURITY DEFINER execute hardening migration:
+  - revokes `anon` RPC execution on the advisor-flagged SECURITY DEFINER functions
+  - removes authenticated execution from trigger/cron/service-only functions
+  - keeps authenticated execution only where app/RLS flows still need user-scoped RPC execution
+  - adds database-side role checks to `list_auth_users`, `merge_players`, and `nuke_player` so direct RPC calls cannot bypass the app layer
+- Applied the migration to the preview Supabase branch and reran the security advisor:
+  - the new `anon_security_definer_function_executable` warnings are cleared on preview
+  - authenticated execution is removed from service-only functions and intentionally retained only where app/RLS flows still need user-scoped execution
+- Added a follow-up advisor cleanup migration:
+  - moves `pg_trgm` from `public` to the `extensions` schema
+  - restores `security_invoker = true` on the refund-aware `v_enrollment_balances` view
+  - recreates `search_players_for_caja` with the `extensions` schema in its search path so fuzzy search keeps working after the extension move
+  - the CLI security advisor now reports no warning/error findings on preview
+- Switched manual monthly tuition generation to call `generate_monthly_charges` through the service-role admin client after the existing director guard.
+- Continued the large-query hardening pass:
+  - attendance export now pages active enrollment reads and chunks guardian/team follow-up queries
+  - nutrition dashboard/queues now page active enrollment, monthly-session, and training-group assignment reads and chunk player-based measurement/guardian queries
+- Deferred items remain:
+  - permissive-policy consolidation should wait until role-flow regression has real preview traffic
+  - unused-index cleanup should wait until production traffic after the new FK indexes
+
+## 2026-04-30 (session 157)
+
+### Advisor Security Hardening Pass (v1.16.104)
+
+- Ran Supabase advisor and Vercel advisor/security checks against the preview and production branches.
+- Stored raw advisor output locally under ignored `.tmp/advisor-2026-04-30/`.
+- Supabase findings were mostly advisory/performance noise, but the first actionable security cleanup is now migration-backed:
+  - set explicit `search_path = public` on eight flagged `SECURITY DEFINER` functions
+  - rewrote nine RLS policies so `auth.uid()`, role helper calls, and authenticated-role checks can be evaluated as initPlans instead of per row
+  - added explicit no-client-access policies for internal RLS tables with no policies:
+    - `campus_folio_counters`
+    - `finance_reconciliation_snapshots`
+- Added migration `20260430201000_advisor_foreign_key_indexes.sql` for the 49 production-advisor unindexed foreign-key findings.
+- Applied the pending migrations to the preview Supabase branch and reran the preview advisor.
+- Added follow-up migration `20260430202000_advisor_preview_policy_cleanup.sql` after the preview rerun caught advisor regressions:
+  - explicitly enables RLS on the internal no-client-access tables before their deny policies
+  - restores auth-role predicates for `app_settings` and `uniform_orders` without reintroducing auth initplan warnings
+- Preview advisor confirmation after cleanup:
+  - no `function_search_path_mutable` findings
+  - no `auth_rls_initplan` findings
+  - no `rls_enabled_no_policy` findings
+  - no `unindexed_foreign_keys` findings
+  - no advisor errors
+- Vercel checks did not show active project alerts, failed checks, or firewall/security incidents in the inspected window.
+- Deferred the `pg_trgm` extension warning:
+  - it is installed in `public` and backs trigram behavior/indexes
+  - moving it should be handled as a separate tested migration, not bundled into this low-risk cleanup pass
+- Remaining preview advisor buckets after this pass:
+  - `extension_in_public` for `pg_trgm`
+  - `multiple_permissive_policies`
+  - `unused_index` noise, including freshly-created FK indexes that need traffic before usage stats become meaningful
+- Validated the advisor migrations against both preview and production inside rollback transactions.
+
+### Jugadores Large-Query Hardening (v1.16.103)
+
+- Hardened `Jugadores` against the same Supabase/PostgREST scaling risks previously found in `Pendientes`.
+- Updated `listPlayers()` so the base active-player query pages through all rows instead of relying on the default PostgREST response cap.
+- Replaced large unchunked `.in(...)` follow-up queries with small chunked + paged reads for:
+  - guardian links
+  - primary team assignments
+  - uniform orders when that tag is enabled
+  - selected-month tuition charges
+  - active incident indicators
+- Paged the pending-balance RPC read and narrowed it to the selected/single accessible campus when possible.
+- Paged `listBirthYears()` so the player filter metadata does not silently truncate as the academy grows.
+- Behavior intentionally unchanged:
+  - filters, sort order, tags, monthly pending markers, incident markers, and pagination output remain the same
+  - this is query-shape hardening only
+
+### DB Inspect Baseline + First Performance Patch (v1.16.102)
+
+- Ran Supabase DB inspect diagnostics against both preview and production:
+  - `calls`
+  - `outliers`
+  - `blocking`
+  - `index-stats`
+- Stored raw diagnostic output locally under ignored `.tmp/db-inspect-2026-04-30/`.
+- Production findings:
+  - no active blocking detected
+  - repeated Supabase Auth/session queries are the highest call-count system-level traffic
+  - highest repeated app-level reads are campus/role access resolution and enrollment ledger charge/payment reads
+  - the enrollment ledger charge query is the clearest low-risk index target: `charges` filtered by `enrollment_id` and ordered by `created_at desc`
+- Added request-scoped React cache around:
+  - debug/effective-user access context resolution
+  - operational campus access resolution
+  - attendance campus access resolution
+  - nutrition campus access resolution
+  - active-campus bootstrap loading
+- Added migration `20260430190000_ledger_charge_created_at_index.sql`:
+  - `idx_charges_enrollment_created_at` on `public.charges (enrollment_id, created_at desc)`
+- Added `.tmp/` to `.gitignore` so local diagnostics are not accidentally committed.
+- Safety note:
+  - no production data was changed locally
+  - the new DB change is migration-only and will follow the existing preview-first migration flow
+
+### Supabase Branch Access Restored
+
+- Restored local direct SQL access for both Supabase branches without exposing credentials:
+  - preview branch project ref: `eqefgwdsqabnmpnbpqbq`
+  - production/main project ref: `hjvytfaalnfcqfgbxsmj`
+- Added local ignored DB URL env entries so Supabase CLI diagnostics can target each branch:
+  - `SUPABASE_PREVIEW_DB_URL` in `.env.local`
+  - `SUPABASE_PROD_DB_URL` in `.env.prod.local`
+- Verified direct SQL connectivity to both branches as Postgres user `postgres`.
+- Verified `cron.job` on both branches:
+  - `generate-attendance-sessions` is active at `0 6 * * 0`
+  - `generate-monthly-charges` is active at `0 6 1 * *`
+- This resolves the previous blocker around production cron verification for attendance generation.
+- Safety note:
+  - no schema, RLS, application, or production data changes were made
+  - secrets were not printed to terminal output or committed
+
+## 2026-04-29 (session 156)
+
+### Attendance Correction Audit + Observability Pass (v1.16.101)
+
+- Reduced unnecessary attendance correction writes:
+  - completed sessions now preserve each existing row's `source` when status/note did not change
+  - unchanged completed rows are skipped from `attendance_records` upsert
+  - unchanged completed rows no longer create `attendance_record_audit` rows
+  - performance logs now include `upsertRows` in addition to roster and audit counts
+- Disabled Next.js prefetch on global app navigation links:
+  - desktop sidebar
+  - mobile menu links
+  - debug quick links
+  - goal is to reduce background `_rsc` request noise from heavy internal pages
+- Added Vercel Speed Insights:
+  - installed `@vercel/speed-insights`
+  - mounted `<SpeedInsights />` in the root app layout
+  - this gives browser-side/Core Web Vitals visibility in Vercel without exposing app secrets
+- Added Supabase CLI as a dev dependency with DB inspect scripts:
+  - `npm run supabase -- inspect db --help`
+  - `npm run db:inspect:outliers`
+  - `npm run db:inspect:calls`
+  - `npm run db:inspect:blocking`
+  - `npm run db:inspect:indexes`
+- Safety note:
+  - no production database schema or RLS behavior changed
+  - Supabase CLI scripts are local/dev diagnostics only and require an authenticated/linked project or explicit DB URL
+
+## 2026-04-29 (session 155)
+
+### Attendance Save Inline Result UX (v1.16.100)
+
+- Changed the attendance recorder submit flow from a normal redirect-after-save form to an inline server-action result.
+- Successful saves now:
+  - return a typed success result to the client
+  - show an immediate success message in the recorder
+  - lock the form to prevent duplicate submissions
+  - avoid the forced `303` redirect back to the same session page
+- Save failures now render inline for expected business errors:
+  - cancelled session
+  - director-required correction
+  - attendance-record save failure
+- Security-sensitive failures still redirect through the existing authorization path.
+- Safety note:
+  - attendance record writes, session completion, session notes, audit logs, correction rules, and revalidation remain unchanged
+  - this pass targets perceived latency by removing the unnecessary post-save route reload
+
+## 2026-04-29 (session 154)
+
+### Attendance Save Permission-Path Optimization (v1.16.99)
+
+- Replaced the attendance save action's duplicated debug/write permission path with a lean attendance-save context.
+- The save action now resolves:
+  - debug read-only state
+  - attendance write role
+  - scoped/global sports campus write access
+  - attendance-admin campus write access
+- Removed the save-time dependency on the full permission context, which was also loading operational and nutrition campus access that the attendance submit path does not need.
+- Updated performance instrumentation:
+  - old segments: `debug_guard` + `auth_context`
+  - new segment: `attendance_write_context`
+- Expected effect:
+  - fewer Supabase GETs during attendance submit
+  - lower server wait time before the save snapshot and write steps
+- Safety note:
+  - no attendance data model or write semantics changed
+  - Field Admin remains campus-scoped
+  - Director Deportivo keeps assigned/global sports attendance write scope
+  - director/admin roles keep correction rights
+
+## 2026-04-29 (session 153)
+
+### Attendance Save Snapshot Optimization (v1.16.98)
+
+- Replaced the heavy attendance save-time call to `getAttendanceSessionDetail()` with a lean save-only snapshot query.
+- The save action now loads only the data needed to validate and write attendance:
+  - session id/campus/source/status/date
+  - current roster assignment ids
+  - existing attendance records for correction audit
+  - active absence/injury incident ids for source tagging
+- Removed display-only reads from the submit path:
+  - player names
+  - coach names
+  - campus labels
+  - session display metadata
+  - roster display fields
+- Updated performance instrumentation segment from `session_detail` to `save_snapshot`.
+- Expected effect:
+  - fewer Supabase GETs during attendance submit
+  - lower server wait time before the write path
+- Safety note:
+  - campus write access, cancelled/completed guards, incident source tagging, correction audit, and attendance upsert semantics remain intact
+
+## 2026-04-29 (session 152)
+
+### Attendance Save Performance Instrumentation (v1.16.97)
+
+- Added a small reusable server timing helper at `src/lib/perf/timing.ts`.
+- Instrumented `saveAttendanceSessionAction()` with safe segment timing logs.
+- New Vercel log line format:
+  - `[perf] attendance.save`
+  - includes total duration, segment durations, roster count, audit-row count, prior session status, and whether session notes were present
+- Timing segments now tracked:
+  - debug guard
+  - auth/context load
+  - session detail load
+  - row preparation
+  - audit-row preparation
+  - attendance-record upsert
+  - correction audit insert
+  - session update
+  - audit log
+  - revalidation
+- Safety note:
+  - logs do not include player names, notes, payment data, secrets, or row payloads
+  - this is measurement-only; attendance save behavior did not change
+
+## 2026-04-29 (session 151)
+
+### Front Desk Performance Audit Planning
+
+- Added a dedicated Priority 0 roadmap lane for Front Desk performance instrumentation.
+- Captured current reported hotspots:
+  - Caja payment posting
+  - receipt / thermal-printer handoff
+  - general Front Desk workflows after long active sessions
+  - attendance save latency on larger rosters
+- Logged the long-session slowdown hypothesis for investigation:
+  - accumulated client state
+  - stale QZ/printer connection state
+  - browser memory pressure
+  - repeated listeners
+  - cached receipt/printer objects
+  - progressively heavier UI state
+- Defined the recommended first pass:
+  - add safe timing instrumentation around critical server actions
+  - separate payment-save timing from receipt-print timing
+  - avoid guessing before measuring exact segments
+
+## 2026-04-29 (session 150)
+
+### Attendance Recorder Render Performance (v1.16.96)
+
+- Optimized the attendance capture UI after Vercel interaction timing showed a full-page/main rerender around roster toggles.
+- Extracted each roster player card into a memoized row component so changing one player's status does not rerender every row.
+- Added stable status-change callbacks for row toggles and incident status buttons.
+- Added form pending state to the save button:
+  - button shows `Guardando...`
+  - duplicate submits are blocked while the save action is pending
+- Scope note:
+  - this is a client-render responsiveness pass only
+  - no attendance schema, save semantics, role access, or report logic changed
+
+## 2026-04-29 (session 149)
+
+### Attendance Capture Field UX + Save Path Polish (v1.16.95)
+
+- Updated the attendance session capture page after the first field-admin live run.
+- Moved the primary `Guardar asistencia` control to the bottom of the recorder as a sticky footer so field staff can save after scrolling through the roster.
+- Added a session-level notes field:
+  - stored on `attendance_sessions.notes`
+  - separate from per-player attendance notes
+  - intended for general practice observations such as weather, reduced training, or session context
+- Moved cancellation into a collapsed `Zona de cancelacion de sesion`.
+- Added a required cancellation confirmation checkbox and server-side validation before a session can be cancelled.
+- Reduced save-path overhead by removing a duplicate `attendance_records` read during save:
+  - the action now reuses record state already loaded in the session detail
+  - correction audit behavior remains intact for director corrections
+- Performance note:
+  - this is a focused attendance-capture improvement
+  - broader slow operations reported by Front Desk, especially payment posting and thermal printing, still need a separate performance audit lane
+
 ## 2026-04-29 (session 148)
 
 ### Training Group Batch Assignment UX (v1.16.94)

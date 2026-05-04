@@ -10,6 +10,7 @@ import {
   requireOperationalContext,
   requireSuperAdminContext,
 } from "@/lib/auth/permissions";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { parseMonterreyDateTimeInput } from "@/lib/time";
@@ -306,9 +307,10 @@ export async function generateMonthlyTuitionAction(formData: FormData) {
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) redirect("/admin/mensualidades?err=unauthenticated");
-  const directorContext = await requireDirectorContext("/admin/mensualidades?err=unauthorized");
+  await requireDirectorContext("/admin/mensualidades?err=unauthorized");
 
-  const { data: result } = await directorContext.supabase.rpc("generate_monthly_charges", {
+  const admin = createAdminClient();
+  const { data: result } = await admin.rpc("generate_monthly_charges", {
     p_period_month: periodMonth
   });
 

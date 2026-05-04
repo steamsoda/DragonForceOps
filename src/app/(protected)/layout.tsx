@@ -226,7 +226,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                         <p className={mobileSectionLabelClass}>{section.label}</p>
                         <div className="space-y-1">
                           {section.items.map((item) => (
-                            <Link key={item.href} href={item.href} className={mobileNavLinkClass}>
+                            <Link key={item.href} href={item.href} prefetch={false} className={mobileNavLinkClass}>
                               {item.label}
                             </Link>
                           ))}
@@ -311,6 +311,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href="/admin/debug-view"
+                      prefetch={false}
                       className="rounded border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
                     >
                       Panel
@@ -390,6 +391,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
                 <Link
                   href="/admin/debug-view"
+                  prefetch={false}
                   className="rounded border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
                 >
                   Panel
@@ -463,7 +465,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
               <div className="flex flex-wrap items-center gap-2">
                 {debugQuickLinks.map((item) => (
-                  <Link key={item.href} href={item.href} className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">
+                  <Link key={item.href} href={item.href} prefetch={false} className="rounded-md border border-amber-300 px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">
                     {item.label}
                   </Link>
                 ))}
