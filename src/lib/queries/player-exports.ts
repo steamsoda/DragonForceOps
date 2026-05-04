@@ -1,6 +1,9 @@
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
 
+const PAGE_SIZE = 500;
+const CHUNK_SIZE = 100;
+
 type ExportEnrollmentRow = {
   id: string;
   campus_id: string;
@@ -33,6 +36,11 @@ type ExportTeamRow = {
     level: string | null;
   } | null;
 };
+
+type SupabaseArrayResult<T> = PromiseLike<{
+  data: T[] | null;
+  error?: { message?: string } | null;
+}>;
 
 export type AttendanceExportRow = {
   campusId: string;
@@ -70,6 +78,29 @@ function normalizeLevel(value: string | null | undefined) {
   return trimmed && trimmed.length > 0 ? trimmed : "Sin nivel";
 }
 
+async function fetchPagedRows<T>(loadPage: (from: number, to: number) => SupabaseArrayResult<T>) {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await loadPage(from, to);
+    if (error) throw new Error(error.message ?? "attendance_export_query_failed");
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchChunkedRows<T>(ids: string[], loadChunkPage: (chunk: string[], from: number, to: number) => SupabaseArrayResult<T>) {
+  const rows: T[] = [];
+  const uniqueIds = [...new Set(ids)].filter(Boolean);
+  for (let index = 0; index < uniqueIds.length; index += CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(index, index + CHUNK_SIZE);
+    rows.push(...await fetchPagedRows((from, to) => loadChunkPage(chunk, from, to)));
+  }
+  return rows;
+}
+
 export async function getAttendanceExportData(): Promise<AttendanceExportData> {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
@@ -81,16 +112,19 @@ export async function getAttendanceExportData(): Promise<AttendanceExportData> {
   }
 
   const supabase = await createClient();
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("id, campus_id, campuses(name, code), players!inner(id, first_name, last_name, birth_date, gender, level)")
-    .eq("status", "active")
-    .in("campus_id", campusAccess.campusIds)
-    .order("campus_id", { ascending: true })
-    .order("start_date", { ascending: false })
-    .returns<ExportEnrollmentRow[]>();
+  const enrollments = await fetchPagedRows<ExportEnrollmentRow>((from, to) =>
+    supabase
+      .from("enrollments")
+      .select("id, campus_id, campuses(name, code), players!inner(id, first_name, last_name, birth_date, gender, level)")
+      .eq("status", "active")
+      .in("campus_id", campusAccess.campusIds)
+      .order("campus_id", { ascending: true })
+      .order("start_date", { ascending: false })
+      .range(from, to)
+      .returns<ExportEnrollmentRow[]>()
+  );
 
-  if (!enrollments || enrollments.length === 0) {
+  if (enrollments.length === 0) {
     return {
       rows: [],
       excludedMissingGenderCount: 0,
@@ -101,30 +135,36 @@ export async function getAttendanceExportData(): Promise<AttendanceExportData> {
   const playerIds = enrollments.map((row) => row.players?.id).filter(Boolean) as string[];
   const enrollmentIds = enrollments.map((row) => row.id);
 
-  const [{ data: guardianRows }, { data: teamRows }] = await Promise.all([
-    supabase
-      .from("player_guardians")
-      .select("player_id, is_primary, guardians(phone_primary)")
-      .in("player_id", playerIds)
-      .returns<ExportGuardianRow[]>(),
-    supabase
-      .from("team_assignments")
-      .select("enrollment_id, teams(name, level)")
-      .in("enrollment_id", enrollmentIds)
-      .is("end_date", null)
-      .eq("is_primary", true)
-      .returns<ExportTeamRow[]>(),
+  const [guardianRows, teamRows] = await Promise.all([
+    fetchChunkedRows<ExportGuardianRow>(playerIds, (chunk, from, to) =>
+      supabase
+        .from("player_guardians")
+        .select("player_id, is_primary, guardians(phone_primary)")
+        .in("player_id", chunk)
+        .range(from, to)
+        .returns<ExportGuardianRow[]>()
+    ),
+    fetchChunkedRows<ExportTeamRow>(enrollmentIds, (chunk, from, to) =>
+      supabase
+        .from("team_assignments")
+        .select("enrollment_id, teams(name, level)")
+        .in("enrollment_id", chunk)
+        .is("end_date", null)
+        .eq("is_primary", true)
+        .range(from, to)
+        .returns<ExportTeamRow[]>()
+    ),
   ]);
 
   const guardiansByPlayer = new Map<string, ExportGuardianRow[]>();
-  for (const row of guardianRows ?? []) {
+  for (const row of guardianRows) {
     const current = guardiansByPlayer.get(row.player_id) ?? [];
     current.push(row);
     guardiansByPlayer.set(row.player_id, current);
   }
 
   const teamByEnrollment = new Map<string, ExportTeamRow["teams"]>();
-  for (const row of teamRows ?? []) {
+  for (const row of teamRows) {
     teamByEnrollment.set(row.enrollment_id, row.teams ?? null);
   }
 

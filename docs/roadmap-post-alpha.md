@@ -1,10 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-04-30.
+Updated continuously. Last updated: 2026-05-03.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.104`
+Current preview release line: `v1.16.105`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -123,6 +123,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
        - `Corte Diario` does not currently show the same issue at present payment volumes
        - `v1.16.103` hardens `Jugadores` all-campus / `pendingMonth` / enrollment-linked follow-up queries with paged base reads and chunked follow-up `.in(...)` reads
+       - `v1.16.105` continues the large-query pass on attendance export and nutrition roster/dashboard reads
        - continue scanning remaining high-risk aggregations and move them into chunked reads or SQL/RPC before they become another operations incident
      - advisor/security hardening:
        - `v1.16.104` records the first Supabase/Vercel advisor pass before the next production merge
@@ -130,7 +131,13 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - second migration adds the 49 production-advisor foreign-key indexes
        - preview branch has been migrated and rerun through Supabase advisor with no remaining findings in the targeted categories and no advisor errors
        - Vercel checks showed no active project alerts, failed checks, or security incidents in the inspected window
-       - defer the `pg_trgm` extension relocation warning into its own tested migration because existing trigram behavior/indexes may depend on the current extension placement
+       - `v1.16.105` adds pre-merge role/advisor hardening:
+         - revokes anonymous RPC execution on advisor-flagged `SECURITY DEFINER` functions
+         - removes authenticated execution from trigger/cron/service-only functions
+         - adds database-side role checks to `list_auth_users`, `merge_players`, and `nuke_player`
+         - keeps authenticated execution only where app/RLS paths still need user-scoped RPC calls
+         - moves `pg_trgm` to the `extensions` schema and restores `security_invoker = true` on the refund-aware `v_enrollment_balances` view
+         - the CLI security advisor now reports no warning/error findings on preview
        - defer multiple permissive policy consolidation and unused-index cleanup until after role-flow regression testing and real preview traffic
 
 5. Product and competition rules rework follow-up

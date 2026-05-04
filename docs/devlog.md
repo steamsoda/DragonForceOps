@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-05-03 (session 158)
+
+### Pre-Merge Role/Advisor/Query Hardening (v1.16.105)
+
+- Confirmed Speed Insights is still preview-only until `preview` is merged into `main`.
+- Performed the pre-merge role regression review against the changes after `main` (`v1.16.94`):
+  - no broad finance-role expansion was found in the app navigation or route guards
+  - recent permission-sensitive code changes are scoped to attendance save optimization, request-scoped access caching, and advisor-backed RLS cleanup
+  - director-only dashboard/report routes still call `requireDirectorContext`
+- Added a SECURITY DEFINER execute hardening migration:
+  - revokes `anon` RPC execution on the advisor-flagged SECURITY DEFINER functions
+  - removes authenticated execution from trigger/cron/service-only functions
+  - keeps authenticated execution only where app/RLS flows still need user-scoped RPC execution
+  - adds database-side role checks to `list_auth_users`, `merge_players`, and `nuke_player` so direct RPC calls cannot bypass the app layer
+- Applied the migration to the preview Supabase branch and reran the security advisor:
+  - the new `anon_security_definer_function_executable` warnings are cleared on preview
+  - authenticated execution is removed from service-only functions and intentionally retained only where app/RLS flows still need user-scoped execution
+- Added a follow-up advisor cleanup migration:
+  - moves `pg_trgm` from `public` to the `extensions` schema
+  - restores `security_invoker = true` on the refund-aware `v_enrollment_balances` view
+  - recreates `search_players_for_caja` with the `extensions` schema in its search path so fuzzy search keeps working after the extension move
+  - the CLI security advisor now reports no warning/error findings on preview
+- Switched manual monthly tuition generation to call `generate_monthly_charges` through the service-role admin client after the existing director guard.
+- Continued the large-query hardening pass:
+  - attendance export now pages active enrollment reads and chunks guardian/team follow-up queries
+  - nutrition dashboard/queues now page active enrollment, monthly-session, and training-group assignment reads and chunk player-based measurement/guardian queries
+- Deferred items remain:
+  - permissive-policy consolidation should wait until role-flow regression has real preview traffic
+  - unused-index cleanup should wait until production traffic after the new FK indexes
+
 ## 2026-04-30 (session 157)
 
 ### Advisor Security Hardening Pass (v1.16.104)
