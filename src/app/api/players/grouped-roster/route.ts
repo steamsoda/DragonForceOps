@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerRosterGroupsData } from "@/lib/queries/player-roster-groups";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,11 +16,17 @@ export async function GET(request: Request) {
   const birthYear = url.searchParams.get("year") ?? undefined;
   const campusId = url.searchParams.get("campus") ?? undefined;
 
-  const data = await getPlayerRosterGroupsData({
-    campusId,
-    gender,
-    birthYear,
-  });
+  const data = await getPlayerRosterGroupsData(
+    {
+      campusId,
+      gender,
+      birthYear,
+    },
+    {
+      campusAccess: context.campusAccess,
+      supabase: createAdminClient(),
+    },
+  );
 
   return NextResponse.json(data, {
     headers: {

@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-05-04 (session 161)
+
+### Jugadores Grouped Roster RLS Hot Path Fix (v1.16.109)
+
+- Production live testing showed `/api/players/grouped-roster` still waited several seconds for the server response even after the RSC split.
+- Confirmed the raw SQL/RPC shape is fast as a privileged database role, while authenticated/RLS execution is much slower on production data.
+- Kept browser/API authentication and app-level campus authorization, then moved the hot grouped roster read to the server-only service-role client.
+- Updated the roster RPC so direct client roles cannot execute it; only `service_role` can call the optimized RPC after the API route has authorized the request.
+
 ## 2026-05-04 (session 160)
 
 ### Jugadores Grouped Roster Client/API Boundary (v1.16.108)

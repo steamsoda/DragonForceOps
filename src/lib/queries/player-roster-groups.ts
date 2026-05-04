@@ -1,4 +1,5 @@
-import { canAccessCampus, getOperationalCampusAccess, type AccessibleCampus } from "@/lib/auth/campuses";
+import { canAccessCampus, getOperationalCampusAccess, type AccessibleCampus, type OperationalCampusAccess } from "@/lib/auth/campuses";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getMonterreyDateParts } from "@/lib/time";
 import {
@@ -45,6 +46,8 @@ type RosterRpcRow = {
   month_3_state: RosterTuitionCell["state"];
   month_3_latest_paid_at: string | null;
 };
+
+type RosterSupabaseClient = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
 export type RosterTuitionMonth = {
   key: string;
@@ -245,8 +248,11 @@ function buildTuitionCellsFromRpc(months: RosterTuitionMonth[], row: RosterRpcRo
   ];
 }
 
-export async function getPlayerRosterGroupsData(filters: { campusId?: string; gender?: string; birthYear?: string | number } = {}): Promise<PlayerRosterGroupsData | null> {
-  const campusAccess = await getOperationalCampusAccess();
+export async function getPlayerRosterGroupsData(
+  filters: { campusId?: string; gender?: string; birthYear?: string | number } = {},
+  options: { campusAccess?: OperationalCampusAccess | null; supabase?: RosterSupabaseClient } = {},
+): Promise<PlayerRosterGroupsData | null> {
+  const campusAccess = options.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
   const selectedCampusId =
@@ -260,7 +266,7 @@ export async function getPlayerRosterGroupsData(filters: { campusId?: string; ge
   const selectedGender = normalizeGenderFilter(filters.gender);
   const selectedBirthYear = normalizeBirthYearFilter(filters.birthYear);
   const months = getRosterMonths();
-  const supabase = await createClient();
+  const supabase = options.supabase ?? await createClient();
 
   const buildBirthYearsQuery = (from: number, to: number) => {
     let query = supabase
