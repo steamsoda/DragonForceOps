@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { PaymentReassignmentPanel } from "@/components/billing/payment-reassignment-panel";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { getProductsForCajaAction, getEnrollmentForCajaAction } from "@/server/actions/caja";
 
@@ -20,6 +21,7 @@ export default async function ReassignPaymentPage({
 }) {
   const { enrollmentId, paymentId } = await params;
   const query = await searchParams;
+  await requireOperationalContext("/unauthorized");
   const returnTo = normalizeReturnTo(query.returnTo, `/enrollments/${enrollmentId}/charges`);
 
   const [ledger, cajaData, products] = await Promise.all([

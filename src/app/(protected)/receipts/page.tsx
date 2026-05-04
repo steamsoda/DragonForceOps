@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ReprintReceiptButton } from "@/components/receipts/reprint-receipt-button";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { searchReceipts } from "@/lib/queries/receipts";
 import { getPrinterName } from "@/lib/queries/settings";
 import { formatDateTimeMonterrey } from "@/lib/time";
-import { listCampuses } from "@/lib/queries/players";
 
 type SearchParams = Promise<{
   q?: string;
@@ -34,17 +34,18 @@ function isRefunded(row: { refundedAt: string | null }) {
 }
 
 export default async function ReceiptsPage({ searchParams }: { searchParams: SearchParams }) {
+  const permissionContext = await requireOperationalContext("/unauthorized");
   const params = await searchParams;
   const q = params.q ?? "";
   const campusId = params.campus ?? "";
   const paymentId = params.payment ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
 
-  const [campuses, result, printerName] = await Promise.all([
-    listCampuses(),
+  const [result, printerName] = await Promise.all([
     searchReceipts({ q: q || undefined, campusId: campusId || undefined, paymentId: paymentId || undefined, page }),
     getPrinterName(),
   ]);
+  const campuses = permissionContext.campusAccess?.campuses ?? [];
 
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const prevPage = page > 1 ? page - 1 : null;

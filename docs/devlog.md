@@ -2,6 +2,20 @@
 
 ## 2026-05-04 (session 161)
 
+### Finance Role Boundary Audit
+
+- Rechecked the current role boundary after the grouped-roster performance work because finance exposure to sports/nutrition/attendance staff is not acceptable.
+- Confirmed protected navigation already hides finance/report/admin sections from `director_deportivo`, `nutritionist`, and `attendance_admin`.
+- Found a direct-URL hardening gap: some finance/account pages used `getOperationalCampusAccess()` without first requiring operational access, and that campus helper intentionally includes sports scope for sports workflows.
+- Hardened the app so sensitive finance/account pages now require operational or director context explicitly.
+- Hardened shared finance query helpers so sports, nutrition, and attendance-only roles receive no ledger, receipt, Corte Diario, checkpoint, or account-edit data even if a route is hit directly.
+- Typecheck passes after the hardening pass.
+- Current interpretation:
+  - Denisse-style nutrition users: no finance/account surfaces
+  - Julio-style sports users: no finance/account surfaces, only no-money sports status surfaces
+  - attendance-only users: no finance/account surfaces
+  - front desk remains intentionally able to work Caja/Corte/Recibos within operational scope
+
 ### Jugadores Grouped Roster RLS Hot Path Fix (v1.16.109)
 
 - Production live testing showed `/api/players/grouped-roster` still waited several seconds for the server response even after the RSC split.

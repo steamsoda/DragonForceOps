@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -137,7 +138,25 @@ export async function getCorteDiarioData(filters: {
   closedAt?: string | null;
 }): Promise<CorteDiarioData> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) {
+    return {
+      campusId: "",
+      campusName: "-",
+      openedAt: filters.openedAt ?? new Date().toISOString(),
+      closedAt: filters.closedAt ?? null,
+      isCurrentOpen: !filters.closedAt,
+      totalCobrado: 0,
+      countedPaymentsCount: 0,
+      excludedPaymentsCount: 0,
+      excludedPaymentsTotal: 0,
+      byMethod: [],
+      byChargeType: [],
+      productDetails: [],
+      payments: [],
+    };
+  }
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
     return {
       campusId: "",

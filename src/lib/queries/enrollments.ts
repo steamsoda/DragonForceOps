@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import {
   fetchActivePricingPlanVersions,
   fetchPricingPlanVersionsByCode,
@@ -300,7 +301,9 @@ export type EnrollmentDropoutContext = {
 
 export async function getEnrollmentEditContext(enrollmentId: string): Promise<EnrollmentEditContext | null> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
   const [enrollmentResult, campusResult] = await Promise.all([
@@ -342,7 +345,9 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
 
 export async function getEnrollmentDropoutContext(enrollmentId: string): Promise<EnrollmentDropoutContext | null> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
   const [{ data: enrollment }, { data: balanceRow }] = await Promise.all([
@@ -531,7 +536,9 @@ export async function getEnrollmentCreateFormContext(
 ): Promise<EnrollmentCreateFormContext | null> {
   const supabase = await createClient();
   const admin = createAdminClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
   const defaultStartDate = getDefaultEnrollmentStartDate();
   let pricingVersions = await fetchPricingPlanVersionsByCode(admin, "standard");

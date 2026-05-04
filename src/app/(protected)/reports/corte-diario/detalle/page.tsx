@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getCorteCheckpointById, getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
 import { getCorteDiarioData } from "@/lib/queries/reports";
 import { formatDateTimeMonterrey } from "@/lib/time";
@@ -19,7 +19,8 @@ type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioDetallePage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await requireOperationalContext("/unauthorized");
+  const campusAccess = permissionContext.campusAccess;
   const accessibleCampuses = campusAccess?.campuses ?? [];
 
   const historicalCheckpoint = params.checkpoint ? await getCorteCheckpointById(params.checkpoint) : null;

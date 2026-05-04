@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { PaymentRefundPanel } from "@/components/billing/payment-refund-panel";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 
 type SearchParams = Promise<{ returnTo?: string }>;
@@ -19,6 +20,7 @@ export default async function RefundPaymentPage({
 }) {
   const { enrollmentId, paymentId } = await params;
   const query = await searchParams;
+  await requireOperationalContext("/unauthorized");
   const returnTo = normalizeReturnTo(query.returnTo, `/enrollments/${enrollmentId}/charges`);
 
   const ledger = await getEnrollmentLedger(enrollmentId);

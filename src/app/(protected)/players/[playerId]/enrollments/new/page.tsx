@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentCreateFormContext } from "@/lib/queries/enrollments";
 import { EnrollmentCreateForm } from "@/components/enrollments/enrollment-form";
 import { createEnrollmentAction } from "@/server/actions/enrollments";
@@ -24,6 +25,7 @@ export default async function EnrollmentCreatePage({
 }) {
   const { playerId } = await params;
   const query = await searchParams;
+  await requireOperationalContext("/unauthorized");
   const context = await getEnrollmentCreateFormContext(playerId);
 
   if (!context) notFound();

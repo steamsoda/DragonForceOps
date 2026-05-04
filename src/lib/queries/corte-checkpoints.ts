@@ -1,4 +1,5 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { getMonterreyDateString, getMonterreyDayBounds } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 
@@ -82,7 +83,9 @@ async function resolveFallbackOpenedAt(
 
 export async function getCurrentCorteCheckpoint(campusId: string): Promise<CorteCheckpoint | null> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!canAccessCampus(campusAccess, campusId)) return null;
 
   const { data } = await supabase
@@ -97,7 +100,9 @@ export async function getCurrentCorteCheckpoint(campusId: string): Promise<Corte
 
 export async function getOrCreateCurrentCorteCheckpoint(campusId: string): Promise<CorteCheckpoint | null> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!canAccessCampus(campusAccess, campusId)) return null;
 
   const existing = await getCurrentCorteCheckpoint(campusId);
@@ -131,7 +136,9 @@ export async function listClosedCorteCheckpoints(
   limit = 12
 ): Promise<CorteCheckpoint[]> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return [];
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!canAccessCampus(campusAccess, campusId)) return [];
 
   const { data } = await supabase
@@ -156,7 +163,9 @@ export async function getCorteCheckpointById(checkpointId: string): Promise<Cort
 
   if (!data) return null;
 
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!canAccessCampus(campusAccess, data.campus_id)) return null;
 
   return mapCheckpoint(data);

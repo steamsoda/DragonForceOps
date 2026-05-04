@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrintButton } from "./print-button";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import {
   getCorteCheckpointById,
   getOrCreateCurrentCorteCheckpoint,
@@ -23,7 +23,11 @@ type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const [campusAccess, printerName] = await Promise.all([getOperationalCampusAccess(), getPrinterName()]);
+  const [permissionContext, printerName] = await Promise.all([
+    requireOperationalContext("/unauthorized"),
+    getPrinterName(),
+  ]);
+  const campusAccess = permissionContext.campusAccess;
 
   const accessibleCampuses = campusAccess?.campuses ?? [];
   const selectedCampusId = params.campus ?? campusAccess?.defaultCampusId ?? accessibleCampuses[0]?.id ?? "";

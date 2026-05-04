@@ -1,6 +1,6 @@
 # Role Permissions Audit
 
-Last updated: 2026-04-21
+Last updated: 2026-05-04
 
 This document is the working source of truth for app roles, navigation access, data access, and write boundaries in INVICTA. It exists because app-layer route guards, Supabase RLS, preview debug mode, and production login behavior can drift apart if they are not reviewed together.
 
@@ -10,6 +10,8 @@ Current safety additions:
 - `Debug permisos` remains preview-only and must not be treated as proof that production RLS works.
 - Supabase admin-client creation now validates that the URL project ref and service-role JWT project ref match before trusted reads are used.
 - As of `v1.16.58`, `Pendientes` means the tuition-only board with no money amounts or contact data; the old call/follow-up workflow now lives under `Llamadas`.
+- As of the 2026-05-04 safety pass, finance/account direct routes are explicitly guarded with operational or director context instead of relying on hidden navigation or empty campus results.
+- Shared finance query helpers now return no data unless the resolved app permission context has `hasOperationalAccess`; this prevents sports, nutrition, and attendance-only roles from reaching ledgers, receipts, Corte Diario, or account edit flows through direct URLs.
 
 ## Core Principle
 
@@ -244,6 +246,36 @@ Failure pattern:
 - Use `Super Admin > Auditoria accesos` for production-safe verification before changing RLS or role assignments.
 
 ## Current Incidents Under Review
+
+## 2026-05-04 Finance Boundary Audit
+
+Scope reviewed:
+
+- Protected layout navigation.
+- Finance-sensitive pages and direct URL guards.
+- Shared finance/account query helpers.
+- Supabase RLS migrations for `charges`, `payments`, `payment_allocations`, sports, nutrition, and attendance role policies.
+
+Finding:
+
+- Navigation already hid finance/report/admin links from `director_deportivo`, `nutritionist`, and `attendance_admin`.
+- Director-only report/admin pages were correctly using `requireDirectorContext()` or `requireSuperAdminContext()`.
+- Some finance/account surfaces relied on `getOperationalCampusAccess()` and empty campus access instead of an explicit operational guard. That helper intentionally includes sports campus scope for some sports workflows, so direct URLs were too permissive even though the menu did not expose them.
+
+Hardening applied:
+
+- Added explicit operational guards to `/caja`, `/receipts`, `/reports/corte-diario`, `/reports/corte-diario/detalle`, enrollment account ledger pages, charge creation, payment reassign/refund pages, and enrollment create/edit/dropout pages.
+- Added explicit director guard to `/activity`.
+- Hardened shared finance/account query helpers so they return no data unless `getPermissionContext().hasOperationalAccess` is true.
+- Hardened the Corte print server action to reject non-operational callers before closing/printing a checkpoint.
+
+Current assurance:
+
+- Denisse-style `nutritionist` users should only see nutrition-safe surfaces and cannot load finance/account pages through direct URLs.
+- Julio-style `director_deportivo` users should only see sports/attendance-related surfaces and cannot load finance/account pages through direct URLs.
+- Attendance-only users should only see attendance surfaces and cannot load finance/account pages through direct URLs.
+- Front desk remains intentionally finance-capable for Caja, receipts, Corte Diario, pending/calls, and assigned-campus operational accounts.
+- Director/admin and superadmin remain finance-capable by design.
 
 ### Julio, Director Deportivo Linda Vista
 

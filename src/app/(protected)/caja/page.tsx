@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
-import { getOperationalCampusAccess } from "@/lib/auth/campuses";
-import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getPrinterName } from "@/lib/queries/settings";
 import { getEnrollmentForCajaAction } from "@/server/actions/caja";
 
@@ -12,11 +11,10 @@ export default async function CajaPage({
 }: {
   searchParams: Promise<{ enrollmentId?: string }>;
 }) {
-  const permissionContext = await getPermissionContext();
-  const [printerName, sp, campusAccess] = await Promise.all([
+  const permissionContext = await requireOperationalContext("/unauthorized");
+  const [printerName, sp] = await Promise.all([
     getPrinterName(),
     searchParams,
-    getOperationalCampusAccess(),
   ]);
   const isDirector = permissionContext?.isDirector ?? false;
   const initialEnrollmentId = sp.enrollmentId;
@@ -60,8 +58,8 @@ export default async function CajaPage({
           printerName={printerName}
           initialEnrollmentId={initialEnrollmentId}
           initialEnrollmentData={initialEnrollmentData}
-          allowedCampuses={campusAccess?.campuses ?? []}
-          defaultCampusId={campusAccess?.defaultCampusId ?? null}
+          allowedCampuses={permissionContext.campusAccess?.campuses ?? []}
+          defaultCampusId={permissionContext.campusAccess?.defaultCampusId ?? null}
         />
       </div>
     </main>

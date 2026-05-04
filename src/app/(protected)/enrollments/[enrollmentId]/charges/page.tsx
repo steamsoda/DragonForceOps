@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
@@ -82,10 +82,8 @@ export default async function ChargesPage({
 }) {
   const { enrollmentId } = await params;
   const query = await searchParams;
-  const [ledger, permissionContext] = await Promise.all([
-    getEnrollmentLedger(enrollmentId),
-    getPermissionContext(),
-  ]);
+  const permissionContext = await requireOperationalContext("/unauthorized");
+  const ledger = await getEnrollmentLedger(enrollmentId);
 
   if (!ledger) notFound();
 

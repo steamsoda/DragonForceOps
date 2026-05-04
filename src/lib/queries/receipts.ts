@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 export type ReceiptSearchRow = {
   paymentId: string;
@@ -55,7 +56,11 @@ export async function searchReceipts({
   page?: number;
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) {
+    return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
+  }
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
     return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
   }

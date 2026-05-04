@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
+import { requireDirectorContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTimeMonterrey, getMonterreyDayBounds } from "@/lib/time";
 
@@ -148,6 +149,7 @@ type SearchParams = Promise<{
 }>;
 
 export default async function ActivityPage({ searchParams }: { searchParams: SearchParams }) {
+  await requireDirectorContext("/unauthorized");
   const params = await searchParams;
   const filterFrom = params.from?.trim() || "";
   const filterTo = params.to?.trim() || "";

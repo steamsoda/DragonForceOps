@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
 import { getCorteDiarioData } from "@/lib/queries/reports";
@@ -22,7 +23,11 @@ export async function closeAndPrepareCortePrintAction(campusId: string): Promise
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!canAccessCampus(campusAccess, campusId)) {
     return { ok: false, error: "unauthorized" };
   }

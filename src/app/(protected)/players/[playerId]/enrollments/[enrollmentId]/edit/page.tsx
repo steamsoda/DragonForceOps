@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getEnrollmentEditContext } from "@/lib/queries/enrollments";
 import { EnrollmentEditForm } from "@/components/enrollments/enrollment-edit-form";
-import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalContext } from "@/lib/auth/permissions";
 import { updateEnrollmentAction } from "@/server/actions/enrollments";
 
 const errorMessages: Record<string, string> = {
@@ -27,10 +27,8 @@ export default async function EnrollmentEditPage({
 }) {
   const { playerId, enrollmentId } = await params;
   const query = await searchParams;
-  const [context, permissionContext] = await Promise.all([
-    getEnrollmentEditContext(enrollmentId),
-    getPermissionContext(),
-  ]);
+  const permissionContext = await requireOperationalContext("/unauthorized");
+  const context = await getEnrollmentEditContext(enrollmentId);
 
   if (!context) notFound();
 

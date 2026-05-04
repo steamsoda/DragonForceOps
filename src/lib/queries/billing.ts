@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 type EnrollmentRow = {
   id: string;
@@ -194,7 +195,9 @@ function getIncidentStatus(
 
 export async function getEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
   const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }, { data: incidents }] = await Promise.all([
@@ -422,7 +425,9 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
 
 export async function getEnrollmentChargeFormContext(enrollmentId: string) {
   const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.hasOperationalAccess) return null;
+  const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
   const [{ data: enrollment }, { data: chargeTypes }] = await Promise.all([

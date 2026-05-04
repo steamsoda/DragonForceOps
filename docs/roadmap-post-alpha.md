@@ -30,10 +30,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - ✅ Linda Vista `nutritionist` (Denisse) empty player list — fixed by campus fallback
      - ✅ Caja front desk new-player intake pricing error — fixed after production Vercel env audit found a Supabase URL/service-role key project mismatch; `v1.16.54` adds a guard to fail fast on that mismatch in the future, and `v1.16.56` prevents local `.env*` files from being included in manual Vercel CLI deploys
      - ✅ Production-safe access diagnostic — `v1.16.57` adds `Super Admin > Auditoria accesos` plus `docs/production-access-runbook.md`
+     - 2026-05-04 finance direct-URL hardening: Caja, Recibos, Corte Diario, enrollment ledgers, charge/reassign/refund pages, and shared finance helpers now fail closed unless the resolved user has operational access; `/activity` is director-only
    - next required work:
      - confirm Julio and Denisse can access their data after deploy
      - confirm Julio's global sports scope shows both campuses without money amounts
      - use the new runbook after future Vercel env changes or Supabase secret rotations
+     - add a lightweight automated role-regression checklist for direct URLs, not only navigation visibility
 
 1. Late-April May tuition pricing hotfix
    - `v1.16.62` fixes the new-enrollment pricing helper so day-21+ April enrollments carry May tuition at the May plan amount (`700`) instead of the April enrollment-start plan amount (`600`)
@@ -71,6 +73,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
    - remaining follow-up:
      - live-test Linda Vista historical repricing cases end-to-end
      - update remaining permission/reference docs that still mention the old staff-facing `Regularización Contry` wording
+
+     - performance-check `/admin/regularizacion-historica`; live testing works functionally, but the selected-account ledger path can feel slow on production data
 
 3. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:
@@ -196,6 +200,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - auto-create missing weekly templates for all active training groups with seeded time slots
      - skips projected/no-time groups and avoids duplicating active overlapping templates
    - continuation follow-up:
+     - production feedback: Erick liked the live attendance flow, but reported some lag when submitting attendance; re-check submit timing and add low-risk UX/performance smoothing before the next field-heavy test
      - `v1.16.84` starts the attendance/training-groups roadmap execution:
        - simplifies `Asistencia > Hoy` for Field Admin users
        - adds clearer daily session summary cards and capture-oriented session cards
