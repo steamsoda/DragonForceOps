@@ -8,6 +8,13 @@
 - Confirmed the raw SQL/RPC shape is fast as a privileged database role, while authenticated/RLS execution is much slower on production data.
 - Kept browser/API authentication and app-level campus authorization, then moved the hot grouped roster read to the server-only service-role client.
 - Updated the roster RPC so direct client roles cannot execute it; only `service_role` can call the optimized RPC after the API route has authorized the request.
+- Production retest after deployment dropped the grouped roster request from roughly `3.5s` server wait to roughly `1.06s` server wait / `1.09s` total.
+- Current status: usable for live operations; leave the full-roster UX in place and defer smaller follow-up optimizations unless production traffic shows another regression.
+- Deferred optimization ideas:
+  - compact the grouped-roster JSON contract
+  - add a short private cache by user/campus/gender/category/month window
+  - reduce duplicated campus/group metadata in the roster response
+  - revisit the underlying RLS policy cost separately from the user-facing roster path
 
 ## 2026-05-04 (session 160)
 

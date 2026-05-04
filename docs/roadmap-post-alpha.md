@@ -127,6 +127,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.106` moves `Jugadores > Vista por grupos` roster rows and tuition-cell summarization into a flat live SQL/RPC shape while keeping the full roster visible at once
        - `v1.16.108` keeps the RPC and moves grouped roster loading behind a dedicated client/API fetch so the initial `/players` RSC response is no longer blocked by full-roster rendering
        - `v1.16.109` keeps the client/API split and switches the roster RPC read to the server-only service-role path after app-level user/campus authorization, avoiding production RLS recursion in the hot roster query
+       - production result: grouped roster live request dropped from roughly `3.5s` server wait to roughly `1.06s` server wait / `1.09s` total, which is usable for current operations
+       - future grouped-roster follow-ups:
+         - compact the `/api/players/grouped-roster` JSON payload so the same full-roster data ships with less repeated structure
+         - consider a short private cache keyed by user/campus/gender/category/month window if repeated navigation still feels slow
+         - reduce duplicated campus/group metadata in the response once the API shape settles
+         - separately audit the expensive authenticated/RLS policy path so future RPCs do not need the same server-only fast path by default
        - continue scanning remaining high-risk aggregations and move them into chunked reads or SQL/RPC before they become another operations incident
      - advisor/security hardening:
        - `v1.16.104` records the first Supabase/Vercel advisor pass before the next production merge
