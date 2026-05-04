@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-04.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.106`
+Current preview release line: `v1.16.107`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -125,6 +125,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.103` hardens `Jugadores` all-campus / `pendingMonth` / enrollment-linked follow-up queries with paged base reads and chunked follow-up `.in(...)` reads
        - `v1.16.105` continues the large-query pass on attendance export and nutrition roster/dashboard reads
        - `v1.16.106` moves `Jugadores > Vista por grupos` roster rows and tuition-cell summarization into a flat live SQL/RPC shape while keeping the full roster visible at once
+       - `v1.16.107` keeps the same live RPC but replaces the heavy server-rendered grouped roster tables with a flatter virtualized client roster to reduce RSC payload and browser DOM work
        - continue scanning remaining high-risk aggregations and move them into chunked reads or SQL/RPC before they become another operations incident
      - advisor/security hardening:
        - `v1.16.104` records the first Supabase/Vercel advisor pass before the next production merge

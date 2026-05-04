@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-05-04 (session 160)
+
+### Jugadores Grouped Roster Virtualized Render Pass (v1.16.107)
+
+- Followed up after production testing showed the RPC removed the request storm, but the main `/players` RSC response still carried a large server-rendered grouped table payload.
+- Moved `Jugadores > Vista por grupos` rendering into a client component that receives the full roster data but only paints the visible scroll window.
+- Flattened the group display into one virtualized roster surface with sticky headers and section jump buttons, keeping campus/gender/category filters, `Sin grupo`, player links, and tuition labels intact.
+- Kept the implementation on `preview` for live verification before another production merge.
+
 ## 2026-05-04 (session 159)
 
 ### Jugadores Grouped Roster RPC Optimization (v1.16.106)
