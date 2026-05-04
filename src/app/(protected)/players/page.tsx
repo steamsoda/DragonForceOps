@@ -137,7 +137,7 @@ function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSetting
       {rows.map((row) => (
         <div key={row.id} className="space-y-3 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
           <div className="space-y-1">
-            <Link href={`/players/${row.id}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+            <Link href={`/players/${row.id}`} prefetch={false} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
               {row.fullName}
             </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -166,7 +166,7 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
       {rows.map((row) => (
         <div key={row.playerId} className="space-y-2 rounded-md border border-slate-200 px-4 py-4 dark:border-slate-700">
           <div className="space-y-1">
-            <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+            <Link href={`/players/${row.playerId}`} prefetch={false} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
               {row.fullName}
             </Link>
             <div className="flex flex-wrap gap-1">
@@ -214,6 +214,7 @@ function PlayerViewTabs({ view }: { view: "active" | "bajas" | "groups" }) {
         <Link
           key={item.key}
           href={item.href}
+          prefetch={false}
           className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
             view === item.key
               ? "border-portoBlue text-portoBlue"
@@ -284,6 +285,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
               <Link
                 key={campus.id}
                 href={groupedRosterHref({ campusId: campus.id, gender: data.selectedGender, birthYear: data.selectedBirthYear })}
+                prefetch={false}
                 className={`rounded-lg border px-4 py-3 text-left transition ${
                   active
                     ? "border-portoBlue bg-blue-50 text-portoBlue shadow-sm dark:border-blue-400 dark:bg-blue-950/30 dark:text-blue-200"
@@ -306,6 +308,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
                 <Link
                   key={option.value || "all"}
                   href={groupedRosterHref({ campusId: data.selectedCampusId, gender: option.value, birthYear: data.selectedBirthYear })}
+                  prefetch={false}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     active
                       ? "border-portoBlue bg-portoBlue text-white"
@@ -324,6 +327,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
           <div className="flex flex-wrap gap-2">
             <Link
               href={groupedRosterHref({ campusId: data.selectedCampusId, gender: data.selectedGender })}
+              prefetch={false}
               className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                 data.selectedBirthYear == null
                   ? "border-portoBlue bg-portoBlue text-white"
@@ -336,6 +340,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
               <Link
                 key={year}
                 href={groupedRosterHref({ campusId: data.selectedCampusId, gender: data.selectedGender, birthYear: year })}
+                prefetch={false}
                 className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                   data.selectedBirthYear === year
                     ? "border-portoBlue bg-portoBlue text-white"
@@ -406,7 +411,7 @@ function GroupedRosterView({ data }: { data: PlayerRosterGroupsData | null }) {
                         <td className="px-2 py-2 text-center text-slate-500 dark:text-slate-400">{index + 1}</td>
                         <td className="px-2 py-2 font-mono text-slate-700 dark:text-slate-300">{row.publicPlayerId}</td>
                         <td className="px-2 py-2">
-                          <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                          <Link href={`/players/${row.playerId}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
                             {row.fullName}
                           </Link>
                         </td>
@@ -637,7 +642,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 >
                   Exportar Excel
                 </a>
-                <Link href="/players/new" className="rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-medium text-white hover:bg-portoDark">
+                <Link href="/players/new" prefetch={false} className="rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-medium text-white hover:bg-portoDark">
                   + Nuevo jugador
                 </Link>
               </div>
@@ -692,7 +697,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     activeRows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <td className="px-3 py-2">
-                          <Link href={`/players/${row.id}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                          <Link href={`/players/${row.id}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
                             {row.fullName}
                           </Link>
                         </td>
@@ -738,7 +743,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     bajaRows.map((row) => (
                       <tr key={row.playerId}>
                         <td className="px-3 py-2">
-                          <Link href={`/players/${row.playerId}`} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                          <Link href={`/players/${row.playerId}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
                             {row.fullName}
                           </Link>
                         </td>
@@ -773,14 +778,14 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </p>
           <div className="flex gap-3">
             {prevPage ? (
-              <Link href={`/players?${qsBase}&page=${prevPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <Link href={`/players?${qsBase}&page=${prevPage}`} prefetch={false} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Anterior
               </Link>
             ) : (
               <span className="rounded border px-3 py-1.5 text-slate-400">Anterior</span>
             )}
             {nextPage ? (
-              <Link href={`/players?${qsBase}&page=${nextPage}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <Link href={`/players?${qsBase}&page=${nextPage}`} prefetch={false} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Siguiente
               </Link>
             ) : (
