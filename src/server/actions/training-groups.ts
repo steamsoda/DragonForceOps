@@ -144,6 +144,58 @@ async function upsertTrainingGroupAssignment(params: {
   return true;
 }
 
+async function closeTrainingGroupAssignment(params: {
+  admin: ReturnType<typeof createAdminClient>;
+  actorUserId: string;
+  actorEmail: string | null;
+  enrollmentId: string;
+  assignmentStart: string;
+}) {
+  const { admin, actorUserId, actorEmail, enrollmentId, assignmentStart } = params;
+  const [{ data: enrollment }, { data: existingAssignment }] = await Promise.all([
+    admin
+      .from("enrollments")
+      .select("id, campus_id, status")
+      .eq("id", enrollmentId)
+      .maybeSingle<{ id: string; campus_id: string; status: string } | null>(),
+    admin
+      .from("training_group_assignments")
+      .select("id, training_group_id, start_date")
+      .eq("enrollment_id", enrollmentId)
+      .is("end_date", null)
+      .maybeSingle<{ id: string; training_group_id: string; start_date: string } | null>(),
+  ]);
+
+  if (!enrollment || enrollment.status !== "active" || !existingAssignment) return false;
+
+  const endDate = assignmentStart > existingAssignment.start_date
+    ? new Date(`${assignmentStart}T12:00:00.000Z`)
+    : new Date(`${existingAssignment.start_date}T12:00:00.000Z`);
+  if (assignmentStart > existingAssignment.start_date) endDate.setUTCDate(endDate.getUTCDate() - 1);
+  const resolvedEndDate = endDate.toISOString().slice(0, 10);
+
+  const { error } = await admin
+    .from("training_group_assignments")
+    .update({ end_date: resolvedEndDate, updated_at: new Date().toISOString() })
+    .eq("id", existingAssignment.id);
+  if (error) return false;
+
+  await writeAuditLog(admin, {
+    actorUserId,
+    actorEmail,
+    action: "training_group_assignment.closed",
+    tableName: "training_group_assignments",
+    recordId: existingAssignment.id,
+    afterData: {
+      enrollment_id: enrollmentId,
+      previous_training_group_id: existingAssignment.training_group_id,
+      assignment_end: resolvedEndDate,
+    },
+  });
+
+  return true;
+}
+
 export async function createTrainingGroupAction(formData: FormData) {
   await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();
@@ -378,7 +430,21 @@ export async function updatePlayerRosterTrainingGroupsAction(formData: FormData)
   for (const enrollmentId of enrollmentIds) {
     const trainingGroupId = clean(formData.get(`training_group_id:${enrollmentId}`));
     const currentTrainingGroupId = clean(formData.get(`current_training_group_id:${enrollmentId}`));
-    if (!trainingGroupId || trainingGroupId === currentTrainingGroupId) continue;
+    if (trainingGroupId === currentTrainingGroupId) continue;
+
+    if (!trainingGroupId) {
+      if (!currentTrainingGroupId) continue;
+      const ok = await closeTrainingGroupAssignment({
+        admin,
+        actorUserId: context.user.id,
+        actorEmail: context.user.email,
+        enrollmentId,
+        assignmentStart,
+      });
+      if (!ok) return { ok: false, error: "assignment_failed" };
+      applied += 1;
+      continue;
+    }
 
     const ok = await upsertTrainingGroupAssignment({
       admin,

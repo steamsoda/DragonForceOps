@@ -98,6 +98,7 @@ export type PlayerRosterGroupsData = {
   selectedCampusName: string;
   selectedGender: "male" | "female" | "";
   selectedBirthYear: number | null;
+  canEditTrainingGroups: boolean;
   birthYears: number[];
   months: RosterTuitionMonth[];
   groupOptions: PlayerRosterGroupOption[];
@@ -427,6 +428,7 @@ export async function getPlayerRosterGroupsData(
     selectedCampusName: selectedCampus?.name ?? "-",
     selectedGender,
     selectedBirthYear,
+    canEditTrainingGroups: false,
     birthYears,
     months,
     groupOptions,

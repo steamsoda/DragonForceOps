@@ -28,7 +28,9 @@ export async function GET(request: Request) {
     },
   );
 
-  return NextResponse.json(data, {
+  const canEditTrainingGroups = context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector);
+
+  return NextResponse.json(data ? { ...data, canEditTrainingGroups } : data, {
     headers: {
       "Cache-Control": "private, no-store",
     },

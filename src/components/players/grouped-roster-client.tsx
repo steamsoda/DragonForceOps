@@ -148,20 +148,22 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 </span>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditMode((current) => !current);
-                setSaveMessage(null);
-              }}
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
-                editMode
-                  ? "border-amber-300 bg-amber-50 text-amber-800"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
-              }`}
-            >
-              {editMode ? "Salir de edicion" : "Editar grupos"}
-            </button>
+            {data.canEditTrainingGroups ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditMode((current) => !current);
+                  setSaveMessage(null);
+                }}
+                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                  editMode
+                    ? "border-amber-300 bg-amber-50 text-amber-800"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                }`}
+              >
+                {editMode ? "Salir de edicion" : "Editar grupos"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -357,7 +359,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                                   : "border-slate-300 bg-white text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
                               }`}
                             >
-                              <option value="" disabled>Sin grupo</option>
+                              <option value="">Quitar grupo</option>
                               {data.groupOptions.map((group) => (
                                 <option key={group.id} value={group.id}>{group.name}</option>
                               ))}

@@ -2,6 +2,15 @@
 
 ## 2026-05-05 (session 162)
 
+### Training Group Edit Permission Polish + Unassignment (v1.16.117)
+
+- Tightened `Jugadores > Vista por grupos` edit mode after preview validation:
+  - the API now tells the client whether the current effective user can edit training-group assignments
+  - `Editar grupos` is hidden for users who cannot save those changes
+- Added explicit `Quitar grupo` support in edit mode.
+- Closing a group assignment now writes an audited `training_group_assignment.closed` event and sets an end date on the existing active assignment instead of creating a fake "Sin grupo" assignment.
+- Kept the same effective-date behavior as group moves so historical attendance/assignment records remain date-bounded.
+
 ### Training Group Emergency Edit + Calendar Day Redirect (v1.16.116)
 
 - Started the emergency training-group operations pass on preview.
