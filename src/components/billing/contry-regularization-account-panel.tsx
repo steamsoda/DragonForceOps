@@ -160,6 +160,7 @@ export function ContryRegularizationAccountPanel({
   const [goalkeeper, setGoalkeeper] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState("");
   const [tuitionPricingPaidAt, setTuitionPricingPaidAt] = useState("");
+  const [chargeContextLoading, setChargeContextLoading] = useState(false);
   const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("product");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
@@ -186,20 +187,14 @@ export function ContryRegularizationAccountPanel({
     setImmediatePaymentNotes("");
     setImmediatePaymentPaidAt("");
     setTuitionPricingPaidAt("");
+    setTuitionPeriod("");
+    setChargeContext(null);
+    setChargeContextLoading(false);
   }, [initialLedger]);
 
   useEffect(() => {
     getProductsForCajaAction().then(setProducts);
   }, []);
-
-  useEffect(() => {
-    getHistoricalRegularizationChargeContextAction(initialLedger.enrollment.id).then((context) => {
-      setChargeContext(context);
-      if (context?.advanceTuitionOptions[0]?.periodMonth) {
-        setTuitionPeriod(context.advanceTuitionOptions[0].periodMonth.slice(0, 7));
-      }
-    });
-  }, [initialLedger.enrollment.id]);
 
   const pendingCharges = useMemo(
     () => ledger.charges.filter((charge) => charge.pendingAmount > 0 && charge.status !== "void"),
@@ -230,6 +225,39 @@ export function ContryRegularizationAccountPanel({
     setSelectedChargeIds((current) =>
       current.includes(chargeId) ? current.filter((id) => id !== chargeId) : [...current, chargeId],
     );
+  }
+
+  function applyChargeContext(nextContext: HistoricalRegularizationChargeContext | null) {
+    setChargeContext(nextContext);
+    if (!nextContext || nextContext.advanceTuitionOptions.length === 0) {
+      setTuitionPeriod("");
+      return;
+    }
+
+    setTuitionPeriod((current) =>
+      nextContext.advanceTuitionOptions.some((option) => option.periodMonth.slice(0, 7) === current)
+        ? current
+        : nextContext.advanceTuitionOptions[0].periodMonth.slice(0, 7),
+    );
+  }
+
+  async function ensureChargeContext() {
+    if (chargeContext) return chargeContext;
+    if (chargeContextLoading) return null;
+
+    setChargeContextLoading(true);
+    try {
+      const nextContext = await getHistoricalRegularizationChargeContextAction(ledger.enrollment.id);
+      applyChargeContext(nextContext);
+      return nextContext;
+    } finally {
+      setChargeContextLoading(false);
+    }
+  }
+
+  function openTuitionMode() {
+    setAddChargeMode("tuition");
+    void ensureChargeContext();
   }
 
   function openImmediatePaymentPrompt(
@@ -268,14 +296,7 @@ export function ContryRegularizationAccountPanel({
       getHistoricalRegularizationChargeContextAction(ledger.enrollment.id),
     ]);
     if (nextLedger) setLedger(nextLedger);
-    if (nextContext) {
-      setChargeContext(nextContext);
-      if (nextContext.advanceTuitionOptions.length === 0) {
-        setTuitionPeriod("");
-      } else if (!nextContext.advanceTuitionOptions.some((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)) {
-        setTuitionPeriod(nextContext.advanceTuitionOptions[0].periodMonth.slice(0, 7));
-      }
-    }
+    applyChargeContext(nextContext);
     return nextLedger;
   }
 
@@ -395,16 +416,25 @@ export function ContryRegularizationAccountPanel({
   }
 
   function submitAdvanceTuition() {
-    if (!tuitionPeriod || !tuitionPricingPaidAt) return;
+    if (!tuitionPricingPaidAt) return;
     setErrorMessage(null);
     setSuccessMessage(null);
     setSuccessPaymentId(null);
     setPendingMessage("Calculando la mensualidad con la fecha real y actualizando la cuenta...");
 
     startTransition(async () => {
+      const context = chargeContext ?? (await ensureChargeContext());
+      const resolvedTuitionPeriod =
+        tuitionPeriod || context?.advanceTuitionOptions[0]?.periodMonth.slice(0, 7) || "";
+      if (!resolvedTuitionPeriod) {
+        setPendingMessage(null);
+        setErrorMessage("No hay mensualidades disponibles para esta cuenta.");
+        return;
+      }
+
       const result = await createAdvanceTuitionAction(
         ledger.enrollment.id,
-        tuitionPeriod,
+        resolvedTuitionPeriod,
         ledger.enrollment.campusId,
         tuitionPricingPaidAt,
       );
@@ -704,7 +734,7 @@ export function ContryRegularizationAccountPanel({
             </button>
             <button
               type="button"
-              onClick={() => setAddChargeMode("tuition")}
+              onClick={openTuitionMode}
               className={`rounded px-3 py-1.5 text-sm ${addChargeMode === "tuition" ? "bg-portoBlue text-white" : "text-slate-700 dark:text-slate-300"}`}
             >
               Mensualidad
@@ -825,7 +855,7 @@ export function ContryRegularizationAccountPanel({
               <span className="font-medium text-slate-700 dark:text-slate-300">Mensualidad</span>
               <select
                 value={tuitionPeriod}
-                disabled={isPending}
+                disabled={isPending || chargeContextLoading}
                 onChange={(event) => setTuitionPeriod(event.target.value)}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
               >
@@ -837,7 +867,9 @@ export function ContryRegularizationAccountPanel({
                 ))}
               </select>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                El importe final se recalcula cuando guardas la mensualidad usando la fecha hist\u00f3rica capturada abajo.
+                {chargeContextLoading
+                  ? "Cargando opciones de mensualidad..."
+                  : "El importe final se recalcula cuando guardas la mensualidad usando la fecha hist\u00f3rica capturada abajo."}
               </p>
             </label>
 
@@ -875,7 +907,7 @@ export function ContryRegularizationAccountPanel({
 
             <button
               type="button"
-              disabled={isPending || !tuitionPeriod || !tuitionPricingPaidAt}
+              disabled={isPending || chargeContextLoading || !tuitionPeriod || !tuitionPricingPaidAt}
               onClick={submitAdvanceTuition}
               className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
             >

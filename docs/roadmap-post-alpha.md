@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-04.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.111`
+Current preview release line: `v1.16.112`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -74,7 +74,12 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - live-test Linda Vista historical repricing cases end-to-end
      - update remaining permission/reference docs that still mention the old staff-facing `Regularización Contry` wording
 
-     - performance-check `/admin/regularizacion-historica`; live testing works functionally, but the selected-account ledger path can feel slow on production data
+     - `v1.16.112` starts the performance pass by lazy-loading the Mensualidad charge context instead of fetching it immediately after the selected-account ledger
+     - performance-check `/admin/regularizacion-historica`; live testing works functionally, but the selected-account ledger path can still feel slow on production data
+     - future performance follow-ups:
+       - profile the selected-account ledger load on production-sized data
+       - consider a narrower selected-account workspace query or RPC if ledger assembly remains the slow part
+       - lazy-load product catalog only when the catalog workflow is opened if the selected-account page still feels heavy
 
 3. `Nuevas Inscripciones` intake lane
    - `v1` nutrition foundation is now implemented:

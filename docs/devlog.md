@@ -2,6 +2,13 @@
 
 ## 2026-05-04 (session 161)
 
+### Historical Regularization Lazy Tuition Context (v1.16.112)
+
+- Audited `/admin/regularizacion-historica` after live testing showed the workspace is functional but can feel slow with production-sized accounts.
+- Confirmed the selected account first loads the full ledger server-side, then the client immediately fetched monthly tuition charge context, which loaded the same ledger again.
+- Trimmed that duplicate hot-path fetch: the Mensualidad context now loads only when the user opens the Mensualidad tab or submits that flow.
+- Kept product catalog loading, historical payment posting, charge creation, ledger refresh, role scope, and finance write behavior unchanged.
+
 ### Attendance Submit Revalidation Trim (v1.16.111)
 
 - Trimmed the attendance save hot path so field submits no longer invalidate `/attendance/reports` on every save.
