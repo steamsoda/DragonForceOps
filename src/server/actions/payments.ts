@@ -341,32 +341,37 @@ export async function getHistoricalRegularizationChargeContextAction(
   const context = await getHistoricalRegularizationContext();
   if (!context) return null;
 
-  const { supabase } = context;
-  const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger) return null;
+  const { supabase, campusAccess } = context;
 
   const { data: enrollmentPlan } = await supabase
     .from("enrollments")
-    .select("pricing_plans(plan_code)")
+    .select("id, campus_id, pricing_plans(plan_code)")
     .eq("id", enrollmentId)
     .maybeSingle()
-    .returns<{ pricing_plans: { plan_code: string } | null } | null>();
+    .returns<{ id: string; campus_id: string; pricing_plans: { plan_code: string } | null } | null>();
+
+  if (!enrollmentPlan || !canAccessCampus(campusAccess, enrollmentPlan.campus_id)) return null;
+
+  const { data: monthlyCharges } = await supabase
+    .from("charges")
+    .select("amount, period_month, status, charge_types(code)")
+    .eq("enrollment_id", enrollmentId)
+    .neq("status", "void")
+    .not("period_month", "is", null)
+    .returns<Array<{ amount: number; period_month: string | null; status: string; charge_types: { code: string } | null }>>();
 
   const planCode = enrollmentPlan?.pricing_plans?.plan_code;
   const currentPeriodMonth = `${getMonterreyMonthString()}-01`;
-  const existingPeriods = ledger.charges
-    .filter((charge) => charge.typeCode === "monthly_tuition" && charge.status !== "void" && charge.periodMonth)
-    .map((charge) => charge.periodMonth!);
+  const existingMonthlyCharges = (monthlyCharges ?? []).filter(
+    (charge) => charge.charge_types?.code === "monthly_tuition" && charge.period_month,
+  );
+  const existingPeriods = existingMonthlyCharges.map((charge) => charge.period_month!);
   const existingCurrentOrFuturePeriods = [...new Set(
-    ledger.charges
+    existingMonthlyCharges
       .filter(
-        (charge) =>
-          charge.typeCode === "monthly_tuition" &&
-          charge.status !== "void" &&
-          !!charge.periodMonth &&
-          charge.periodMonth >= currentPeriodMonth,
+        (charge) => !!charge.period_month && charge.period_month >= currentPeriodMonth,
       )
-      .map((charge) => charge.periodMonth!),
+      .map((charge) => charge.period_month!),
   )].sort();
 
   const advanceTuitionOptions = planCode
@@ -378,9 +383,7 @@ export async function getHistoricalRegularizationChargeContextAction(
     mergedOptions.set(periodMonth, {
       periodMonth,
       label: `${formatPeriodMonthLabel(periodMonth)} · cargo existente`,
-      amount: ledger.charges.find(
-        (charge) => charge.typeCode === "monthly_tuition" && charge.status !== "void" && charge.periodMonth === periodMonth,
-      )?.amount ?? 0,
+      amount: existingMonthlyCharges.find((charge) => charge.period_month === periodMonth)?.amount ?? 0,
       alreadyExists: true,
     });
   }

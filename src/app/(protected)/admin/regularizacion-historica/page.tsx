@@ -46,6 +46,7 @@ export default async function HistoricalRegularizationPage({ searchParams }: { s
 
   const selectedCampusId =
     sanitizeParam(params.campus) || (selectedLedger?.enrollment.campusId ? selectedLedger.enrollment.campusId : "");
+  const campusOptions = context.campusAccess?.campuses.map((campus) => ({ id: campus.id, name: campus.name })) ?? [];
 
   const successMessage =
     params.ok === "historical_payment_posted"
@@ -112,6 +113,7 @@ export default async function HistoricalRegularizationPage({ searchParams }: { s
           <ContryRegularizationPlayerPicker
             selectedEnrollmentId={selectedEnrollmentId || undefined}
             selectedCampusId={selectedCampusId || undefined}
+            campusOptions={campusOptions}
           />
 
           <section className="space-y-4">

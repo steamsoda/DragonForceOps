@@ -90,7 +90,7 @@ function getActionErrorMessage(code: string) {
   return messages[code] ?? "Ocurrió un error. Intenta de nuevo.";
 }
 
-type AddChargeMode = "product" | "tuition";
+type AddChargeMode = "closed" | "product" | "tuition";
 
 type ImmediateChargePaymentPrompt = {
   chargeId: string;
@@ -160,8 +160,10 @@ export function ContryRegularizationAccountPanel({
   const [goalkeeper, setGoalkeeper] = useState(false);
   const [tuitionPeriod, setTuitionPeriod] = useState("");
   const [tuitionPricingPaidAt, setTuitionPricingPaidAt] = useState("");
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const [chargeContextLoading, setChargeContextLoading] = useState(false);
-  const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("product");
+  const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("closed");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -186,15 +188,15 @@ export function ContryRegularizationAccountPanel({
     setImmediatePaymentMethod("");
     setImmediatePaymentNotes("");
     setImmediatePaymentPaidAt("");
+    setSelectedProduct(null);
+    setChargeSize("");
+    setGoalkeeper(false);
     setTuitionPricingPaidAt("");
     setTuitionPeriod("");
     setChargeContext(null);
     setChargeContextLoading(false);
+    setAddChargeMode("closed");
   }, [initialLedger]);
-
-  useEffect(() => {
-    getProductsForCajaAction().then(setProducts);
-  }, []);
 
   const pendingCharges = useMemo(
     () => ledger.charges.filter((charge) => charge.pendingAmount > 0 && charge.status !== "void"),
@@ -253,6 +255,24 @@ export function ContryRegularizationAccountPanel({
     } finally {
       setChargeContextLoading(false);
     }
+  }
+
+  async function ensureProducts() {
+    if (productsLoaded || productsLoading) return;
+
+    setProductsLoading(true);
+    try {
+      const nextProducts = await getProductsForCajaAction();
+      setProducts(nextProducts);
+      setProductsLoaded(true);
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
+  function openProductMode() {
+    setAddChargeMode("product");
+    void ensureProducts();
   }
 
   function openTuitionMode() {
@@ -733,7 +753,7 @@ export function ContryRegularizationAccountPanel({
           <div className="flex rounded-md border border-slate-300 p-1 dark:border-slate-600">
             <button
               type="button"
-              onClick={() => setAddChargeMode("product")}
+              onClick={openProductMode}
               className={`rounded px-3 py-1.5 text-sm ${addChargeMode === "product" ? "bg-portoBlue text-white" : "text-slate-700 dark:text-slate-300"}`}
             >
               Catálogo
@@ -748,8 +768,22 @@ export function ContryRegularizationAccountPanel({
           </div>
         </div>
 
-        {addChargeMode === "product" ? (
+        {addChargeMode === "closed" ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+            Elige Catalogo o Mensualidad solo cuando necesites crear un cargo. La cuenta y el pago historico ya estan listos sin cargar esos flujos extra.
+          </div>
+        ) : addChargeMode === "product" ? (
           <div className="space-y-4">
+            {productsLoading ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                Cargando catalogo...
+              </div>
+            ) : null}
+            {productsLoaded && products.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+                No hay productos disponibles para crear cargos.
+              </div>
+            ) : null}
             <div className="space-y-5">
               {products.map((category) => (
                 <div key={category.slug}>

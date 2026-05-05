@@ -42,9 +42,11 @@ function lookupCampusName(meta: HistoricalRegularizationDrilldownMeta, campusId:
 export function ContryRegularizationPlayerPicker({
   selectedEnrollmentId,
   selectedCampusId,
+  campusOptions,
 }: {
   selectedEnrollmentId?: string;
   selectedCampusId?: string;
+  campusOptions: HistoricalRegularizationDrilldownMeta["campuses"];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,15 +55,14 @@ export function ContryRegularizationPlayerPicker({
   const [query, setQuery] = useState("");
   const [view, setView] = useState<SearchView>({ tag: "idle" });
   const [drilldown, setDrilldown] = useState<DrilldownState>({ step: "closed" });
-  const [preloadedMeta, setPreloadedMeta] = useState<HistoricalRegularizationDrilldownMeta | null>(null);
+  const [drilldownMeta, setDrilldownMeta] = useState<HistoricalRegularizationDrilldownMeta>({
+    campuses: campusOptions,
+    birthYearsByCampus: {},
+  });
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const campusFilter = sanitizeCampusId(selectedCampusId);
-
-  useEffect(() => {
-    getHistoricalRegularizationDrilldownMetaAction().then(setPreloadedMeta);
-  }, []);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -84,7 +85,6 @@ export function ContryRegularizationPlayerPicker({
     return () => clearTimeout(timer);
   }, [query, campusFilter]);
 
-  const campusOptions = preloadedMeta?.campuses ?? [];
   const selectedCampusName = useMemo(
     () => (campusFilter ? campusOptions.find((campus) => campus.id === campusFilter)?.name ?? "Campus" : "Todos los campus"),
     [campusFilter, campusOptions],
@@ -134,8 +134,8 @@ export function ContryRegularizationPlayerPicker({
       return;
     }
 
-    if (preloadedMeta) {
-      setDrilldown({ step: "years", meta: preloadedMeta, campusId: campusFilter });
+    if (drilldownMeta.birthYearsByCampus[campusFilter]) {
+      setDrilldown({ step: "years", meta: drilldownMeta, campusId: campusFilter });
       return;
     }
 
@@ -143,6 +143,7 @@ export function ContryRegularizationPlayerPicker({
     setPickerMessage("Cargando categorías...");
     startTransition(async () => {
       const meta = await getHistoricalRegularizationDrilldownMetaAction();
+      setDrilldownMeta(meta);
       setDrilldown({ step: "years", meta, campusId: campusFilter });
       setPickerMessage(null);
     });

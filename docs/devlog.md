@@ -2,6 +2,14 @@
 
 ## 2026-05-04 (session 161)
 
+### Historical Regularization Eager Action Trim (v1.16.114)
+
+- Continued the preview performance pass after testing still showed several `regularizacion-historica` server-action fetches.
+- Moved campus options into the server-rendered page so the player picker no longer fetches drilldown metadata on every page open.
+- Changed `Agregar nuevo cargo` to stay closed until Catalogo or Mensualidad is clicked, avoiding the product catalog fetch on normal historical-payment review.
+- Reworked Mensualidad context loading so it queries only enrollment plan and monthly-tuition charge periods instead of loading the full account ledger.
+- Preserved the same account ledger, payment posting, product charge creation, tuition creation/reprice, and role boundaries.
+
 ### Historical Regularization Prefetch Trim (v1.16.113)
 
 - Preview testing showed the selected historical account still generated many extra `_rsc` requests while finance-heavy links were visible.

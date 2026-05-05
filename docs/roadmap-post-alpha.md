@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-04.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.113`
+Current preview release line: `v1.16.114`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -76,6 +76,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
 
      - `v1.16.112` starts the performance pass by lazy-loading the Mensualidad charge context instead of fetching it immediately after the selected-account ledger
      - `v1.16.113` disables automatic prefetch on finance-heavy links inside the historical workspace after preview testing showed extra `_rsc` requests for receipts, account pages, reassign/refund pages, and breadcrumbs
+     - `v1.16.114` removes remaining eager workspace server actions and narrows the Mensualidad context query so it no longer loads the full account ledger just to list tuition periods
      - performance-check `/admin/regularizacion-historica`; live testing works functionally, but the selected-account ledger path can still feel slow on production data
      - future performance follow-ups:
        - profile the selected-account ledger load on production-sized data
