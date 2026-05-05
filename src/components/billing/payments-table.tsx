@@ -165,6 +165,7 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                         {row.canReassign ? (
                           <Link
                             href={`/enrollments/${enrollmentId}/payments/${row.id}/reassign${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+                            prefetch={false}
                             className="inline-flex rounded-md border border-blue-300 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20"
                           >
                             Cambiar concepto
@@ -184,6 +185,7 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                         ) : (
                           <Link
                             href={`/enrollments/${enrollmentId}/payments/${row.id}/refund${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
+                            prefetch={false}
                             className="inline-flex rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
                           >
                             Reembolsar

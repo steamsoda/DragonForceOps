@@ -466,6 +466,7 @@ export function ContryRegularizationAccountPanel({
             {ledger.enrollment.playerId ? (
               <Link
                 href={`/players/${ledger.enrollment.playerId}`}
+                prefetch={false}
                 className="text-lg font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100"
               >
                 {ledger.enrollment.playerName}
@@ -480,6 +481,7 @@ export function ContryRegularizationAccountPanel({
           </div>
           <Link
             href={`/enrollments/${ledger.enrollment.id}/charges`}
+            prefetch={false}
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Ver cuenta completa
@@ -499,7 +501,11 @@ export function ContryRegularizationAccountPanel({
           <p>{successMessage}</p>
           {successPaymentId ? (
             <div className="mt-2 flex flex-wrap gap-3">
-              <Link href={`/receipts?payment=${encodeURIComponent(successPaymentId)}`} className="font-medium text-portoBlue hover:underline">
+              <Link
+                href={`/receipts?payment=${encodeURIComponent(successPaymentId)}`}
+                prefetch={false}
+                className="font-medium text-portoBlue hover:underline"
+              >
                 Ver recibo guardado
               </Link>
             </div>

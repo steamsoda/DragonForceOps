@@ -81,11 +81,19 @@ export default async function HistoricalRegularizationPage({ searchParams }: { s
             <p>{successMessage}</p>
             {params.payment ? (
               <div className="mt-2 flex flex-wrap gap-3">
-                <Link href={`/receipts?payment=${encodeURIComponent(params.payment)}`} className="font-medium text-portoBlue hover:underline">
+                <Link
+                  href={`/receipts?payment=${encodeURIComponent(params.payment)}`}
+                  prefetch={false}
+                  className="font-medium text-portoBlue hover:underline"
+                >
                   Ver recibo guardado
                 </Link>
                 {selectedLedger ? (
-                  <Link href={`/enrollments/${selectedLedger.enrollment.id}/charges`} className="font-medium text-portoBlue hover:underline">
+                  <Link
+                    href={`/enrollments/${selectedLedger.enrollment.id}/charges`}
+                    prefetch={false}
+                    className="font-medium text-portoBlue hover:underline"
+                  >
                     Ver cuenta completa
                   </Link>
                 ) : null}

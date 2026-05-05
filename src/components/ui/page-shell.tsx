@@ -24,7 +24,7 @@ export function PageShell({ title, subtitle, children, breadcrumbs, wide = false
               <span key={i} className="flex items-center gap-1">
                 {i > 0 && <span>/</span>}
                 {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-portoBlue hover:underline">
+                  <Link href={crumb.href} prefetch={false} className="hover:text-portoBlue hover:underline">
                     {crumb.label}
                   </Link>
                 ) : (

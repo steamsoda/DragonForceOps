@@ -2,6 +2,12 @@
 
 ## 2026-05-04 (session 161)
 
+### Historical Regularization Prefetch Trim (v1.16.113)
+
+- Preview testing showed the selected historical account still generated many extra `_rsc` requests while finance-heavy links were visible.
+- Disabled automatic prefetch on historical workspace receipt/account links, payment reassign/refund links, and shared breadcrumbs.
+- This keeps navigation available on click, but stops the browser from spending background time loading pages the user may not open.
+
 ### Historical Regularization Lazy Tuition Context (v1.16.112)
 
 - Audited `/admin/regularizacion-historica` after live testing showed the workspace is functional but can feel slow with production-sized accounts.
