@@ -832,7 +832,6 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
 
   revalidatePath("/attendance");
   revalidatePath(`/attendance/sessions/${sessionId}`);
-  revalidatePath("/attendance/reports");
   perf.mark("revalidate");
   const savedAt = new Date().toISOString();
   perf.end({

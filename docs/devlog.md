@@ -2,6 +2,13 @@
 
 ## 2026-05-04 (session 161)
 
+### Attendance Submit Revalidation Trim (v1.16.111)
+
+- Trimmed the attendance save hot path so field submits no longer invalidate `/attendance/reports` on every save.
+- The save action still revalidates `/attendance` and the specific session page so the daily list/session detail stay current after submit.
+- Reports remain available and unchanged; the tradeoff is only that an already-open reports tab may not refresh immediately from a field submit.
+- No attendance records, session status logic, role scope, report calculations, or audit behavior changed.
+
 ### Attendance Submit Smoothing (v1.16.110)
 
 - Reopened the attendance submit path after live feedback that field submission can feel laggy on larger rosters.

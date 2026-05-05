@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-04.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.110`
+Current preview release line: `v1.16.111`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -293,6 +293,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - adds lookup indexes for training-group roster snapshots, team roster snapshots, and active absence/injury incident prefill checks
        - improves sticky-footer pending copy while the save action is running
        - keeps attendance write semantics, reports, correction audit, and role scope unchanged
+     - `v1.16.111` trims attendance save revalidation:
+       - field submits still revalidate `/attendance` and the specific session page
+       - `/attendance/reports` is no longer invalidated on every save, reducing work on the capture hot path
+       - report pages and report calculations are unchanged
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
