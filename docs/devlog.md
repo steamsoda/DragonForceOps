@@ -2,6 +2,21 @@
 
 ## 2026-05-04 (session 161)
 
+### Attendance Submit Smoothing (v1.16.110)
+
+- Reopened the attendance submit path after live feedback that field submission can feel laggy on larger rosters.
+- Confirmed the save action already uses the previous lean path:
+  - one save-only snapshot instead of the full display query
+  - one batch upsert instead of per-player writes
+  - unchanged correction rows are skipped
+  - inline result instead of redirect-after-save
+- Added attendance-submit lookup indexes for the exact roster snapshot patterns:
+  - training-group assignment lookup by group/date window
+  - team assignment lookup by team/primary/date window
+  - active absence/injury incident lookup by enrollment/status/date window
+- Added clearer pending copy in the sticky save footer so field staff see that the submit is actively saving and should wait for confirmation.
+- No attendance role scope, report math, incident tagging, correction audit, or finance behavior changed.
+
 ### Finance Role Boundary Audit
 
 - Rechecked the current role boundary after the grouped-roster performance work because finance exposure to sports/nutrition/attendance staff is not acceptable.

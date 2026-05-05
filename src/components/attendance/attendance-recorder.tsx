@@ -111,6 +111,30 @@ function SaveAttendanceButton({
   );
 }
 
+function SaveAttendanceStatus({
+  presentCount,
+  rosterCount,
+}: {
+  presentCount: number;
+  rosterCount: number;
+}) {
+  const { pending } = useFormStatus();
+
+  if (pending) {
+    return (
+      <p aria-live="polite" className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+        Guardando asistencia... espera la confirmacion antes de cerrar.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+      Listo para guardar: {presentCount}/{rosterCount} cuentan como asistencia
+    </p>
+  );
+}
+
 const SAVE_ERROR_LABELS: Record<string, string> = {
   cancelled: "La sesion ya fue cancelada.",
   director_required: "Solo direccion puede corregir una sesion ya registrada.",
@@ -204,9 +228,7 @@ export function AttendanceRecorder({
       </div>
 
       <div className="sticky bottom-3 z-10 flex flex-col gap-2 rounded-xl border border-blue-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-blue-900 dark:bg-slate-950/95 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-          Listo para guardar: {presentCount}/{roster.length} cuentan como asistencia
-        </p>
+        <SaveAttendanceStatus presentCount={presentCount} rosterCount={roster.length} />
         <SaveAttendanceButton disabled={saveDisabled} saved={saved} />
       </div>
     </form>

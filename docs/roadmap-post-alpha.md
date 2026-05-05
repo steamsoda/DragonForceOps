@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-04.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.109`
+Current preview release line: `v1.16.110`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -289,6 +289,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - raw local reports are kept under ignored `.tmp/db-inspect-2026-04-30/`
        - first patch adds request-scoped caching around access/campus resolution
        - first SQL hardening adds `idx_charges_enrollment_created_at` for the repeated enrollment-ledger charge query
+     - `v1.16.110` adds a low-risk attendance submit smoothing pass:
+       - adds lookup indexes for training-group roster snapshots, team roster snapshots, and active absence/injury incident prefill checks
+       - improves sticky-footer pending copy while the save action is running
+       - keeps attendance write semantics, reports, correction audit, and role scope unchanged
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`
