@@ -1,5 +1,33 @@
 # Devlog
 
+## 2026-05-05 (session 162)
+
+### Front Desk Performance Timing Instrumentation (v1.16.115)
+
+- Started the Front Desk slowdown audit with safe timing logs instead of changing payment, enrollment, attendance, or printer behavior.
+- Added segmented `[perf]` timing to Caja payment posting:
+  - auth/context
+  - ledger load
+  - allocation preparation and inserts
+  - early-discount check
+  - cash-session/folio work
+  - audit log
+  - uniform/sports sync
+  - revalidation
+  - final ledger refresh
+- Added segmented `[perf]` timing to new-enrollment intake:
+  - auth/campus access
+  - pricing/config lookup
+  - guardian/player/enrollment inserts
+  - charge seeding
+  - uniform charge/order work
+  - B2 auto-assignment
+  - audit/revalidation
+- Added receipt handoff timing:
+  - server-side receipt preparation
+  - client-side receipt print path through QZ Tray
+- Logs intentionally use counts, booleans, payment method, and segment names only; they do not log player names, tutor data, payment amounts, notes, or other sensitive payloads.
+
 ## 2026-05-04 (session 161)
 
 ### Historical Regularization Eager Action Trim (v1.16.114)

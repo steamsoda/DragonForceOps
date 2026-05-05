@@ -28,6 +28,7 @@ import {
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
+import { createPerfTimer } from "@/lib/perf/timing";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 
@@ -956,9 +957,11 @@ export async function checkoutCajaCartAction(
 }
 
 export async function postCajaPaymentAction(enrollmentId: string, formData: FormData): Promise<CajaPaymentResult> {
+  const perf = createPerfTimer("caja.payment_post");
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parsePaymentFormData(formData);
   if (!parsed) return { ok: false, error: "invalid_form" };
+  perf.mark("parse_and_debug_guard");
 
   const supabase = await createClient();
   const {
@@ -966,11 +969,14 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+  perf.mark("auth_user");
 
   const ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
+  perf.mark("ledger_load");
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return { ok: false, error: "unauthenticated" };
+  perf.mark("campus_access");
 
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
@@ -1036,6 +1042,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     ? allocateChargesWithPriority(parsed.split.amount, secondPassCharges, [])
     : { allocations: [] as Array<{ chargeId: string; amount: number }> };
   const allocations2 = secondPass.allocations;
+  perf.mark("prepare_allocations");
 
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase
@@ -1060,6 +1067,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     console.error("[postCajaPaymentAction] payment insert failed:", paymentError);
     return { ok: false, error: "payment_insert_failed" };
   }
+  perf.mark("payment_insert");
 
   // Insert second payment row if split
   let paymentRow2Id: string | null = null;
@@ -1088,6 +1096,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     }
     paymentRow2Id = p2.id;
   }
+  perf.mark("split_payment_insert");
 
   // Insert allocations for prior unallocated credit first
   if (priorAllocations.length > 0) {
@@ -1104,6 +1113,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
+  perf.mark("prior_allocations_insert");
 
   if (allocations1.length > 0) {
     const { error: allocationError } = await supabase.from("payment_allocations").insert(
@@ -1119,6 +1129,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
+  perf.mark("primary_allocations_insert");
 
   if (paymentRow2Id && allocations2.length > 0) {
     const { error: allocationError2 } = await supabase.from("payment_allocations").insert(
@@ -1134,6 +1145,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       return { ok: false, error: "allocation_insert_failed" };
     }
   }
+  perf.mark("split_allocations_insert");
 
   const allAllocatedCharges = [
     ...priorAllocations.map((a) => ({ chargeId: a.chargeId, amount: a.amount })),
@@ -1141,6 +1153,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     ...allocations2
   ];
   await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
+  perf.mark("early_discount_check");
 
   // ── Link cash payments to open session ────────────────────────────────────
   const paymentsToLink: Array<{ id: string; amount: number; method: string }> = [
@@ -1149,6 +1162,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   ];
   const sessionWarning = await linkCashPaymentsToOpenSession(supabase, operatorCampusId, paymentsToLink, user.id);
   const folio = await fetchPaymentFolio(supabase, paymentRow.id);
+  perf.mark("cash_session_and_folio");
 
   await writePostedPaymentAudit(supabase, {
     actorUserId: user.id,
@@ -1164,6 +1178,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     recordedAt,
     folio,
   });
+  perf.mark("audit_log");
 
   const pendingAmountByCharge = new Map(pendingCharges.map((charge) => [charge.id, charge.pendingAmount]));
   const allocatedByCharge = new Map<string, number>();
@@ -1182,9 +1197,11 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     actorUserId: user.id,
     soldAt: paidAt,
   });
+  perf.mark("uniform_sync");
 
   await clearPendingFollowUpIfResolved(supabase, enrollmentId);
   const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  perf.mark("followup_and_competition_sync");
 
   await revalidatePaymentSurfaces(ledger);
   if (affectedTournamentIds.length > 0) {
@@ -1194,7 +1211,9 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
       revalidatePath(`/tournaments/${tournamentId}`);
     }
   }
+  perf.mark("revalidate");
   const refreshedLedger = await getEnrollmentLedger(enrollmentId);
+  perf.mark("refresh_ledger");
 
   const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
   const newBalance = refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - totalPaid, 0);
@@ -1207,6 +1226,17 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   const splitPayment = parsed.split
     ? { amount: parsed.split.amount, method: parsed.split.method }
     : undefined;
+  perf.end({
+    pendingChargeCount: pendingCharges.length,
+    targetChargeCount: targetChargeIds.length,
+    priorAllocationCount: priorAllocations.length,
+    newAllocationCount: allocations1.length + allocations2.length,
+    settledChargeCount: settledChargeIds.length,
+    splitPayment: Boolean(parsed.split),
+    method: parsed.method,
+    affectedTournamentCount: affectedTournamentIds.length,
+    cashSessionWarning: sessionWarning,
+  });
 
   return {
     ok: true,

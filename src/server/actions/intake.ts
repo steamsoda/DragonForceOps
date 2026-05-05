@@ -12,6 +12,7 @@ import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
 import { parsePlayerFormData } from "@/lib/validations/player";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
+import { createPerfTimer } from "@/lib/perf/timing";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -165,6 +166,7 @@ export async function searchLikelyPlayersForIntakeAction(input: {
 }
 
 export async function createEnrollmentIntakeAction(formData: FormData) {
+  const perf = createPerfTimer("intake.create_enrollment");
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
   const uniformSize             = formData.get("uniformSize")?.toString().trim() || null;
@@ -182,7 +184,9 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   if (!player || !enrollment) {
     return redirectWithError("invalid_form", { isReturning, returnMode });
   }
+  perf.mark("parse_form");
   await assertDebugWritesAllowed(`/players/new${isReturning ? "?returning=1" : ""}`);
+  perf.mark("debug_guard");
 
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -196,6 +200,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       returnMode: enrollment.returnInscriptionMode,
     });
   }
+  perf.mark("auth_user");
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || !canAccessCampus(campusAccess, enrollment.campusId)) {
     return redirectWithError("invalid_form", {
@@ -203,6 +208,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       returnMode: enrollment.returnInscriptionMode,
     });
   }
+  perf.mark("campus_access");
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(admin, {
@@ -215,6 +221,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       .in("code", ["inscription", "monthly_tuition", "uniform_training", "uniform_game"])
       .returns<ChargeTypeRow[]>(),
   ]);
+  perf.mark("pricing_and_charge_types");
 
   const chargeTypes = chargeTypesResult.data;
   const inscriptionTypeId      = (chargeTypes ?? []).find((ct) => ct.code === "inscription")?.id;
@@ -272,6 +279,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("guardian_failed", { isReturning: player.isReturning });
   }
   createdIds.guardianId = guardian.id;
+  perf.mark("guardian_insert");
 
   const { data: createdPlayer, error: playerError } = await admin
     .from("players")
@@ -293,6 +301,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("player_failed", { isReturning: player.isReturning });
   }
   createdIds.playerId = createdPlayer.id;
+  perf.mark("player_insert");
 
   const { data: link, error: linkError } = await admin
     .from("player_guardians")
@@ -311,6 +320,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("link_failed", { isReturning: player.isReturning });
   }
   createdIds.playerGuardianId = link.id;
+  perf.mark("guardian_link_insert");
 
   const { data: createdEnrollment, error: enrollmentError } = await admin
     .from("enrollments")
@@ -338,6 +348,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     });
   }
   createdIds.enrollmentId = createdEnrollment.id;
+  perf.mark("enrollment_insert");
 
   const currency = createdEnrollment.pricing_plans?.currency ?? pricingQuote.plan.currency ?? "MXN";
   const tuitionDescription = `Mensualidad ${formatPeriodMonthLabel(pricingQuote.tuitionPeriodMonth)}`;
@@ -373,6 +384,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       returnMode: enrollment.returnInscriptionMode,
     });
   }
+  perf.mark("seed_charges");
 
   // ── Uniform handling ────────────────────────────────────────────────────
   const includesKits = !isReturning || returnMode === "full";
@@ -410,6 +422,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       await admin.from("players").update({ uniform_size: uniformSize }).eq("id", createdPlayer.id);
     }
   }
+  perf.mark("included_uniforms");
 
   if (addExtraKit && uniformTrainingTypeId) {
     await admin.from("charges").insert({
@@ -425,6 +438,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       created_by: user.id,
     });
   }
+  perf.mark("extra_kit_charge");
 
   if (addGameUniform && uniformGameTypeId) {
     await admin.from("charges").insert({
@@ -440,10 +454,12 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       created_by: user.id,
     });
   }
+  perf.mark("game_uniform_charge");
   // ────────────────────────────────────────────────────────────────────────
 
   const birthYear = Number(player.birthDate.slice(0, 4));
   const b2Team = await findB2TeamForAutoAssign(enrollment.campusId, birthYear, player.gender ?? null);
+  perf.mark("auto_assign_lookup");
   if (b2Team) {
     const today = new Date().toISOString().split("T")[0];
     const { data: teamAssignment, error: teamAssignmentError } = await admin
@@ -472,6 +488,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     createdIds.teamAssignmentId = teamAssignment?.id ?? null;
     await admin.from("players").update({ level: "B2" }).eq("id", createdPlayer.id);
   }
+  perf.mark("auto_assign_write");
 
   await writeAuditLog(admin, {
     actorUserId: user.id,
@@ -488,8 +505,18 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       intake_mode: "single_page",
     },
   });
+  perf.mark("audit_log");
 
   revalidatePath("/players");
   revalidatePath(`/players/${createdPlayer.id}`);
+  perf.mark("revalidate");
+  perf.end({
+    isReturning: enrollment.isReturning,
+    returnMode: enrollment.returnInscriptionMode ?? null,
+    includesKits,
+    extraKit: addExtraKit,
+    gameUniform: addGameUniform,
+    autoAssignedB2: Boolean(b2Team),
+  });
   redirect(`/caja?enrollmentId=${createdEnrollment.id}`);
 }

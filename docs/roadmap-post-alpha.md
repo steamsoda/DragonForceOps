@@ -1,10 +1,10 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
 Live testing started 2026-03-19. Session 2: 2026-03-26.
-Updated continuously. Last updated: 2026-05-04.
+Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.114`
+Current preview release line: `v1.16.115`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -353,6 +353,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
      - add timing instrumentation around critical server actions rather than guessing
      - target `post payment`, `create enrollment`, `attendance save`, and receipt print handoff
      - log safe timing segments only; no secrets, card data, payment details, or PII-heavy payloads
+   - `v1.16.115` starts this pass with segmented `[perf]` logs for Caja payment posting, new-enrollment intake, receipt preparation, and QZ receipt printing; attendance save already had segmented timing from the earlier attendance pass
    - timing segments to capture:
      - permission/context load
      - account/ledger reads

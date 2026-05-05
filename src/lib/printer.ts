@@ -1,5 +1,7 @@
 "use client";
 
+import { createPerfTimer } from "@/lib/perf/timing";
+
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -396,16 +398,39 @@ function buildCorte(corte: CorteData, logoESCPOS: string | null): QZDataItem[] {
   return items;
 }
 
-async function sendToQZ(printerName: string, items: QZDataItem[]): Promise<void> {
+type PerfTimer = ReturnType<typeof createPerfTimer>;
+
+async function sendToQZ(printerName: string, items: QZDataItem[], perf?: PerfTimer): Promise<void> {
   await connectQZ();
+  perf?.mark("qz_connect");
   const qz = window.qz;
   const config = qz.configs.create(printerName, { encoding: "Cp1252" });
   await qz.print(config, items);
+  perf?.mark("qz_print");
 }
 
 export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
-  const logo = await fetchLogoESCPOS();
-  await sendToQZ(printerName, buildReceipt(data, logo));
+  const perf = createPerfTimer("printer.receipt");
+  try {
+    const logo = await fetchLogoESCPOS();
+    perf.mark("logo_prepare");
+    const items = buildReceipt(data, logo);
+    perf.mark("payload_build");
+    await sendToQZ(printerName, items, perf);
+    perf.end({
+      itemCount: items.length,
+      hasLogo: Boolean(logo),
+      splitPayment: Boolean(data.splitPayment),
+      printerConfigured: Boolean(printerName),
+    });
+  } catch (err) {
+    perf.end({
+      failed: true,
+      error: err instanceof Error ? err.message : "unknown",
+      printerConfigured: Boolean(printerName),
+    });
+    throw err;
+  }
 }
 
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createPerfTimer } from "@/lib/perf/timing";
 import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -75,6 +76,7 @@ function getBirthYear(value: string | null): number | null {
 
 export async function getReceiptForPrintAction(paymentId: string): Promise<ReceiptPrintResult> {
   if (!paymentId) return { ok: false, error: "invalid_payment" };
+  const perf = createPerfTimer("receipts.prepare_print");
 
   const supabase = await createClient();
   const {
@@ -83,6 +85,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
   } = await supabase.auth.getUser();
 
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+  perf.mark("auth_user");
 
   const { data: payment } = await supabase
     .from("payments")
@@ -95,6 +98,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
   if (!payment || !payment.enrollments?.players) {
     return { ok: false, error: "receipt_not_found" };
   }
+  perf.mark("payment_load");
 
   const [{ data: allocations }, { data: charges }, { data: payments }] = await Promise.all([
     supabase
@@ -114,6 +118,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
       .eq("status", "posted")
       .returns<PaymentBalanceRow[]>()
   ]);
+  perf.mark("related_finance_loads");
 
   const paidAtMs = new Date(payment.paid_at).getTime();
   const chargesTotal = roundMoney(
@@ -136,6 +141,12 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
     : [{ description: "Abono", amount: payment.amount }];
 
   const paidAt = new Date(payment.paid_at);
+  perf.mark("build_receipt");
+  perf.end({
+    allocationCount: allocations?.length ?? 0,
+    chargeCount: charges?.length ?? 0,
+    paymentCount: payments?.length ?? 0,
+  });
 
   return {
     ok: true,
