@@ -2,6 +2,20 @@
 
 ## 2026-05-05 (session 162)
 
+### Training Group Emergency Edit + Calendar Day Redirect (v1.16.116)
+
+- Started the emergency training-group operations pass on preview.
+- Changed `Asistencia > Calendario` day cards so clicking any date opens `/attendance?date=YYYY-MM-DD` with the selected campus preserved instead of expanding the calendar cell inline.
+- Updated the attendance page title to read `Asistencia del dia` when viewing a non-today date.
+- Added `Jugadores > Vista por grupos` edit mode:
+  - operators can toggle `Editar grupos`
+  - each row exposes a training-group dropdown
+  - changed rows are highlighted
+  - one batch save applies all changed rows from the selected effective date
+- Reused the existing audited `training_group_assignments` semantics: the previous active assignment is closed and a new active assignment is inserted.
+- Kept this first pass to moving players between active groups; explicit unassignment remains a later follow-up so it can get its own safe audit behavior.
+- Revalidated player and attendance surfaces after roster assignment changes.
+
 ### Front Desk Performance Timing Instrumentation (v1.16.115)
 
 - Started the Front Desk slowdown audit with safe timing logs instead of changing payment, enrollment, attendance, or printer behavior.

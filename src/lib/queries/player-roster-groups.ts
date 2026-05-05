@@ -65,6 +65,7 @@ export type RosterTuitionCell = {
 export type PlayerRosterGroupRow = {
   enrollmentId: string;
   playerId: string;
+  trainingGroupId: string | null;
   publicPlayerId: string;
   fullName: string;
   birthYear: number | null;
@@ -85,6 +86,12 @@ export type PlayerRosterGroupSection = {
   rows: PlayerRosterGroupRow[];
 };
 
+export type PlayerRosterGroupOption = {
+  id: string;
+  name: string;
+  subtitle: string;
+};
+
 export type PlayerRosterGroupsData = {
   campuses: AccessibleCampus[];
   selectedCampusId: string;
@@ -93,6 +100,7 @@ export type PlayerRosterGroupsData = {
   selectedBirthYear: number | null;
   birthYears: number[];
   months: RosterTuitionMonth[];
+  groupOptions: PlayerRosterGroupOption[];
   sections: PlayerRosterGroupSection[];
   totalPlayers: number;
   unassignedCount: number;
@@ -383,6 +391,7 @@ export async function getPlayerRosterGroupsData(
     targetSection.rows.push({
       enrollmentId: row.enrollment_id,
       playerId: row.player_id,
+      trainingGroupId: canonicalGroup?.id ?? null,
       publicPlayerId: row.public_player_id ?? "Pendiente",
       fullName,
       birthYear: row.birth_year,
@@ -392,6 +401,12 @@ export async function getPlayerRosterGroupsData(
       tuition: buildTuitionCellsFromRpc(months, row),
     });
   }
+
+  const groupOptions = [...sectionMap.values()].map((section) => ({
+    id: section.id,
+    name: section.name,
+    subtitle: section.subtitle,
+  }));
 
   const sections = [...sectionMap.values(), ...(unassignedSection.rows.length > 0 ? [unassignedSection] : [])]
     .map((section) => ({
@@ -414,6 +429,7 @@ export async function getPlayerRosterGroupsData(
     selectedBirthYear,
     birthYears,
     months,
+    groupOptions,
     sections,
     totalPlayers: rosterRows.length,
     unassignedCount: unassignedSection.rows.length,

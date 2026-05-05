@@ -353,6 +353,53 @@ export async function assignTrainingGroupsBatchAction(formData: FormData) {
   redirect(getSettingsRedirect(formData, "batch_assignments_saved", applied));
 }
 
+export type PlayerRosterGroupAssignmentResult =
+  | { ok: true; applied: number }
+  | { ok: false; error: "debug_read_only" | "unauthorized" | "invalid_form" | "assignment_failed" };
+
+export async function updatePlayerRosterTrainingGroupsAction(formData: FormData): Promise<PlayerRosterGroupAssignmentResult> {
+  try {
+    await assertDebugWritesAllowed("/players");
+  } catch {
+    return { ok: false, error: "debug_read_only" };
+  }
+
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  const admin = createAdminClient();
+  const enrollmentIds = [...new Set(formData.getAll("enrollment_id").map((value) => String(value).trim()).filter(Boolean))];
+  const assignmentStart = clean(formData.get("assignment_start")) || getMonterreyDateString();
+  if (enrollmentIds.length === 0 || !isDateOnly(assignmentStart)) return { ok: false, error: "invalid_form" };
+
+  let applied = 0;
+  for (const enrollmentId of enrollmentIds) {
+    const trainingGroupId = clean(formData.get(`training_group_id:${enrollmentId}`));
+    const currentTrainingGroupId = clean(formData.get(`current_training_group_id:${enrollmentId}`));
+    if (!trainingGroupId || trainingGroupId === currentTrainingGroupId) continue;
+
+    const ok = await upsertTrainingGroupAssignment({
+      admin,
+      actorUserId: context.user.id,
+      actorEmail: context.user.email,
+      enrollmentId,
+      trainingGroupId,
+      assignmentStart,
+    });
+    if (!ok) return { ok: false, error: "assignment_failed" };
+    applied += 1;
+  }
+
+  revalidatePath("/players");
+  revalidatePath("/attendance");
+  revalidatePath("/attendance/groups");
+  revalidatePath("/attendance/reports");
+  revalidatePath("/new-enrollments");
+  return { ok: true, applied };
+}
+
 export async function applySuggestedTrainingGroupsAction(formData: FormData) {
   await assertDebugWritesAllowed("/attendance/settings");
   const { context, admin } = await requireTrainingGroupManager();

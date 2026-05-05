@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, listAttendanceScheduleTemplates, listAttendanceSessions } from "@/lib/queries/attendance";
+import { getMonterreyDateString } from "@/lib/time";
 import { createManualAttendanceSessionAction, generateAttendanceSessionsAction } from "@/server/actions/attendance";
 
 type SearchParams = Promise<{ date?: string; campus?: string; ok?: string; err?: string; start?: string; end?: string; expected?: string; existing?: string; created?: string }>;
@@ -53,8 +54,10 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
     { total: 0, pending: 0, completed: 0, cancelled: 0 },
   );
 
+  const isToday = data.selectedDate === getMonterreyDateString();
+
   return (
-    <PageShell title="Asistencia de hoy" subtitle="Entrenamientos listos para tomar asistencia en cancha." wide>
+    <PageShell title={isToday ? "Asistencia de hoy" : "Asistencia del dia"} subtitle="Entrenamientos listos para tomar asistencia en cancha." wide>
       <div className="space-y-5">
         {params.err ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">

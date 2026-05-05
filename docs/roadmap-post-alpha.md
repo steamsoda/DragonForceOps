@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.115`
+Current preview release line: `v1.16.116`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -139,7 +139,10 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.108` keeps the RPC and moves grouped roster loading behind a dedicated client/API fetch so the initial `/players` RSC response is no longer blocked by full-roster rendering
        - `v1.16.109` keeps the client/API split and switches the roster RPC read to the server-only service-role path after app-level user/campus authorization, avoiding production RLS recursion in the hot roster query
        - production result: grouped roster live request dropped from roughly `3.5s` server wait to roughly `1.06s` server wait / `1.09s` total, which is usable for current operations
+       - `v1.16.116` adds emergency `Editar grupos` mode directly to `Jugadores > Vista por grupos`, using dropdown changes plus one batch save through the audited `training_group_assignments` path
        - future grouped-roster follow-ups:
+         - add explicit `Quitar grupo` support only after defining its audit/end-date behavior
+         - consider drag-and-drop as a later UI layer over the same batch assignment flow
          - compact the `/api/players/grouped-roster` JSON payload so the same full-roster data ships with less repeated structure
          - consider a short private cache keyed by user/campus/gender/category/month window if repeated navigation still feels slow
          - reduce duplicated campus/group metadata in the response once the API shape settles
@@ -304,6 +307,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - field submits still revalidate `/attendance` and the specific session page
        - `/attendance/reports` is no longer invalidated on every save, reducing work on the capture hot path
        - report pages and report calculations are unchanged
+     - `v1.16.116` changes the calendar day interaction from inline expansion to a day-detail redirect into `/attendance?date=YYYY-MM-DD`, preserving campus selection and avoiding stretched calendar cells
      - confirmed current automation:
        - Supabase `pg_cron` job `generate-attendance-sessions`
        - runs Sundays at `06:00 UTC`

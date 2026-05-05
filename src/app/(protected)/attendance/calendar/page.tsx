@@ -1,22 +1,10 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
-import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceCalendarData } from "@/lib/queries/attendance";
+import { getAttendanceCalendarData } from "@/lib/queries/attendance";
 import { createAttendanceClosureAction } from "@/server/actions/attendance";
 
 type SearchParams = Promise<{ campus?: string; month?: string; ok?: string; err?: string; cancelled?: string }>;
-
-const STATUS_LABELS: Record<string, string> = {
-  scheduled: "Pendiente",
-  completed: "Tomada",
-  cancelled: "Cancelada",
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  scheduled: "border-amber-200 bg-amber-50 text-amber-800",
-  completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  cancelled: "border-slate-200 bg-slate-50 text-slate-600",
-};
 
 const CLOSURE_REASON_LABELS: Record<string, string> = {
   rain: "Lluvia",
@@ -37,6 +25,12 @@ function calendarHref(params: { campus?: string | null; month: string }) {
   if (params.campus) search.set("campus", params.campus);
   search.set("month", params.month);
   return `/attendance/calendar?${search.toString()}`;
+}
+
+function attendanceDayHref(params: { campus?: string | null; date: string }) {
+  const search = new URLSearchParams({ date: params.date });
+  if (params.campus) search.set("campus", params.campus);
+  return `/attendance?${search.toString()}`;
 }
 
 function monthTitle(month: string) {
@@ -194,11 +188,11 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
               <div key={`blank-${index}`} className="hidden rounded-lg border border-transparent md:block" />
             ))}
             {data.days.map((day) => (
-              <details
+              <Link
                 key={day.date}
-                className={`min-h-32 rounded-lg border p-3 transition ${day.isToday ? "border-portoBlue bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20" : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/40"}`}
+                href={attendanceDayHref({ campus: data.selectedCampusId, date: day.date })}
+                className={`min-h-32 rounded-lg border p-3 transition hover:border-portoBlue hover:bg-white dark:hover:border-blue-500 dark:hover:bg-slate-900 ${day.isToday ? "border-portoBlue bg-blue-50 dark:border-blue-700 dark:bg-blue-950/20" : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/40"}`}
               >
-                <summary className="cursor-pointer list-none">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-slate-500">{day.weekdayLabel}</p>
@@ -221,51 +215,12 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
                     {day.cancelled > 0 ? <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] text-slate-600">Canc: {day.cancelled}</span> : null}
                     {day.total === 0 ? <span className="text-xs text-slate-400">Sin sesiones</span> : null}
                   </div>
-                </summary>
-
-                {day.closures.length > 0 ? (
-                  <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
-                    {day.closures.map((closure) => (
-                      <div key={closure.id} className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-900">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold">{closure.title}</span>
-                          <span className="rounded-full border border-rose-300 bg-white px-2 py-0.5 font-semibold">
-                            {CLOSURE_REASON_LABELS[closure.reasonCode] ?? closure.reasonCode}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-rose-800">{closure.campusName}</p>
-                        {closure.notes ? <p className="mt-1 text-rose-800">{closure.notes}</p> : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {day.sessions.length > 0 ? (
-                  <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
-                    {day.sessions.map((session) => (
-                      <Link
-                        key={session.id}
-                        href={`/attendance/sessions/${session.id}`}
-                        className="block rounded-md border border-slate-200 bg-white p-2 text-xs hover:border-portoBlue dark:border-slate-700 dark:bg-slate-900"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">{session.startTime}</span>
-                          <span className={`rounded-full border px-2 py-0.5 font-semibold ${STATUS_STYLES[session.status] ?? STATUS_STYLES.scheduled}`}>
-                            {STATUS_LABELS[session.status] ?? session.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 font-medium text-slate-800 dark:text-slate-100">{session.sourceName}</p>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          {session.campusName} | {ATTENDANCE_SESSION_TYPE_LABELS[session.sessionType] ?? session.sessionType}
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          {session.sourceType === "training_group" ? "Grupo" : "Equipo"} | Coach {session.coachName ?? "-"}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
-              </details>
+                  {day.total > 0 ? (
+                    <p className="mt-3 border-t border-slate-200 pt-2 text-xs font-semibold text-portoBlue dark:border-slate-700 dark:text-blue-300">
+                      Ver sesiones del dia
+                    </p>
+                  ) : null}
+              </Link>
             ))}
           </div>
         </section>
