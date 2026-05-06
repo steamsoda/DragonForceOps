@@ -2,6 +2,18 @@
 
 ## 2026-05-05 (session 162)
 
+### Llamadas Board + Detail Queue Pass 2 (v1.16.119)
+
+- Rebuilt `Llamadas` as the Front Desk action version of `Pendientes`.
+- Changed the `Llamadas` source of truth from generic positive balance to pending monthly tuition players, while still showing total account balance in the call row.
+- Added a board-style landing page:
+  - campus cards
+  - 1 month / 2 months / 3+ months call queues
+  - follow-up queues for `No contactado`, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresara`
+  - category cards matching the navigation pattern Front Desk already understands from `Pendientes`
+- Added `/llamadas/detail` as the focused call queue with phone, pending months, total balance, follow-up notes, promise date, account link, and the inline baja flow from pass 1.
+- Kept the follow-up lifecycle unchanged: notes remain until payment posts or baja ends the enrollment.
+
 ### Llamadas Workflow Pass 1 (v1.16.118)
 
 - Started the emergency Front Desk `Llamadas` workflow polish on preview.

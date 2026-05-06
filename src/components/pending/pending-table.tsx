@@ -23,6 +23,7 @@ export type PendingRow = {
   followUpAt: string | null;
   followUpNote: string | null;
   promiseDate: string | null;
+  pendingMonths?: Array<{ periodMonth: string; label: string; dueDate: string | null; isOverdue: boolean }>;
 };
 
 type PendingTableProps = {
@@ -89,6 +90,13 @@ function statusPill(status: PendingFollowUpStatus) {
     default:
       return `${base} bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300`;
   }
+}
+
+function monthChipClass(isOverdue: boolean) {
+  if (isOverdue) {
+    return "border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-200";
+  }
+  return "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
 }
 
 function InlineDropoutPanel({
@@ -261,7 +269,8 @@ function FollowUpCell({
   const isPromise = status === "promise_to_pay";
   const isNoReturn = status === "will_not_return";
   const currentQuery = searchParams.toString();
-  const returnTo = pathname === "/llamadas" ? `${pathname}${currentQuery ? `?${currentQuery}` : ""}` : "/llamadas";
+  const canReturnToCalls = pathname === "/llamadas" || pathname === "/llamadas/detail";
+  const returnTo = canReturnToCalls ? `${pathname}${currentQuery ? `?${currentQuery}` : ""}` : "/llamadas";
 
   return (
     <div className={`space-y-2 ${compact ? "" : "min-w-0"}`}>
@@ -375,6 +384,18 @@ function PendingDesktopRow({
               <span className="font-medium text-slate-700 dark:text-slate-200">Equipo</span> {row.teamName}
             </p>
           </div>
+          {row.pendingMonths && row.pendingMonths.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {row.pendingMonths.map((month) => (
+                <span
+                  key={month.periodMonth}
+                  className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${monthChipClass(month.isOverdue)}`}
+                >
+                  {month.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-2 text-sm">
@@ -469,6 +490,18 @@ export function PendingTable({ rows }: PendingTableProps) {
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400">Equipo: {row.teamName}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">Telefono: {row.primaryPhone ?? "-"}</p>
+              {row.pendingMonths && row.pendingMonths.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {row.pendingMonths.map((month) => (
+                    <span
+                      key={month.periodMonth}
+                      className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${monthChipClass(month.isOverdue)}`}
+                    >
+                      {month.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">

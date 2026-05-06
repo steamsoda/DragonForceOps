@@ -20,7 +20,7 @@ function getSafeCallsReturnTo(value: string | undefined) {
   if (!value) return null;
   try {
     const parsed = new URL(value, "https://dragon-force.local");
-    if (parsed.pathname !== "/llamadas") return null;
+    if (parsed.pathname !== "/llamadas" && parsed.pathname !== "/llamadas/detail") return null;
     return `${parsed.pathname}${parsed.search}`;
   } catch {
     return null;
