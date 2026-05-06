@@ -14,7 +14,18 @@ const errorMessages: Record<string, string> = {
   update_failed: "No se pudo registrar la baja. Intenta de nuevo.",
 };
 
-type SearchParams = Promise<{ err?: string }>;
+type SearchParams = Promise<{ err?: string; returnTo?: string }>;
+
+function getSafeCallsReturnTo(value: string | undefined) {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value, "https://dragon-force.local");
+    if (parsed.pathname !== "/llamadas") return null;
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return null;
+  }
+}
 
 export default async function EnrollmentDropoutPage({
   params,
@@ -31,6 +42,7 @@ export default async function EnrollmentDropoutPage({
   if (!context) notFound();
 
   const errorMessage = query.err ? errorMessages[query.err] ?? "Ocurrio un error." : null;
+  const returnTo = getSafeCallsReturnTo(query.returnTo);
   const submit = dropoutEnrollmentAction.bind(null, enrollmentId, playerId);
 
   return (
@@ -56,7 +68,7 @@ export default async function EnrollmentDropoutPage({
           </Link>
         </div>
 
-        <EnrollmentDropoutForm enrollment={context.enrollment} action={submit} />
+        <EnrollmentDropoutForm enrollment={context.enrollment} action={submit} returnTo={returnTo} />
       </div>
     </PageShell>
   );

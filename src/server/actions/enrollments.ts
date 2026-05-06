@@ -423,6 +423,18 @@ function redirectWithDropoutError(enrollmentId: string, playerId: string, code: 
   redirect(`/players/${playerId}/enrollments/${enrollmentId}/dropout?err=${code}`);
 }
 
+function getSafeCallsReturnTo(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw, "https://dragon-force.local");
+    if (parsed.pathname !== "/llamadas") return null;
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function updateEnrollmentAction(
   enrollmentId: string,
   playerId: string,
@@ -635,7 +647,82 @@ export async function dropoutEnrollmentAction(
   revalidatePath("/pending");
   revalidatePath("/llamadas");
   revalidatePath("/pending/bajas");
+  const returnTo = getSafeCallsReturnTo(formData.get("returnTo"));
+  if (returnTo) redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}ok=baja`);
   redirect(`/players/${playerId}?ok=dropped`);
+}
+
+export type DropoutFromCallsResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function dropoutEnrollmentFromCallsAction(
+  enrollmentId: string,
+  playerId: string,
+  formData: FormData,
+): Promise<DropoutFromCallsResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  const parsed = parseEnrollmentDropoutData(formData);
+  if (!parsed) return { ok: false, error: "invalid_form" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { ok: false, error: "unauthenticated" };
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, campus_id, status")
+    .eq("id", enrollmentId)
+    .eq("player_id", playerId)
+    .maybeSingle<{ id: string; campus_id: string; status: string }>();
+
+  if (!enrollment || !canAccessCampus(campusAccess, enrollment.campus_id)) {
+    return { ok: false, error: "not_found" };
+  }
+  if (enrollment.status !== "active") return { ok: false, error: "not_active" };
+
+  const { error } = await supabase
+    .from("enrollments")
+    .update({
+      status: "ended",
+      end_date: parsed.endDate,
+      dropout_reason: parsed.dropoutReason,
+      dropout_notes: parsed.dropoutNotes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", enrollmentId);
+
+  if (error) return { ok: false, error: "update_failed" };
+
+  await clearPendingFollowUpForEnrollment(supabase, enrollmentId);
+
+  await writeAuditLog(supabase, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "enrollment.ended",
+    tableName: "enrollments",
+    recordId: enrollmentId,
+    afterData: {
+      status: "ended",
+      end_date: parsed.endDate,
+      dropout_reason: parsed.dropoutReason,
+      dropout_notes: parsed.dropoutNotes,
+      source: "llamadas_inline",
+    },
+  });
+
+  revalidatePath(`/players/${playerId}`);
+  revalidatePath("/players");
+  revalidatePath("/pending");
+  revalidatePath("/llamadas");
+  revalidatePath("/pending/bajas");
+  return { ok: true };
 }
 
 export type UpdatePendingFollowUpResult =

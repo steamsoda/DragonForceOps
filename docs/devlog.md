@@ -2,6 +2,22 @@
 
 ## 2026-05-05 (session 162)
 
+### Llamadas Workflow Pass 1 (v1.16.118)
+
+- Started the emergency Front Desk `Llamadas` workflow polish on preview.
+- Kept the existing follow-up model intact:
+  - notes, `No contesta`, `Contactado`, `Promesa de pago`, and `No regresara`
+  - follow-up clears when payment posts or the enrollment is ended
+- Added a follow-up status filter to the `Llamadas` filter bar so Front Desk can work specific queues.
+- Changed the `No regresara` path to use the dedicated baja workflow instead of the general enrollment edit page.
+- Added inline baja capture inside `Llamadas` for `No regresara` rows:
+  - effective baja date
+  - baja reason
+  - baja notes
+  - same audited enrollment end behavior as the existing baja page
+- Kept debt/writeoff behavior unchanged: baja ends the enrollment but does not void pending charges; directors still handle that from `Bajas y saldos pendientes`.
+- Left the bigger `Pendientes`-style navigation rebuild for pass 2.
+
 ### Training Group Edit Permission Polish + Unassignment (v1.16.117)
 
 - Tightened `Jugadores > Vista por grupos` edit mode after preview validation:

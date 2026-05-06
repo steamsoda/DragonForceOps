@@ -14,6 +14,13 @@ const PAGE_SIZE = 20;
 
 export type PendingBalanceBucket = "all" | "small" | "medium" | "high";
 export type PendingOverdueFilter = "all" | "overdue" | "7plus" | "30plus";
+export type PendingFollowUpStatus =
+  | "uncontacted"
+  | "no_answer"
+  | "contacted"
+  | "promise_to_pay"
+  | "will_not_return";
+export type PendingFollowUpFilter = "all" | PendingFollowUpStatus;
 
 export type PendingEnrollmentsFilters = {
   q?: string;
@@ -21,6 +28,7 @@ export type PendingEnrollmentsFilters = {
   teamId?: string;
   balanceBucket?: PendingBalanceBucket;
   overdue?: PendingOverdueFilter;
+  followUpStatus?: PendingFollowUpFilter;
   page?: number;
 };
 
@@ -99,13 +107,6 @@ type PendingRpcRow = {
   promise_date: string | null;
 };
 
-export type PendingFollowUpStatus =
-  | "uncontacted"
-  | "no_answer"
-  | "contacted"
-  | "promise_to_pay"
-  | "will_not_return";
-
 export async function listPendingEnrollments(filters: PendingEnrollmentsFilters) {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
@@ -115,6 +116,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
   const page = Math.max(1, filters.page ?? 1);
   const balanceBucket = filters.balanceBucket ?? "all";
   const overdueFilter = filters.overdue ?? "all";
+  const followUpFilter = filters.followUpStatus ?? "all";
   const textQuery = (filters.q ?? "").trim().toLowerCase();
   if (filters.campusId && !canAccessCampus(campusAccess, filters.campusId)) {
     return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
@@ -155,6 +157,7 @@ export async function listPendingEnrollments(filters: PendingEnrollmentsFilters)
       if (filters.teamId && row.teamId !== filters.teamId) return false;
       if (!balanceBucketMatches(row.balance, balanceBucket)) return false;
       if (!overdueMatches(row.overdueDays, overdueFilter)) return false;
+      if (followUpFilter !== "all" && row.followUpStatus !== followUpFilter) return false;
       if (textQuery.length > 0) {
         const haystack = `${row.playerName} ${row.primaryPhone ?? ""} ${row.teamName}`.toLowerCase();
         if (!haystack.includes(textQuery)) return false;

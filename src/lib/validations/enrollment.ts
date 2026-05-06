@@ -1,6 +1,7 @@
 import { parseDateOnlyInput } from "@/lib/time";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 import { isScholarshipStatus, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
+import { DROPOUT_REASON_LABELS, type DropoutReason } from "@/lib/enrollments/dropout-reasons";
 
 export type ParsedEnrollmentInput = {
   campusId: string;
@@ -15,44 +16,7 @@ function parseDate(value: string | null): string | null {
   return parseDateOnlyInput(value);
 }
 
-const DROPOUT_REASONS = [
-  "coach_capability",
-  "exercise_difficulty",
-  "financial",
-  "training_quality",
-  "school_disorganization",
-  "facility_safety",
-  "transport",
-  "family_health",
-  "player_health",
-  "schedule_conflict",
-  "coach_communication",
-  "wants_competition",
-  "lack_of_information",
-  "pedagogy",
-  "moved_to_competition_club",
-  "player_coach_relationship",
-  "unattractive_exercises",
-  "moved_residence",
-  "school_performance_punishment",
-  "home_behavior_punishment",
-  "personal",
-  "distance",
-  "parent_work",
-  "injury",
-  "dislikes_football",
-  "lost_contact",
-  "low_peer_attendance",
-  "changed_sport",
-  "did_not_return",
-  "temporary_leave",
-  "moved_to_another_academy",
-  "school_schedule_conflict",
-  "coach_change",
-  "cold_weather",
-  "other"
-] as const;
-export type DropoutReason = (typeof DROPOUT_REASONS)[number];
+const DROPOUT_REASONS = new Set(Object.keys(DROPOUT_REASON_LABELS));
 
 export type ParsedEnrollmentEditInput = {
   status: "active" | "ended" | "cancelled";
@@ -84,7 +48,7 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   const dropoutReasonRaw = String(formData.get("dropoutReason") ?? "").trim();
-  const dropoutReason = (DROPOUT_REASONS as readonly string[]).includes(dropoutReasonRaw)
+  const dropoutReason = DROPOUT_REASONS.has(dropoutReasonRaw)
     ? (dropoutReasonRaw as DropoutReason)
     : null;
   const dropoutNotes = String(formData.get("dropoutNotes") ?? "").trim() || null;
@@ -117,7 +81,7 @@ export function parseEnrollmentDropoutData(formData: FormData): ParsedEnrollment
   if (!endDate) return null;
 
   const dropoutReasonRaw = String(formData.get("dropoutReason") ?? "").trim();
-  const dropoutReason = (DROPOUT_REASONS as readonly string[]).includes(dropoutReasonRaw)
+  const dropoutReason = DROPOUT_REASONS.has(dropoutReasonRaw)
     ? (dropoutReasonRaw as DropoutReason)
     : null;
   if (!dropoutReason) return null;

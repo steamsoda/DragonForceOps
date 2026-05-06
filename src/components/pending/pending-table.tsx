@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { updatePendingFollowUpAction } from "@/server/actions/enrollments";
+import { usePathname, useSearchParams } from "next/navigation";
+import { dropoutEnrollmentFromCallsAction, updatePendingFollowUpAction } from "@/server/actions/enrollments";
+import { DROPOUT_REASON_OPTIONS } from "@/lib/enrollments/dropout-reasons";
 import type { PendingFollowUpStatus } from "@/lib/queries/enrollments";
 
 export type PendingRow = {
@@ -89,15 +91,134 @@ function statusPill(status: PendingFollowUpStatus) {
   }
 }
 
+function InlineDropoutPanel({
+  row,
+  defaultNotes,
+  onDropped,
+}: {
+  row: PendingRow;
+  defaultNotes: string;
+  onDropped: () => void;
+}) {
+  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState(defaultNotes);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDropout() {
+    setSaved(false);
+    setError(null);
+    const formData = new FormData();
+    formData.set("endDate", endDate);
+    formData.set("dropoutReason", reason);
+    formData.set("dropoutNotes", notes);
+
+    startTransition(async () => {
+      const result = await dropoutEnrollmentFromCallsAction(row.enrollmentId, row.playerId, formData);
+      if (!result.ok) {
+        setError(
+          result.error === "invalid_form"
+            ? "Captura fecha y motivo de baja."
+            : result.error === "not_active"
+              ? "Esta inscripcion ya no esta activa."
+              : result.error === "debug_read_only"
+                ? "El modo debug no permite guardar cambios."
+                : "No se pudo registrar la baja."
+        );
+        return;
+      }
+      setSaved(true);
+      onDropped();
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-3 rounded-md border border-rose-200 bg-rose-50/70 p-3 text-xs dark:border-rose-800 dark:bg-rose-950/20">
+      <div>
+        <p className="font-semibold text-rose-900 dark:text-rose-100">Registrar baja desde llamadas</p>
+        <p className="mt-1 text-rose-800/80 dark:text-rose-200/80">
+          Esto termina la inscripcion activa. No anula cargos pendientes; esos se revisan despues en Bajas y saldos pendientes.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="font-medium text-rose-900 dark:text-rose-100">Fecha efectiva</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => {
+              setEndDate(event.target.value);
+              setSaved(false);
+              setError(null);
+            }}
+            className="w-full rounded border border-rose-200 bg-white px-2 py-1.5 dark:border-rose-800 dark:bg-slate-950"
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="font-medium text-rose-900 dark:text-rose-100">Motivo</span>
+          <select
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              setSaved(false);
+              setError(null);
+            }}
+            className="w-full rounded border border-rose-200 bg-white px-2 py-1.5 dark:border-rose-800 dark:bg-slate-950"
+          >
+            <option value="">Selecciona motivo</option>
+            {DROPOUT_REASON_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="block space-y-1">
+        <span className="font-medium text-rose-900 dark:text-rose-100">Notas de baja</span>
+        <textarea
+          value={notes}
+          onChange={(event) => {
+            setNotes(event.target.value);
+            setSaved(false);
+            setError(null);
+          }}
+          rows={2}
+          className="w-full resize-none rounded border border-rose-200 bg-white px-2 py-1.5 dark:border-rose-800 dark:bg-slate-950"
+          placeholder="Contexto de la llamada, acuerdos o motivo operativo."
+        />
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={handleDropout}
+          disabled={isPending}
+          className="rounded bg-rose-600 px-3 py-1.5 font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+        >
+          {isPending ? "Registrando..." : "Confirmar baja"}
+        </button>
+        {saved ? <span className="text-emerald-700 dark:text-emerald-300">Baja registrada</span> : null}
+      </div>
+      {error ? <p className="text-rose-700 dark:text-rose-300">{error}</p> : null}
+    </div>
+  );
+}
+
 function FollowUpCell({
   row,
   compact = false,
   onSaved,
+  onDropped,
 }: {
   row: PendingRow;
   compact?: boolean;
   onSaved: (next: Partial<PendingRow>) => void;
+  onDropped: () => void;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [status, setStatus] = useState<PendingFollowUpStatus>(row.followUpStatus);
   const [note, setNote] = useState(row.followUpNote ?? "");
   const [promiseDate, setPromiseDate] = useState(row.promiseDate ?? "");
@@ -139,6 +260,8 @@ function FollowUpCell({
 
   const isPromise = status === "promise_to_pay";
   const isNoReturn = status === "will_not_return";
+  const currentQuery = searchParams.toString();
+  const returnTo = pathname === "/llamadas" ? `${pathname}${currentQuery ? `?${currentQuery}` : ""}` : "/llamadas";
 
   return (
     <div className={`space-y-2 ${compact ? "" : "min-w-0"}`}>
@@ -199,10 +322,10 @@ function FollowUpCell({
         </button>
         {isNoReturn ? (
           <Link
-            href={`/players/${row.playerId}/enrollments/${row.enrollmentId}/edit`}
+            href={`/players/${row.playerId}/enrollments/${row.enrollmentId}/dropout?returnTo=${encodeURIComponent(returnTo)}`}
             className="rounded border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/20"
           >
-            Ir a baja
+            Abrir baja
           </Link>
         ) : null}
         {saved ? <span className="text-xs text-emerald-600">OK</span> : null}
@@ -217,6 +340,7 @@ function FollowUpCell({
       ) : null}
 
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+      {isNoReturn ? <InlineDropoutPanel row={row} defaultNotes={note} onDropped={onDropped} /> : null}
     </div>
   );
 }
@@ -224,9 +348,11 @@ function FollowUpCell({
 function PendingDesktopRow({
   row,
   onSaved,
+  onDropped,
 }: {
   row: PendingRow;
   onSaved: (next: Partial<PendingRow>) => void;
+  onDropped: () => void;
 }) {
   return (
     <div className={`rounded-lg border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
@@ -274,7 +400,7 @@ function PendingDesktopRow({
 
         <div className="rounded-md border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/60">
           <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Seguimiento</p>
-          <FollowUpCell row={row} onSaved={onSaved} />
+          <FollowUpCell row={row} onSaved={onSaved} onDropped={onDropped} />
         </div>
 
         <div className="flex flex-row gap-3 xl:flex-col xl:items-stretch">
@@ -309,6 +435,10 @@ export function PendingTable({ rows }: PendingTableProps) {
     setLocalRows((current) =>
       current.map((row) => (row.enrollmentId === enrollmentId ? { ...row, ...next } : row))
     );
+  }
+
+  function handleRowDropped(enrollmentId: string) {
+    setLocalRows((current) => current.filter((row) => row.enrollmentId !== enrollmentId));
   }
 
   if (localRows.length === 0) {
@@ -356,7 +486,12 @@ export function PendingTable({ rows }: PendingTableProps) {
               </div>
             </div>
 
-            <FollowUpCell row={row} compact onSaved={(next) => handleRowSaved(row.enrollmentId, next)} />
+            <FollowUpCell
+              row={row}
+              compact
+              onSaved={(next) => handleRowSaved(row.enrollmentId, next)}
+              onDropped={() => handleRowDropped(row.enrollmentId)}
+            />
 
             <div className="flex flex-wrap gap-3 text-sm">
               {row.primaryPhone ? (
@@ -380,6 +515,7 @@ export function PendingTable({ rows }: PendingTableProps) {
             key={row.enrollmentId}
             row={row}
             onSaved={(next) => handleRowSaved(row.enrollmentId, next)}
+            onDropped={() => handleRowDropped(row.enrollmentId)}
           />
         ))}
       </div>

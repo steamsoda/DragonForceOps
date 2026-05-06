@@ -14,6 +14,8 @@ type PendingFiltersProps = {
   teamId: string;
   balanceBucket: string;
   overdue: string;
+  followUpStatus?: string;
+  showFollowUpFilter?: boolean;
   campuses: CampusOption[];
   teams: TeamOption[];
   basePath?: string;
@@ -25,6 +27,8 @@ export function PendingFilters({
   teamId,
   balanceBucket,
   overdue,
+  followUpStatus = "all",
+  showFollowUpFilter = false,
   campuses,
   teams,
   basePath = "/pending"
@@ -82,6 +86,20 @@ export function PendingFilters({
         <option value="7plus">Vencidos +7 dias</option>
         <option value="30plus">Vencidos +30 dias</option>
       </select>
+      {showFollowUpFilter ? (
+        <select
+          name="followUp"
+          defaultValue={followUpStatus}
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 xl:col-span-2"
+        >
+          <option value="all">Cualquier seguimiento</option>
+          <option value="uncontacted">No contactado</option>
+          <option value="no_answer">No contesta</option>
+          <option value="contacted">Contactado</option>
+          <option value="promise_to_pay">Promesa de pago</option>
+          <option value="will_not_return">No regresara</option>
+        </select>
+      ) : null}
       <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-12">
         <button
           type="submit"
