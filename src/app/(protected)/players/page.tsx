@@ -7,6 +7,7 @@ import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
 import { getCategorizedDropoutReasonLabel } from "@/lib/enrollments/dropout-reasons";
 import { GroupedRosterClient } from "@/components/players/grouped-roster-client";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
+import { BajaReasonSummaryCopy } from "@/components/players/baja-reason-summary-copy";
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
@@ -16,6 +17,7 @@ function fmtDate(dateStr: string | null | undefined): string {
 
 type PlayerRow = Awaited<ReturnType<typeof listPlayers>>["rows"][number];
 type BajaRow = Awaited<ReturnType<typeof listBajas>>["rows"][number];
+type BajaSummary = NonNullable<Awaited<ReturnType<typeof listBajas>>["summary"]>;
 
 function formatIncidentTitle(row: PlayerRow) {
   if (!row.activeIncident) return undefined;
@@ -192,6 +194,129 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
   );
 }
 
+function formatPercent(value: number) {
+  return `${value.toLocaleString("es-MX", { maximumFractionDigits: 1 })}%`;
+}
+
+function formatMonthLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month) return value;
+  const label = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0)).toLocaleDateString("es-MX", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function buildBajaFilterLabel({
+  campusName,
+  dropoutMonth,
+  dropoutFrom,
+  dropoutTo,
+  q,
+}: {
+  campusName: string;
+  dropoutMonth: string;
+  dropoutFrom: string;
+  dropoutTo: string;
+  q: string;
+}) {
+  const parts = [campusName];
+  if (dropoutMonth) parts.push(`Mes ${formatMonthLabel(dropoutMonth)}`);
+  if (dropoutFrom || dropoutTo) parts.push(`Periodo ${dropoutFrom || "inicio"} a ${dropoutTo || "hoy"}`);
+  if (q.trim()) parts.push(`Busqueda "${q.trim()}"`);
+  return parts.join(" | ");
+}
+
+function buildBajaReasonCopyText(summary: BajaSummary, filterLabel: string) {
+  const lines = [
+    "Resumen de bajas",
+    `Filtros: ${filterLabel}`,
+    "",
+    `Total bajas: ${summary.total}`,
+    `Categoria principal: ${summary.topCategory ?? "-"}`,
+    `Motivo principal: ${summary.topReason ?? "-"}`,
+    `Sin motivo registrado: ${summary.missingReasonCount}`,
+    "",
+    "Categoria | Motivo | Cantidad | %",
+  ];
+
+  if (summary.rows.length === 0) {
+    lines.push("Sin bajas en el periodo seleccionado.");
+  } else {
+    for (const row of summary.rows) {
+      lines.push(`${row.category} | ${row.reason} | ${row.count} | ${formatPercent(row.percent)}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function BajaReasonSummaryPanel({ summary, filterLabel }: { summary: BajaSummary; filterLabel: string }) {
+  const copyText = buildBajaReasonCopyText(summary, filterLabel);
+
+  return (
+    <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Resumen de motivos de baja</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{filterLabel}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-950">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Total bajas</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{summary.total}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-950">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Categoria principal</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{summary.topCategory ?? "-"}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-950">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Motivo principal</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{summary.topReason ?? "-"}</p>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 dark:border-slate-700 dark:bg-slate-950">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Sin motivo</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{summary.missingReasonCount}</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+        <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            <tr>
+              <th className="px-3 py-2">Categoria</th>
+              <th className="px-3 py-2">Motivo</th>
+              <th className="px-3 py-2 text-right">Cantidad</th>
+              <th className="px-3 py-2 text-right">%</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {summary.rows.length === 0 ? (
+              <tr>
+                <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={4}>
+                  Sin bajas en el periodo seleccionado.
+                </td>
+              </tr>
+            ) : (
+              summary.rows.map((row) => (
+                <tr key={`${row.category}-${row.reason}`}>
+                  <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{row.category}</td>
+                  <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.reason}</td>
+                  <td className="px-3 py-2 text-right font-medium">{row.count}</td>
+                  <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-400">{formatPercent(row.percent)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <BajaReasonSummaryCopy text={copyText} />
+    </section>
+  );
+}
+
 function PlayerViewTabs({ view }: { view: "active" | "bajas" | "groups" }) {
   const items = [
     { href: "/players", key: "groups", label: "Vista por grupos" },
@@ -284,6 +409,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   let result: { rows: unknown[]; total: number; page: number; pageSize: number };
   let activeRows: Awaited<ReturnType<typeof listPlayers>>["rows"] = [];
   let bajaRows: Awaited<ReturnType<typeof listBajas>>["rows"] = [];
+  let bajaSummary: BajaSummary | null = null;
 
   if (view === "bajas") {
     const bajaResult = await listBajas({
@@ -296,6 +422,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     });
     result = bajaResult;
     bajaRows = bajaResult.rows;
+    bajaSummary = bajaResult.summary ?? null;
   } else {
     const activeResult = await listPlayers({
       q,
@@ -332,6 +459,8 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     `&dropoutFrom=${encodeURIComponent(dropoutFrom)}` +
     `&dropoutTo=${encodeURIComponent(dropoutTo)}`;
   const showAdvancedFilters = Boolean(pendingMonth || missingGender || missingLevel || missingTeam);
+  const selectedCampusName = campuses.find((campus) => campus.id === campusId)?.name ?? "Todos los campus";
+  const bajaFilterLabel = buildBajaFilterLabel({ campusName: selectedCampusName, dropoutMonth, dropoutFrom, dropoutTo, q });
 
   return (
     <PageShell
@@ -549,6 +678,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </>
         ) : (
           <>
+            {bajaSummary ? <BajaReasonSummaryPanel summary={bajaSummary} filterLabel={bajaFilterLabel} /> : null}
             <BajaCards rows={bajaRows} />
             <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">

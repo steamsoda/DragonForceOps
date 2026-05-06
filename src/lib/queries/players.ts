@@ -2,6 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { getEnrollmentLedger, type EnrollmentLedger } from "@/lib/queries/billing";
+import {
+  DROPOUT_REASON_CATEGORIES,
+  getDropoutReasonLabel,
+  type DropoutReason,
+} from "@/lib/enrollments/dropout-reasons";
 
 const PAGE_SIZE = 20;
 const POSTGREST_PAGE_SIZE = 1000;
@@ -257,7 +262,7 @@ export async function listPlayers(filters: PlayerListFilters) {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
-    return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
+    return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE, summary: EMPTY_BAJA_SUMMARY };
   }
 
   const page = Math.max(1, filters.page ?? 1);
@@ -503,6 +508,21 @@ export type BajaListFilters = {
   page?: number;
 };
 
+export type BajaReasonSummaryRow = {
+  category: string;
+  reason: string;
+  count: number;
+  percent: number;
+};
+
+export type BajaReasonSummary = {
+  total: number;
+  topCategory: string | null;
+  topReason: string | null;
+  missingReasonCount: number;
+  rows: BajaReasonSummaryRow[];
+};
+
 function normalizeMonthFilter(value: string | undefined) {
   return value && /^\d{4}-\d{2}$/.test(value) ? value : "";
 }
@@ -515,6 +535,64 @@ function nextMonthStart(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, monthNumber, 1, 12, 0, 0));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+const EMPTY_BAJA_SUMMARY: BajaReasonSummary = {
+  total: 0,
+  topCategory: null,
+  topReason: null,
+  missingReasonCount: 0,
+  rows: [],
+};
+
+function buildBajaReasonSummary(rows: Array<BajaEnrollmentRow & { id: string }>): BajaReasonSummary {
+  const total = rows.length;
+  if (total === 0) return EMPTY_BAJA_SUMMARY;
+
+  const grouped = new Map<string, { category: string; reason: string; count: number }>();
+  let missingReasonCount = 0;
+
+  for (const row of rows) {
+    const reasonValue = row.dropout_reason;
+    const reason = reasonValue ? getDropoutReasonLabel(reasonValue) : "Sin motivo registrado";
+    const category = reasonValue ? DROPOUT_REASON_CATEGORIES[reasonValue as DropoutReason] ?? "Otros" : "Sin motivo";
+    const key = `${category}\u0000${reason}`;
+    const current = grouped.get(key);
+
+    if (!reasonValue) missingReasonCount += 1;
+    if (current) {
+      current.count += 1;
+    } else {
+      grouped.set(key, { category, reason, count: 1 });
+    }
+  }
+
+  const summaryRows = Array.from(grouped.values())
+    .map((row) => ({
+      ...row,
+      percent: total > 0 ? Math.round((row.count / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => {
+      const categoryCompare = a.category.localeCompare(b.category, "es", { sensitivity: "base" });
+      if (categoryCompare !== 0) return categoryCompare;
+      const countCompare = b.count - a.count;
+      if (countCompare !== 0) return countCompare;
+      return a.reason.localeCompare(b.reason, "es", { sensitivity: "base" });
+    });
+
+  const topRow = [...summaryRows].sort((a, b) => {
+    const countCompare = b.count - a.count;
+    if (countCompare !== 0) return countCompare;
+    return `${a.category} ${a.reason}`.localeCompare(`${b.category} ${b.reason}`, "es", { sensitivity: "base" });
+  })[0];
+
+  return {
+    total,
+    topCategory: topRow?.category ?? null,
+    topReason: topRow ? `${topRow.category} - ${topRow.reason}` : null,
+    missingReasonCount,
+    rows: summaryRows,
+  };
 }
 
 export async function listBajas(filters: BajaListFilters) {
@@ -547,7 +625,7 @@ export async function listBajas(filters: BajaListFilters) {
 
   if (filters.campusId) {
     if (!canAccessCampus(campusAccess, filters.campusId)) {
-      return { rows: [], total: 0, page, pageSize: PAGE_SIZE };
+      return { rows: [], total: 0, page, pageSize: PAGE_SIZE, summary: EMPTY_BAJA_SUMMARY };
     }
     query = query.eq("campus_id", filters.campusId);
   }
@@ -584,6 +662,7 @@ export async function listBajas(filters: BajaListFilters) {
   });
 
   const total = deduped.length;
+  const summary = buildBajaReasonSummary(deduped);
   const from = (page - 1) * PAGE_SIZE;
   const paged = deduped.slice(from, from + PAGE_SIZE);
 
@@ -604,7 +683,7 @@ export async function listBajas(filters: BajaListFilters) {
     };
   });
 
-  return { rows: bajaRows, total, page, pageSize: PAGE_SIZE };
+  return { rows: bajaRows, total, page, pageSize: PAGE_SIZE, summary };
 }
 
 export async function listCampuses() {
