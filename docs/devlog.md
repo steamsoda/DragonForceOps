@@ -2,6 +2,11 @@
 
 ## 2026-05-05 (session 162)
 
+### Dropout Reason Dropdown Labels (v1.16.124)
+
+- Updated the shared dropout reason dropdown option labels to use the categorized display text.
+- Kept the submitted/stored dropout reason codes unchanged so existing baja workflows continue using Porto's canonical reason values.
+
 ### Jugadores Bajas Filters + Categorized Reasons (v1.16.123)
 
 - Added Bajas-specific filters in `Jugadores > Bajas`:

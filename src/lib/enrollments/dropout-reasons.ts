@@ -76,11 +76,6 @@ export const DROPOUT_REASON_CATEGORIES: Record<DropoutReason, string> = {
   other: "Otros",
 };
 
-export const DROPOUT_REASON_OPTIONS = Object.entries(DROPOUT_REASON_LABELS).map(([value, label]) => ({
-  value: value as DropoutReason,
-  label,
-}));
-
 export function getDropoutReasonLabel(value: string | null | undefined) {
   if (!value) return "-";
   return DROPOUT_REASON_LABELS[value as DropoutReason] ?? value;
@@ -92,3 +87,8 @@ export function getCategorizedDropoutReasonLabel(value: string | null | undefine
   const category = DROPOUT_REASON_CATEGORIES[value as DropoutReason];
   return category ? `${category} - ${label}` : label;
 }
+
+export const DROPOUT_REASON_OPTIONS = Object.keys(DROPOUT_REASON_LABELS).map((value) => ({
+  value: value as DropoutReason,
+  label: getCategorizedDropoutReasonLabel(value),
+}));
