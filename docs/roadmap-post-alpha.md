@@ -136,6 +136,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.120` auto-saves follow-up status changes from each player card and adds birth-year chips inside focused call queues
        - `v1.16.121` fixes focused-queue birth-year filtering, adds `Organizar por` grouping for category / pending months / follow-up, and adds a direct inline `Dar de baja` button on each player card
        - `v1.16.122` adds inline `Lesionado` capture from call cards using existing audited enrollment incidents, including no omission / one-month omission / two-month omission for months without an existing tuition charge
+       - later injury follow-up: optionally allow guarded current-month tuition voiding from `Llamadas` only when the charge is still pending and has no payment allocations; paid or partially paid months must stay in the account/ledger flow
      - cross-surface large-query audit:
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
