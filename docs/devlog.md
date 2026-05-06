@@ -2,6 +2,12 @@
 
 ## 2026-05-05 (session 162)
 
+### Regularizacion Historica Past Tuition Options (v1.16.128)
+
+- Added prior-two-month monthly tuition options to the Regularizacion Historica mensualidad selector.
+- Kept Caja's normal advance-tuition selector unchanged.
+- Past-period options are hidden when that monthly tuition already exists, and still use the existing historical pricing/date safeguards when saved.
+
 ### Regularizacion Historica Duplicate Load Trim (v1.16.127)
 
 - Trimmed one duplicate ledger fetch from historical payment posting by reusing the ledger already loaded for validation.

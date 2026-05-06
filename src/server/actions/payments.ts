@@ -8,7 +8,7 @@ import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
-import { formatPeriodMonthLabel, getAdvanceTuitionOptions } from "@/lib/pricing/plans";
+import { formatPeriodMonthLabel, getAdvanceTuitionOptions, getAdvanceTuitionQuote } from "@/lib/pricing/plans";
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyMonthString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { parsePaymentFormData } from "@/lib/validations/payment";
 import { redirect } from "next/navigation";
@@ -119,6 +119,12 @@ async function getHistoricalRegularizationContext() {
     user: context.user,
     campusAccess: context.campusAccess,
   };
+}
+
+function addMonthsToPeriodMonth(periodMonth: string, monthOffset: number) {
+  const [yearStr, monthStr] = periodMonth.split("-");
+  const base = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1 + monthOffset, 1, 12, 0, 0));
+  return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
 async function postEnrollmentPaymentInternal(
@@ -378,6 +384,24 @@ export async function getHistoricalRegularizationChargeContextAction(
   const advanceTuitionOptions = planCode
     ? await getAdvanceTuitionOptions(supabase, { planCode, existingPeriodMonths: existingPeriods })
     : [];
+  const historicalTuitionOptions = planCode
+    ? (
+        await Promise.all(
+          [-2, -1].map(async (offset) => {
+            const periodMonth = addMonthsToPeriodMonth(currentPeriodMonth, offset);
+            if (existingPeriods.includes(periodMonth)) return null;
+            const quote = await getAdvanceTuitionQuote(supabase, { planCode, periodMonth });
+            if (!quote) return null;
+            return {
+              periodMonth,
+              label: `${formatPeriodMonthLabel(periodMonth)} · histórica`,
+              amount: quote.amount,
+              alreadyExists: false,
+            };
+          }),
+        )
+      ).filter((option): option is { periodMonth: string; label: string; amount: number; alreadyExists: boolean } => option !== null)
+    : [];
   const mergedOptions = new Map<string, { periodMonth: string; label: string; amount: number; alreadyExists: boolean }>();
 
   for (const periodMonth of existingCurrentOrFuturePeriods) {
@@ -397,6 +421,11 @@ export async function getHistoricalRegularizationChargeContextAction(
       amount: option.amount,
       alreadyExists: false,
     });
+  }
+
+  for (const option of historicalTuitionOptions) {
+    if (mergedOptions.has(option.periodMonth)) continue;
+    mergedOptions.set(option.periodMonth, option);
   }
 
   return {
