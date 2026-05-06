@@ -2,6 +2,14 @@
 
 ## 2026-05-05 (session 162)
 
+### Llamadas Detail Grouping + Direct Baja Pass 1 (v1.16.121)
+
+- Continued the focused `Llamadas` detail workflow polish on preview.
+- Fixed the birth-year chips by syncing the pending-card local row state when the server-filtered row set changes.
+- Added `Organizar por` to `/llamadas/detail` with category, pending-months, and follow-up grouping options.
+- Added a direct `Dar de baja` action under `Abrir cuenta` on each call card, opening the existing inline audited baja panel without requiring the operator to change follow-up status first.
+- Kept the `Lesionado` / tuition-skip workflow out of this pass; it needs its own schema and safety review before implementation.
+
 ### Llamadas Detail Polish (v1.16.120)
 
 - Polished the preview `Llamadas` pass after operator review.

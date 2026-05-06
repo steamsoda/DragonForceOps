@@ -36,6 +36,14 @@ export type CallsDashboardData = PendingTuitionDashboardData & {
   followUpCounts: Record<PendingFollowUpFilter, number>;
 };
 
+export type CallsOrganizeMode = "birthYear" | "pendingMonths" | "followUp";
+
+export type CallsDetailGroup = {
+  key: string;
+  label: string;
+  rows: PendingRow[];
+};
+
 export type CallsDetailData = {
   title: string;
   subtitle: string;
@@ -46,7 +54,9 @@ export type CallsDetailData = {
   birthYearOptions: Array<{ value: string; label: string; count: number }>;
   q: string;
   followUpStatus: PendingFollowUpFilter;
+  organizeBy: CallsOrganizeMode;
   rows: PendingRow[];
+  groups: CallsDetailGroup[];
   followUpCounts: Record<PendingFollowUpFilter, number>;
 };
 
@@ -213,6 +223,73 @@ function buildBirthYearOptions(players: PendingTuitionPlayer[]) {
     });
 }
 
+function normalizeOrganizeMode(value: string | undefined): CallsOrganizeMode {
+  if (value === "pendingMonths" || value === "followUp") return value;
+  return "birthYear";
+}
+
+function pendingMonthsGroup(row: PendingRow) {
+  const count = row.pendingMonths?.length ?? 0;
+  if (count >= 3) return { key: "3plus", label: "3+ meses pendientes" };
+  if (count === 2) return { key: "2", label: "2 meses pendientes" };
+  if (count === 1) return { key: "1", label: "1 mes pendiente" };
+  return { key: "none", label: "Sin meses pendientes" };
+}
+
+function followUpGroup(row: PendingRow) {
+  switch (row.followUpStatus) {
+    case "no_answer":
+      return { key: "no_answer", label: "No contesta" };
+    case "contacted":
+      return { key: "contacted", label: "Contactado" };
+    case "promise_to_pay":
+      return { key: "promise_to_pay", label: "Promesa de pago" };
+    case "will_not_return":
+      return { key: "will_not_return", label: "No regresara" };
+    default:
+      return { key: "uncontacted", label: "No contactado" };
+  }
+}
+
+function groupRows(rows: PendingRow[], organizeBy: CallsOrganizeMode): CallsDetailGroup[] {
+  const groups = new Map<string, CallsDetailGroup>();
+
+  for (const row of rows) {
+    const group =
+      organizeBy === "pendingMonths"
+        ? pendingMonthsGroup(row)
+        : organizeBy === "followUp"
+          ? followUpGroup(row)
+          : {
+              key: row.birthYear ? String(row.birthYear) : "sin-categoria",
+              label: row.birthYear ? `Cat. ${row.birthYear}` : "Sin categoria",
+            };
+
+    const existing = groups.get(group.key);
+    if (existing) {
+      existing.rows.push(row);
+    } else {
+      groups.set(group.key, { ...group, rows: [row] });
+    }
+  }
+
+  const orderByMode: Record<CallsOrganizeMode, string[]> = {
+    birthYear: [],
+    pendingMonths: ["3plus", "2", "1", "none"],
+    followUp: ["uncontacted", "no_answer", "contacted", "promise_to_pay", "will_not_return"],
+  };
+  const preferredOrder = orderByMode[organizeBy];
+
+  return [...groups.values()].sort((a, b) => {
+    if (organizeBy === "birthYear") {
+      if (a.key === "sin-categoria") return 1;
+      if (b.key === "sin-categoria") return -1;
+      return Number(a.key) - Number(b.key);
+    }
+    return preferredOrder.indexOf(a.key) - preferredOrder.indexOf(b.key);
+  });
+}
+
 async function enrichCallRows(players: PendingTuitionPlayer[]) {
   const enrollmentIds = [...new Set(players.map((player) => player.enrollmentId))];
   const playerIds = [...new Set(players.map((player) => player.playerId))];
@@ -270,6 +347,7 @@ export async function getCallsDetailData(filters: {
   bucket?: string;
   q?: string;
   followUpStatus?: PendingFollowUpFilter;
+  organizeBy?: string;
 }): Promise<CallsDetailData | null> {
   const dashboard = await getPendingTuitionDashboardData({ campusId: filters.campusId, month: filters.month });
   const bucket = filters.bucket === "1" || filters.bucket === "2" || filters.bucket === "3plus" ? filters.bucket : "";
@@ -278,6 +356,7 @@ export async function getCallsDetailData(filters: {
       ? filters.birthYear
       : "";
   const followUpStatus = filters.followUpStatus ?? "all";
+  const organizeBy = normalizeOrganizeMode(filters.organizeBy);
   const q = (filters.q ?? "").trim();
 
   const basePlayers = flattenDashboardPlayers(dashboard);
@@ -306,6 +385,7 @@ export async function getCallsDetailData(filters: {
     const haystack = `${row.playerName} ${row.primaryPhone ?? ""} ${row.teamName} ${row.campusName}`.toLowerCase();
     return haystack.includes(normalizedQ);
   });
+  const groups = groupRows(rows, organizeBy);
 
   return {
     title,
@@ -317,7 +397,9 @@ export async function getCallsDetailData(filters: {
     birthYearOptions,
     q,
     followUpStatus,
+    organizeBy,
     rows,
+    groups,
     followUpCounts,
   };
 }

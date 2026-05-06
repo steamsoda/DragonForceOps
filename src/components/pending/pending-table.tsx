@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { dropoutEnrollmentFromCallsAction, updatePendingFollowUpAction } from "@/server/actions/enrollments";
@@ -218,12 +218,12 @@ function FollowUpCell({
   row,
   compact = false,
   onSaved,
-  onDropped,
+  onRequestDropout,
 }: {
   row: PendingRow;
   compact?: boolean;
   onSaved: (next: Partial<PendingRow>) => void;
-  onDropped: () => void;
+  onRequestDropout: () => void;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -290,6 +290,9 @@ function FollowUpCell({
           if (nextStatus !== "promise_to_pay" || nextPromiseDate) {
             saveFollowUp(nextStatus, note, nextPromiseDate, { silent: true });
           }
+          if (nextStatus === "will_not_return") {
+            onRequestDropout();
+          }
         }}
         className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800"
       >
@@ -342,12 +345,21 @@ function FollowUpCell({
           {isPending ? "..." : "Guardar"}
         </button>
         {isNoReturn ? (
-          <Link
-            href={`/players/${row.playerId}/enrollments/${row.enrollmentId}/dropout?returnTo=${encodeURIComponent(returnTo)}`}
-            className="rounded border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/20"
-          >
-            Abrir baja
-          </Link>
+          <>
+            <button
+              type="button"
+              onClick={onRequestDropout}
+              className="rounded border border-rose-300 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/20"
+            >
+              Dar de baja
+            </button>
+            <Link
+              href={`/players/${row.playerId}/enrollments/${row.enrollmentId}/dropout?returnTo=${encodeURIComponent(returnTo)}`}
+              className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Abrir baja
+            </Link>
+          </>
         ) : null}
         {saved ? <span className="text-xs text-emerald-600">OK</span> : null}
       </div>
@@ -361,7 +373,6 @@ function FollowUpCell({
       ) : null}
 
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
-      {isNoReturn ? <InlineDropoutPanel row={row} defaultNotes={note} onDropped={onDropped} /> : null}
     </div>
   );
 }
@@ -375,6 +386,8 @@ function PendingDesktopRow({
   onSaved: (next: Partial<PendingRow>) => void;
   onDropped: () => void;
 }) {
+  const [showDropout, setShowDropout] = useState(row.followUpStatus === "will_not_return");
+
   return (
     <div className={`rounded-lg border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.2fr)_minmax(340px,1.9fr)_auto]">
@@ -433,7 +446,7 @@ function PendingDesktopRow({
 
         <div className="rounded-md border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/60">
           <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Seguimiento</p>
-          <FollowUpCell row={row} onSaved={onSaved} onDropped={onDropped} />
+          <FollowUpCell row={row} onSaved={onSaved} onRequestDropout={() => setShowDropout(true)} />
         </div>
 
         <div className="flex flex-row gap-3 xl:flex-col xl:items-stretch">
@@ -455,14 +468,105 @@ function PendingDesktopRow({
           >
             Abrir cuenta
           </Link>
+          <button
+            type="button"
+            onClick={() => setShowDropout((current) => !current)}
+            className="rounded-md border border-rose-300 px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/20"
+          >
+            Dar de baja
+          </button>
         </div>
       </div>
+      {showDropout ? (
+        <InlineDropoutPanel row={row} defaultNotes={row.followUpNote ?? ""} onDropped={onDropped} />
+      ) : null}
+    </div>
+  );
+}
+
+function PendingMobileRow({
+  row,
+  onSaved,
+  onDropped,
+}: {
+  row: PendingRow;
+  onSaved: (next: Partial<PendingRow>) => void;
+  onDropped: () => void;
+}) {
+  const [showDropout, setShowDropout] = useState(row.followUpStatus === "will_not_return");
+
+  return (
+    <div className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
+            {row.playerName}
+          </Link>
+          <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Cat. {row.birthYear ?? "-"} | {row.campusName} ({row.campusCode})
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Equipo: {row.teamName}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Telefono: {row.primaryPhone ?? "-"}</p>
+        {row.pendingMonths && row.pendingMonths.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {row.pendingMonths.map((month) => (
+              <span
+                key={month.periodMonth}
+                className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${monthChipClass(month.isOverdue)}`}
+              >
+                {month.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Saldo</p>
+          <p className="font-medium">{formatMoney(row.balance)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Vence</p>
+          <p>{formatDate(row.dueDate)}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Dias vencidos</p>
+          <p>{row.overdueDays}</p>
+        </div>
+      </div>
+
+      <FollowUpCell row={row} compact onSaved={onSaved} onRequestDropout={() => setShowDropout(true)} />
+
+      <div className="flex flex-wrap gap-3 text-sm">
+        {row.primaryPhone ? (
+          <a href={`tel:${row.primaryPhone}`} className="text-portoBlue hover:underline">
+            Llamar
+          </a>
+        ) : (
+          <span className="text-slate-400">Sin telefono</span>
+        )}
+        <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
+          Abrir cuenta
+        </Link>
+        <button type="button" onClick={() => setShowDropout((current) => !current)} className="text-rose-700 hover:underline dark:text-rose-300">
+          Dar de baja
+        </button>
+      </div>
+
+      {showDropout ? <InlineDropoutPanel row={row} defaultNotes={row.followUpNote ?? ""} onDropped={onDropped} /> : null}
     </div>
   );
 }
 
 export function PendingTable({ rows }: PendingTableProps) {
   const [localRows, setLocalRows] = useState(rows);
+
+  useEffect(() => {
+    setLocalRows(rows);
+  }, [rows]);
 
   function handleRowSaved(enrollmentId: string, next: Partial<PendingRow>) {
     setLocalRows((current) =>
@@ -486,71 +590,12 @@ export function PendingTable({ rows }: PendingTableProps) {
     <>
       <div className="space-y-3 md:hidden">
         {localRows.map((row) => (
-          <div
+          <PendingMobileRow
             key={row.enrollmentId}
-            className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}
-          >
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
-                  {row.playerName}
-                </Link>
-                <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
-              </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Cat. {row.birthYear ?? "-"} | {row.campusName} ({row.campusCode})
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Equipo: {row.teamName}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Telefono: {row.primaryPhone ?? "-"}</p>
-              {row.pendingMonths && row.pendingMonths.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {row.pendingMonths.map((month) => (
-                    <span
-                      key={month.periodMonth}
-                      className={`inline-flex min-h-6 items-center justify-center rounded-full border px-2.5 py-0.5 text-center text-xs font-medium leading-none ${monthChipClass(month.isOverdue)}`}
-                    >
-                      {month.label}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Saldo</p>
-                <p className="font-medium">{formatMoney(row.balance)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Vence</p>
-                <p>{formatDate(row.dueDate)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">Dias vencidos</p>
-                <p>{row.overdueDays}</p>
-              </div>
-            </div>
-
-            <FollowUpCell
-              row={row}
-              compact
-              onSaved={(next) => handleRowSaved(row.enrollmentId, next)}
-              onDropped={() => handleRowDropped(row.enrollmentId)}
-            />
-
-            <div className="flex flex-wrap gap-3 text-sm">
-              {row.primaryPhone ? (
-                <a href={`tel:${row.primaryPhone}`} className="text-portoBlue hover:underline">
-                  Llamar
-                </a>
-              ) : (
-                <span className="text-slate-400">Sin telefono</span>
-              )}
-              <Link href={`/enrollments/${row.enrollmentId}/charges`} className="text-portoBlue hover:underline">
-                Abrir cuenta
-              </Link>
-            </div>
-          </div>
+            row={row}
+            onSaved={(next) => handleRowSaved(row.enrollmentId, next)}
+            onDropped={() => handleRowDropped(row.enrollmentId)}
+          />
         ))}
       </div>
 

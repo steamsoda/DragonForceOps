@@ -13,6 +13,7 @@ type SearchParams = Promise<{
   bucket?: string;
   q?: string;
   followUp?: string;
+  organizeBy?: string;
   ok?: string;
 }>;
 
@@ -66,11 +67,13 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
     bucket: params.bucket,
     q: params.q,
     followUpStatus: followUp,
+    organizeBy: params.organizeBy,
   });
 
   if (!data) notFound();
 
   const boardHref = withParams("/llamadas", { campus: data.campusId, month: data.selectedMonth });
+  const organizeParam = data.organizeBy === "birthYear" ? undefined : data.organizeBy;
 
   return (
     <PageShell title={data.title} subtitle={data.subtitle} wide>
@@ -95,7 +98,7 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
           </div>
         ) : null}
 
-        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[minmax(220px,1fr)_220px_auto] md:items-end">
+        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[minmax(220px,1fr)_220px_220px_auto] md:items-end">
           {data.campusId ? <input type="hidden" name="campus" value={data.campusId} /> : null}
           {data.birthYear ? <input type="hidden" name="birthYear" value={data.birthYear} /> : null}
           {data.bucket ? <input type="hidden" name="bucket" value={data.bucket} /> : null}
@@ -125,6 +128,18 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
               <option value="will_not_return">No regresara</option>
             </select>
           </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">Organizar por</span>
+            <select
+              name="organizeBy"
+              defaultValue={data.organizeBy}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+            >
+              <option value="birthYear">Categoria</option>
+              <option value="pendingMonths">Meses pendientes</option>
+              <option value="followUp">Seguimiento</option>
+            </select>
+          </label>
           <div className="flex gap-2">
             <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
               Aplicar
@@ -135,6 +150,7 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
                 birthYear: data.birthYear,
                 bucket: data.bucket,
                 month: data.selectedMonth,
+                organizeBy: organizeParam,
               })}
               className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
             >
@@ -154,6 +170,7 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
                 month: data.selectedMonth,
                 q: data.q,
                 followUp: status === "all" ? undefined : status,
+                organizeBy: organizeParam,
               })}
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(status)} ${
                 data.followUpStatus === status ? "ring-2 ring-portoBlue/30" : ""
@@ -175,6 +192,7 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
                   month: data.selectedMonth,
                   q: data.q,
                   followUp: data.followUpStatus === "all" ? undefined : data.followUpStatus,
+                  organizeBy: organizeParam,
                 })}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                   !data.birthYear
@@ -194,6 +212,7 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
                     month: data.selectedMonth,
                     q: data.q,
                     followUp: data.followUpStatus === "all" ? undefined : data.followUpStatus,
+                    organizeBy: organizeParam,
                   })}
                   className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                     data.birthYear === option.value
@@ -211,7 +230,25 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
         <p className="text-sm text-slate-600 dark:text-slate-400">
           {data.rows.length} {data.rows.length === 1 ? "jugador" : "jugadores"} en esta cola.
         </p>
-        <PendingTable rows={data.rows} />
+        {data.groups.length > 0 ? (
+          <div className="space-y-4">
+            {data.groups.map((group) => (
+              <section key={group.key} className="space-y-2">
+                {data.groups.length > 1 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{group.label}</h2>
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                      {group.rows.length} {group.rows.length === 1 ? "jugador" : "jugadores"}
+                    </span>
+                  </div>
+                ) : null}
+                <PendingTable rows={group.rows} />
+              </section>
+            ))}
+          </div>
+        ) : (
+          <PendingTable rows={[]} />
+        )}
       </div>
     </PageShell>
   );
