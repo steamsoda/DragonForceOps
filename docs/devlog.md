@@ -2,6 +2,13 @@
 
 ## 2026-05-05 (session 162)
 
+### Bajas Reason Summary KPIs (v1.16.126)
+
+- Added `Jugadores > Bajas` reason summary KPIs for the currently selected filter scope.
+- Added a category/reason summary table with counts and percentages.
+- Added a copyable text summary so the filtered dropout reason report can be pasted into operational reports or spreadsheets.
+- Kept the summary based on the full filtered archive before pagination, so multi-page results still report accurate totals.
+
 ### Dropout Reason Dropdown Ordering (v1.16.125)
 
 - Sorted shared dropout reason dropdown options by category and then by reason label.

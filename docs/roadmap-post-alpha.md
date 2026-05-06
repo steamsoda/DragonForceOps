@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.125`
+Current preview release line: `v1.16.126`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -973,7 +973,7 @@ Follow after the operational tracks above:
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish aligned the player picker with Caja-style search plus `Buscar por categoría`, the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen, and the latest front-desk pass tightened mutation-state feedback, reduced workspace churn, and cleaned the main user-facing Contry copy. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
 | NEW | **Sports lane rethink after live signup-board usage** | 🔴 Open | Use the success of `Inscripciones Torneos` as the new planning anchor. Revisit the heavier hidden competitions implementation before adding more sports complexity, and steer the next discovery/build pass toward actual operational needs like schedules, results, and calendars instead of premature roster-management weight. |
 | NEW | **Receipt encoding artifact cleanup** | 🔴 Open | Printed receipts are much better, but keep a low-priority follow-up pass for remaining accent / `Ñ` artifacts that still show up in edge cases. |
-| NEW | **Bajas tab UI polish** | 🟡 In progress | `v1.16.123` adds baja month/date-range filters, alphabetical archive ordering, and categorized dropout reason display while keeping Porto's stored reason taxonomy unchanged. Keep open for any later visual cleanup or analytics drilldowns. |
+| NEW | **Bajas tab UI polish** | 🟡 In progress | `v1.16.123` adds baja month/date-range filters, alphabetical archive ordering, and categorized dropout reason display while keeping Porto's stored reason taxonomy unchanged. `v1.16.126` adds filtered reason KPIs plus a copyable summary table for the selected campus/month/date/search scope. Keep open for any later visual cleanup or deeper analytics drilldowns. |
 
 ---
 
