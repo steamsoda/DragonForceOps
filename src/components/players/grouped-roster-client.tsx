@@ -40,6 +40,15 @@ function groupedRosterApiHref(filters: GroupedRosterFilters) {
   return query ? `/api/players/grouped-roster?${query}` : "/api/players/grouped-roster";
 }
 
+function groupedRosterExportHref({ campusId, gender, birthYear }: { campusId?: string; gender?: string; birthYear?: number | string | null }) {
+  const params = new URLSearchParams();
+  if (campusId) params.set("campus", campusId);
+  if (gender) params.set("gender", gender);
+  if (birthYear) params.set("year", String(birthYear));
+  const query = params.toString();
+  return query ? `/api/exports/player-roster-groups?${query}` : "/api/exports/player-roster-groups";
+}
+
 function LoadingRoster() {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -164,6 +173,16 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 {editMode ? "Salir de edicion" : "Editar grupos"}
               </button>
             ) : null}
+            <a
+              href={groupedRosterExportHref({
+                campusId: data.selectedCampusId,
+                gender: data.selectedGender,
+                birthYear: data.selectedBirthYear,
+              })}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+            >
+              Exportar Excel
+            </a>
           </div>
         </div>
 

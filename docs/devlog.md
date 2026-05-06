@@ -2,6 +2,18 @@
 
 ## 2026-05-05 (session 162)
 
+### Jugadores Grouped Roster Export Sheet Split (v1.16.130)
+
+- Changed the grouped roster Excel export to create one worksheet per birth year/category.
+- Each category worksheet keeps players grouped under their training group sections.
+- Removed colored fills from the workbook so the export is printer-friendly black and white.
+
+### Jugadores Grouped Roster Excel Export (v1.16.129)
+
+- Added an `Exportar Excel` action to `Jugadores > Vista por grupos`.
+- Added a server-side Excel export route that reuses the grouped roster data contract and current campus/gender/category filters.
+- The workbook keeps the grouped roster shape with section headers, roster columns, three tuition months, landscape print setup, and basic tuition-state coloring.
+
 ### Regularizacion Historica Past Tuition Options (v1.16.128)
 
 - Added prior-two-month monthly tuition options to the Regularizacion Historica mensualidad selector.
