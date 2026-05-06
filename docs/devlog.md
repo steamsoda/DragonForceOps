@@ -2,6 +2,11 @@
 
 ## 2026-05-05 (session 162)
 
+### Dropout Reason Dropdown Ordering (v1.16.125)
+
+- Sorted shared dropout reason dropdown options by category and then by reason label.
+- Kept saved dropout reason codes unchanged.
+
 ### Dropout Reason Dropdown Labels (v1.16.124)
 
 - Updated the shared dropout reason dropdown option labels to use the categorized display text.

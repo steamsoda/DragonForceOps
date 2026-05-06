@@ -88,7 +88,19 @@ export function getCategorizedDropoutReasonLabel(value: string | null | undefine
   return category ? `${category} - ${label}` : label;
 }
 
-export const DROPOUT_REASON_OPTIONS = Object.keys(DROPOUT_REASON_LABELS).map((value) => ({
-  value: value as DropoutReason,
-  label: getCategorizedDropoutReasonLabel(value),
-}));
+export const DROPOUT_REASON_OPTIONS = Object.keys(DROPOUT_REASON_LABELS)
+  .map((value) => {
+    const reason = value as DropoutReason;
+    return {
+      value: reason,
+      category: DROPOUT_REASON_CATEGORIES[reason] ?? "",
+      reasonLabel: getDropoutReasonLabel(reason),
+      label: getCategorizedDropoutReasonLabel(reason),
+    };
+  })
+  .sort((a, b) => {
+    const categoryCompare = a.category.localeCompare(b.category, "es", { sensitivity: "base" });
+    if (categoryCompare !== 0) return categoryCompare;
+    return a.reasonLabel.localeCompare(b.reasonLabel, "es", { sensitivity: "base" });
+  })
+  .map(({ value, label }) => ({ value, label }));
