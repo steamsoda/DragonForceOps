@@ -25,6 +25,11 @@ type EnrollmentBalanceRow = {
   balance: number | string | null;
 };
 
+type EnrollmentInjuryIncidentRow = {
+  enrollment_id: string;
+  omit_period_month: string | null;
+};
+
 type FollowUpSnapshot = {
   status: PendingFollowUpStatus;
   at: string | null;
@@ -153,6 +158,35 @@ async function loadBalances(enrollmentIds: string[]) {
 
   return result;
 }
+
+async function loadActiveInjuryIncidents(enrollmentIds: string[]) {
+  const result = new Map<string, string[]>();
+  if (enrollmentIds.length === 0) return result;
+
+  const admin = createAdminClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const chunkSize = 500;
+  for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
+    const { data, error } = await admin
+      .from("enrollment_incidents")
+      .select("enrollment_id, omit_period_month")
+      .in("enrollment_id", enrollmentIds.slice(index, index + chunkSize))
+      .eq("incident_type", "injury")
+      .is("cancelled_at", null)
+      .or(`ends_on.is.null,ends_on.gte.${today}`)
+      .returns<EnrollmentInjuryIncidentRow[]>();
+
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const months = result.get(row.enrollment_id) ?? [];
+      if (row.omit_period_month) months.push(row.omit_period_month);
+      result.set(row.enrollment_id, months);
+    }
+  }
+
+  return result;
+}
+
 
 function emptyFollowUpCounts(): Record<PendingFollowUpFilter, number> {
   return {
@@ -293,10 +327,11 @@ function groupRows(rows: PendingRow[], organizeBy: CallsOrganizeMode): CallsDeta
 async function enrichCallRows(players: PendingTuitionPlayer[]) {
   const enrollmentIds = [...new Set(players.map((player) => player.enrollmentId))];
   const playerIds = [...new Set(players.map((player) => player.playerId))];
-  const [followUps, phones, balances] = await Promise.all([
+  const [followUps, phones, balances, activeInjuries] = await Promise.all([
     loadFollowUps(enrollmentIds),
     loadPhones(playerIds),
     loadBalances(enrollmentIds),
+    loadActiveInjuryIncidents(enrollmentIds),
   ]);
 
   return players.map((player): PendingRow => {
@@ -324,6 +359,8 @@ async function enrichCallRows(players: PendingTuitionPlayer[]) {
       followUpAt: followUp.at,
       followUpNote: followUp.note,
       promiseDate: followUp.promiseDate,
+      hasActiveInjury: activeInjuries.has(player.enrollmentId),
+      injuryOmittedMonths: activeInjuries.get(player.enrollmentId) ?? [],
       pendingMonths: player.pendingMonths,
     };
   });

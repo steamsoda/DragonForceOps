@@ -4,6 +4,7 @@ import { requireOperationalContext } from "@/lib/auth/permissions";
 import { listBajas, listBirthYears, listCampuses, listPlayers } from "@/lib/queries/players";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
+import { getCategorizedDropoutReasonLabel } from "@/lib/enrollments/dropout-reasons";
 import { GroupedRosterClient } from "@/components/players/grouped-roster-client";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
 
@@ -12,16 +13,6 @@ function fmtDate(dateStr: string | null | undefined): string {
   const [y, m, d] = dateStr.split("-");
   return d ? `${d}/${m}/${y}` : dateStr;
 }
-
-const DROPOUT_LABELS: Record<string, string> = {
-  cost: "Costo",
-  distance: "Distancia",
-  injury: "Lesion",
-  attitude: "Actitud",
-  time: "Tiempo",
-  level_change: "Cambio de nivel",
-  other: "Otro",
-};
 
 type PlayerRow = Awaited<ReturnType<typeof listPlayers>>["rows"][number];
 type BajaRow = Awaited<ReturnType<typeof listBajas>>["rows"][number];
@@ -193,7 +184,7 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
             Dias inscrito: {row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Motivo: {row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}
+            Motivo: {getCategorizedDropoutReasonLabel(row.dropoutReason)}
           </p>
         </div>
       ))}
@@ -238,6 +229,9 @@ type SearchParams = Promise<{
   missingLevel?: string;
   missingTeam?: string;
   pendingMonth?: string;
+  dropoutMonth?: string;
+  dropoutFrom?: string;
+  dropoutTo?: string;
   page?: string;
   view?: string;
   ok?: string;
@@ -255,6 +249,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const missingLevel = params.missingLevel === "1";
   const missingTeam = params.missingTeam === "1";
   const pendingMonth = params.pendingMonth ?? "";
+  const dropoutMonth = params.dropoutMonth ?? "";
+  const dropoutFrom = params.dropoutFrom ?? "";
+  const dropoutTo = params.dropoutTo ?? "";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const view = params.view === "active" ? "active" : params.view === "bajas" ? "bajas" : "groups";
 
@@ -277,7 +274,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
 
   const [campuses, birthYears, tags, attendanceExport] = await Promise.all([
     listCampuses(),
-    listBirthYears(),
+    view === "active" ? listBirthYears() : Promise.resolve([]),
     getTagSettings(),
     view === "active"
       ? getAttendanceExportData()
@@ -289,7 +286,14 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   let bajaRows: Awaited<ReturnType<typeof listBajas>>["rows"] = [];
 
   if (view === "bajas") {
-    const bajaResult = await listBajas({ q, campusId: campusId || undefined, page });
+    const bajaResult = await listBajas({
+      q,
+      campusId: campusId || undefined,
+      dropoutMonth: dropoutMonth || undefined,
+      dropoutFrom: dropoutFrom || undefined,
+      dropoutTo: dropoutTo || undefined,
+      page,
+    });
     result = bajaResult;
     bajaRows = bajaResult.rows;
   } else {
@@ -323,7 +327,10 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     `&missingGender=${missingGender ? "1" : "0"}` +
     `&missingLevel=${missingLevel ? "1" : "0"}` +
     `&missingTeam=${missingTeam ? "1" : "0"}` +
-    `&pendingMonth=${encodeURIComponent(pendingMonth)}`;
+    `&pendingMonth=${encodeURIComponent(pendingMonth)}` +
+    `&dropoutMonth=${encodeURIComponent(dropoutMonth)}` +
+    `&dropoutFrom=${encodeURIComponent(dropoutFrom)}` +
+    `&dropoutTo=${encodeURIComponent(dropoutTo)}`;
   const showAdvancedFilters = Boolean(pendingMonth || missingGender || missingLevel || missingTeam);
 
   return (
@@ -346,14 +353,6 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             <form className="flex-1 space-y-3">
               <input type="hidden" name="view" value={view} />
               <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
-                <select name="year" defaultValue={birthYear} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
-                  <option value="">Todas las categorias</option>
-                  {birthYears.map((year) => (
-                    <option key={year} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
                 <select name="campus" defaultValue={campusId} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
                   <option value="">Todos los campus</option>
                   {campuses.map((campus) => (
@@ -362,11 +361,23 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     </option>
                   ))}
                 </select>
-                <select name="gender" defaultValue={gender} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
-                  <option value="">Todos</option>
-                  <option value="male">Varonil</option>
-                  <option value="female">Femenil</option>
-                </select>
+                {view === "active" ? (
+                  <>
+                    <select name="year" defaultValue={birthYear} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+                      <option value="">Todas las categorias</option>
+                      {birthYears.map((year) => (
+                        <option key={year} value={String(year)}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                    <select name="gender" defaultValue={gender} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600">
+                      <option value="">Todos</option>
+                      <option value="male">Varonil</option>
+                      <option value="female">Femenil</option>
+                    </select>
+                  </>
+                ) : null}
                 <input
                   type="text"
                   name="q"
@@ -382,6 +393,37 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     placeholder="Telefono de tutor"
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
                   />
+                ) : null}
+                {view === "bajas" ? (
+                  <>
+                    <label className="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Mes de baja
+                      <input
+                        type="month"
+                        name="dropoutMonth"
+                        defaultValue={dropoutMonth}
+                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 dark:border-slate-600 dark:text-slate-100"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Desde
+                      <input
+                        type="date"
+                        name="dropoutFrom"
+                        defaultValue={dropoutFrom}
+                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 dark:border-slate-600 dark:text-slate-100"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Hasta
+                      <input
+                        type="date"
+                        name="dropoutTo"
+                        defaultValue={dropoutTo}
+                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-normal text-slate-900 dark:border-slate-600 dark:text-slate-100"
+                      />
+                    </label>
+                  </>
                 ) : null}
                 <button
                   type="submit"
@@ -540,7 +582,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                         <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
                         <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
                         <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>
-                        <td className="px-3 py-2">{row.dropoutReason ? DROPOUT_LABELS[row.dropoutReason] ?? row.dropoutReason : "-"}</td>
+                        <td className="px-3 py-2">{getCategorizedDropoutReasonLabel(row.dropoutReason)}</td>
                         <td className="px-3 py-2">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-medium ${

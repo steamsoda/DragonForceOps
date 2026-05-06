@@ -38,7 +38,69 @@ export const DROPOUT_REASON_LABELS = {
 
 export type DropoutReason = keyof typeof DROPOUT_REASON_LABELS;
 
-export const DROPOUT_REASON_OPTIONS = Object.entries(DROPOUT_REASON_LABELS).map(([value, label]) => ({
-  value: value as DropoutReason,
-  label,
-}));
+export const DROPOUT_REASON_CATEGORIES: Record<DropoutReason, string> = {
+  coach_capability: "Entrenamiento",
+  exercise_difficulty: "Entrenamiento",
+  financial: "Economico",
+  training_quality: "Entrenamiento",
+  school_disorganization: "Operacion",
+  facility_safety: "Operacion",
+  transport: "Distancia / Logistica",
+  family_health: "Salud",
+  player_health: "Salud",
+  schedule_conflict: "Horarios",
+  coach_communication: "Relacion / Comunicacion",
+  wants_competition: "Deportivo",
+  lack_of_information: "Relacion / Comunicacion",
+  pedagogy: "Entrenamiento",
+  moved_to_competition_club: "Deportivo",
+  player_coach_relationship: "Relacion / Comunicacion",
+  unattractive_exercises: "Entrenamiento",
+  moved_residence: "Distancia / Logistica",
+  school_performance_punishment: "Escuela / Familia",
+  home_behavior_punishment: "Escuela / Familia",
+  personal: "Otros",
+  distance: "Distancia / Logistica",
+  parent_work: "Escuela / Familia",
+  injury: "Salud",
+  dislikes_football: "Interes",
+  lost_contact: "Relacion / Comunicacion",
+  low_peer_attendance: "Interes",
+  changed_sport: "Deportivo",
+  did_not_return: "Temporal",
+  temporary_leave: "Temporal",
+  moved_to_another_academy: "Deportivo",
+  school_schedule_conflict: "Horarios",
+  coach_change: "Entrenamiento",
+  cold_weather: "Otros",
+  other: "Otros",
+};
+
+export function getDropoutReasonLabel(value: string | null | undefined) {
+  if (!value) return "-";
+  return DROPOUT_REASON_LABELS[value as DropoutReason] ?? value;
+}
+
+export function getCategorizedDropoutReasonLabel(value: string | null | undefined) {
+  if (!value) return "-";
+  const label = getDropoutReasonLabel(value);
+  const category = DROPOUT_REASON_CATEGORIES[value as DropoutReason];
+  return category ? `${category} - ${label}` : label;
+}
+
+export const DROPOUT_REASON_OPTIONS = Object.keys(DROPOUT_REASON_LABELS)
+  .map((value) => {
+    const reason = value as DropoutReason;
+    return {
+      value: reason,
+      category: DROPOUT_REASON_CATEGORIES[reason] ?? "",
+      reasonLabel: getDropoutReasonLabel(reason),
+      label: getCategorizedDropoutReasonLabel(reason),
+    };
+  })
+  .sort((a, b) => {
+    const categoryCompare = a.category.localeCompare(b.category, "es", { sensitivity: "base" });
+    if (categoryCompare !== 0) return categoryCompare;
+    return a.reasonLabel.localeCompare(b.reasonLabel, "es", { sensitivity: "base" });
+  })
+  .map(({ value, label }) => ({ value, label }));

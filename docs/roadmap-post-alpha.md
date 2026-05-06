@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.121`
+Current preview release line: `v1.16.125`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -135,7 +135,8 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.119` rebuilds `Llamadas` navigation around the proven `Pendientes` campus/category/bucket cards, adds `/llamadas/detail` focused call queues, and aligns the queue source with pending monthly tuition while keeping total balance visible in the call row
        - `v1.16.120` auto-saves follow-up status changes from each player card and adds birth-year chips inside focused call queues
        - `v1.16.121` fixes focused-queue birth-year filtering, adds `Organizar por` grouping for category / pending months / follow-up, and adds a direct inline `Dar de baja` button on each player card
-       - planned pass 2: add a `Lesionado` follow-up/workflow with explicit tuition-skip handling after schema and safety review
+       - `v1.16.122` adds inline `Lesionado` capture from call cards using existing audited enrollment incidents, including no omission / one-month omission / two-month omission for months without an existing tuition charge
+       - later injury follow-up: optionally allow guarded current-month tuition voiding from `Llamadas` only when the charge is still pending and has no payment allocations; paid or partially paid months must stay in the account/ledger flow
      - cross-surface large-query audit:
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode
@@ -972,7 +973,7 @@ Follow after the operational tracks above:
 | 64 | **Campus workflow polish (Linda Vista as hub)** | 🟡 In progress | Added `Regularización Contry` as the first intentional hub workflow: Linda Vista staff with Contry access can now post historical Contry paper payments as real backdated payments without manual DB edits, with Contry-owned operational attribution and no live cash-session/auto-print side effects. Follow-up polish aligned the player picker with Caja-style search plus `Buscar por categoría`, the right-side workspace now supports targeted historical payments plus Caja-lite charge creation without leaving the Contry regularization screen, and the latest front-desk pass tightened mutation-state feedback, reduced workspace churn, and cleaned the main user-facing Contry copy. Keep open for broader hub workflow polish beyond the historical catch-up pass. |
 | NEW | **Sports lane rethink after live signup-board usage** | 🔴 Open | Use the success of `Inscripciones Torneos` as the new planning anchor. Revisit the heavier hidden competitions implementation before adding more sports complexity, and steer the next discovery/build pass toward actual operational needs like schedules, results, and calendars instead of premature roster-management weight. |
 | NEW | **Receipt encoding artifact cleanup** | 🔴 Open | Printed receipts are much better, but keep a low-priority follow-up pass for remaining accent / `Ñ` artifacts that still show up in edge cases. |
-| NEW | **Bajas tab UI polish** | 🔴 Open | Keep a small visual cleanup pass for the archive / `Bajas` surfaces now that the operational workflow is stable. |
+| NEW | **Bajas tab UI polish** | 🟡 In progress | `v1.16.123` adds baja month/date-range filters, alphabetical archive ordering, and categorized dropout reason display while keeping Porto's stored reason taxonomy unchanged. Keep open for any later visual cleanup or analytics drilldowns. |
 
 ---
 

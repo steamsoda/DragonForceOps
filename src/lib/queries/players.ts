@@ -497,8 +497,25 @@ export async function listPlayers(filters: PlayerListFilters) {
 export type BajaListFilters = {
   q?: string;
   campusId?: string;
+  dropoutMonth?: string;
+  dropoutFrom?: string;
+  dropoutTo?: string;
   page?: number;
 };
+
+function normalizeMonthFilter(value: string | undefined) {
+  return value && /^\d{4}-\d{2}$/.test(value) ? value : "";
+}
+
+function normalizeDateFilter(value: string | undefined) {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function nextMonthStart(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber, 1, 12, 0, 0));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
 
 export async function listBajas(filters: BajaListFilters) {
   const supabase = await createClient();
@@ -507,6 +524,9 @@ export async function listBajas(filters: BajaListFilters) {
     return { rows: [], total: 0, page: Math.max(1, filters.page ?? 1), pageSize: PAGE_SIZE };
   }
   const page = Math.max(1, filters.page ?? 1);
+  const dropoutMonth = normalizeMonthFilter(filters.dropoutMonth);
+  const dropoutFrom = normalizeDateFilter(filters.dropoutFrom);
+  const dropoutTo = normalizeDateFilter(filters.dropoutTo);
 
   // Exclude players that have an active enrollment
   const { data: activeRows } = await supabase.from("enrollments").select("player_id").eq("status", "active");
@@ -518,6 +538,12 @@ export async function listBajas(filters: BajaListFilters) {
     .in("status", ["ended", "cancelled"])
     .in("campus_id", campusAccess.campusIds)
     .order("end_date", { ascending: false });
+
+  if (dropoutMonth) {
+    query = query.gte("end_date", `${dropoutMonth}-01`).lt("end_date", nextMonthStart(dropoutMonth));
+  }
+  if (dropoutFrom) query = query.gte("end_date", dropoutFrom);
+  if (dropoutTo) query = query.lte("end_date", dropoutTo);
 
   if (filters.campusId) {
     if (!canAccessCampus(campusAccess, filters.campusId)) {
@@ -551,6 +577,10 @@ export async function listBajas(filters: BajaListFilters) {
       if (!name.includes(textQuery)) return false;
     }
     return true;
+  }).sort((a, b) => {
+    const nameA = `${a.players?.first_name ?? ""} ${a.players?.last_name ?? ""}`.trim();
+    const nameB = `${b.players?.first_name ?? ""} ${b.players?.last_name ?? ""}`.trim();
+    return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
   });
 
   const total = deduped.length;
