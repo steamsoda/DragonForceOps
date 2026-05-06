@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.119`
+Current preview release line: `v1.16.120`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -133,6 +133,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.118` starts pass 1 by preserving the existing follow-up notes/status model, adding a follow-up status filter, routing `No regresara` to the dedicated baja workflow, and adding inline audited baja capture from the call row
        - baja from `Llamadas` ends the active enrollment only; charge writeoff remains director-only in `Bajas y saldos pendientes`
        - `v1.16.119` rebuilds `Llamadas` navigation around the proven `Pendientes` campus/category/bucket cards, adds `/llamadas/detail` focused call queues, and aligns the queue source with pending monthly tuition while keeping total balance visible in the call row
+       - `v1.16.120` auto-saves follow-up status changes from each player card and adds birth-year chips inside focused call queues
      - cross-surface large-query audit:
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode

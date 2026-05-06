@@ -2,6 +2,13 @@
 
 ## 2026-05-05 (session 162)
 
+### Llamadas Detail Polish (v1.16.120)
+
+- Polished the preview `Llamadas` pass after operator review.
+- Follow-up status changes now save immediately from each player card for quick call handling.
+- `Promesa de pago` still requires a valid promise date; selecting the date saves the promise state.
+- Added birth-year category chips to `/llamadas/detail` so queues like `3+ meses pendientes` can be worked across all categories or narrowed to one category without returning to the main board.
+
 ### Llamadas Board + Detail Queue Pass 2 (v1.16.119)
 
 - Rebuilt `Llamadas` as the Front Desk action version of `Pendientes`.

@@ -1,6 +1,5 @@
 import type { PendingRow } from "@/components/pending/pending-table";
 import {
-  getPendingTuitionCategoryDetailData,
   getPendingTuitionDashboardData,
   type PendingTuitionDashboardData,
   type PendingTuitionPlayer,
@@ -44,6 +43,7 @@ export type CallsDetailData = {
   selectedMonth: string;
   bucket: string;
   birthYear: string;
+  birthYearOptions: Array<{ value: string; label: string; count: number }>;
   q: string;
   followUpStatus: PendingFollowUpFilter;
   rows: PendingRow[];
@@ -173,6 +173,46 @@ function flattenDashboardPlayers(dashboard: PendingTuitionDashboardData) {
     : dashboard.campusBoards.flatMap((board) => board.categories.flatMap((category) => category.players));
 }
 
+function filterPlayersByBucket(players: PendingTuitionPlayer[], bucket: string) {
+  if (bucket === "1") return players.filter((player) => player.pendingMonthCount === 1);
+  if (bucket === "2") return players.filter((player) => player.pendingMonthCount === 2);
+  if (bucket === "3plus") return players.filter((player) => player.pendingMonthCount >= 3);
+  return players;
+}
+
+function filterPlayersByBirthYear(players: PendingTuitionPlayer[], birthYear: string) {
+  if (!birthYear) return players;
+  if (birthYear === "sin-categoria") return players.filter((player) => !player.birthYear);
+  return players.filter((player) => String(player.birthYear ?? "") === birthYear);
+}
+
+function getBucketLabel(bucket: string) {
+  if (bucket === "1") return "1 mes pendiente";
+  if (bucket === "2") return "2 meses pendientes";
+  if (bucket === "3plus") return "3+ meses pendientes";
+  return "";
+}
+
+function buildBirthYearOptions(players: PendingTuitionPlayer[]) {
+  const counts = new Map<string, number>();
+  for (const player of players) {
+    const key = player.birthYear ? String(player.birthYear) : "sin-categoria";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([value, count]) => ({
+      value,
+      count,
+      label: value === "sin-categoria" ? "Sin categoria" : value,
+    }))
+    .sort((a, b) => {
+      if (a.value === "sin-categoria") return 1;
+      if (b.value === "sin-categoria") return -1;
+      return Number(a.value) - Number(b.value);
+    });
+}
+
 async function enrichCallRows(players: PendingTuitionPlayer[]) {
   const enrollmentIds = [...new Set(players.map((player) => player.enrollmentId))];
   const playerIds = [...new Set(players.map((player) => player.playerId))];
@@ -240,27 +280,17 @@ export async function getCallsDetailData(filters: {
   const followUpStatus = filters.followUpStatus ?? "all";
   const q = (filters.q ?? "").trim();
 
-  let title = "Llamadas";
-  let subtitle = dashboard.selectedMonth ? `Mensualidades pendientes | ${dashboard.selectedMonth}` : "Mensualidades pendientes";
-  let players: PendingTuitionPlayer[] = [];
-
-  if (bucket || requestedBirthYear) {
-    const detail = await getPendingTuitionCategoryDetailData({
-      campusId: filters.campusId,
-      birthYear: requestedBirthYear || undefined,
-      month: filters.month,
-      bucket: bucket || undefined,
-    });
-    if (!detail) return null;
-    players = detail.players;
-    title = `Llamadas - ${detail.categoryLabel}`;
-    subtitle = `${detail.campusName}${detail.selectedMonth ? ` | ${detail.selectedMonth}` : ""}`;
-  } else {
-    players = flattenDashboardPlayers(dashboard);
-    title = dashboard.selectedCampusId
-      ? `Llamadas - ${dashboard.campusBoards.find((board) => board.campusId === dashboard.selectedCampusId)?.campusName ?? "Campus"}`
-      : "Llamadas - Todos los campus";
-  }
+  const basePlayers = flattenDashboardPlayers(dashboard);
+  const bucketPlayers = filterPlayersByBucket(basePlayers, bucket);
+  const birthYearOptions = buildBirthYearOptions(bucketPlayers);
+  const players = filterPlayersByBirthYear(bucketPlayers, requestedBirthYear);
+  const campusName = dashboard.selectedCampusId
+    ? dashboard.campusBoards.find((board) => board.campusId === dashboard.selectedCampusId)?.campusName ?? "Campus"
+    : "Todos los campus";
+  const selectedBirthYearLabel = birthYearOptions.find((option) => option.value === requestedBirthYear)?.label;
+  const titleParts = ["Llamadas", getBucketLabel(bucket), selectedBirthYearLabel ? `Cat. ${selectedBirthYearLabel}` : ""].filter(Boolean);
+  const title = titleParts.join(" - ");
+  const subtitle = `${campusName}${dashboard.selectedMonth ? ` | ${dashboard.selectedMonth}` : ""}`;
 
   const allRows = await enrichCallRows(players);
   const followUpCounts = emptyFollowUpCounts();
@@ -284,6 +314,7 @@ export async function getCallsDetailData(filters: {
     selectedMonth: dashboard.selectedMonth,
     bucket,
     birthYear: requestedBirthYear,
+    birthYearOptions,
     q,
     followUpStatus,
     rows,

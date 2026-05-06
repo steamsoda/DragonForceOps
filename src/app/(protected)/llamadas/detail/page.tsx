@@ -164,6 +164,50 @@ export default async function CallsDetailPage({ searchParams }: { searchParams: 
           ))}
         </div>
 
+        {data.birthYearOptions.length > 0 ? (
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Categoria</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={withParams("/llamadas/detail", {
+                  campus: data.campusId,
+                  bucket: data.bucket,
+                  month: data.selectedMonth,
+                  q: data.q,
+                  followUp: data.followUpStatus === "all" ? undefined : data.followUpStatus,
+                })}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  !data.birthYear
+                    ? "border-portoBlue bg-blue-50 text-portoBlue dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-200"
+                    : "border-slate-200 bg-slate-50 text-slate-700 hover:border-portoBlue dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                }`}
+              >
+                Todos
+              </Link>
+              {data.birthYearOptions.map((option) => (
+                <Link
+                  key={option.value}
+                  href={withParams("/llamadas/detail", {
+                    campus: data.campusId,
+                    birthYear: option.value,
+                    bucket: data.bucket,
+                    month: data.selectedMonth,
+                    q: data.q,
+                    followUp: data.followUpStatus === "all" ? undefined : data.followUpStatus,
+                  })}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                    data.birthYear === option.value
+                      ? "border-portoBlue bg-blue-50 text-portoBlue dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-200"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-portoBlue dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  }`}
+                >
+                  {option.label}: {option.count}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <p className="text-sm text-slate-600 dark:text-slate-400">
           {data.rows.length} {data.rows.length === 1 ? "jugador" : "jugadores"} en esta cola.
         </p>

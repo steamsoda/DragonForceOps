@@ -235,11 +235,11 @@ function FollowUpCell({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleSave() {
+  function saveFollowUp(nextStatus: PendingFollowUpStatus, nextNote: string, nextPromiseDate: string, options?: { silent?: boolean }) {
     setSaved(false);
     setError(null);
     startTransition(async () => {
-      const result = await updatePendingFollowUpAction(row.enrollmentId, status, note, promiseDate);
+      const result = await updatePendingFollowUpAction(row.enrollmentId, nextStatus, nextNote, nextPromiseDate);
       if (!result.ok) {
         setError(
           result.error === "promise_date_required"
@@ -251,19 +251,23 @@ function FollowUpCell({
         return;
       }
 
-      const nextFollowUpAt = status === "uncontacted" ? null : new Date().toISOString();
-      const nextNote = status === "uncontacted" ? null : note.trim() || null;
-      const nextPromiseDate = status === "promise_to_pay" ? promiseDate : null;
+      const nextFollowUpAt = nextStatus === "uncontacted" ? null : new Date().toISOString();
+      const savedNote = nextStatus === "uncontacted" ? null : nextNote.trim() || null;
+      const savedPromiseDate = nextStatus === "promise_to_pay" ? nextPromiseDate : null;
 
       setFollowUpAt(nextFollowUpAt);
       onSaved({
-        followUpStatus: status,
+        followUpStatus: nextStatus,
         followUpAt: nextFollowUpAt,
-        followUpNote: nextNote,
-        promiseDate: nextPromiseDate,
+        followUpNote: savedNote,
+        promiseDate: savedPromiseDate,
       });
-      setSaved(true);
+      setSaved(!options?.silent);
     });
+  }
+
+  function handleSave() {
+    saveFollowUp(status, note, promiseDate);
   }
 
   const isPromise = status === "promise_to_pay";
@@ -279,9 +283,13 @@ function FollowUpCell({
         onChange={(e) => {
           const nextStatus = e.target.value as PendingFollowUpStatus;
           setStatus(nextStatus);
+          const nextPromiseDate = nextStatus === "promise_to_pay" ? promiseDate : "";
           if (nextStatus !== "promise_to_pay") setPromiseDate("");
           setSaved(false);
           setError(null);
+          if (nextStatus !== "promise_to_pay" || nextPromiseDate) {
+            saveFollowUp(nextStatus, note, nextPromiseDate, { silent: true });
+          }
         }}
         className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800"
       >
@@ -299,9 +307,13 @@ function FollowUpCell({
             type="date"
             value={promiseDate}
             onChange={(e) => {
-              setPromiseDate(e.target.value);
+              const nextPromiseDate = e.target.value;
+              setPromiseDate(nextPromiseDate);
               setSaved(false);
               setError(null);
+              if (nextPromiseDate) {
+                saveFollowUp("promise_to_pay", note, nextPromiseDate, { silent: true });
+              }
             }}
             className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800"
           />
