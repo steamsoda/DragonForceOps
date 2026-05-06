@@ -2,6 +2,17 @@
 
 ## 2026-05-05 (session 162)
 
+### Llamadas Injury Inline Workflow (v1.16.122)
+
+- Added pass 2 of the focused `Llamadas` card workflow on preview.
+- Reused the existing audited `enrollment_incidents` model instead of adding a new finance table or follow-up status.
+- Added inline `Lesionado` capture from each call card:
+  - injury start/end dates
+  - note
+  - no tuition omission, one omitted month, or two omitted months
+- Two-month omissions are stored as one injury incident per omitted period month, matching the existing `enrollment_incidents` uniqueness and monthly-generator semantics.
+- Kept finance safety intact: Llamadas can omit only months that do not already have a non-void monthly tuition charge; existing charges must still be handled from the account/ledger workflow.
+
 ### Llamadas Detail Grouping + Direct Baja Pass 1 (v1.16.121)
 
 - Continued the focused `Llamadas` detail workflow polish on preview.

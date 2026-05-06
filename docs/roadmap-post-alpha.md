@@ -4,7 +4,7 @@ Live testing started 2026-03-19. Session 2: 2026-03-26.
 Updated continuously. Last updated: 2026-05-05.
 Strategic architecture phases (schema separation, parent app, Stripe, multi-tenancy) added 2026-04-22 — see `Later Phases` section.
 
-Current preview release line: `v1.16.121`
+Current preview release line: `v1.16.122`
 
 Current working note: after the `v1.16.68` production merge, new implementation should continue on `preview` until the next explicit production release.
 
@@ -135,7 +135,7 @@ New 2026-04-28 planning items logged: navigation return-state UX, nutrition circ
        - `v1.16.119` rebuilds `Llamadas` navigation around the proven `Pendientes` campus/category/bucket cards, adds `/llamadas/detail` focused call queues, and aligns the queue source with pending monthly tuition while keeping total balance visible in the call row
        - `v1.16.120` auto-saves follow-up status changes from each player card and adds birth-year chips inside focused call queues
        - `v1.16.121` fixes focused-queue birth-year filtering, adds `Organizar por` grouping for category / pending months / follow-up, and adds a direct inline `Dar de baja` button on each player card
-       - planned pass 2: add a `Lesionado` follow-up/workflow with explicit tuition-skip handling after schema and safety review
+       - `v1.16.122` adds inline `Lesionado` capture from call cards using existing audited enrollment incidents, including no omission / one-month omission / two-month omission for months without an existing tuition charge
      - cross-surface large-query audit:
        - `Pendientes` exposed a scaling bug caused by oversized `.in(...)` requests plus row-cap truncation on large enrollment/charge sets
        - `Panel` / monthly summary RPC surfaces look safe from this exact failure mode

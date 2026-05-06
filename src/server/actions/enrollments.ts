@@ -40,6 +40,15 @@ type EnrollmentScholarshipRow = {
   pricing_plan_id: string;
   pricing_plans: { plan_code: string; currency: string | null } | null;
 };
+type EnrollmentIncidentInsert = {
+  enrollment_id: string;
+  incident_type: "injury";
+  note: string | null;
+  omit_period_month: string | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  created_by: string;
+};
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
@@ -49,6 +58,15 @@ function lastDayOfMonth(periodMonth: string) {
   const [yearStr, monthStr] = periodMonth.split("-");
   const date = new Date(Date.UTC(Number(yearStr), Number(monthStr), 0, 12, 0, 0));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function normalizeMonthInput(raw: string) {
+  if (!/^\d{4}-\d{2}$/.test(raw)) return null;
+  return `${raw}-01`;
+}
+
+function isPastPeriodMonth(periodMonth: string) {
+  return periodMonth < `${getMonterreyMonthString()}-01`;
 }
 
 async function syncPendingTuitionForScholarshipChange(
@@ -723,6 +741,185 @@ export async function dropoutEnrollmentFromCallsAction(
   revalidatePath("/llamadas");
   revalidatePath("/pending/bajas");
   return { ok: true };
+}
+
+export type InjuryFromCallsResult =
+  | { ok: true; omittedMonths: string[] }
+  | { ok: false; error: string };
+
+function parseCallsInjuryFormData(formData: FormData) {
+  const startsOnRaw = String(formData.get("startsOn") ?? "").trim();
+  const endsOnRaw = String(formData.get("endsOn") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const omitMode = String(formData.get("omitMode") ?? "none").trim();
+  const omitMonth1Raw = String(formData.get("omitMonth1") ?? "").trim();
+  const omitMonth2Raw = String(formData.get("omitMonth2") ?? "").trim();
+
+  if (omitMode !== "none" && omitMode !== "one" && omitMode !== "two") {
+    return { ok: false as const, error: "invalid_form" };
+  }
+
+  const startsOn = startsOnRaw ? parseDateOnlyInput(startsOnRaw) : null;
+  const endsOn = endsOnRaw ? parseDateOnlyInput(endsOnRaw) : null;
+  if (startsOnRaw && !startsOn) return { ok: false as const, error: "invalid_date" };
+  if (endsOnRaw && !endsOn) return { ok: false as const, error: "invalid_date" };
+  if (endsOn && !startsOn) return { ok: false as const, error: "start_required" };
+  if (startsOn && endsOn && endsOn < startsOn) return { ok: false as const, error: "invalid_date_range" };
+
+  const omittedMonths =
+    omitMode === "none"
+      ? []
+      : omitMode === "one"
+        ? [normalizeMonthInput(omitMonth1Raw)]
+        : [normalizeMonthInput(omitMonth1Raw), normalizeMonthInput(omitMonth2Raw)];
+
+  if (omittedMonths.some((month) => !month)) return { ok: false as const, error: "month_required" };
+  const normalizedOmittedMonths = omittedMonths.filter(Boolean) as string[];
+  if (new Set(normalizedOmittedMonths).size !== normalizedOmittedMonths.length) {
+    return { ok: false as const, error: "duplicate_month" };
+  }
+  if (normalizedOmittedMonths.some(isPastPeriodMonth)) return { ok: false as const, error: "past_month" };
+
+  return {
+    ok: true as const,
+    startsOn,
+    endsOn,
+    note: note || null,
+    omittedMonths: normalizedOmittedMonths,
+  };
+}
+
+async function validateCallsInjuryOmissions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+  omittedMonths: string[],
+) {
+  if (omittedMonths.length === 0) return null;
+
+  const { data: chargeType } = await supabase
+    .from("charge_types")
+    .select("id")
+    .eq("code", "monthly_tuition")
+    .eq("is_active", true)
+    .maybeSingle<{ id: string } | null>();
+  if (!chargeType?.id) return "invalid_form";
+
+  const { data: existingCharges } = await supabase
+    .from("charges")
+    .select("period_month")
+    .eq("enrollment_id", enrollmentId)
+    .eq("charge_type_id", chargeType.id)
+    .in("period_month", omittedMonths)
+    .neq("status", "void")
+    .returns<Array<{ period_month: string | null }>>();
+  if ((existingCharges ?? []).length > 0) return "charge_exists";
+
+  const { data: conflictingIncidents } = await supabase
+    .from("enrollment_incidents")
+    .select("omit_period_month")
+    .eq("enrollment_id", enrollmentId)
+    .in("omit_period_month", omittedMonths)
+    .is("cancelled_at", null)
+    .returns<Array<{ omit_period_month: string | null }>>();
+  if ((conflictingIncidents ?? []).length > 0) return "incident_conflict";
+
+  return null;
+}
+
+export async function createInjuryIncidentFromCallsAction(
+  enrollmentId: string,
+  playerId: string,
+  formData: FormData,
+): Promise<InjuryFromCallsResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  const parsed = parseCallsInjuryFormData(formData);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const campusAccess = await getOperationalCampusAccess();
+  if (!campusAccess) return { ok: false, error: "unauthenticated" };
+
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id, campus_id, status")
+    .eq("id", enrollmentId)
+    .eq("player_id", playerId)
+    .maybeSingle<{ id: string; campus_id: string; status: string }>();
+
+  if (!enrollment || !canAccessCampus(campusAccess, enrollment.campus_id)) {
+    return { ok: false, error: "not_found" };
+  }
+  if (enrollment.status !== "active") return { ok: false, error: "not_active" };
+
+  const validationError = await validateCallsInjuryOmissions(supabase, enrollmentId, parsed.omittedMonths);
+  if (validationError) return { ok: false, error: validationError };
+
+  const rows: EnrollmentIncidentInsert[] =
+    parsed.omittedMonths.length > 0
+      ? parsed.omittedMonths.map((month) => ({
+          enrollment_id: enrollmentId,
+          incident_type: "injury",
+          note: parsed.note,
+          omit_period_month: month,
+          starts_on: parsed.startsOn,
+          ends_on: parsed.endsOn,
+          created_by: user.id,
+        }))
+      : [
+          {
+            enrollment_id: enrollmentId,
+            incident_type: "injury",
+            note: parsed.note,
+            omit_period_month: null,
+            starts_on: parsed.startsOn,
+            ends_on: parsed.endsOn,
+            created_by: user.id,
+          },
+        ];
+
+  const { data: insertedIncidents, error } = await supabase
+    .from("enrollment_incidents")
+    .insert(rows)
+    .select("id, omit_period_month")
+    .returns<Array<{ id: string; omit_period_month: string | null }>>();
+
+  if (error || !insertedIncidents || insertedIncidents.length === 0) {
+    return { ok: false, error: "insert_failed" };
+  }
+
+  await Promise.all(
+    insertedIncidents.map((incident) =>
+      writeAuditLog(supabase, {
+        actorUserId: user.id,
+        actorEmail: user.email ?? null,
+        action: "enrollment_incident.created",
+        tableName: "enrollment_incidents",
+        recordId: incident.id,
+        afterData: {
+          enrollment_id: enrollmentId,
+          incident_type: "injury",
+          note: parsed.note,
+          omit_period_month: incident.omit_period_month,
+          starts_on: parsed.startsOn,
+          ends_on: parsed.endsOn,
+          source: "llamadas_inline",
+        },
+      })
+    )
+  );
+
+  revalidatePath(`/players/${playerId}`);
+  revalidatePath(`/enrollments/${enrollmentId}/charges`);
+  revalidatePath("/llamadas");
+  revalidatePath("/pending");
+  revalidatePath("/admin/mensualidades");
+  return { ok: true, omittedMonths: parsed.omittedMonths };
 }
 
 export type UpdatePendingFollowUpResult =

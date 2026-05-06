@@ -3,7 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { dropoutEnrollmentFromCallsAction, updatePendingFollowUpAction } from "@/server/actions/enrollments";
+import {
+  createInjuryIncidentFromCallsAction,
+  dropoutEnrollmentFromCallsAction,
+  updatePendingFollowUpAction,
+} from "@/server/actions/enrollments";
 import { DROPOUT_REASON_OPTIONS } from "@/lib/enrollments/dropout-reasons";
 import type { PendingFollowUpStatus } from "@/lib/queries/enrollments";
 
@@ -23,6 +27,8 @@ export type PendingRow = {
   followUpAt: string | null;
   followUpNote: string | null;
   promiseDate: string | null;
+  hasActiveInjury?: boolean;
+  injuryOmittedMonths?: string[];
   pendingMonths?: Array<{ periodMonth: string; label: string; dueDate: string | null; isOverdue: boolean }>;
 };
 
@@ -74,6 +80,31 @@ function formatDateTime(value: string | null) {
     minute: "2-digit",
     timeZone: "America/Mexico_City",
   });
+}
+
+function formatPeriodMonth(value: string) {
+  const [year, month] = value.split("-");
+  const monthLabels = [
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
+  ];
+  return `${monthLabels[Number(month) - 1] ?? month} ${year}`;
+}
+
+function getMonthInputValue(offset: number) {
+  const date = new Date();
+  date.setMonth(date.getMonth() + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function statusPill(status: PendingFollowUpStatus) {
@@ -214,16 +245,199 @@ function InlineDropoutPanel({
   );
 }
 
+function InlineInjuryPanel({
+  row,
+  defaultNotes,
+  onSaved,
+}: {
+  row: PendingRow;
+  defaultNotes: string;
+  onSaved: (omittedMonths: string[]) => void;
+}) {
+  const [startsOn, setStartsOn] = useState(new Date().toISOString().split("T")[0]);
+  const [endsOn, setEndsOn] = useState("");
+  const [note, setNote] = useState(defaultNotes);
+  const [omitMode, setOmitMode] = useState<"none" | "one" | "two">("none");
+  const [omitMonth1, setOmitMonth1] = useState(getMonthInputValue(0));
+  const [omitMonth2, setOmitMonth2] = useState(getMonthInputValue(1));
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function injuryErrorMessage(code: string) {
+    const messages: Record<string, string> = {
+      invalid_form: "Revisa los datos de la lesion.",
+      invalid_date: "La fecha no es valida.",
+      start_required: "Captura fecha de inicio si capturas fecha final.",
+      invalid_date_range: "La fecha final no puede ser antes del inicio.",
+      month_required: "Selecciona el mes a omitir.",
+      duplicate_month: "Selecciona dos meses distintos.",
+      past_month: "No se pueden omitir meses pasados desde Llamadas.",
+      charge_exists: "Ese mes ya tiene mensualidad generada. Revisalo desde Abrir cuenta.",
+      incident_conflict: "Ese mes ya tiene una omision activa.",
+      not_active: "Esta inscripcion ya no esta activa.",
+      debug_read_only: "El modo debug no permite guardar cambios.",
+    };
+    return messages[code] ?? "No se pudo registrar la lesion.";
+  }
+
+  function handleSave() {
+    setSaved(false);
+    setError(null);
+    const formData = new FormData();
+    formData.set("startsOn", startsOn);
+    formData.set("endsOn", endsOn);
+    formData.set("note", note);
+    formData.set("omitMode", omitMode);
+    formData.set("omitMonth1", omitMonth1);
+    formData.set("omitMonth2", omitMonth2);
+
+    startTransition(async () => {
+      const result = await createInjuryIncidentFromCallsAction(row.enrollmentId, row.playerId, formData);
+      if (!result.ok) {
+        setError(injuryErrorMessage(result.error));
+        return;
+      }
+      setSaved(true);
+      onSaved(result.omittedMonths);
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-3 rounded-md border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-800 dark:bg-sky-950/20">
+      <div>
+        <p className="font-semibold text-sky-900 dark:text-sky-100">Registrar lesion desde llamadas</p>
+        <p className="mt-1 text-sky-800/80 dark:text-sky-200/80">
+          Esto registra la incidencia operativa. Solo omite mensualidades que todavia no tengan cargo generado.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="font-medium text-sky-900 dark:text-sky-100">Desde</span>
+          <input
+            type="date"
+            value={startsOn}
+            onChange={(event) => {
+              setStartsOn(event.target.value);
+              setSaved(false);
+              setError(null);
+            }}
+            className="w-full rounded border border-sky-200 bg-white px-2 py-1.5 dark:border-sky-800 dark:bg-slate-950"
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="font-medium text-sky-900 dark:text-sky-100">Hasta</span>
+          <input
+            type="date"
+            value={endsOn}
+            onChange={(event) => {
+              setEndsOn(event.target.value);
+              setSaved(false);
+              setError(null);
+            }}
+            className="w-full rounded border border-sky-200 bg-white px-2 py-1.5 dark:border-sky-800 dark:bg-slate-950"
+          />
+        </label>
+      </div>
+      <label className="block space-y-1">
+        <span className="font-medium text-sky-900 dark:text-sky-100">Nota</span>
+        <textarea
+          value={note}
+          onChange={(event) => {
+            setNote(event.target.value);
+            setSaved(false);
+            setError(null);
+          }}
+          rows={2}
+          className="w-full resize-none rounded border border-sky-200 bg-white px-2 py-1.5 dark:border-sky-800 dark:bg-slate-950"
+          placeholder="Ej. Lesion reportada por tutor, tiempo estimado de recuperacion."
+        />
+      </label>
+      <fieldset className="space-y-2">
+        <legend className="font-medium text-sky-900 dark:text-sky-100">Mensualidad</legend>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "none", label: "No omitir" },
+            { value: "one", label: "Omitir 1 mes" },
+            { value: "two", label: "Omitir 2 meses" },
+          ].map((option) => (
+            <label key={option.value} className="flex items-center gap-2 rounded border border-sky-200 bg-white px-2.5 py-1.5 dark:border-sky-800 dark:bg-slate-950">
+              <input
+                type="radio"
+                name={`omit-${row.enrollmentId}`}
+                value={option.value}
+                checked={omitMode === option.value}
+                onChange={() => {
+                  setOmitMode(option.value as "none" | "one" | "two");
+                  setSaved(false);
+                  setError(null);
+                }}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {omitMode !== "none" ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="font-medium text-sky-900 dark:text-sky-100">Mes 1</span>
+            <input
+              type="month"
+              value={omitMonth1}
+              onChange={(event) => {
+                setOmitMonth1(event.target.value);
+                setSaved(false);
+                setError(null);
+              }}
+              className="w-full rounded border border-sky-200 bg-white px-2 py-1.5 dark:border-sky-800 dark:bg-slate-950"
+            />
+          </label>
+          {omitMode === "two" ? (
+            <label className="space-y-1">
+              <span className="font-medium text-sky-900 dark:text-sky-100">Mes 2</span>
+              <input
+                type="month"
+                value={omitMonth2}
+                onChange={(event) => {
+                  setOmitMonth2(event.target.value);
+                  setSaved(false);
+                  setError(null);
+                }}
+                className="w-full rounded border border-sky-200 bg-white px-2 py-1.5 dark:border-sky-800 dark:bg-slate-950"
+              />
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isPending}
+          className="rounded bg-sky-700 px-3 py-1.5 font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+        >
+          {isPending ? "Registrando..." : "Registrar lesion"}
+        </button>
+        {saved ? <span className="text-emerald-700 dark:text-emerald-300">Lesion registrada</span> : null}
+      </div>
+      {error ? <p className="text-sky-900 dark:text-sky-100">{error}</p> : null}
+    </div>
+  );
+}
+
 function FollowUpCell({
   row,
   compact = false,
   onSaved,
   onRequestDropout,
+  onRequestInjury,
 }: {
   row: PendingRow;
   compact?: boolean;
   onSaved: (next: Partial<PendingRow>) => void;
   onRequestDropout: () => void;
+  onRequestInjury: () => void;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -361,6 +575,13 @@ function FollowUpCell({
             </Link>
           </>
         ) : null}
+        <button
+          type="button"
+          onClick={onRequestInjury}
+          className="rounded border border-sky-300 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/20"
+        >
+          Lesionado
+        </button>
         {saved ? <span className="text-xs text-emerald-600">OK</span> : null}
       </div>
 
@@ -387,6 +608,7 @@ function PendingDesktopRow({
   onDropped: () => void;
 }) {
   const [showDropout, setShowDropout] = useState(row.followUpStatus === "will_not_return");
+  const [showInjury, setShowInjury] = useState(false);
 
   return (
     <div className={`rounded-lg border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
@@ -397,6 +619,11 @@ function PendingDesktopRow({
               {row.playerName}
             </Link>
             <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
+            {row.hasActiveInjury ? (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+                Lesionado
+              </span>
+            ) : null}
           </div>
           <div className="grid gap-1 text-sm text-slate-600 dark:text-slate-400">
             <p>
@@ -446,7 +673,12 @@ function PendingDesktopRow({
 
         <div className="rounded-md border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/60">
           <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Seguimiento</p>
-          <FollowUpCell row={row} onSaved={onSaved} onRequestDropout={() => setShowDropout(true)} />
+          <FollowUpCell
+            row={row}
+            onSaved={onSaved}
+            onRequestDropout={() => setShowDropout(true)}
+            onRequestInjury={() => setShowInjury(true)}
+          />
         </div>
 
         <div className="flex flex-row gap-3 xl:flex-col xl:items-stretch">
@@ -475,10 +707,29 @@ function PendingDesktopRow({
           >
             Dar de baja
           </button>
+          <button
+            type="button"
+            onClick={() => setShowInjury((current) => !current)}
+            className="rounded-md border border-sky-300 px-3 py-2 text-center text-sm font-medium text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/20"
+          >
+            Lesionado
+          </button>
         </div>
       </div>
       {showDropout ? (
         <InlineDropoutPanel row={row} defaultNotes={row.followUpNote ?? ""} onDropped={onDropped} />
+      ) : null}
+      {showInjury ? (
+        <InlineInjuryPanel
+          row={row}
+          defaultNotes={row.followUpNote ?? ""}
+          onSaved={(omittedMonths) => onSaved({ hasActiveInjury: true, injuryOmittedMonths: omittedMonths })}
+        />
+      ) : null}
+      {row.hasActiveInjury && row.injuryOmittedMonths && row.injuryOmittedMonths.length > 0 ? (
+        <p className="mt-2 text-xs text-sky-700 dark:text-sky-300">
+          Lesion registrada. Omite: {row.injuryOmittedMonths.map(formatPeriodMonth).join(", ")}
+        </p>
       ) : null}
     </div>
   );
@@ -494,6 +745,7 @@ function PendingMobileRow({
   onDropped: () => void;
 }) {
   const [showDropout, setShowDropout] = useState(row.followUpStatus === "will_not_return");
+  const [showInjury, setShowInjury] = useState(false);
 
   return (
     <div className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${STATUS_STYLES[row.followUpStatus]}`}>
@@ -503,6 +755,11 @@ function PendingMobileRow({
             {row.playerName}
           </Link>
           <span className={statusPill(row.followUpStatus)}>{STATUS_LABELS[row.followUpStatus]}</span>
+          {row.hasActiveInjury ? (
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+              Lesionado
+            </span>
+          ) : null}
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Cat. {row.birthYear ?? "-"} | {row.campusName} ({row.campusCode})
@@ -538,7 +795,13 @@ function PendingMobileRow({
         </div>
       </div>
 
-      <FollowUpCell row={row} compact onSaved={onSaved} onRequestDropout={() => setShowDropout(true)} />
+      <FollowUpCell
+        row={row}
+        compact
+        onSaved={onSaved}
+        onRequestDropout={() => setShowDropout(true)}
+        onRequestInjury={() => setShowInjury(true)}
+      />
 
       <div className="flex flex-wrap gap-3 text-sm">
         {row.primaryPhone ? (
@@ -554,9 +817,24 @@ function PendingMobileRow({
         <button type="button" onClick={() => setShowDropout((current) => !current)} className="text-rose-700 hover:underline dark:text-rose-300">
           Dar de baja
         </button>
+        <button type="button" onClick={() => setShowInjury((current) => !current)} className="text-sky-700 hover:underline dark:text-sky-300">
+          Lesionado
+        </button>
       </div>
 
       {showDropout ? <InlineDropoutPanel row={row} defaultNotes={row.followUpNote ?? ""} onDropped={onDropped} /> : null}
+      {showInjury ? (
+        <InlineInjuryPanel
+          row={row}
+          defaultNotes={row.followUpNote ?? ""}
+          onSaved={(omittedMonths) => onSaved({ hasActiveInjury: true, injuryOmittedMonths: omittedMonths })}
+        />
+      ) : null}
+      {row.hasActiveInjury && row.injuryOmittedMonths && row.injuryOmittedMonths.length > 0 ? (
+        <p className="text-xs text-sky-700 dark:text-sky-300">
+          Lesion registrada. Omite: {row.injuryOmittedMonths.map(formatPeriodMonth).join(", ")}
+        </p>
+      ) : null}
     </div>
   );
 }
