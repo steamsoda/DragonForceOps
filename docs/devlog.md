@@ -2,6 +2,16 @@
 
 ## 2026-05-05 (session 162)
 
+### Jugadores Bajas Filters + Categorized Reasons (v1.16.123)
+
+- Added Bajas-specific filters in `Jugadores > Bajas`:
+  - month of baja
+  - baja date from
+  - baja date to
+- Changed the Bajas archive list to sort alphabetically after selecting the latest ended/cancelled enrollment per player.
+- Replaced the local short dropout label map with the shared Porto dropout reason catalog.
+- Added UI-only category prefixes for dropout reasons, keeping stored reason codes and Porto's canonical reason text unchanged.
+
 ### Llamadas Injury Inline Workflow (v1.16.122)
 
 - Added pass 2 of the focused `Llamadas` card workflow on preview.
