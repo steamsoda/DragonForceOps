@@ -412,6 +412,7 @@ export function ContryRegularizationAccountPanel({
     startTransition(async () => {
       const formData = new FormData();
       formData.set("productId", selectedProduct.id);
+      formData.set("skipReload", "1");
       if (chargeSize) formData.set("size", chargeSize);
       if (goalkeeper) formData.set("goalkeeper", "1");
 

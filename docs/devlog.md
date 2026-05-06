@@ -2,6 +2,12 @@
 
 ## 2026-05-05 (session 162)
 
+### Regularizacion Historica Duplicate Load Trim (v1.16.127)
+
+- Trimmed one duplicate ledger fetch from historical payment posting by reusing the ledger already loaded for validation.
+- Trimmed one duplicate Caja-shaped reload when adding catalog charges from the regularizacion workspace; the screen still refreshes the canonical ledger after the mutation.
+- Kept the operator workflow and saved data behavior unchanged.
+
 ### Bajas Reason Summary KPIs (v1.16.126)
 
 - Added `Jugadores > Bajas` reason summary KPIs for the currently selected filter scope.

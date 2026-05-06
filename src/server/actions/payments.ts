@@ -124,7 +124,8 @@ async function getHistoricalRegularizationContext() {
 async function postEnrollmentPaymentInternal(
   enrollmentId: string,
   formData: FormData,
-  mode: PostEnrollmentPaymentMode
+  mode: PostEnrollmentPaymentMode,
+  preloadedLedger?: Awaited<ReturnType<typeof getEnrollmentLedger>>,
 ): Promise<{ ok: true; posted: SharedPostedPayment } | { ok: false; error: string }> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parsePaymentFormData(formData);
@@ -138,7 +139,7 @@ async function postEnrollmentPaymentInternal(
 
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const ledger = preloadedLedger ?? await getEnrollmentLedger(enrollmentId);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
@@ -499,7 +500,7 @@ export async function postHistoricalRegularizationPaymentAction(
     requireEnrollmentCampusId: ledger.enrollment.campusId,
     linkCashToSession: false,
     extraRevalidatePaths: ["/admin/regularizacion-historica"],
-  });
+  }, ledger);
 
   if (!result.ok) return result;
 
