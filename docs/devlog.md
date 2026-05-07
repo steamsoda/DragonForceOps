@@ -2,6 +2,36 @@
 
 ## 2026-05-05 (session 162)
 
+### Bajas Date Default Timezone Fix (v1.16.131)
+
+- Changed all baja date defaults to use the Monterrey date helper instead of UTC `toISOString()` date slicing.
+- Covered:
+  - full `Dar de baja` page
+  - inline `Llamadas` baja panel
+  - server-side fallback when an enrollment edit changes status to `Baja` / `Cancelado` with an empty date
+- This prevents staff from seeing tomorrow's UTC date during late-day academy operations.
+
+### Roadmap Reorganization
+
+- Preserved the full pre-reorg roadmap snapshot at `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`.
+- Rebuilt `docs/roadmap-post-alpha.md` as an active planning document:
+  - short `Now` / `Next` sections
+  - separate safety, performance, product-area, and later-phase lanes
+  - a compact recently-shipped checklist that points back to this devlog for full detail
+
+### Role Regression Checklist
+
+- Added `docs/role-regression-checklist.md` as the practical pre-merge checklist for role-sensitive releases.
+- The checklist focuses on direct URL access, not only navigation visibility, for superadmin, director admin, front desk, Director Deportivo, nutritionist, and attendance admin roles.
+- Marked the roadmap role-regression item as ready for validation; future follow-up can automate the highest-risk route assertions after the manual matrix is stable.
+
+### Roadmap Note: Bajas Confirmation Workflow
+
+- Added a planned `Bajas` workflow change to the roadmap:
+  - Front Desk / Director Deportivo should be able to flag a `Baja potencial` with context.
+  - Director/admin confirmation should perform the final enrollment-ending action.
+  - Goal: prevent normal operators from finalizing dropouts without authorization.
+
 ### Jugadores Grouped Roster Export Sheet Split (v1.16.130)
 
 - Changed the grouped roster Excel export to create one worksheet per birth year/category.

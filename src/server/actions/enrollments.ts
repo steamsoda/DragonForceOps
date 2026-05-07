@@ -488,7 +488,7 @@ export async function updateEnrollmentAction(
 
   let endDate: string | null = parsed.endDate;
   if ((parsed.status === "ended" || parsed.status === "cancelled") && !endDate) {
-    endDate = new Date().toISOString().split("T")[0];
+    endDate = getMonterreyDateString();
   }
   if (parsed.status === "active") {
     endDate = null;
