@@ -11,7 +11,7 @@
 - Kept full payment/refund/reassign history available through an explicit `Cargar historial completo` action instead of loading it every time an account opens.
 - Reused the pending-focused ledger for historical payment validation so submit avoids a full account-history read before posting.
 - Added `[perf] regularizacion.workspace_ledger` logging with row counts and full-history mode so preview/prod logs can separate the fast workspace load from the optional full-history load.
-- Updated roadmap preview state to `v1.16.132`; production remains `v1.16.131` until this is validated and merged.
+- Preview validation looked good, then the release was merged to production and the roadmap production line was synced to `v1.16.132`.
 
 ## 2026-05-05 (session 162)
 
