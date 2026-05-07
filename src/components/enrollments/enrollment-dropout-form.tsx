@@ -1,4 +1,5 @@
 import { DROPOUT_REASON_OPTIONS } from "@/lib/enrollments/dropout-reasons";
+import { getMonterreyDateString } from "@/lib/time";
 
 type EnrollmentDropoutFormProps = {
   enrollment: {
@@ -20,7 +21,7 @@ function formatMoney(amount: number) {
 }
 
 export function EnrollmentDropoutForm({ enrollment, action, returnTo }: EnrollmentDropoutFormProps) {
-  const defaultEndDate = enrollment.endDate ?? new Date().toISOString().split("T")[0];
+  const defaultEndDate = enrollment.endDate ?? getMonterreyDateString();
 
   return (
     <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

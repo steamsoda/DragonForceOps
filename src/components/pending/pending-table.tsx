@@ -9,6 +9,7 @@ import {
   updatePendingFollowUpAction,
 } from "@/server/actions/enrollments";
 import { DROPOUT_REASON_OPTIONS } from "@/lib/enrollments/dropout-reasons";
+import { getMonterreyDateString } from "@/lib/time";
 import type { PendingFollowUpStatus } from "@/lib/queries/enrollments";
 
 export type PendingRow = {
@@ -139,7 +140,7 @@ function InlineDropoutPanel({
   defaultNotes: string;
   onDropped: () => void;
 }) {
-  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(getMonterreyDateString());
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState(defaultNotes);
   const [error, setError] = useState<string | null>(null);
