@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireSuperAdminContext } from "@/lib/auth/permissions";
-import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { getHistoricalRegularizationWorkspaceLedger } from "@/lib/queries/billing";
 import { voidHistoricalRegularizationChargeAction } from "@/server/actions/billing";
 import { ContryRegularizationPlayerPicker } from "@/components/billing/contry-regularization-player-picker";
 import { ContryRegularizationAccountPanel } from "@/components/billing/contry-regularization-account-panel";
@@ -38,7 +38,9 @@ export default async function HistoricalRegularizationPage({ searchParams }: { s
   const context = await requireSuperAdminContext("/unauthorized");
   const params = await searchParams;
   const selectedEnrollmentId = sanitizeParam(params.enrollment);
-  const selectedLedger = selectedEnrollmentId ? await getEnrollmentLedger(selectedEnrollmentId) : null;
+  const selectedLedger = selectedEnrollmentId
+    ? await getHistoricalRegularizationWorkspaceLedger(selectedEnrollmentId, false)
+    : null;
 
   if (selectedEnrollmentId && !selectedLedger) {
     notFound();
@@ -125,6 +127,7 @@ export default async function HistoricalRegularizationPage({ searchParams }: { s
             ) : (
               <ContryRegularizationAccountPanel
                 initialLedger={selectedLedger}
+                initialHistoryLoaded={false}
                 voidChargeAction={voidHistoricalRegularizationChargeAction.bind(
                   null,
                   selectedLedger.enrollment.id,

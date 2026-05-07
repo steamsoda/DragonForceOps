@@ -6,7 +6,7 @@ import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
-import { getEnrollmentLedger } from "@/lib/queries/billing";
+import { getEnrollmentLedger, getHistoricalRegularizationWorkspaceLedger } from "@/lib/queries/billing";
 import { createClient } from "@/lib/supabase/server";
 import { formatPeriodMonthLabel, getAdvanceTuitionOptions, getAdvanceTuitionQuote } from "@/lib/pricing/plans";
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyMonthString, parseMonterreyDateTimeInput } from "@/lib/time";
@@ -433,11 +433,11 @@ export async function getHistoricalRegularizationChargeContextAction(
   };
 }
 
-export async function getHistoricalRegularizationLedgerAction(enrollmentId: string) {
+export async function getHistoricalRegularizationLedgerAction(enrollmentId: string, includeFullHistory = false) {
   const context = await getHistoricalRegularizationContext();
   if (!context) return null;
 
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const ledger = await getHistoricalRegularizationWorkspaceLedger(enrollmentId, includeFullHistory);
   if (!ledger) return null;
 
   return ledger;
@@ -518,7 +518,7 @@ export async function postHistoricalRegularizationPaymentAction(
   const context = await getHistoricalRegularizationContext();
   if (!context) return { ok: false, error: "unauthenticated" };
 
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const ledger = await getHistoricalRegularizationWorkspaceLedger(enrollmentId, false);
   if (!ledger) return { ok: false, error: "enrollment_not_found" };
 
   const result = await postEnrollmentPaymentInternal(enrollmentId, formData, {
@@ -576,8 +576,8 @@ export async function getContryRegularizationChargeContextAction(enrollmentId: s
   return getHistoricalRegularizationChargeContextAction(enrollmentId);
 }
 
-export async function getContryRegularizationLedgerAction(enrollmentId: string) {
-  return getHistoricalRegularizationLedgerAction(enrollmentId);
+export async function getContryRegularizationLedgerAction(enrollmentId: string, includeFullHistory = false) {
+  return getHistoricalRegularizationLedgerAction(enrollmentId, includeFullHistory);
 }
 
 export async function searchContryRegularizationPlayersAction(q: string) {

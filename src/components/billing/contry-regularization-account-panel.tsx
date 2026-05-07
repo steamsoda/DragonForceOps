@@ -142,12 +142,16 @@ function MethodToggleGroup({
 
 export function ContryRegularizationAccountPanel({
   initialLedger,
+  initialHistoryLoaded = true,
   voidChargeAction,
 }: {
   initialLedger: EnrollmentLedger;
+  initialHistoryLoaded?: boolean;
   voidChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
 }) {
   const [ledger, setLedger] = useState(initialLedger);
+  const [historyLoaded, setHistoryLoaded] = useState(initialHistoryLoaded);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [chargeContext, setChargeContext] = useState<HistoricalRegularizationChargeContext | null>(null);
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
@@ -196,7 +200,9 @@ export function ContryRegularizationAccountPanel({
     setChargeContext(null);
     setChargeContextLoading(false);
     setAddChargeMode("closed");
-  }, [initialLedger]);
+    setHistoryLoaded(initialHistoryLoaded);
+    setHistoryLoading(false);
+  }, [initialLedger, initialHistoryLoaded]);
 
   const pendingCharges = useMemo(
     () => ledger.charges.filter((charge) => charge.pendingAmount > 0 && charge.status !== "void"),
@@ -218,6 +224,8 @@ export function ContryRegularizationAccountPanel({
       ).length,
     [pendingCharges, selectedChargeIds],
   );
+
+  const visibleChargeRows = historyLoaded ? ledger.charges : pendingCharges;
 
   function setQuickAmount(value: number) {
     setPaymentAmount(value > 0 ? value.toFixed(2) : "");
@@ -306,18 +314,34 @@ export function ContryRegularizationAccountPanel({
 
   async function refreshWorkspace(options?: { refreshContext?: boolean }) {
     if (!options?.refreshContext) {
-      const nextLedger = await getHistoricalRegularizationLedgerAction(ledger.enrollment.id);
+      const nextLedger = await getHistoricalRegularizationLedgerAction(ledger.enrollment.id, historyLoaded);
       if (nextLedger) setLedger(nextLedger);
       return nextLedger;
     }
 
     const [nextLedger, nextContext] = await Promise.all([
-      getHistoricalRegularizationLedgerAction(ledger.enrollment.id),
+      getHistoricalRegularizationLedgerAction(ledger.enrollment.id, historyLoaded),
       getHistoricalRegularizationChargeContextAction(ledger.enrollment.id),
     ]);
     if (nextLedger) setLedger(nextLedger);
     applyChargeContext(nextContext);
     return nextLedger;
+  }
+
+  async function loadFullHistory() {
+    if (historyLoaded || historyLoading) return;
+
+    setHistoryLoading(true);
+    setErrorMessage(null);
+    try {
+      const nextLedger = await getHistoricalRegularizationLedgerAction(ledger.enrollment.id, true);
+      if (nextLedger) {
+        setLedger(nextLedger);
+        setHistoryLoaded(true);
+      }
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   function submitHistoricalPayment() {
@@ -1047,17 +1071,38 @@ export function ContryRegularizationAccountPanel({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos pendientes e históricos</h3>
-        <ChargesLedgerTable rows={ledger.charges} voidChargeAction={voidChargeAction} />
+        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          {historyLoaded ? "Cargos pendientes e historicos" : "Cargos pendientes"}
+        </h3>
+        {!historyLoaded ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <span>Vista rapida: solo cargos pendientes. El historial completo queda bajo demanda.</span>
+            <button
+              type="button"
+              disabled={historyLoading || isPending}
+              onClick={loadFullHistory}
+              className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {historyLoading ? "Cargando historial..." : "Cargar historial completo"}
+            </button>
+          </div>
+        ) : null}
+        <ChargesLedgerTable rows={visibleChargeRows} voidChargeAction={voidChargeAction} />
       </section>
 
       <section className="space-y-2">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Pagos registrados</h3>
-        <PaymentsTable
-          enrollmentId={ledger.enrollment.id}
-          rows={ledger.payments}
-          returnTo={`/admin/regularizacion-historica?campus=${ledger.enrollment.campusId}&enrollment=${ledger.enrollment.id}`}
-        />
+        {historyLoaded ? (
+          <PaymentsTable
+            enrollmentId={ledger.enrollment.id}
+            rows={ledger.payments}
+            returnTo={`/admin/regularizacion-historica?campus=${ledger.enrollment.campusId}&enrollment=${ledger.enrollment.id}`}
+          />
+        ) : (
+          <div className="rounded-md border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Carga el historial completo solo cuando necesites revisar pagos, reembolsos o cambios de concepto anteriores.
+          </div>
+        )}
       </section>
     </section>
   );
