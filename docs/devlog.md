@@ -10,6 +10,7 @@
   - inline `Llamadas` baja panel
   - server-side fallback when an enrollment edit changes status to `Baja` / `Cancelado` with an empty date
 - This prevents staff from seeing tomorrow's UTC date during late-day academy operations.
+- Merged to production and synced the roadmap release state to `v1.16.131`.
 
 ### Roadmap Reorganization
 
