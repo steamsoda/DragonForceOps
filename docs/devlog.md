@@ -2,6 +2,14 @@
 
 ## 2026-05-05 (session 162)
 
+### Roadmap Reorganization
+
+- Preserved the full pre-reorg roadmap snapshot at `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`.
+- Rebuilt `docs/roadmap-post-alpha.md` as an active planning document:
+  - short `Now` / `Next` sections
+  - separate safety, performance, product-area, and later-phase lanes
+  - a compact recently-shipped checklist that points back to this devlog for full detail
+
 ### Jugadores Grouped Roster Export Sheet Split (v1.16.130)
 
 - Changed the grouped roster Excel export to create one worksheet per birth year/category.
