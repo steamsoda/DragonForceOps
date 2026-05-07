@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-05-06 (session 163)
+
+### Regularizacion Historica Pending Ledger Trim (v1.16.132)
+
+- Changed `/admin/regularizacion-historica` selected-account opening to load a pending-focused ledger first:
+  - enrollment header
+  - balance totals
+  - pending charges with allocations
+- Kept full payment/refund/reassign history available through an explicit `Cargar historial completo` action instead of loading it every time an account opens.
+- Reused the pending-focused ledger for historical payment validation so submit avoids a full account-history read before posting.
+- Added `[perf] regularizacion.workspace_ledger` logging with row counts and full-history mode so preview/prod logs can separate the fast workspace load from the optional full-history load.
+- Preview validation looked good, then the release was merged to production and the roadmap production line was synced to `v1.16.132`.
+
 ## 2026-05-05 (session 162)
 
 ### Bajas Date Default Timezone Fix (v1.16.131)
@@ -10,6 +23,7 @@
   - inline `Llamadas` baja panel
   - server-side fallback when an enrollment edit changes status to `Baja` / `Cancelado` with an empty date
 - This prevents staff from seeing tomorrow's UTC date during late-day academy operations.
+- Merged to production and synced the roadmap release state to `v1.16.131`.
 
 ### Roadmap Reorganization
 

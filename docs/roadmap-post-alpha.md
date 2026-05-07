@@ -36,8 +36,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.130`
-- Current preview line: `v1.16.131`
+- Current production line: `v1.16.132`
+- Current preview line: `v1.16.132`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -49,7 +49,7 @@ These are the highest-value items to consider next. Keep this list short.
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | 🟢 | Role-regression checklist validation | Manual direct-URL checklist now exists; next step is running it before the next permission-sensitive production merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
-| 🔴 | Regularización Histórica performance pass | Functional, but selected-account ledger/workspace can still feel slow on production-sized data. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128` devlog |
+| ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
 | 🔴 | Product KPI charged-vs-paid clarity | Prevent staff from reading raw charges as paid/confirmed players. | Product KPI item below |
 
@@ -83,7 +83,7 @@ Important, but not necessarily the next edit.
 | Status | Surface | Current state / next action |
 |---|---|---|
 | ✅ | `Jugadores > Vista por grupos` | RPC + client/API split + service-role server path brought production grouped roster down to usable latency. Export is now available. |
-| 🔴 | `/admin/regularizacion-historica` | Next performance target. Profile selected-account ledger/workspace, then consider a narrower query/RPC if needed. |
+| ✅ | `/admin/regularizacion-historica` | `v1.16.132` trims selected-account opening to enrollment/balance/pending charges first; full payment/refund history is available on demand. |
 | 🟡 | Attendance submit | Multiple passes reduced submit overhead and revalidation. Monitor large real rosters after field use. |
 | 🟡 | Front Desk hot paths | Timing instrumentation exists for payment posting, intake, receipt prep/print, and attendance saves. Use logs when operators report lag. |
 | 🔴 | Dashboard / Panel drilldowns | Add only after canonical finance-source checks so dashboards do not introduce drift. |
@@ -118,7 +118,7 @@ Important, but not necessarily the next edit.
 |---|---|---|
 | ✅ | Superadmin-only historical workspace | Replaced old staff-facing Contry flow; both campuses; historical payments, tuition, exceptional charges, and pending-charge voids. |
 | ✅ | Past monthly tuition options | Prior-two-month tuition creation added in `v1.16.128`. |
-| 🔴 | Performance pass | Next likely implementation target after role-regression automation. |
+| ✅ | Performance pass | Pending-focused ledger load shipped in `v1.16.132`; full history remains available on demand. |
 | 🔴 | Competition-charge guardrails | Prevent incomplete competition charge/payment workflows. |
 
 ### Asistencia

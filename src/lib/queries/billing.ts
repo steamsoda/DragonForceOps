@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { createPerfTimer } from "@/lib/perf/timing";
 
 type EnrollmentRow = {
   id: string;
@@ -193,12 +194,36 @@ function getIncidentStatus(
   return "record_only";
 }
 
-export async function getEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
+type EnrollmentLedgerOptions = {
+  chargeScope?: "all" | "pending";
+  includePayments?: boolean;
+  includeIncidents?: boolean;
+  includeRefunds?: boolean;
+};
+
+export async function getEnrollmentLedger(
+  enrollmentId: string,
+  options: EnrollmentLedgerOptions = {},
+): Promise<EnrollmentLedger | null> {
   const supabase = await createClient();
   const permissionContext = await getPermissionContext();
   if (!permissionContext?.hasOperationalAccess) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
+
+  const chargeScope = options.chargeScope ?? "all";
+  const includePayments = options.includePayments ?? true;
+  const includeIncidents = options.includeIncidents ?? true;
+  const includeRefunds = options.includeRefunds ?? includePayments;
+
+  let chargeQuery = supabase
+    .from("charges")
+    .select("id, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
+    .eq("enrollment_id", enrollmentId);
+
+  if (chargeScope === "pending") {
+    chargeQuery = chargeQuery.eq("status", "pending");
+  }
 
   const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }, { data: incidents }] = await Promise.all([
     supabase
@@ -213,24 +238,25 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       .eq("enrollment_id", enrollmentId)
       .maybeSingle()
       .returns<BalanceRow | null>(),
-    supabase
-      .from("charges")
-      .select("id, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
-      .eq("enrollment_id", enrollmentId)
+    chargeQuery
       .order("created_at", { ascending: false })
       .returns<ChargeRow[]>(),
-    supabase
-      .from("payments")
-      .select("id, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
-      .eq("enrollment_id", enrollmentId)
-      .order("paid_at", { ascending: false })
-      .returns<PaymentRow[]>(),
-    supabase
-      .from("enrollment_incidents")
-      .select("id, incident_type, note, omit_period_month, starts_on, ends_on, created_at, cancelled_at, consumed_at")
-      .eq("enrollment_id", enrollmentId)
-      .order("created_at", { ascending: false })
-      .returns<EnrollmentIncidentRow[]>()
+    includePayments
+      ? supabase
+          .from("payments")
+          .select("id, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
+          .eq("enrollment_id", enrollmentId)
+          .order("paid_at", { ascending: false })
+          .returns<PaymentRow[]>()
+      : Promise.resolve({ data: [] as PaymentRow[] }),
+    includeIncidents
+      ? supabase
+          .from("enrollment_incidents")
+          .select("id, incident_type, note, omit_period_month, starts_on, ends_on, created_at, cancelled_at, consumed_at")
+          .eq("enrollment_id", enrollmentId)
+          .order("created_at", { ascending: false })
+          .returns<EnrollmentIncidentRow[]>()
+      : Promise.resolve({ data: [] as EnrollmentIncidentRow[] })
   ]);
 
   if (!enrollment) return null;
@@ -262,7 +288,7 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
     allocations = allocationRows ?? [];
   }
 
-  const { data: refundRows } = paymentIds.length
+  const { data: refundRows } = includeRefunds && paymentIds.length
     ? await supabase
         .from("payment_refunds")
         .select("payment_id, refunded_at, refund_method, reason, notes, amount")
@@ -421,6 +447,28 @@ export async function getEnrollmentLedger(enrollmentId: string): Promise<Enrollm
       consumedAt: row.consumed_at,
     })),
   };
+}
+
+export async function getHistoricalRegularizationWorkspaceLedger(
+  enrollmentId: string,
+  includeFullHistory = false,
+): Promise<EnrollmentLedger | null> {
+  const timer = createPerfTimer("regularizacion.workspace_ledger");
+  const ledger = await getEnrollmentLedger(enrollmentId, {
+    chargeScope: includeFullHistory ? "all" : "pending",
+    includePayments: includeFullHistory,
+    includeIncidents: false,
+    includeRefunds: includeFullHistory,
+  });
+
+  timer.end({
+    enrollmentId,
+    includeFullHistory,
+    chargeCount: ledger?.charges.length ?? 0,
+    paymentCount: ledger?.payments.length ?? 0,
+  });
+
+  return ledger;
 }
 
 export async function getEnrollmentChargeFormContext(enrollmentId: string) {
