@@ -48,7 +48,7 @@ These are the highest-value items to consider next. Keep this list short.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🔴 | Automated role-regression checklist | We need confidence that staff cannot reach finance/sensitive routes by direct URL, not just by hidden navigation. | `docs/role-permissions-audit.md`, `v1.16.57`, `v1.16.105`, `v1.16.107` devlog |
+| 🟢 | Role-regression checklist validation | Manual direct-URL checklist now exists; next step is running it before the next permission-sensitive production merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
 | 🔴 | Regularización Histórica performance pass | Functional, but selected-account ledger/workspace can still feel slow on production-sized data. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
 | 🔴 | Product KPI charged-vs-paid clarity | Prevent staff from reading raw charges as paid/confirmed players. | Product KPI item below |
@@ -71,7 +71,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Current decision |
 |---|---|---|
-| 🟡 | Role permissions audit and stabilization | Keep active. Manual checks passed recently, but add lightweight automated direct-route regression coverage. |
+| 🟡 | Role permissions audit and stabilization | Keep active. Manual direct-route checklist exists; later follow-up can automate the highest-risk route assertions. |
 | ✅ | Finance direct-URL hardening | Caja, receipts, reports, enrollment ledgers, charge/reassign/refund pages, and finance helpers fail closed unless the user has the right operational access. See devlog around `v1.16.107`. |
 | ✅ | Supabase advisor cleanup pass | Advisor-backed function/RLS/search-path/index cleanup shipped in `v1.16.104`-`v1.16.105`; rerun advisor before large DB/security releases. |
 | 🔴 | Finance drift monitoring | First targets: canonical-vs-derived drift, posted payments without allocations, duplicate tuition rows, overapplied charges, refund/void/reassignment anomalies. |
@@ -196,6 +196,7 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 
 - Detailed chronological implementation history: `docs/devlog.md`
 - Role permission audit: `docs/role-permissions-audit.md`
+- Role regression checklist: `docs/role-regression-checklist.md`
 - Production access runbook: `docs/production-access-runbook.md`
 - Attendance/training groups planning: `docs/planning/attendance-training-groups-roadmap.md`
 - Attendance calendar/closures planning: `docs/planning/attendance-calendar-closures-plan.md`

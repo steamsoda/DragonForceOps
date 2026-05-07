@@ -10,6 +10,12 @@
   - separate safety, performance, product-area, and later-phase lanes
   - a compact recently-shipped checklist that points back to this devlog for full detail
 
+### Role Regression Checklist
+
+- Added `docs/role-regression-checklist.md` as the practical pre-merge checklist for role-sensitive releases.
+- The checklist focuses on direct URL access, not only navigation visibility, for superadmin, director admin, front desk, Director Deportivo, nutritionist, and attendance admin roles.
+- Marked the roadmap role-regression item as ready for validation; future follow-up can automate the highest-risk route assertions after the manual matrix is stable.
+
 ### Jugadores Grouped Roster Export Sheet Split (v1.16.130)
 
 - Changed the grouped roster Excel export to create one worksheet per birth year/category.
