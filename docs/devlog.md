@@ -2,6 +2,14 @@
 
 ## 2026-05-08 (session 164)
 
+### Datos Faltantes Contact Cleanup (v1.16.134)
+
+- Added a new `Datos faltantes` Front Desk/director menu for completing missing tutor contact data without showing finance fields.
+- Added a campus-scoped operational queue with filters for incomplete contacts, missing primary phone, missing secondary phone, missing email, missing tutor, and all active players.
+- The page updates existing linked guardian records directly and can create a primary guardian when an active player has no tutor linked.
+- Kept the first pass schema-light by reusing existing `guardians` and `player_guardians` fields instead of adding contact-verification metadata yet.
+- Added audit entries for contact cleanup guardian updates/creates and revalidation for the cleanup queue and player detail page.
+
 ### Roadmap Reprioritization: Bajas Confirmation Workflow
 
 - Moved the planned Bajas confirmation workflow out of the near-term `Next` list.
