@@ -12,6 +12,8 @@ export type ContactCleanupStatus =
   | "missing_guardian"
   | "all";
 
+export type ContactCleanupGender = "male" | "female" | "";
+
 export type ContactCleanupGuardian = {
   id: string;
   firstName: string;
@@ -47,6 +49,9 @@ export type ContactCleanupRow = {
 export type ContactCleanupData = {
   campuses: AccessibleCampus[];
   selectedCampusId: string;
+  selectedBirthYear: number | null;
+  selectedGender: ContactCleanupGender;
+  birthYears: number[];
   q: string;
   status: ContactCleanupStatus;
   rows: ContactCleanupRow[];
@@ -62,6 +67,7 @@ type EnrollmentContactRow = {
     first_name: string | null;
     last_name: string | null;
     birth_date: string | null;
+    gender: string | null;
     status: string | null;
   } | null;
   campuses: {
@@ -94,6 +100,12 @@ type TrainingGroupAssignmentRow = {
     group_code: string | null;
     birth_year_min: number | null;
     birth_year_max: number | null;
+  } | null;
+};
+
+type BirthYearRow = {
+  players: {
+    birth_date: string | null;
   } | null;
 };
 
@@ -138,6 +150,12 @@ function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const year = Number.parseInt(value.slice(0, 4), 10);
   return Number.isFinite(year) ? year : null;
+}
+
+function parseBirthYear(value: string | undefined) {
+  if (!value) return null;
+  const year = Number.parseInt(value, 10);
+  return Number.isFinite(year) && year > 1900 && year < 2100 ? year : null;
 }
 
 function groupSubtitle(group: TrainingGroupAssignmentRow["training_groups"]) {
@@ -205,8 +223,14 @@ function normalizeStatus(value: string | undefined): ContactCleanupStatus {
   return "incomplete";
 }
 
+function normalizeGender(value: string | undefined): ContactCleanupGender {
+  return value === "male" || value === "female" ? value : "";
+}
+
 export async function getContactCleanupData(filters: {
   campusId?: string;
+  birthYear?: string;
+  gender?: string;
   status?: string;
   q?: string;
 }): Promise<ContactCleanupData> {
@@ -216,6 +240,9 @@ export async function getContactCleanupData(filters: {
     return {
       campuses: [],
       selectedCampusId: "",
+      selectedBirthYear: null,
+      selectedGender: normalizeGender(filters.gender),
+      birthYears: [],
       q: filters.q ?? "",
       status: normalizeStatus(filters.status),
       rows: [],
@@ -235,20 +262,52 @@ export async function getContactCleanupData(filters: {
       ? filters.campusId
       : campusAccess.defaultCampusId ?? "";
   const campusIds = selectedCampusId ? [selectedCampusId] : campusAccess.campusIds;
+  const selectedBirthYear = parseBirthYear(filters.birthYear);
+  const selectedGender = normalizeGender(filters.gender);
   const status = normalizeStatus(filters.status);
   const q = filters.q ?? "";
 
-  const enrollmentRows = await fetchAll<EnrollmentContactRow>(
-    (from, to) =>
-      supabase
+  const birthYearRows = await fetchAll<BirthYearRow>(
+    (from, to) => {
+      let query = supabase
         .from("enrollments")
-        .select("id, campus_id, players!inner(id, public_player_id, first_name, last_name, birth_date, status), campuses(id, name, code)")
+        .select("players!inner(birth_date, status, gender)")
         .eq("status", "active")
         .eq("players.status", "active")
-        .in("campus_id", campusIds)
-        .order("campus_id")
-        .range(from, to)
-        .returns<EnrollmentContactRow[]>(),
+        .in("campus_id", campusIds);
+
+      if (selectedGender) query = query.eq("players.gender", selectedGender);
+
+      return query.range(from, to).returns<BirthYearRow[]>();
+    },
+    "contact cleanup birth years",
+  );
+  const birthYears = [
+    ...new Set(
+      birthYearRows
+        .map((row) => getBirthYear(row.players?.birth_date))
+        .filter((year): year is number => year !== null),
+    ),
+  ].sort((a, b) => b - a);
+
+  const enrollmentRows = await fetchAll<EnrollmentContactRow>(
+    (from, to) => {
+      let query = supabase
+        .from("enrollments")
+        .select("id, campus_id, players!inner(id, public_player_id, first_name, last_name, birth_date, gender, status), campuses(id, name, code)")
+        .eq("status", "active")
+        .eq("players.status", "active")
+        .in("campus_id", campusIds);
+
+      if (selectedGender) query = query.eq("players.gender", selectedGender);
+      if (selectedBirthYear) {
+        query = query
+          .gte("players.birth_date", `${selectedBirthYear}-01-01`)
+          .lt("players.birth_date", `${selectedBirthYear + 1}-01-01`);
+      }
+
+      return query.order("campus_id").range(from, to).returns<EnrollmentContactRow[]>();
+    },
     "contact cleanup enrollments",
   );
 
@@ -354,6 +413,9 @@ export async function getContactCleanupData(filters: {
   return {
     campuses: campusAccess.campuses,
     selectedCampusId,
+    selectedBirthYear,
+    selectedGender,
+    birthYears,
     q,
     status,
     rows,

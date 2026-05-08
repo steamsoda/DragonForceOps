@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.132`
-- Current preview line: `v1.16.134`
+- Current preview line: `v1.16.135`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -52,7 +52,7 @@ These are the highest-value items to consider next. Keep this list short.
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
 | 🟢 | Product KPI charged-vs-paid clarity | Preview `v1.16.133` separates emitted charges, confirmed collected amount, pending balance, and paid players. Validate product detail pages. | Product KPI item below, `v1.16.133` devlog |
-| 🟢 | Front Desk contact cleanup queue | Preview `v1.16.134` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134` devlog |
+| 🟢 | Front Desk contact cleanup queue | Preview `v1.16.135` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.135` devlog |
 
 ## Next
 
@@ -95,7 +95,7 @@ Important, but not necessarily the next edit.
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
-| 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134` adds a fast operational queue for missing tutor phones/contact fields, scoped by campus and using existing guardian records. |
+| 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.135` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, and phone-only tutor capture. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | V1 works; future scope includes partial refunds, stronger finance guardrails, and performance polish. |

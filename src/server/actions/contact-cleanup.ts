@@ -33,7 +33,7 @@ export async function saveContactCleanupGuardianAction(formData: FormData): Prom
   const relationshipLabel = nullableText(formData, "relationshipLabel");
 
   if (!playerId) redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=missing_player`);
-  if (!guardianId && !firstName && !lastName && !phonePrimary && !email) {
+  if (!firstName && !lastName && !phonePrimary && !phoneSecondary && !email && !relationshipLabel) {
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=empty_contact`);
   }
 

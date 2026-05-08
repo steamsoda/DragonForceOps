@@ -11,6 +11,8 @@ import { PageShell } from "@/components/ui/page-shell";
 
 type SearchParams = Promise<{
   campus?: string;
+  year?: string;
+  gender?: string;
   q?: string;
   status?: string;
   ok?: string;
@@ -51,6 +53,12 @@ function statusTone(status: ContactCleanupStatus) {
   return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
 }
 
+function chipClass(active: boolean) {
+  return active
+    ? "border-portoBlue bg-blue-50 text-portoBlue dark:border-blue-500 dark:bg-blue-950/30 dark:text-blue-200"
+    : "border-slate-200 bg-slate-50 text-slate-700 hover:border-portoBlue dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
 function MissingBadge({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
   return (
     <span
@@ -84,12 +92,12 @@ function ContactForm({
       <input type="hidden" name="guardianId" value={guardian?.id ?? ""} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Nombre
-        <input name="firstName" defaultValue={guardian?.firstName ?? ""} className={inputClass()} />
+        Nombre opcional
+        <input name="firstName" defaultValue={guardian?.firstName ?? ""} placeholder="Si lo tienen" className={inputClass()} />
       </label>
       <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Apellido
-        <input name="lastName" defaultValue={guardian?.lastName ?? ""} className={inputClass()} />
+        Apellido opcional
+        <input name="lastName" defaultValue={guardian?.lastName ?? ""} placeholder="Si lo tienen" className={inputClass()} />
       </label>
       <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Telefono principal
@@ -180,11 +188,15 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
   const params = await searchParams;
   const data = await getContactCleanupData({
     campusId: params.campus,
+    birthYear: params.year,
+    gender: params.gender,
     q: params.q,
     status: params.status,
   });
   const returnTo = withParams("/datos-faltantes", {
     campus: data.selectedCampusId,
+    year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+    gender: data.selectedGender || undefined,
     q: data.q,
     status: data.status,
   });
@@ -208,17 +220,92 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
           </div>
         ) : null}
 
-        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[220px_220px_minmax(220px,1fr)_auto] md:items-end">
-          <label className="grid gap-1 text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-200">Campus</span>
-            <select name="campus" defaultValue={data.selectedCampusId} className={inputClass()}>
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Campus</p>
+            <div className="grid gap-2 sm:grid-cols-2">
               {data.campuses.map((campus) => (
-                <option key={campus.id} value={campus.id}>
+                <Link
+                  key={campus.id}
+                  href={withParams("/datos-faltantes", {
+                    campus: campus.id,
+                    year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                    gender: data.selectedGender || undefined,
+                    q: data.q,
+                    status: data.status,
+                  })}
+                  className={`rounded-md border px-4 py-3 text-sm font-semibold ${chipClass(campus.id === data.selectedCampusId)}`}
+                >
                   {campus.name}
-                </option>
+                </Link>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1fr_220px]">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Categoria</p>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={withParams("/datos-faltantes", {
+                    campus: data.selectedCampusId,
+                    gender: data.selectedGender || undefined,
+                    q: data.q,
+                    status: data.status,
+                  })}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${chipClass(data.selectedBirthYear === null)}`}
+                >
+                  Todas
+                </Link>
+                {data.birthYears.map((year) => (
+                  <Link
+                    key={year}
+                    href={withParams("/datos-faltantes", {
+                      campus: data.selectedCampusId,
+                      year: String(year),
+                      gender: data.selectedGender || undefined,
+                      q: data.q,
+                      status: data.status,
+                    })}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${chipClass(data.selectedBirthYear === year)}`}
+                  >
+                    {year}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Genero</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "", label: "Todos" },
+                  { value: "male", label: "Varonil" },
+                  { value: "female", label: "Femenil" },
+                ].map((option) => (
+                  <Link
+                    key={option.label}
+                    href={withParams("/datos-faltantes", {
+                      campus: data.selectedCampusId,
+                      year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                      gender: option.value || undefined,
+                      q: data.q,
+                      status: data.status,
+                    })}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${chipClass(data.selectedGender === option.value)}`}
+                  >
+                    {option.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[220px_minmax(220px,1fr)_auto] md:items-end">
+          <input type="hidden" name="campus" value={data.selectedCampusId} />
+          {data.selectedBirthYear ? <input type="hidden" name="year" value={data.selectedBirthYear} /> : null}
+          {data.selectedGender ? <input type="hidden" name="gender" value={data.selectedGender} /> : null}
           <label className="grid gap-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">Cola</span>
             <select name="status" defaultValue={data.status} className={inputClass()}>
@@ -237,7 +324,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
             <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
               Aplicar
             </button>
-            <Link href={withParams("/datos-faltantes", { campus: data.selectedCampusId })} className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+            <Link href={withParams("/datos-faltantes", { campus: data.selectedCampusId, year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined, gender: data.selectedGender || undefined })} className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
               Limpiar
             </Link>
           </div>
@@ -249,6 +336,8 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
               key={status}
               href={withParams("/datos-faltantes", {
                 campus: data.selectedCampusId,
+                year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                gender: data.selectedGender || undefined,
                 q: data.q,
                 status,
               })}

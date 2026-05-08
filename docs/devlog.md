@@ -10,6 +10,13 @@
 - Kept the first pass schema-light by reusing existing `guardians` and `player_guardians` fields instead of adding contact-verification metadata yet.
 - Added audit entries for contact cleanup guardian updates/creates and revalidation for the cleanup queue and player detail page.
 
+### Datos Faltantes Filter Polish (v1.16.135)
+
+- Replaced the campus dropdown in `Datos faltantes` with Linda Vista / Contry-style campus toggle buttons.
+- Added category/YOB and gender chips so Front Desk can narrow the queue before fetching the visible roster slice.
+- Made phone-only tutor capture explicit in the inline form; tutor name remains optional when staff only has a reliable phone number.
+- Tightened the save action so a completely blank tutor/contact cannot be saved by accident.
+
 ### Roadmap Reprioritization: Bajas Confirmation Workflow
 
 - Moved the planned Bajas confirmation workflow out of the near-term `Next` list.
