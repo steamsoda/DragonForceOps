@@ -2,6 +2,14 @@
 
 ## 2026-05-08 (session 164)
 
+### Roadmap Reprioritization: Bajas Confirmation Workflow
+
+- Moved the planned Bajas confirmation workflow out of the near-term `Next` list.
+- Kept it parked in the Jugadores lane as lower-priority work:
+  - Front Desk / Director Deportivo can eventually mark `Baja potencial`.
+  - Director/admin confirmation would eventually finalize the baja.
+- Reason: Front Desk and admin have more urgent workflow changes to handle first.
+
 ### Product KPI Charged-vs-Paid Clarity (v1.16.133)
 
 - Updated product detail KPIs and drilldowns to use explicit `emitido`, `cobrado confirmado`, and `saldo pendiente` language instead of ambiguous sales/revenue wording.
