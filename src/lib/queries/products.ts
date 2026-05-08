@@ -27,6 +27,8 @@ export type ProductGroup = {
 export type ProductKpis = {
   unitsSold: number;
   totalRevenue: number;
+  collectedRevenue: number;
+  pendingRevenue: number;
   unitsThisMonth: number;
   revenueThisMonth: number;
   currency: string;
@@ -190,6 +192,58 @@ function buildPageMeta(totalCount: number, page: number, pageSize = PRODUCT_PAGE
   };
 }
 
+async function loadConfirmedAllocationTotals(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  chargeIds: string[],
+) {
+  const allocationTotals = new Map<string, number>();
+  if (chargeIds.length === 0) return allocationTotals;
+
+  type AllocationRow = {
+    charge_id: string;
+    payment_id: string;
+    amount: number;
+    payments: { status: string | null } | null;
+  };
+
+  const postedAllocations: AllocationRow[] = [];
+  for (let index = 0; index < chargeIds.length; index += 500) {
+    const chunk = chargeIds.slice(index, index + 500);
+    const { data: allocations } = await supabase
+      .from("payment_allocations")
+      .select("charge_id, payment_id, amount, payments!inner(status)")
+      .in("charge_id", chunk)
+      .returns<AllocationRow[]>();
+
+    postedAllocations.push(...((allocations ?? []).filter((row) => row.payments?.status === "posted")));
+  }
+
+  const paymentIds = Array.from(new Set(postedAllocations.map((row) => row.payment_id).filter(Boolean)));
+  const refundedPaymentIds = new Set<string>();
+  for (let index = 0; index < paymentIds.length; index += 500) {
+    const chunk = paymentIds.slice(index, index + 500);
+    const { data: refunds } = await supabase
+      .from("payment_refunds")
+      .select("payment_id")
+      .in("payment_id", chunk)
+      .returns<Array<{ payment_id: string }>>();
+
+    for (const refund of refunds ?? []) {
+      refundedPaymentIds.add(refund.payment_id);
+    }
+  }
+
+  for (const allocation of postedAllocations) {
+    if (refundedPaymentIds.has(allocation.payment_id)) continue;
+    allocationTotals.set(
+      allocation.charge_id,
+      roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
+    );
+  }
+
+  return allocationTotals;
+}
+
 function paginateRows<T>(rows: T[], page: number, pageSize = PRODUCT_PAGE_SIZE) {
   const safePage = normalizePage(page);
   const offset = (safePage - 1) * pageSize;
@@ -208,17 +262,17 @@ function paginateRows<T>(rows: T[], page: number, pageSize = PRODUCT_PAGE_SIZE) 
 function getProductMetricLabel(metric: ProductMetricKey) {
   switch (metric) {
     case "charges_registered":
-      return "Cargos registrados";
+      return "Cargos emitidos";
     case "charges_this_month":
-      return "Cargos este mes";
+      return "Cargos emitidos este mes";
     case "players_with_charge":
-      return "Jugadores con cargo";
+      return "Jugadores con cargo emitido";
     case "players_fully_paid":
-      return "Jugadores totalmente pagados";
+      return "Jugadores pagados al 100%";
     case "charges_unpaid":
-      return "Cargos sin pagar";
+      return "Cargos con saldo pendiente";
     case "reconciliation_gap":
-      return "Brecha vs pagados";
+      return "Diferencia emitidos vs pagados";
   }
 }
 
@@ -395,23 +449,39 @@ export async function getProductTrainingGroupOptions(): Promise<ProductTrainingG
 export async function getProductKpis(productId: string, currency: string): Promise<ProductKpis> {
   const permissionContext = await getPermissionContext();
   if (!permissionContext?.isDirector) {
-    return { unitsSold: 0, totalRevenue: 0, unitsThisMonth: 0, revenueThisMonth: 0, currency };
+    return {
+      unitsSold: 0,
+      totalRevenue: 0,
+      collectedRevenue: 0,
+      pendingRevenue: 0,
+      unitsThisMonth: 0,
+      revenueThisMonth: 0,
+      currency,
+    };
   }
   const supabase = await createClient();
 
   const monthStart = getCurrentMonthStartIso();
 
-  type ChargeRow = { amount: number; created_at: string };
+  type ChargeRow = { id: string; amount: number; created_at: string };
 
   const { data } = await supabase
     .from("charges")
-    .select("amount, created_at")
+    .select("id, amount, created_at")
     .eq("product_id", productId)
     .neq("status", "void")
     .returns<ChargeRow[]>();
 
   if (!data || data.length === 0) {
-    return { unitsSold: 0, totalRevenue: 0, unitsThisMonth: 0, revenueThisMonth: 0, currency };
+    return {
+      unitsSold: 0,
+      totalRevenue: 0,
+      collectedRevenue: 0,
+      pendingRevenue: 0,
+      unitsThisMonth: 0,
+      revenueThisMonth: 0,
+      currency,
+    };
   }
 
   let unitsSold = 0, totalRevenue = 0, unitsThisMonth = 0, revenueThisMonth = 0;
@@ -425,9 +495,17 @@ export async function getProductKpis(productId: string, currency: string): Promi
     }
   }
 
+  const allocationTotals = await loadConfirmedAllocationTotals(supabase, data.map((row) => row.id));
+  const collectedRevenue = roundMoney(
+    data.reduce((sum, row) => sum + Math.min(allocationTotals.get(row.id) ?? 0, row.amount), 0),
+  );
+  const roundedTotalRevenue = Math.round(totalRevenue * 100) / 100;
+
   return {
     unitsSold,
-    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    totalRevenue: roundedTotalRevenue,
+    collectedRevenue,
+    pendingRevenue: Math.max(roundMoney(roundedTotalRevenue - collectedRevenue), 0),
     unitsThisMonth,
     revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
     currency
@@ -570,11 +648,6 @@ export async function getProductReconciliation(productId: string): Promise<Produ
     } | null;
   };
 
-  type AllocationRow = {
-    charge_id: string;
-    amount: number;
-  };
-
   const { data: charges } = await supabase
     .from("charges")
     .select("id, enrollment_id, description, amount, created_at, enrollments(id, campuses(name), players(first_name, last_name, birth_date))")
@@ -599,22 +672,7 @@ export async function getProductReconciliation(productId: string): Promise<Produ
   }
 
   const chargeIds = chargeRows.map((charge) => charge.id);
-  const allocationTotals = new Map<string, number>();
-  for (let index = 0; index < chargeIds.length; index += 500) {
-    const chunk = chargeIds.slice(index, index + 500);
-    const { data: allocations } = await supabase
-      .from("payment_allocations")
-      .select("charge_id, amount")
-      .in("charge_id", chunk)
-      .returns<AllocationRow[]>();
-
-    for (const allocation of allocations ?? []) {
-      allocationTotals.set(
-        allocation.charge_id,
-        roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
-      );
-    }
-  }
+  const allocationTotals = await loadConfirmedAllocationTotals(supabase, chargeIds);
 
   const uniqueEnrollmentsWithCharge = new Set<string>();
   const fullyPaidEnrollmentIds = new Set<string>();
@@ -793,25 +851,10 @@ async function getProductPlayerRowsForMetric(
     .returns<ChargeRow[]>();
 
   const positiveCharges = (charges ?? []).filter((charge) => charge.amount > 0);
-  const allocationTotals = new Map<string, number>();
-
-  if (filter === "fully_paid" && positiveCharges.length > 0) {
-    for (let index = 0; index < positiveCharges.length; index += 500) {
-      const chargeIds = positiveCharges.slice(index, index + 500).map((charge) => charge.id);
-      const { data: allocations } = await supabase
-        .from("payment_allocations")
-        .select("charge_id, amount")
-        .in("charge_id", chargeIds)
-        .returns<Array<{ charge_id: string; amount: number }>>();
-
-      for (const allocation of allocations ?? []) {
-        allocationTotals.set(
-          allocation.charge_id,
-          roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
-        );
-      }
-    }
-  }
+  const allocationTotals =
+    filter === "fully_paid"
+      ? await loadConfirmedAllocationTotals(supabase, positiveCharges.map((charge) => charge.id))
+      : new Map<string, number>();
 
   const enrollmentMap = new Map<string, ProductMetricPlayerRow>();
   for (const charge of charges ?? []) {

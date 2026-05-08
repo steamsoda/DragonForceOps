@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.132`
-- Current preview line: `v1.16.132`
+- Current preview line: `v1.16.133`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -51,7 +51,7 @@ These are the highest-value items to consider next. Keep this list short.
 | 🟢 | Role-regression checklist validation | Manual direct-URL checklist now exists; next step is running it before the next permission-sensitive production merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
-| 🔴 | Product KPI charged-vs-paid clarity | Prevent staff from reading raw charges as paid/confirmed players. | Product KPI item below |
+| 🟢 | Product KPI charged-vs-paid clarity | Preview `v1.16.133` separates emitted charges, confirmed collected amount, pending balance, and paid players. Validate product detail pages. | Product KPI item below, `v1.16.133` devlog |
 
 ## Next
 
@@ -59,7 +59,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🔴 | Product/admin KPI language cleanup | Clarify `vendido`, `pagado`, charged vs paid, and reconciliation states across product/admin surfaces. |
+| 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Bajas confirmation workflow | Add a director/admin confirmation step so Front Desk or Director Deportivo can mark `Baja potencial` without immediately finalizing the player dropout. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
 | 🔴 | Finance drift monitoring | Build on `/admin/finance-sanity` and account diagnostics to surface suspicious account states proactively. |

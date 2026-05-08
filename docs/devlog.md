@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-05-08 (session 164)
+
+### Product KPI Charged-vs-Paid Clarity (v1.16.133)
+
+- Updated product detail KPIs and drilldowns to use explicit `emitido`, `cobrado confirmado`, and `saldo pendiente` language instead of ambiguous sales/revenue wording.
+- Added `Monto cobrado confirmado` and `Saldo pendiente` KPIs to product detail pages.
+- Changed product allocation math so confirmed collected/paid product counts only include allocations from posted payments that have not been refunded.
+- Updated product reconciliation copy and issue tables so staff can distinguish:
+  - charge rows emitted
+  - confirmed collected amount
+  - players paid at 100%
+  - charges with remaining balance
+- Updated roadmap preview state to `v1.16.133`; production remains `v1.16.132` until validation and merge approval.
+
 ## 2026-05-06 (session 163)
 
 ### Regularizacion Historica Pending Ledger Trim (v1.16.132)

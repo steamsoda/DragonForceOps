@@ -42,7 +42,7 @@ function formatDate(iso: string) {
 
 function formatReconciliationReason(reason: "not_fully_paid" | "duplicate_fully_paid_charge_same_enrollment") {
   if (reason === "duplicate_fully_paid_charge_same_enrollment") return "Cargo duplicado pagado";
-  return "Cargo sin pagar";
+  return "Cargo con saldo pendiente";
 }
 
 export default async function ProductDetailPage({
@@ -193,37 +193,39 @@ export default async function ProductDetailPage({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <KpiTile
-            label="Cargos registrados"
+            label="Cargos emitidos"
             value={kpis.unitsSold.toString()}
             href={`/products/${productId}/drilldown?metric=charges_registered`}
           />
-          <KpiTile label="Monto cargado total" value={formatMoney(kpis.totalRevenue, kpis.currency)} highlight />
+          <KpiTile label="Monto emitido" value={formatMoney(kpis.totalRevenue, kpis.currency)} />
+          <KpiTile label="Monto cobrado confirmado" value={formatMoney(kpis.collectedRevenue, kpis.currency)} highlight />
+          <KpiTile label="Saldo pendiente" value={formatMoney(kpis.pendingRevenue, kpis.currency)} />
           <KpiTile
-            label="Cargos este mes"
+            label="Cargos emitidos este mes"
             value={kpis.unitsThisMonth.toString()}
             href={`/products/${productId}/drilldown?metric=charges_this_month`}
           />
-          <KpiTile label="Monto cargado este mes" value={formatMoney(kpis.revenueThisMonth, kpis.currency)} highlight />
+          <KpiTile label="Monto emitido este mes" value={formatMoney(kpis.revenueThisMonth, kpis.currency)} />
           <KpiTile
-            label="Jugadores con cargo"
+            label="Jugadores con cargo emitido"
             value={reconciliation.uniqueEnrollmentsWithCharge.toString()}
             href={`/products/${productId}/drilldown?metric=players_with_charge`}
           />
           <KpiTile
-            label="Jugadores totalmente pagados"
+            label="Jugadores pagados al 100%"
             value={reconciliation.uniqueEnrollmentsFullyPaid.toString()}
             highlight
             href={`/products/${productId}/drilldown?metric=players_fully_paid`}
           />
           <KpiTile
-            label="Cargos sin pagar"
+            label="Cargos con saldo pendiente"
             value={reconciliation.notFullyPaidChargeRows.toString()}
             href={`/products/${productId}/drilldown?metric=charges_unpaid`}
           />
           <KpiTile
-            label="Brecha vs pagados"
+            label="Diferencia emitidos vs pagados"
             value={reconciliation.rawVsDashboardGap.toString()}
             href={`/products/${productId}/drilldown?metric=reconciliation_gap`}
           />
@@ -232,9 +234,10 @@ export default async function ProductDetailPage({
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <h2 className="mb-2 text-sm font-semibold text-amber-900">Conciliacion del producto</h2>
           <p className="text-sm text-amber-900">
-            Esta vista separa <span className="font-semibold">cargos registrados</span> de{" "}
-            <span className="font-semibold">jugadores totalmente pagados</span>. El KPI del producto cuenta cargos no
-            anulados. El dashboard de inscripciones cuenta un jugador solo si al menos un cargo del producto quedo cubierto al 100%.
+            Esta vista separa <span className="font-semibold">cargos emitidos</span>,{" "}
+            <span className="font-semibold">monto cobrado confirmado</span> y{" "}
+            <span className="font-semibold">jugadores pagados al 100%</span>. El monto cobrado confirmado solo cuenta pagos
+            vigentes no reembolsados aplicados a cargos del producto.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <MiniStat label="Filas de cargo pagadas al 100%" value={reconciliation.fullyPaidChargeRows.toString()} />
@@ -249,7 +252,7 @@ export default async function ProductDetailPage({
           </h2>
           {reconciliation.issues.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">
-              No hay diferencias entre cargos registrados y jugadores pagados para este producto.
+              No hay diferencias entre cargos emitidos y jugadores pagados para este producto.
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -259,8 +262,8 @@ export default async function ProductDetailPage({
                     <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Motivo</th>
                     <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
                     <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cargo</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Asignado</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Emitido</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cobrado confirmado</th>
                     <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Faltante</th>
                     <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Fecha</th>
                   </tr>
@@ -307,7 +310,7 @@ export default async function ProductDetailPage({
                     <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Talla</th>
                     <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Portero</th>
                     <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Unidades</th>
-                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Ingresos</th>
+                    <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Monto emitido</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -354,7 +357,7 @@ export default async function ProductDetailPage({
 
         <div>
           <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Ultimas ventas {recentSales.totalCount > 0 ? `(${recentSales.totalCount})` : ""}
+            Ultimos cargos emitidos {recentSales.totalCount > 0 ? `(${recentSales.totalCount})` : ""}
           </h2>
           {recentSales.rows.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">
@@ -397,7 +400,7 @@ export default async function ProductDetailPage({
 
               <div className="flex items-center justify-between gap-3 text-sm text-slate-500 dark:text-slate-400">
                 <p>
-                  Pagina {recentSales.page} - {recentSales.totalCount} ventas
+                  Pagina {recentSales.page} - {recentSales.totalCount} cargos
                 </p>
                 <div className="flex gap-3">
                   {recentSales.hasPreviousPage ? (
@@ -489,17 +492,17 @@ function KpiTile({
 
 function resolveMetricLabel(label: string) {
   switch (label) {
-    case "Cargos registrados":
+    case "Cargos emitidos":
       return getProductMetricLabel("charges_registered");
-    case "Cargos este mes":
+    case "Cargos emitidos este mes":
       return getProductMetricLabel("charges_this_month");
-    case "Jugadores con cargo":
+    case "Jugadores con cargo emitido":
       return getProductMetricLabel("players_with_charge");
-    case "Jugadores totalmente pagados":
+    case "Jugadores pagados al 100%":
       return getProductMetricLabel("players_fully_paid");
-    case "Cargos sin pagar":
+    case "Cargos con saldo pendiente":
       return getProductMetricLabel("charges_unpaid");
-    case "Brecha vs pagados":
+    case "Diferencia emitidos vs pagados":
       return getProductMetricLabel("reconciliation_gap");
     default:
       return label;
