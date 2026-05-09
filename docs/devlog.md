@@ -1,5 +1,48 @@
 # Devlog
 
+## 2026-05-08 (session 164)
+
+### Datos Faltantes Contact Cleanup (v1.16.134)
+
+- Added a new `Datos faltantes` Front Desk/director menu for completing missing tutor contact data without showing finance fields.
+- Added a campus-scoped operational queue with filters for incomplete contacts, missing primary phone, missing secondary phone, missing email, missing tutor, and all active players.
+- The page updates existing linked guardian records directly and can create a primary guardian when an active player has no tutor linked.
+- Kept the first pass schema-light by reusing existing `guardians` and `player_guardians` fields instead of adding contact-verification metadata yet.
+- Added audit entries for contact cleanup guardian updates/creates and revalidation for the cleanup queue and player detail page.
+
+### Datos Faltantes Filter Polish (v1.16.135)
+
+- Replaced the campus dropdown in `Datos faltantes` with Linda Vista / Contry-style campus toggle buttons.
+- Added category/YOB and gender chips so Front Desk can narrow the queue before fetching the visible roster slice.
+- Made phone-only tutor capture explicit in the inline form; tutor name remains optional when staff only has a reliable phone number.
+- Tightened the save action so a completely blank tutor/contact cannot be saved by accident.
+
+### Datos Faltantes Default YOB Scope (v1.16.136)
+
+- Changed `Datos faltantes` so opening the page defaults to a concrete category/YOB instead of loading `Todas`.
+- Kept the `Todas` category chip available, but moved it to the end of the category chip list and made it use an explicit `year=all` state.
+- Preserved the selected YOB/all state through campus, gender, search, and queue-filter changes.
+
+### Roadmap Reprioritization: Bajas Confirmation Workflow
+
+- Moved the planned Bajas confirmation workflow out of the near-term `Next` list.
+- Kept it parked in the Jugadores lane as lower-priority work:
+  - Front Desk / Director Deportivo can eventually mark `Baja potencial`.
+  - Director/admin confirmation would eventually finalize the baja.
+- Reason: Front Desk and admin have more urgent workflow changes to handle first.
+
+### Product KPI Charged-vs-Paid Clarity (v1.16.133)
+
+- Updated product detail KPIs and drilldowns to use explicit `emitido`, `cobrado confirmado`, and `saldo pendiente` language instead of ambiguous sales/revenue wording.
+- Added `Monto cobrado confirmado` and `Saldo pendiente` KPIs to product detail pages.
+- Changed product allocation math so confirmed collected/paid product counts only include allocations from posted payments that have not been refunded.
+- Updated product reconciliation copy and issue tables so staff can distinguish:
+  - charge rows emitted
+  - confirmed collected amount
+  - players paid at 100%
+  - charges with remaining balance
+- Updated roadmap preview state to `v1.16.133`; production remains `v1.16.132` until validation and merge approval.
+
 ## 2026-05-06 (session 163)
 
 ### Regularizacion Historica Pending Ledger Trim (v1.16.132)

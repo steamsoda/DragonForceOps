@@ -25,7 +25,7 @@ function formatDate(iso: string) {
 
 function formatReason(reason: ProductMetricIssueRow["reason"]) {
   if (reason === "duplicate_fully_paid_charge_same_enrollment") return "Cargo duplicado pagado";
-  return "Cargo sin pagar";
+  return "Cargo con saldo pendiente";
 }
 
 type SearchParams = Promise<{
@@ -130,7 +130,7 @@ function renderMetricTable(metricPage: ProductMetricPageData, currency: string) 
               <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
               <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus</th>
               <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Descripcion</th>
-              <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Monto</th>
+              <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Monto emitido</th>
               <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Fecha</th>
             </tr>
           </thead>
@@ -197,8 +197,8 @@ function renderMetricTable(metricPage: ProductMetricPageData, currency: string) 
             <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Motivo</th>
             <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
             <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus</th>
-            <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cargo</th>
-            <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Asignado</th>
+            <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Emitido</th>
+            <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cobrado confirmado</th>
             <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Faltante</th>
             <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Fecha</th>
           </tr>

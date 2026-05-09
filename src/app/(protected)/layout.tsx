@@ -19,6 +19,7 @@ const DIRECTOR_GESTION_SECTION: NavSection = {
     { href: "/new-enrollments", label: "Nuevas Inscripciones" },
     { href: "/pending", label: "Pendientes" },
     { href: "/llamadas", label: "Llamadas" },
+    { href: "/datos-faltantes", label: "Datos faltantes" },
   ],
 };
 
@@ -28,6 +29,7 @@ const FRONT_DESK_GESTION_SECTION: NavSection = {
     { href: "/new-enrollments", label: "Nuevas Inscripciones" },
     { href: "/pending", label: "Pendientes" },
     { href: "/llamadas", label: "Llamadas" },
+    { href: "/datos-faltantes", label: "Datos faltantes" },
   ],
 };
 
@@ -173,7 +175,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const debugQuickLinks = [
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/players", label: "Jugadores" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/caja", label: "Caja" }] : []),
-    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [{ href: "/sports-signups", label: "Torneos" }] : []),
     ...(hasNutritionAccess ? [{ href: "/nutrition", label: "Nutricion" }] : []),
     ...(hasAttendanceReadAccess

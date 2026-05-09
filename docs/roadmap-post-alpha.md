@@ -36,8 +36,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.132`
-- Current preview line: `v1.16.132`
+- Current production line: `v1.16.136`
+- Current preview line: `v1.16.136`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -51,7 +51,8 @@ These are the highest-value items to consider next. Keep this list short.
 | 🟢 | Role-regression checklist validation | Manual direct-URL checklist now exists; next step is running it before the next permission-sensitive production merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
-| 🔴 | Product KPI charged-vs-paid clarity | Prevent staff from reading raw charges as paid/confirmed players. | Product KPI item below |
+| 🟢 | Product KPI charged-vs-paid clarity | Preview `v1.16.133` separates emitted charges, confirmed collected amount, pending balance, and paid players. Validate product detail pages. | Product KPI item below, `v1.16.133` devlog |
+| 🟢 | Front Desk contact cleanup queue | Preview `v1.16.136` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.136` devlog |
 
 ## Next
 
@@ -59,8 +60,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🔴 | Product/admin KPI language cleanup | Clarify `vendido`, `pagado`, charged vs paid, and reconciliation states across product/admin surfaces. |
-| 🔴 | Bajas confirmation workflow | Add a director/admin confirmation step so Front Desk or Director Deportivo can mark `Baja potencial` without immediately finalizing the player dropout. |
+| 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
 | 🔴 | Finance drift monitoring | Build on `/admin/finance-sanity` and account diagnostics to surface suspicious account states proactively. |
 | 🟡 | Nutrition vNext | V1 and OMS/report passes are shipped; keep circumference metrics, parent PDF polish, richer analytics, and workflow speedups open. |
@@ -95,6 +95,7 @@ Important, but not necessarily the next edit.
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
+| 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | V1 works; future scope includes partial refunds, stronger finance guardrails, and performance polish. |
@@ -108,7 +109,7 @@ Important, but not necessarily the next edit.
 | ✅ | Training group emergency edit mode | Dropdown edit, audited batch save, permission hiding, and `Quitar grupo` shipped in `v1.16.116`-`v1.16.117`. |
 | ✅ | Grouped roster Excel export | Export shipped in `v1.16.129`; category/YOB sheets and black-white print-friendly formatting shipped in `v1.16.130`. |
 | 🟡 | `Bajas` tab polish | Month/date filters, alphabetical archive, categorized reasons, reason KPIs, and copyable summary shipped in `v1.16.123`-`v1.16.126`. Keep open for later visual cleanup or deeper analytics. |
-| 🔴 | Bajas confirmation workflow | Planned: Front Desk / Director Deportivo should be able to flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
+| 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; keep open for broader list/export needs. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
 
