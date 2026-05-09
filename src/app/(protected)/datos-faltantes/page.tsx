@@ -193,9 +193,10 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
     q: params.q,
     status: params.status,
   });
+  const selectedYearParam = data.selectedBirthYear ? String(data.selectedBirthYear) : "all";
   const returnTo = withParams("/datos-faltantes", {
     campus: data.selectedCampusId,
-    year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+    year: selectedYearParam,
     gender: data.selectedGender || undefined,
     q: data.q,
     status: data.status,
@@ -229,7 +230,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
                   key={campus.id}
                   href={withParams("/datos-faltantes", {
                     campus: campus.id,
-                    year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                    year: selectedYearParam,
                     gender: data.selectedGender || undefined,
                     q: data.q,
                     status: data.status,
@@ -246,17 +247,6 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Categoria</p>
               <div className="flex flex-wrap gap-2">
-                <Link
-                  href={withParams("/datos-faltantes", {
-                    campus: data.selectedCampusId,
-                    gender: data.selectedGender || undefined,
-                    q: data.q,
-                    status: data.status,
-                  })}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${chipClass(data.selectedBirthYear === null)}`}
-                >
-                  Todas
-                </Link>
                 {data.birthYears.map((year) => (
                   <Link
                     key={year}
@@ -272,6 +262,18 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
                     {year}
                   </Link>
                 ))}
+                <Link
+                  href={withParams("/datos-faltantes", {
+                    campus: data.selectedCampusId,
+                    year: "all",
+                    gender: data.selectedGender || undefined,
+                    q: data.q,
+                    status: data.status,
+                  })}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${chipClass(data.selectedBirthYear === null)}`}
+                >
+                  Todas
+                </Link>
               </div>
             </div>
 
@@ -287,7 +289,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
                     key={option.label}
                     href={withParams("/datos-faltantes", {
                       campus: data.selectedCampusId,
-                      year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                      year: selectedYearParam,
                       gender: option.value || undefined,
                       q: data.q,
                       status: data.status,
@@ -304,7 +306,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
 
         <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[220px_minmax(220px,1fr)_auto] md:items-end">
           <input type="hidden" name="campus" value={data.selectedCampusId} />
-          {data.selectedBirthYear ? <input type="hidden" name="year" value={data.selectedBirthYear} /> : null}
+          <input type="hidden" name="year" value={selectedYearParam} />
           {data.selectedGender ? <input type="hidden" name="gender" value={data.selectedGender} /> : null}
           <label className="grid gap-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">Cola</span>
@@ -324,7 +326,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
             <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
               Aplicar
             </button>
-            <Link href={withParams("/datos-faltantes", { campus: data.selectedCampusId, year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined, gender: data.selectedGender || undefined })} className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+            <Link href={withParams("/datos-faltantes", { campus: data.selectedCampusId, year: selectedYearParam, gender: data.selectedGender || undefined })} className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
               Limpiar
             </Link>
           </div>
@@ -336,7 +338,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
               key={status}
               href={withParams("/datos-faltantes", {
                 campus: data.selectedCampusId,
-                year: data.selectedBirthYear ? String(data.selectedBirthYear) : undefined,
+                year: selectedYearParam,
                 gender: data.selectedGender || undefined,
                 q: data.q,
                 status,

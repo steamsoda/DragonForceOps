@@ -262,7 +262,8 @@ export async function getContactCleanupData(filters: {
       ? filters.campusId
       : campusAccess.defaultCampusId ?? "";
   const campusIds = selectedCampusId ? [selectedCampusId] : campusAccess.campusIds;
-  const selectedBirthYear = parseBirthYear(filters.birthYear);
+  const requestedBirthYear = parseBirthYear(filters.birthYear);
+  const showAllBirthYears = filters.birthYear === "all";
   const selectedGender = normalizeGender(filters.gender);
   const status = normalizeStatus(filters.status);
   const q = filters.q ?? "";
@@ -289,6 +290,7 @@ export async function getContactCleanupData(filters: {
         .filter((year): year is number => year !== null),
     ),
   ].sort((a, b) => b - a);
+  const selectedBirthYear = showAllBirthYears ? null : requestedBirthYear ?? birthYears[0] ?? null;
 
   const enrollmentRows = await fetchAll<EnrollmentContactRow>(
     (from, to) => {

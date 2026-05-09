@@ -17,6 +17,12 @@
 - Made phone-only tutor capture explicit in the inline form; tutor name remains optional when staff only has a reliable phone number.
 - Tightened the save action so a completely blank tutor/contact cannot be saved by accident.
 
+### Datos Faltantes Default YOB Scope (v1.16.136)
+
+- Changed `Datos faltantes` so opening the page defaults to a concrete category/YOB instead of loading `Todas`.
+- Kept the `Todas` category chip available, but moved it to the end of the category chip list and made it use an explicit `year=all` state.
+- Preserved the selected YOB/all state through campus, gender, search, and queue-filter changes.
+
 ### Roadmap Reprioritization: Bajas Confirmation Workflow
 
 - Moved the planned Bajas confirmation workflow out of the near-term `Next` list.
