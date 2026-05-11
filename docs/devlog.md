@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-05-11 (session 170)
+
+### Production Promotion (v1.16.140)
+
+- Promoted the validated Attendance daily notes overview from `preview` to `main`.
+- The shipped route is `/attendance/notes`, under the Asistencia sidebar as `Notas`.
+
 ## 2026-05-11 (session 169)
 
 ### Attendance Daily Notes Overview (v1.16.140)
