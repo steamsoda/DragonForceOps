@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { getAttendanceReports } from "@/lib/queries/attendance";
@@ -26,37 +27,40 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   return (
     <PageShell title="Reportes de asistencia" subtitle="Lectura operativa para detectar inactividad y comparar equipos." wide>
       <div className="space-y-6">
-        <form className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-5">
-          <label className="text-sm font-medium">
-            Campus
-            <select name="campus" defaultValue={data.selectedCampusId ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-              <option value="">Todos</option>
-              {data.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Periodo
-            <select name="period" defaultValue={data.periodDays} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-              <option value="30">30 dias</option>
-              <option value="60">60 dias</option>
-              <option value="90">90 dias</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Categoria
-            <select name="birthYear" defaultValue={birthYear ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-              <option value="">Todas</option>
-              {birthYears.map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Mes equipos
-            <input name="month" type="month" defaultValue={data.month} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
-          </label>
-          <div className="flex items-end">
-            <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar</button>
-          </div>
-        </form>
+        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+          <AttendanceCampusButtons
+            pathname="/attendance/reports"
+            campuses={data.campuses}
+            selectedCampusId={data.selectedCampusId}
+            params={{ period: data.periodDays, birthYear, month: data.month }}
+            allLabel="Todos"
+          />
+          <form className="grid gap-3 md:grid-cols-4">
+            {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
+            <label className="text-sm font-medium">
+              Periodo
+              <select name="period" defaultValue={data.periodDays} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                <option value="30">30 dias</option>
+                <option value="60">60 dias</option>
+                <option value="90">90 dias</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Categoria
+              <select name="birthYear" defaultValue={birthYear ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                <option value="">Todas</option>
+                {birthYears.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Mes equipos
+              <input name="month" type="month" defaultValue={data.month} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+            </label>
+            <div className="flex items-end">
+              <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar filtros</button>
+            </div>
+          </form>
+        </section>
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Jugadores con menor asistencia</h2>

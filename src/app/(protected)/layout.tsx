@@ -240,7 +240,13 @@ export default async function ProtectedLayout({ children }: { children: React.Re
               </details>
 
               <div className="flex items-baseline gap-2">
-                <p className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark dark:text-portoBlue">INVICTA</p>
+                <Link
+                  href="/inicio"
+                  prefetch={false}
+                  className="font-[family-name:var(--font-aoboshi)] text-xl tracking-wide text-portoDark hover:text-portoBlue dark:text-portoBlue dark:hover:text-blue-300"
+                >
+                  INVICTA
+                </Link>
                 <span className="text-xs text-slate-400 dark:text-slate-500">v{version}</span>
                 {debugContext.isReadOnly ? (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">

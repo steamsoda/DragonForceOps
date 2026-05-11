@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import {
@@ -219,22 +220,23 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
   return (
     <PageShell title="Grupos de asistencia" subtitle="Vista mensual por grupo de entrenamiento. Sin datos financieros ni contacto." wide>
       <div className="space-y-6">
-        <form className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1fr_auto]">
-          <label className="text-sm font-medium">
-            Campus
-            <select name="campus" defaultValue={data.selectedCampusId ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-              <option value="">Todos</option>
-              {data.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Mes
-            <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
-          </label>
-          <div className="flex items-end">
-            <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar</button>
-          </div>
-        </form>
+        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+          <form className="flex flex-wrap items-end gap-3">
+            <label className="text-sm font-medium">
+              Mes
+              <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+            </label>
+            {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
+            <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar mes</button>
+          </form>
+          <AttendanceCampusButtons
+            pathname="/attendance/groups"
+            campuses={data.campuses}
+            selectedCampusId={data.selectedCampusId}
+            params={{ month: data.selectedMonth }}
+            allLabel="Todos"
+          />
+        </section>
 
         <section className="grid gap-3 md:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">

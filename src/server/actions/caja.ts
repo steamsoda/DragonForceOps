@@ -245,12 +245,14 @@ async function createResolvedAdvanceTuitionCharge(
     userId,
     requiredCampusId,
     historicalPricingDateTimeRaw,
+    coveredArrearChargeIds = [],
   }: {
     enrollmentId: string;
     periodMonth: string;
     userId: string;
     requiredCampusId?: string;
     historicalPricingDateTimeRaw?: string;
+    coveredArrearChargeIds?: string[];
   }
 ) {
   const normalizedPeriodMonth = normalizePeriodMonth(periodMonth);
@@ -291,15 +293,17 @@ async function createResolvedAdvanceTuitionCharge(
   const ledgerCheck = await getEnrollmentLedger(enrollmentId);
   if (!ledgerCheck) return { ok: false as const, error: "ledger_failed" };
 
-  const hasArrears = ledgerCheck.charges.some(
+  const coveredArrearChargeIdSet = new Set(coveredArrearChargeIds);
+  const uncoveredArrears = ledgerCheck.charges.filter(
     (charge) =>
       charge.typeCode === "monthly_tuition" &&
       charge.status !== "void" &&
       charge.pendingAmount > 0 &&
       !!charge.periodMonth &&
-      charge.periodMonth < normalizedPeriodMonth
+      charge.periodMonth < normalizedPeriodMonth &&
+      !coveredArrearChargeIdSet.has(charge.id)
   );
-  if (hasArrears) return { ok: false as const, error: "prior_month_arrears" };
+  if (uncoveredArrears.length > 0) return { ok: false as const, error: "prior_month_arrears" };
 
   const existingPeriodCharges = ledgerCheck.charges.filter(
     (charge) =>
@@ -886,8 +890,10 @@ export async function checkoutCajaCartAction(
   const targetChargeIdsRaw = formData.get("targetChargeIds")?.toString().trim() ?? "";
   const existingTargetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
   const cartItems = parseCheckoutCartItems(formData.get("cartItems")?.toString() ?? "[]");
+  const parsedPayment = parsePaymentFormData(formData);
 
   if (cartItems === null) return { ok: false, error: "invalid_form" };
+  if (!parsedPayment) return { ok: false, error: "invalid_form" };
 
   const createdChargeIds: string[] = [];
   const supabase = await createClient();
@@ -903,6 +909,7 @@ export async function checkoutCajaCartAction(
         enrollmentId,
         periodMonth: item.periodMonth,
         userId: user.id,
+        coveredArrearChargeIds: [...existingTargetChargeIds, ...createdChargeIds],
       });
       if (!tuitionResult.ok) {
         if (createdChargeIds.length > 0) {
@@ -933,6 +940,29 @@ export async function checkoutCajaCartAction(
 
     if (chargeResult.newChargeId) {
       createdChargeIds.push(chargeResult.newChargeId);
+    }
+  }
+
+  if (cartItems.some((item) => item.kind === "tuition")) {
+    const checkoutLedger = await getEnrollmentLedger(enrollmentId);
+    if (!checkoutLedger) {
+      if (createdChargeIds.length > 0) {
+        await supabase.from("charges").delete().in("id", createdChargeIds);
+      }
+      return { ok: false, error: "ledger_failed" };
+    }
+
+    const checkoutChargeIds = new Set([...existingTargetChargeIds, ...createdChargeIds]);
+    const requiredCheckoutTotal = checkoutLedger.charges
+      .filter((charge) => checkoutChargeIds.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0)
+      .reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
+    const submittedTotal = Math.round((parsedPayment.amount + (parsedPayment.split?.amount ?? 0)) * 100) / 100;
+
+    if (submittedTotal + 0.009 < requiredCheckoutTotal) {
+      if (createdChargeIds.length > 0) {
+        await supabase.from("charges").delete().in("id", createdChargeIds);
+      }
+      return { ok: false, error: "advance_tuition_full_payment_required" };
     }
   }
 
