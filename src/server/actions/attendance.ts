@@ -727,7 +727,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
 
   if (!snapshot || !canWriteAttendanceCampus(context.attendanceCampusAccess, snapshot.session.campus_id)) redirect("/unauthorized");
   if (snapshot.session.status === "cancelled") return { ok: false, error: "cancelled" };
-  if (snapshot.session.status === "completed" && !context.isDirector) return { ok: false, error: "director_required" };
+  if (snapshot.session.status === "completed" && !context.canCorrectCompletedAttendance) return { ok: false, error: "director_required" };
 
   const existingByEnrollment = new Map(
     snapshot.records.map((record) => [record.enrollment_id, record])
@@ -803,7 +803,7 @@ export async function saveAttendanceSessionAction(sessionId: string, formData: F
 
   if (error) return { ok: false, error: "save_failed" };
 
-  if (auditRows.length > 0 && context.isDirector) {
+  if (auditRows.length > 0 && context.canCorrectCompletedAttendance) {
     await admin.from("attendance_record_audit").insert(auditRows);
   }
   perf.mark("correction_audit");
@@ -883,5 +883,6 @@ async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {
     user: { id: debugContext.effective.id, email: debugContext.effective.email ?? null },
     attendanceCampusAccess: campusAccess,
     isDirector,
+    canCorrectCompletedAttendance: isDirector || isSportsDirector || isAttendanceAdmin,
   };
 }

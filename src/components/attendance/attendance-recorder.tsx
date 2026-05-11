@@ -137,7 +137,7 @@ function SaveAttendanceStatus({
 
 const SAVE_ERROR_LABELS: Record<string, string> = {
   cancelled: "La sesion ya fue cancelada.",
-  director_required: "Solo direccion puede corregir una sesion ya registrada.",
+  director_required: "Solo usuarios autorizados pueden corregir una sesion ya registrada.",
   save_failed: "No se pudo guardar la asistencia. Intenta de nuevo.",
 };
 

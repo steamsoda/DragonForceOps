@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.136`
-- Current preview line: `v1.16.136`
+- Current preview line: `v1.16.137`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -48,7 +48,7 @@ These are the highest-value items to consider next. Keep this list short.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Role-regression checklist validation | Manual direct-URL checklist now exists; next step is running it before the next permission-sensitive production merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
+| 🟢 | Role-regression checklist validation | Latest static pass confirmed `Datos faltantes` uses the operational route/action boundary and exposes no finance fields; next step is still manual direct-URL checks before the next permission-sensitive merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md`, `v1.16.136` devlog |
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
 | 🟢 | Product KPI charged-vs-paid clarity | Preview `v1.16.133` separates emitted charges, confirmed collected amount, pending balance, and paid players. Validate product detail pages. | Product KPI item below, `v1.16.133` devlog |
@@ -58,11 +58,13 @@ These are the highest-value items to consider next. Keep this list short.
 
 Important, but not necessarily the next edit.
 
+`v1.16.137` preview validation: attendance completed-session correction is widened to Director Deportivo and Field Admin within normal attendance scope, and Contry 2016/2017 B1 is split into separate 2016 and 2017 groups.
+
 | Status | Item | Notes |
 |---|---|---|
 | 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
-| 🔴 | Finance drift monitoring | Build on `/admin/finance-sanity` and account diagnostics to surface suspicious account states proactively. |
+| 🟡 | Finance drift monitoring | Read-only prod export on 2026-05-08 scanned 735 enrollments and found 43 warning-only accounts, with no correction-grade report result. Keep using `/admin/finance-sanity` and exports after finance-sensitive work. |
 | 🟡 | Nutrition vNext | V1 and OMS/report passes are shipped; keep circumference metrics, parent PDF polish, richer analytics, and workflow speedups open. |
 | 🟡 | Uniformes follow-up | Compact menu feedback and auto-sync captured uniform size into player technical data. Keep stock/supplier management separate. |
 | 🟡 | Player profile consolidation polish | Continue making `/players/[id]` the single-player hub; remaining polish includes local date formatting and account navigation. |
@@ -75,7 +77,7 @@ Important, but not necessarily the next edit.
 | 🟡 | Role permissions audit and stabilization | Keep active. Manual direct-route checklist exists; later follow-up can automate the highest-risk route assertions. |
 | ✅ | Finance direct-URL hardening | Caja, receipts, reports, enrollment ledgers, charge/reassign/refund pages, and finance helpers fail closed unless the user has the right operational access. See devlog around `v1.16.107`. |
 | ✅ | Supabase advisor cleanup pass | Advisor-backed function/RLS/search-path/index cleanup shipped in `v1.16.104`-`v1.16.105`; rerun advisor before large DB/security releases. |
-| 🔴 | Finance drift monitoring | First targets: canonical-vs-derived drift, posted payments without allocations, duplicate tuition rows, overapplied charges, refund/void/reassignment anomalies. |
+| 🟡 | Finance drift monitoring | Tooling exists through `/admin/finance-sanity` and `npm run diagnose:finance`; latest prod read-only export found warning-only historical/account-structure items, not a correction-grade drift result. |
 | 🧊 | Auth hardening settings | Supabase leaked-password protection and more MFA options remain admin-console settings, not repo changes. Revisit when operationally ready. |
 
 ## Performance
@@ -123,6 +125,8 @@ Important, but not necessarily the next edit.
 | 🔴 | Competition-charge guardrails | Prevent incomplete competition charge/payment workflows. |
 
 ### Asistencia
+
+`v1.16.137` preview adds scoped completed-session correction for Director Deportivo and Field Admin, plus the Contry 2016/2017 B1 split into separate 2016 and 2017 groups.
 
 | Status | Item | Notes |
 |---|---|---|
