@@ -54,6 +54,7 @@ const ATTENDANCE_BASE_SECTION: NavSection = {
     { href: "/attendance/groups", label: "Grupos" },
     { href: "/attendance/schedules", label: "Horarios" },
     { href: "/attendance/reports", label: "Reportes" },
+    { href: "/attendance/notes", label: "Notas" },
   ],
 };
 
