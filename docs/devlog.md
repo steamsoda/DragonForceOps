@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-05-11 (session 167)
+
+### Caja Current + Advance Tuition Same Receipt Guard (v1.16.139)
+
+- Updated Caja checkout so Front Desk can charge the current pending monthly tuition and the next advance monthly tuition in one receipt.
+- Kept the normal advance-tuition arrears guard intact for direct charge creation.
+- Scoped the exception to Caja checkout only:
+  - earlier pending monthly tuition charges must be selected in the same cart
+  - newly staged advance tuition charges are created only after that same-cart coverage is known
+  - the payment total must cover the selected charges plus staged advance tuition
+- Preserved allocation order:
+  - selected existing charges first
+  - newly created cart charges next
+  - remaining amount continues through the existing FIFO payment allocation path
+- Added Caja UI feedback:
+  - block adding advance tuition until prior pending monthly charges are selected
+  - show confirmation once current/pending monthly tuition is selected
+  - block checkout if the amount is reduced below the selected cart total while advance tuition is staged
+
 ## 2026-05-11 (session 166)
 
 ### General UX Roadmap + Attendance Campus Buttons (v1.16.138)

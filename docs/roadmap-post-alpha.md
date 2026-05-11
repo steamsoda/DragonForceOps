@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.137`
-- Current preview line: `v1.16.138`
+- Current preview line: `v1.16.139`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -62,7 +62,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🔴 | Caja current + next-month same-receipt unlock | Next isolated finance workflow pass. Detect when staff is paying the current month and next month together so the advance tuition can be paid on one receipt without weakening the existing pending-tuition lock. |
+| 🟢 | Caja current + next-month same-receipt unlock | Preview `v1.16.139` allows current/pending monthly tuition plus advance tuition in one receipt only when prior monthly charges are selected and the payment covers the staged total. |
 | 🔴 | Caja refund / reassignment workflow planning | Design before implementation. Likely needs a small recent-payments/charges panel in Caja, refund recording, and a separate path for moving tournament/payment credit to tuition. |
 | 🔴 | Attendance daily notes overview | Add a simple way to review notes for a selected day across all groups/sessions without opening every session one by one. |
 | 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
@@ -106,7 +106,7 @@ Important, but not necessarily the next edit.
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
-| 🔴 | Caja current + next-month same-receipt unlock | Keep the pending-tuition safety rule, but allow a one-receipt path when current month and next month are both selected/covered together. |
+| 🟢 | Caja current + next-month same-receipt unlock | Preview `v1.16.139` keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
 | 🔴 | Caja refunds and payment reassignment | Needs planning. Include recent payment/charge context from Caja, direct refund registration, and a separate credit-reassignment path for cases like cancelled tournament participation. |
 | 🔴 | Batch 360Player monthly posting | Plan a manual batch workflow to post many 360Player tuition payments quickly with auditability and duplicate protection. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
@@ -206,6 +206,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.139` — preview Caja one-receipt path for pending monthly tuition plus advance tuition.
 - 🟢 `v1.16.138` — preview quick UX pass: clickable header logo and attendance campus button selectors.
 - ✅ `v1.16.137` — attendance correction permissions widened and Contry 2016/2017 B1 split shipped.
 - ✅ `v1.16.130` — `Jugadores` grouped roster export now splits into category/YOB sheets and prints black-and-white.

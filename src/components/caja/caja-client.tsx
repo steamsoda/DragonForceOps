@@ -31,6 +31,11 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
+function parseMoneyInput(value: string) {
+  const amount = Number(value.replace(",", "."));
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
 function formatPeriodMonth(periodMonth: string | null): string {
   if (!periodMonth) return "";
   const d = new Date(periodMonth + "T12:00:00");
@@ -876,11 +881,39 @@ function PosEnrollmentPanel({
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
     stagedItems.reduce((sum, item) => sum + item.amount, 0);
   const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
+  const hasStagedTuition = stagedItems.some((item) => item.payload.kind === "tuition");
+  const submittedPaymentTotal = Math.round((parseMoneyInput(paymentAmount) + (splitMode ? parseMoneyInput(paymentAmount2) : 0)) * 100) / 100;
+  const hasFullStagedTuitionPayment = !hasStagedTuition || submittedPaymentTotal + 0.009 >= cartTotal;
   const payableNow = checkoutTotal > 0;
   const hasPrimaryMethod = Boolean(paymentMethod);
   const hasSecondaryMethod = !splitMode || Boolean(paymentMethod2);
   const selectedOperatorCampus = allowedCampuses.find((campus) => campus.id === operatorCampusId) ?? null;
   const isCrossCampus = operatorCampusId !== data.campusId;
+  const selectedTuitionOption = availableTuitionOptions.find(
+    (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
+  );
+  const priorMonthlyChargesForSelectedTuition = selectedTuitionOption
+    ? data.pendingCharges.filter(
+        (charge) =>
+          charge.typeCode === "monthly_tuition" &&
+          !!charge.periodMonth &&
+          charge.periodMonth < selectedTuitionOption.periodMonth
+      )
+    : [];
+  const uncoveredPriorMonthlyCharges = priorMonthlyChargesForSelectedTuition.filter(
+    (charge) => !selectedIds.has(charge.id)
+  );
+  const earliestStagedTuitionPeriod = Array.from(stagedTuitionPeriods).sort()[0] ?? null;
+  const uncoveredPriorMonthlyChargesForStagedTuition = earliestStagedTuitionPeriod
+    ? data.pendingCharges.filter(
+        (charge) =>
+          charge.typeCode === "monthly_tuition" &&
+          !!charge.periodMonth &&
+          charge.periodMonth < earliestStagedTuitionPeriod &&
+          !selectedIds.has(charge.id)
+      )
+    : [];
+  const hasCoveredStagedTuitionArrears = !hasStagedTuition || uncoveredPriorMonthlyChargesForStagedTuition.length === 0;
 
   useEffect(() => {
     setPaymentAmount(checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "");
@@ -917,11 +950,13 @@ function PosEnrollmentPanel({
   }
 
   function addTuitionToCurrentCharge() {
-    const selectedOption = availableTuitionOptions.find(
-      (option) => option.periodMonth.slice(0, 7) === tuitionPeriod
-    );
+    const selectedOption = selectedTuitionOption;
     if (!selectedOption) {
       setPanelError("No hay mensualidades adelantadas disponibles para agregar.");
+      return;
+    }
+    if (uncoveredPriorMonthlyCharges.length > 0) {
+      setPanelError("Selecciona primero las mensualidades pendientes para poder cobrar el mes adelantado en el mismo recibo.");
       return;
     }
 
@@ -1005,6 +1040,14 @@ function PosEnrollmentPanel({
     setPanelError(null);
     if (!paymentMethod || (splitMode && !paymentMethod2)) {
       setPanelError("Selecciona el método de pago antes de cobrar.");
+      return;
+    }
+    if (!hasFullStagedTuitionPayment) {
+      setPanelError("Para cobrar mensualidad adelantada junto con pendientes, el pago debe cubrir el total seleccionado.");
+      return;
+    }
+    if (!hasCoveredStagedTuitionArrears) {
+      setPanelError("La mensualidad adelantada requiere que las mensualidades pendientes anteriores sigan seleccionadas en este recibo.");
       return;
     }
     startCheckoutTransition(async () => {
@@ -1174,6 +1217,16 @@ function PosEnrollmentPanel({
                 No hay mensualidades adelantadas disponibles para agregar en este momento.
               </div>
             ) : (
+              <div className="space-y-3">
+                {uncoveredPriorMonthlyCharges.length > 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    Selecciona primero {uncoveredPriorMonthlyCharges.length === 1 ? "la mensualidad pendiente" : "las mensualidades pendientes"} para poder agregar el mes adelantado en este mismo recibo.
+                  </div>
+                ) : priorMonthlyChargesForSelectedTuition.length > 0 ? (
+                  <div className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-emerald-300">
+                    Listo: se cobrara la mensualidad pendiente seleccionada junto con la adelantada.
+                  </div>
+                ) : null}
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-end">
                 <div className="space-y-1 text-sm">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Período</span>
@@ -1192,21 +1245,20 @@ function PosEnrollmentPanel({
                 <div className="space-y-1 text-sm">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Monto</span>
                   <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-emerald-900/40 dark:bg-slate-900 dark:text-slate-300">
-                    {availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)?.amount != null
-                      ? formatMoney(
-                          availableTuitionOptions.find((option) => option.periodMonth.slice(0, 7) === tuitionPeriod)!.amount,
-                          data.currency
-                        )
+                    {selectedTuitionOption?.amount != null
+                      ? formatMoney(selectedTuitionOption.amount, data.currency)
                       : "Sin opciones"}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={addTuitionToCurrentCharge}
-                  className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  disabled={uncoveredPriorMonthlyCharges.length > 0}
+                  className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Agregar al cobro
                 </button>
+              </div>
               </div>
             )}
           </div>
@@ -1497,6 +1549,16 @@ function PosEnrollmentPanel({
             </div>
 
             {panelError && <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{panelError}</p>}
+            {!hasFullStagedTuitionPayment ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                Para cobrar mensualidad adelantada en este recibo, el total pagado debe cubrir todo el cobro actual.
+              </p>
+            ) : null}
+            {!hasCoveredStagedTuitionArrears ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                La mensualidad adelantada requiere que las mensualidades pendientes anteriores sigan seleccionadas.
+              </p>
+            ) : null}
 
             <div className="space-y-3">
               <label className="space-y-1 text-sm">
@@ -1612,7 +1674,7 @@ function PosEnrollmentPanel({
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod}
+                disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isCheckoutPending ? "Procesando…" : cartTotal > 0 ? "Cobrar carrito" : "Cobrar todo"}
@@ -2412,6 +2474,7 @@ function errorMessage(code: string): string {
     duplicate_period: "Ya existe una mensualidad para ese periodo.",
     tuition_rate_not_found: "No se pudo determinar la tarifa de mensualidad.",
     prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar.",
+    advance_tuition_full_payment_required: "Para cobrar mensualidad adelantada junto con pendientes, el pago debe cubrir el total seleccionado.",
     charge_type_not_found: "Error de configuracion: tipo de cargo no encontrado."
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
