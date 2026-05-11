@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.139`
-- Current preview line: `v1.16.139`
+- Current preview line: `v1.16.140`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -64,7 +64,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 |---|---|---|
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; allows current/pending monthly tuition plus advance tuition in one receipt only when prior monthly charges are selected and the payment covers the staged total. |
 | 🔴 | Caja refund / reassignment workflow planning | Design before implementation. Likely needs a small recent-payments/charges panel in Caja, refund recording, and a separate path for moving tournament/payment credit to tuition. |
-| 🔴 | Attendance daily notes overview | Add a simple way to review notes for a selected day across all groups/sessions without opening every session one by one. |
+| 🟢 | Attendance daily notes overview | Preview `v1.16.140` adds a read-only day-level notes view at `/attendance/notes` for scanning session and player notes across all groups. |
 | 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🔴 | Coach match posting v1 | Let coaches start posting match info before the parent/mobile app launch, so the habit and data shape can be tested early. |
 | 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
@@ -145,7 +145,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | ✅ | Attendance capture foundation | Attendance roles, sessions, schedules, reports, correction audit, closure model, group views, and monthly matrix are shipped. |
 | ✅ | Calendar day redirect | Calendar day click now redirects to `/attendance?date=YYYY-MM-DD` instead of stretching the calendar. |
 | ✅ | Campus button selectors | Shipped in `v1.16.138`; replaces campus dropdowns on Hoy, Calendario, Grupos, and Reportes with direct campus buttons that preserve the active date/month/report filters. |
-| 🔴 | Daily notes overview | Add a day-level notes review so directors/admin can scan all session notes for a selected day at once. |
+| 🟢 | Daily notes overview | Preview `v1.16.140` adds a day-level notes review for session notes and player-level attendance observations. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
 | 🧊 | Parent-facing attendance | Out of scope for now. |
@@ -206,6 +206,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.140` — preview Attendance daily notes overview for scanning session/player notes by campus and date.
 - ✅ `v1.16.139` — Caja one-receipt path for pending monthly tuition plus advance tuition shipped to production.
 - ✅ `v1.16.138` — quick UX pass shipped: clickable header logo and attendance campus button selectors.
 - ✅ `v1.16.137` — attendance correction permissions widened and Contry 2016/2017 B1 split shipped.

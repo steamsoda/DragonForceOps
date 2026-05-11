@@ -241,6 +241,32 @@ export type AttendanceCalendarData = {
   };
 };
 
+export type AttendanceDailyNotePlayer = {
+  recordId: string;
+  playerId: string;
+  playerName: string;
+  birthYear: number | null;
+  status: string;
+  note: string;
+};
+
+export type AttendanceDailyNoteSession = AttendanceSessionListItem & {
+  notes: string | null;
+  playerNotes: AttendanceDailyNotePlayer[];
+};
+
+export type AttendanceDailyNotesData = {
+  campuses: AttendanceCampusOption[];
+  selectedCampusId: string | null;
+  selectedDate: string;
+  sessions: AttendanceDailyNoteSession[];
+  totals: {
+    sessions: number;
+    sessionNotes: number;
+    playerNotes: number;
+  };
+};
+
 type SessionRow = {
   id: string;
   campus_id: string;
@@ -326,6 +352,10 @@ function monthLabel(month: string) {
 
 function isMonthOnly(value: string | null | undefined) {
   return Boolean(value && /^\d{4}-\d{2}$/.test(value));
+}
+
+function isDateOnly(value: string | null | undefined) {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
 
 function listDatesBetween(startDate: string, endDateExclusive: string) {
@@ -1155,6 +1185,156 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
     selectedMonth,
     days: dates.map((date) => byDate.get(date)!),
     totals,
+  };
+}
+
+export async function getAttendanceDailyNotes(filters: { campusId?: string; date?: string }): Promise<AttendanceDailyNotesData> {
+  const access = await getAttendanceScope();
+  const selectedDate = isDateOnly(filters.date) ? filters.date! : getMonterreyDateString();
+
+  if (!access) {
+    return {
+      campuses: [],
+      selectedCampusId: null,
+      selectedDate,
+      sessions: [],
+      totals: { sessions: 0, sessionNotes: 0, playerNotes: 0 },
+    };
+  }
+
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
+
+  if (selectedCampusIds.length === 0) {
+    return {
+      campuses: access.campuses,
+      selectedCampusId,
+      selectedDate,
+      sessions: [],
+      totals: { sessions: 0, sessionNotes: 0, playerNotes: 0 },
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: sessionRows } = await admin
+    .from("attendance_sessions")
+    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+    .in("campus_id", selectedCampusIds)
+    .eq("session_date", selectedDate)
+    .order("campus_id", { ascending: true })
+    .order("start_time", { ascending: true })
+    .returns<SessionRow[]>();
+
+  const sessionIds = (sessionRows ?? []).map((row) => row.id);
+  const teamIds = [...new Set((sessionRows ?? []).map((row) => row.team_id).filter((value): value is string => Boolean(value)))];
+  const trainingGroupIds = [...new Set((sessionRows ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
+
+  const emptyRecordRows: Array<{
+    id: string;
+    session_id: string;
+    player_id: string;
+    status: string;
+    note: string | null;
+    players: { first_name: string | null; last_name: string | null; birth_date: string | null } | null;
+  }> = [];
+
+  const [{ data: teamRosterRows }, { data: groupRosterRows }, { data: recordCounts }, { data: recordRows }] = await Promise.all([
+    teamIds.length === 0
+      ? Promise.resolve({ data: [] as Array<{ team_id: string }> })
+      : admin
+          .from("team_assignments")
+          .select("team_id")
+          .in("team_id", teamIds)
+          .is("end_date", null)
+          .eq("is_primary", true)
+          .returns<Array<{ team_id: string }>>(),
+    trainingGroupIds.length === 0
+      ? Promise.resolve({ data: [] as Array<{ training_group_id: string }> })
+      : admin
+          .from("training_group_assignments")
+          .select("training_group_id")
+          .in("training_group_id", trainingGroupIds)
+          .is("end_date", null)
+          .returns<Array<{ training_group_id: string }>>(),
+    sessionIds.length === 0
+      ? Promise.resolve({ data: [] as Array<{ session_id: string }> })
+      : admin
+          .from("attendance_records")
+          .select("session_id")
+          .in("session_id", sessionIds)
+          .returns<Array<{ session_id: string }>>(),
+    sessionIds.length === 0
+      ? Promise.resolve({ data: emptyRecordRows })
+      : admin
+          .from("attendance_records")
+          .select("id, session_id, player_id, status, note, players(first_name, last_name, birth_date)")
+          .in("session_id", sessionIds)
+          .not("note", "is", null)
+          .order("recorded_at", { ascending: true })
+          .returns<typeof emptyRecordRows>(),
+  ]);
+
+  const notesBySession = new Map<string, AttendanceDailyNotePlayer[]>();
+  for (const row of recordRows ?? []) {
+    const note = row.note?.trim();
+    if (!note) continue;
+    const playerNote: AttendanceDailyNotePlayer = {
+      recordId: row.id,
+      playerId: row.player_id,
+      playerName: `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.replace(/\s+/g, " ").trim() || "Jugador",
+      birthYear: birthYear(row.players?.birth_date),
+      status: row.status,
+      note,
+    };
+    notesBySession.set(row.session_id, [...(notesBySession.get(row.session_id) ?? []), playerNote]);
+  }
+
+  const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
+
+  const teamRosterCountMap = new Map<string, number>();
+  for (const row of teamRosterRows ?? []) teamRosterCountMap.set(row.team_id, (teamRosterCountMap.get(row.team_id) ?? 0) + 1);
+  const groupRosterCountMap = new Map<string, number>();
+  for (const row of groupRosterRows ?? []) groupRosterCountMap.set(row.training_group_id, (groupRosterCountMap.get(row.training_group_id) ?? 0) + 1);
+  const recordCountMap = new Map<string, number>();
+  for (const row of recordCounts ?? []) recordCountMap.set(row.session_id, (recordCountMap.get(row.session_id) ?? 0) + 1);
+
+  const sessions: AttendanceDailyNoteSession[] = (sessionRows ?? []).map((row) => {
+    const source = getSessionSource(row, trainingGroupCoachMap);
+    return {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? "Campus",
+      teamId: row.team_id,
+      trainingGroupId: row.training_group_id,
+      teamName: source.name,
+      coachName: source.coach,
+      sessionType: row.session_type,
+      status: row.status,
+      sessionDate: row.session_date,
+      startTime: normalizeTime(row.start_time),
+      endTime: normalizeTime(row.end_time),
+      rosterCount: row.training_group_id
+        ? (groupRosterCountMap.get(row.training_group_id) ?? 0)
+        : (row.team_id ? (teamRosterCountMap.get(row.team_id) ?? 0) : 0),
+      recordedCount: recordCountMap.get(row.id) ?? 0,
+      sourceType: source.sourceType,
+      notes: row.notes?.trim() ? row.notes.trim() : null,
+      playerNotes: (notesBySession.get(row.id) ?? []).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")),
+    };
+  });
+
+  return {
+    campuses: access.campuses,
+    selectedCampusId,
+    selectedDate,
+    sessions,
+    totals: {
+      sessions: sessions.length,
+      sessionNotes: sessions.filter((session) => Boolean(session.notes)).length,
+      playerNotes: sessions.reduce((total, session) => total + session.playerNotes.length, 0),
+    },
   };
 }
 

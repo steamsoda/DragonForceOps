@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-05-11 (session 169)
+
+### Attendance Daily Notes Overview (v1.16.140)
+
+- Added a read-only `/attendance/notes` view for directors/admins/staff with attendance read access.
+- The page lets staff choose campus and date, then scans the selected day across all sessions.
+- It summarizes:
+  - total sessions
+  - sessions with general notes
+  - player-level attendance notes
+- Session cards show group/team, campus, schedule, status, coach, general session notes, and player notes with attendance status labels.
+- Added `Notas` to the Asistencia sidebar.
+
 ## 2026-05-11 (session 168)
 
 ### Production Promotion + Roadmap Cleanup (v1.16.139)
