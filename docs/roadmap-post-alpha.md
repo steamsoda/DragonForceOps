@@ -36,8 +36,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.136`
-- Current preview line: `v1.16.137`
+- Current production line: `v1.16.137`
+- Current preview line: `v1.16.138`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -51,17 +51,25 @@ These are the highest-value items to consider next. Keep this list short.
 | 🟢 | Role-regression checklist validation | Latest static pass confirmed `Datos faltantes` uses the operational route/action boundary and exposes no finance fields; next step is still manual direct-URL checks before the next permission-sensitive merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md`, `v1.16.136` devlog |
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
-| 🟢 | Product KPI charged-vs-paid clarity | Preview `v1.16.133` separates emitted charges, confirmed collected amount, pending balance, and paid players. Validate product detail pages. | Product KPI item below, `v1.16.133` devlog |
+| 🟢 | Attendance quick UX pass | Preview `v1.16.138` makes the logo link home and replaces attendance campus dropdowns with direct campus buttons on Hoy, Calendario, Grupos, and Reportes. | General UX / Asistencia items below, `v1.16.138` devlog |
 | 🟢 | Front Desk contact cleanup queue | Preview `v1.16.136` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.136` devlog |
 
 ## Next
 
 Important, but not necessarily the next edit.
 
-`v1.16.137` preview validation: attendance completed-session correction is widened to Director Deportivo and Field Admin within normal attendance scope, and Contry 2016/2017 B1 is split into separate 2016 and 2017 groups.
+`v1.16.138` preview validation: app-shell logo now links to `/inicio`, and attendance campus selectors now use direct buttons that auto-navigate while preserving the active date/month/report filters.
 
 | Status | Item | Notes |
 |---|---|---|
+| 🔴 | Caja current + next-month same-receipt unlock | Next isolated finance workflow pass. Detect when staff is paying the current month and next month together so the advance tuition can be paid on one receipt without weakening the existing pending-tuition lock. |
+| 🔴 | Caja refund / reassignment workflow planning | Design before implementation. Likely needs a small recent-payments/charges panel in Caja, refund recording, and a separate path for moving tournament/payment credit to tuition. |
+| 🔴 | Attendance daily notes overview | Add a simple way to review notes for a selected day across all groups/sessions without opening every session one by one. |
+| 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
+| 🔴 | Coach match posting v1 | Let coaches start posting match info before the parent/mobile app launch, so the habit and data shape can be tested early. |
+| 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
+| 🔴 | Batch 360Player monthly posting | Design a fast manual batch-entry workflow for many 360Player tuition payments without opening Regularización Histórica one player at a time. |
+| 🟡 | Torneos workflow redesign | Larger planning item after urgent ops polish; needs confirmed team, signup, payment, and roster behavior. |
 | 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
 | 🟡 | Finance drift monitoring | Read-only prod export on 2026-05-08 scanned 735 enrollments and found 43 warning-only accounts, with no correction-grade report result. Keep using `/admin/finance-sanity` and exports after finance-sensitive work. |
@@ -98,6 +106,10 @@ Important, but not necessarily the next edit.
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
+| 🔴 | Caja current + next-month same-receipt unlock | Keep the pending-tuition safety rule, but allow a one-receipt path when current month and next month are both selected/covered together. |
+| 🔴 | Caja refunds and payment reassignment | Needs planning. Include recent payment/charge context from Caja, direct refund registration, and a separate credit-reassignment path for cases like cancelled tournament participation. |
+| 🔴 | Batch 360Player monthly posting | Plan a manual batch workflow to post many 360Player tuition payments quickly with auditability and duplicate protection. |
+| 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | V1 works; future scope includes partial refunds, stronger finance guardrails, and performance polish. |
@@ -126,12 +138,14 @@ Important, but not necessarily the next edit.
 
 ### Asistencia
 
-`v1.16.137` preview adds scoped completed-session correction for Director Deportivo and Field Admin, plus the Contry 2016/2017 B1 split into separate 2016 and 2017 groups.
+`v1.16.137` shipped scoped completed-session correction for Director Deportivo and Field Admin, plus the Contry 2016/2017 B1 split into separate 2016 and 2017 groups. `v1.16.138` preview adds direct campus buttons across the attendance menu.
 
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | Attendance capture foundation | Attendance roles, sessions, schedules, reports, correction audit, closure model, group views, and monthly matrix are shipped. |
 | ✅ | Calendar day redirect | Calendar day click now redirects to `/attendance?date=YYYY-MM-DD` instead of stretching the calendar. |
+| 🟢 | Campus button selectors | Preview `v1.16.138` replaces campus dropdowns on Hoy, Calendario, Grupos, and Reportes with direct campus buttons that preserve the active date/month/report filters. |
+| 🔴 | Daily notes overview | Add a day-level notes review so directors/admin can scan all session notes for a selected day at once. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
 | 🧊 | Parent-facing attendance | Out of scope for now. |
@@ -148,9 +162,11 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
+| 🔴 | Coach match posting v1 | Let coaches start entering match posts/results this week as a lightweight habit/data-shape test before the parent app depends on it. |
 | 🟡 | Director Deportivo dashboard | Category-first sports lane exists; keep open for Julio validation and UX simplification. |
 | 🟡 | League/tournament management | Configuration + team drilldown exists; keep open for competition-specific rules and mixed-year realities. |
 | 🟡 | Team-building workflow | Roster-final workflow exists; keep open for manual override polish. |
+| 🟡 | Torneos workflow redesign | Larger planned pass covering signup, payment, team assignment, roster approval, and parent/mobile-facing needs. |
 | 🔴 | Autopopulate base teams from current `Nivel` | Important but needs careful guided/backfill planning. Only assign when campus + birth year + gender + level match is unambiguous. |
 | 🔴 | Sports lane rethink | Use live signup-board success as planning anchor before adding heavier sports complexity. |
 
@@ -164,6 +180,13 @@ Important, but not necessarily the next edit.
 | 🔴 | Caja pending charge detail | Expandable rows showing period month and charge type before payment. |
 | ⚠️ | Custom receipt tickets | Needs product list and ticket spec before implementation. |
 | 🧊 | Receipt encoding artifact cleanup | Low-priority cleanup for remaining accent/`Ñ` artifacts in edge receipts. |
+
+### App Shell / General UX
+
+| Status | Item | Notes |
+|---|---|---|
+| 🟢 | Clickable logo home link | Preview `v1.16.138` links the `INVICTA` header wordmark to `/inicio`. |
+| 🔴 | Favicon / app icon | Choose a square source mark and then add the favicon/app icon metadata. Current available assets are not yet confirmed as the final icon source. |
 
 ## Strategic Later Phases
 
@@ -183,6 +206,8 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.138` — preview quick UX pass: clickable header logo and attendance campus button selectors.
+- ✅ `v1.16.137` — attendance correction permissions widened and Contry 2016/2017 B1 split shipped.
 - ✅ `v1.16.130` — `Jugadores` grouped roster export now splits into category/YOB sheets and prints black-and-white.
 - ✅ `v1.16.129` — `Jugadores > Vista por grupos` Excel export added.
 - ✅ `v1.16.128` — Regularización Histórica can create prior-two-month tuition charges.

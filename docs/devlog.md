@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-05-11 (session 166)
+
+### General UX Roadmap + Attendance Campus Buttons (v1.16.138)
+
+- Added the current operator-request backlog to the active roadmap:
+  - Caja current-month + next-month same-receipt unlock
+  - refund / payment reassignment workflow planning
+  - clickable logo and faster attendance campus switching
+  - attendance daily notes overview
+  - favicon/app-icon decision
+  - coach match posting v1
+  - offline/outage mitigation
+  - batch 360Player monthly payment posting
+  - torneos workflow redesign
+- Made the `INVICTA` wordmark in the protected app header link back to `/inicio`.
+- Replaced attendance campus dropdowns with direct campus buttons on:
+  - `/attendance`
+  - `/attendance/calendar`
+  - `/attendance/groups`
+  - `/attendance/reports`
+- Campus buttons preserve the active date/month/report filters and navigate immediately, so staff no longer needs to select a campus and then click a separate view/apply button.
+- Left the Caja current+next-month payment unlock out of this pass by design so it can be handled as the next isolated finance workflow change.
+
 ## 2026-05-11 (session 165)
 
 ### Attendance Correction Permissions + Contry Split (v1.16.137)
