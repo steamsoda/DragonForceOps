@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-05-11 (session 168)
+
+### Production Promotion + Roadmap Cleanup (v1.16.139)
+
+- Promoted the validated `preview` work to `main` for production:
+  - `v1.16.138` attendance UX polish
+  - `v1.16.139` Caja current + advance tuition same-receipt guard
+- Front Desk validation of the Caja one-receipt path was reported as OK before the docs cleanup.
+- Updated roadmap language so the shipped items no longer read as preview-only work.
+
 ## 2026-05-11 (session 167)
 
 ### Caja Current + Advance Tuition Same Receipt Guard (v1.16.139)

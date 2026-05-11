@@ -51,18 +51,18 @@ These are the highest-value items to consider next. Keep this list short.
 | 🟢 | Role-regression checklist validation | Latest static pass confirmed `Datos faltantes` uses the operational route/action boundary and exposes no finance fields; next step is still manual direct-URL checks before the next permission-sensitive merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md`, `v1.16.136` devlog |
 | ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
-| 🟢 | Attendance quick UX pass | Preview `v1.16.138` makes the logo link home and replaces attendance campus dropdowns with direct campus buttons on Hoy, Calendario, Grupos, and Reportes. | General UX / Asistencia items below, `v1.16.138` devlog |
+| ✅ | Attendance quick UX pass | Shipped in `v1.16.138`; the logo links home and attendance campus dropdowns are now direct campus buttons on Hoy, Calendario, Grupos, and Reportes. | General UX / Asistencia items below, `v1.16.138` devlog |
 | 🟢 | Front Desk contact cleanup queue | Preview `v1.16.136` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.136` devlog |
 
 ## Next
 
 Important, but not necessarily the next edit.
 
-`v1.16.138` preview validation: app-shell logo now links to `/inicio`, and attendance campus selectors now use direct buttons that auto-navigate while preserving the active date/month/report filters.
+Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Caja current + advance tuition one-receipt guard are now on `main`.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🟢 | Caja current + next-month same-receipt unlock | Preview `v1.16.139` allows current/pending monthly tuition plus advance tuition in one receipt only when prior monthly charges are selected and the payment covers the staged total. |
+| ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; allows current/pending monthly tuition plus advance tuition in one receipt only when prior monthly charges are selected and the payment covers the staged total. |
 | 🔴 | Caja refund / reassignment workflow planning | Design before implementation. Likely needs a small recent-payments/charges panel in Caja, refund recording, and a separate path for moving tournament/payment credit to tuition. |
 | 🔴 | Attendance daily notes overview | Add a simple way to review notes for a selected day across all groups/sessions without opening every session one by one. |
 | 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
@@ -106,7 +106,7 @@ Important, but not necessarily the next edit.
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
-| 🟢 | Caja current + next-month same-receipt unlock | Preview `v1.16.139` keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
+| ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
 | 🔴 | Caja refunds and payment reassignment | Needs planning. Include recent payment/charge context from Caja, direct refund registration, and a separate credit-reassignment path for cases like cancelled tournament participation. |
 | 🔴 | Batch 360Player monthly posting | Plan a manual batch workflow to post many 360Player tuition payments quickly with auditability and duplicate protection. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
@@ -138,13 +138,13 @@ Important, but not necessarily the next edit.
 
 ### Asistencia
 
-`v1.16.137` shipped scoped completed-session correction for Director Deportivo and Field Admin, plus the Contry 2016/2017 B1 split into separate 2016 and 2017 groups. `v1.16.138` preview adds direct campus buttons across the attendance menu.
+`v1.16.137` shipped scoped completed-session correction for Director Deportivo and Field Admin, plus the Contry 2016/2017 B1 split into separate 2016 and 2017 groups. `v1.16.138` shipped direct campus buttons across the attendance menu.
 
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | Attendance capture foundation | Attendance roles, sessions, schedules, reports, correction audit, closure model, group views, and monthly matrix are shipped. |
 | ✅ | Calendar day redirect | Calendar day click now redirects to `/attendance?date=YYYY-MM-DD` instead of stretching the calendar. |
-| 🟢 | Campus button selectors | Preview `v1.16.138` replaces campus dropdowns on Hoy, Calendario, Grupos, and Reportes with direct campus buttons that preserve the active date/month/report filters. |
+| ✅ | Campus button selectors | Shipped in `v1.16.138`; replaces campus dropdowns on Hoy, Calendario, Grupos, and Reportes with direct campus buttons that preserve the active date/month/report filters. |
 | 🔴 | Daily notes overview | Add a day-level notes review so directors/admin can scan all session notes for a selected day at once. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
@@ -185,7 +185,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🟢 | Clickable logo home link | Preview `v1.16.138` links the `INVICTA` header wordmark to `/inicio`. |
+| ✅ | Clickable logo home link | Shipped in `v1.16.138`; links the `INVICTA` header wordmark to `/inicio`. |
 | 🔴 | Favicon / app icon | Choose a square source mark and then add the favicon/app icon metadata. Current available assets are not yet confirmed as the final icon source. |
 
 ## Strategic Later Phases
@@ -206,8 +206,8 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
-- 🟢 `v1.16.139` — preview Caja one-receipt path for pending monthly tuition plus advance tuition.
-- 🟢 `v1.16.138` — preview quick UX pass: clickable header logo and attendance campus button selectors.
+- ✅ `v1.16.139` — Caja one-receipt path for pending monthly tuition plus advance tuition shipped to production.
+- ✅ `v1.16.138` — quick UX pass shipped: clickable header logo and attendance campus button selectors.
 - ✅ `v1.16.137` — attendance correction permissions widened and Contry 2016/2017 B1 split shipped.
 - ✅ `v1.16.130` — `Jugadores` grouped roster export now splits into category/YOB sheets and prints black-and-white.
 - ✅ `v1.16.129` — `Jugadores > Vista por grupos` Excel export added.
