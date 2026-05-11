@@ -590,7 +590,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
   if (!session || !canAccessAttendanceCampus(access, session.campus_id)) return null;
 
   const canWrite = canWriteAttendanceCampus(access, session.campus_id);
-  const canCorrect = context.isDirector;
+  const canCorrect = canWrite && (context.isDirector || context.isSportsDirector || context.isAttendanceAdmin);
 
   const sourceType = session.training_group_id ? "training_group" as const : "team" as const;
   const trainingGroupCoachMap = await getTrainingGroupCoachMap(session.training_group_id ? [session.training_group_id] : []);

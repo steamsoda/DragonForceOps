@@ -1,5 +1,39 @@
 # Devlog
 
+## 2026-05-11 (session 165)
+
+### Attendance Correction Permissions + Contry Split (v1.16.137)
+
+- Audited the completed attendance correction path after Director Deportivo/Field Admin reports.
+- Confirmed the `director_required` error was caused by the completed-session correction gate using `isDirector`, which only covered superadmin/director admin.
+- Updated completed-session attendance saves so Director Deportivo and Field Admin can re-edit completed sessions inside their existing attendance campus scope.
+- Kept completed-session cancellation stricter for now; cancellation still requires director/admin authority.
+- Preserved correction audit insertion for the widened correction roles so edited attendance records still land in `attendance_record_audit`.
+- Added a guarded Contry training-group split migration:
+  - creates separate active `Intermedio B1` groups for Cat. 2016 and Cat. 2017
+  - moves active assignments from the old 2016/2017 group by player birth year
+  - copies coaches and recurring attendance templates
+  - clones future scheduled sessions into both new groups and cancels the old scheduled copies
+  - leaves completed historical sessions on the old group intact
+
+## 2026-05-11 (operational production fix)
+
+### Monthly Tuition Repricing Cron Restore
+
+- Found production `pg_cron` still using the temporary April repricing schedule:
+  - stale schedule: `1 6 16 * *`
+  - expected normal schedule was day 11 after the early-payment window.
+- Rescheduled production `reprice-pending-monthly-tuition` to run on the 11th at 9:45 AM Monterrey time:
+  - cron schedule: `45 15 11 * *`
+  - command: `select public.reprice_pending_monthly_tuition()`
+- Verified the May 11, 2026 run succeeded at `2026-05-11T15:45:00Z`.
+- Result after the run:
+  - `455` pending, unallocated May monthly tuition rows repriced to `$900`
+  - `244` allocated May tuition rows stayed at `$700`
+  - `1` allocated half-month/new-enrollment row stayed at `$350`
+  - remaining unallocated May repricing mismatch count: `0`
+- No manual repricing path was used; the existing guarded production function performed the update.
+
 ## 2026-05-08 (session 164)
 
 ### Datos Faltantes Contact Cleanup (v1.16.134)
@@ -30,6 +64,24 @@
   - Front Desk / Director Deportivo can eventually mark `Baja potencial`.
   - Director/admin confirmation would eventually finalize the baja.
 - Reason: Front Desk and admin have more urgent workflow changes to handle first.
+
+### Role / Finance Read-Only Sanity Pass
+
+- Rechecked the new `Datos faltantes` workflow access boundary:
+  - page route uses `requireOperationalContext`, matching `Pendientes` / `Llamadas`
+  - sidebar exposure is limited to director/superadmin/front desk operational roles
+  - save action re-checks operational access plus player/guardian record access before writing
+  - query shape loads active player, guardian, campus, and group contact-cleanup fields only; it does not pull balances, charges, payments, or finance KPIs
+- Clarified why product KPI validation was on the list:
+  - production caught up from earlier preview work in the same merge window
+  - the KPI change is display/math wording around emitted charges vs confirmed collected amount, not a ledger mutation
+- Ran the read-only production finance anomaly export:
+  - command: `npm run diagnose:finance -- --env-file .env.prod.local --out tmp/prod-finance-anomaly-report-2026-05-08-session164.json`
+  - scanned enrollments: `735`
+  - anomalous accounts: `43`
+  - recommended actions: `{"warning_only":43}`
+  - anomaly codes present: `payment_reassign_delicate`, `repricing_unsafe_monthly_tuition`, `unapplied_credit`, `payment_partial_allocation`, `payment_without_allocations`
+- No correction-grade or auto-repair result was produced by this report; repair/apply tooling was not run.
 
 ### Product KPI Charged-vs-Paid Clarity (v1.16.133)
 
