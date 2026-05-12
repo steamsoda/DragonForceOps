@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.140`
-- Current preview line: `v1.16.144`
+- Current preview line: `v1.16.145`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -107,6 +107,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
+| 🟢 | `Jugadores > Bajas` recency sort | Preview `v1.16.145` makes the default bajas list sort by most recent effective baja date first, with player name as the tie-breaker. |
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
 | 🔴 | Caja refunds and payment reassignment | Needs planning. Include recent payment/charge context from Caja, direct refund registration, and a separate credit-reassignment path for cases like cancelled tournament participation. |

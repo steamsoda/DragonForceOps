@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-05-12 (session 175)
+
+### Bajas Default Ordering (v1.16.145)
+
+- Updated `Jugadores > Bajas` so the default list order is most recent baja first instead of alphabetical by player name.
+- Name sorting remains as a tie-breaker when multiple bajas share the same effective baja date.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 174)
 
 ### Dependency Security Patch Pass (v1.16.144)
