@@ -1,5 +1,29 @@
 # Devlog
 
+## 2026-05-11 (session 172)
+
+### 360Player Posting UX + Arrears Guard (v1.16.142)
+
+- Polished `/admin/360player-posting` after first preview review.
+- Replaced dropdown-heavy filters with direct campus, category/YOB, and payment-mode buttons.
+- Moved payment timing into a dedicated `Tipo de pago a registrar` section so staff can see whether they are registering early-price or late-price 360Player payments.
+- Changed workflow language away from `publicar`:
+  - main action is now `Registrar pagos 360Player`
+  - confirmation action is `Marcar como pagados`
+  - eligible rows show `Pendiente de pago`
+- Changed row selection behavior:
+  - no players are selected by default
+  - clicking anywhere on an eligible row toggles selection
+  - checkbox remains as the visual indicator
+- Added a confirmation modal before posting payments:
+  - lists selected players and total amount
+  - requires the operator to check `Jugadores confirmados en 360Player`
+  - submit remains disabled until that confirmation box is checked
+- Added a prior-month arrears lock:
+  - the query marks rows as blocked when older monthly tuition is still pending
+  - the server action independently rechecks older monthly debt before inserting any payment
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-11 (session 171)
 
 ### 360Player Monthly Batch Posting (v1.16.141)

@@ -19,6 +19,7 @@ export type Player360PostingRow = {
   chargeAmount: number;
   pendingAmount: number;
   allocatedAmount: number;
+  priorMonthlyPendingAmount: number;
   currency: string;
   periodMonth: string;
   earlyAmount: number | null;
@@ -74,6 +75,13 @@ type AllocationRow = {
   payments: { id: string; method: string | null; status: string | null } | null;
 };
 
+type PriorMonthlyChargeRow = {
+  id: string;
+  enrollment_id: string;
+  amount: number;
+  payment_allocations: Array<{ amount: number | null }> | null;
+};
+
 type PlayerRow = NonNullable<NonNullable<ChargeRow["enrollments"]>["players"]>;
 
 function normalizeMonth(value: string | null | undefined) {
@@ -113,6 +121,7 @@ function explainBlocked(reason: string) {
     duplicate_360player: "Ya tiene pago 360Player aplicado",
     duplicate_monthly_charge: "Tiene mas de un cargo de mensualidad para este mes",
     full_scholarship: "Beca completa",
+    prior_month_arrears: "Tiene mensualidades anteriores pendientes",
   };
   return messages[reason] ?? reason;
 }
@@ -205,6 +214,7 @@ export async function get360PlayerPostingData(filters: {
   }
 
   const chargeIds = candidateRows.map((row) => row.id);
+  const enrollmentIds = [...new Set(candidateRows.map((row) => row.enrollment_id))];
   const { data: allocations } = chargeIds.length === 0
     ? { data: [] as AllocationRow[] }
     : await admin
@@ -212,6 +222,32 @@ export async function get360PlayerPostingData(filters: {
         .select("charge_id, amount, payments(id, method, status)")
         .in("charge_id", chargeIds)
         .returns<AllocationRow[]>();
+
+  const { data: priorMonthlyCharges } = enrollmentIds.length === 0
+    ? { data: [] as PriorMonthlyChargeRow[] }
+    : await admin
+        .from("charges")
+        .select("id, enrollment_id, amount, charge_types!inner(code), payment_allocations(amount)")
+        .in("enrollment_id", enrollmentIds)
+        .lt("period_month", periodMonth)
+        .neq("status", "void")
+        .eq("charge_types.code", "monthly_tuition")
+        .returns<PriorMonthlyChargeRow[]>();
+
+  const priorPendingByEnrollment = new Map<string, number>();
+  for (const charge of priorMonthlyCharges ?? []) {
+    const allocated = (charge.payment_allocations ?? []).reduce(
+      (sum, allocation) => sum + Number(allocation.amount ?? 0),
+      0
+    );
+    const pending = roundMoney(Number(charge.amount ?? 0) - allocated);
+    if (pending > 0.009) {
+      priorPendingByEnrollment.set(
+        charge.enrollment_id,
+        roundMoney((priorPendingByEnrollment.get(charge.enrollment_id) ?? 0) + pending)
+      );
+    }
+  }
 
   const allocationByCharge = new Map<string, number>();
   const has360ByCharge = new Set<string>();
@@ -247,6 +283,7 @@ export async function get360PlayerPostingData(filters: {
     const selectedAmount = mode === "early" ? earlyAmount : lateAmount;
     const allocatedAmount = allocationByCharge.get(row.id) ?? 0;
     const pendingAmount = roundMoney(row.amount - allocatedAmount);
+    const priorMonthlyPendingAmount = priorPendingByEnrollment.get(row.enrollment_id) ?? 0;
     const player = enrollment?.players ?? null;
     const reasons: string[] = [];
 
@@ -255,6 +292,7 @@ export async function get360PlayerPostingData(filters: {
     if (enrollment?.scholarship_status === "full") reasons.push("full_scholarship");
     if (!earlyAmount || !lateAmount) reasons.push("missing_quote");
     if ((monthlyChargeCountByEnrollment.get(row.enrollment_id) ?? 0) > 1) reasons.push("duplicate_monthly_charge");
+    if (priorMonthlyPendingAmount > 0.009) reasons.push("prior_month_arrears");
     if (has360ByCharge.has(row.id)) reasons.push("duplicate_360player");
     if (allocatedAmount > 0 && pendingAmount > 0.009) reasons.push("partial_allocation");
     if (pendingAmount <= 0.009) reasons.push("fully_paid");
@@ -279,6 +317,7 @@ export async function get360PlayerPostingData(filters: {
       chargeAmount: row.amount,
       pendingAmount,
       allocatedAmount,
+      priorMonthlyPendingAmount,
       currency: row.currency,
       periodMonth,
       earlyAmount,
@@ -286,8 +325,8 @@ export async function get360PlayerPostingData(filters: {
       selectedAmount,
       actionLabel: selectedAmount
         ? needsReprice
-          ? `Repreciar ${row.amount.toLocaleString("es-MX", { style: "currency", currency: row.currency })} -> ${selectedAmount.toLocaleString("es-MX", { style: "currency", currency: row.currency })} y publicar pago`
-          : `Publicar pago por ${selectedAmount.toLocaleString("es-MX", { style: "currency", currency: row.currency })}`
+          ? `Repreciar ${row.amount.toLocaleString("es-MX", { style: "currency", currency: row.currency })} -> ${selectedAmount.toLocaleString("es-MX", { style: "currency", currency: row.currency })} y registrar pago`
+          : `Registrar pago por ${selectedAmount.toLocaleString("es-MX", { style: "currency", currency: row.currency })}`
         : "Sin monto calculado",
       status: isEligible ? "eligible" : "blocked",
       reason: reasons.length > 0 ? reasons.map(explainBlocked).join(" | ") : null,

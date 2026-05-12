@@ -138,6 +138,29 @@ async function countMonthlyChargesForEnrollment(
   return data?.length ?? 0;
 }
 
+async function hasPriorMonthlyDebt(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+  periodMonth: string
+) {
+  const { data } = await supabase
+    .from("charges")
+    .select("id, amount, charge_types!inner(code), payment_allocations(amount)")
+    .eq("enrollment_id", enrollmentId)
+    .lt("period_month", periodMonth)
+    .neq("status", "void")
+    .eq("charge_types.code", "monthly_tuition")
+    .returns<Array<{ id: string; amount: number; payment_allocations: Array<{ amount: number | null }> | null }>>();
+
+  return (data ?? []).some((charge) => {
+    const allocated = (charge.payment_allocations ?? []).reduce(
+      (sum, allocation) => sum + Number(allocation.amount ?? 0),
+      0
+    );
+    return roundMoney(Number(charge.amount ?? 0) - allocated) > 0.009;
+  });
+}
+
 async function postOne360Payment({
   supabase,
   user,
@@ -296,6 +319,10 @@ export async function post360PlayerMonthlyBatchAction(formData: FormData) {
     }
     const monthlyChargeCount = await countMonthlyChargesForEnrollment(supabase, charge.enrollment_id, periodMonth);
     if (monthlyChargeCount !== 1) {
+      skipped += 1;
+      continue;
+    }
+    if (await hasPriorMonthlyDebt(supabase, charge.enrollment_id, periodMonth)) {
       skipped += 1;
       continue;
     }

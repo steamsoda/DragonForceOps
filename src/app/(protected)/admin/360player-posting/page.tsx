@@ -3,7 +3,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { formatPostingMonth, get360PlayerPostingData } from "@/lib/queries/360player-posting";
 import { getMonterreyDateString } from "@/lib/time";
-import { post360PlayerMonthlyBatchAction } from "@/server/actions/360player-posting";
+import { PostingSelectionTable } from "./posting-selection-table";
 
 type SearchParams = Promise<{
   campus?: string;
@@ -45,8 +45,14 @@ export default async function Posting360PlayerPage({ searchParams }: { searchPar
     birthYear: Number.isFinite(selectedBirthYear) ? selectedBirthYear : undefined,
   });
   const selectedCampus = data.campuses.find((campus) => campus.id === data.selectedCampusId) ?? null;
-  const eligibleRows = data.rows.filter((row) => row.status === "eligible");
   const defaultPaidAt = `${getMonterreyDateString()}T12:00`;
+  const baseParams = {
+    campus: data.selectedCampusId,
+    month: data.selectedMonth,
+    mode: data.mode,
+    birthYear: data.birthYear,
+    q: data.search,
+  };
 
   return (
     <PageShell
@@ -67,45 +73,117 @@ export default async function Posting360PlayerPage({ searchParams }: { searchPar
           </div>
         ) : null}
 
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-          <form className="grid gap-3 md:grid-cols-5">
-            <label className="text-sm font-medium">
-              Campus
-              <select name="campus" defaultValue={data.selectedCampusId ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-                {data.campuses.map((campus) => (
-                  <option key={campus.id} value={campus.id}>{campus.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm font-medium">
-              Mes
-              <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <label className="text-sm font-medium">
-              Tipo de pago
-              <select name="mode" defaultValue={data.mode} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-                <option value="early">Temprano</option>
-                <option value="late">Tardio</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium">
-              Categoria
-              <select name="birthYear" defaultValue={data.birthYear ?? ""} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-                <option value="">Todas</option>
-                {data.birthYears.map((year) => <option key={year} value={year}>{year}</option>)}
-              </select>
-            </label>
-            <label className="text-sm font-medium">
-              Buscar
-              <input name="q" defaultValue={data.search} placeholder="Jugador o ID" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <div className="md:col-span-5 flex flex-wrap gap-2">
-              <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar filtros</button>
-              <Link href={buildHref({ campus: data.selectedCampusId, month: data.selectedMonth, mode: data.mode })} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
-                Limpiar categoria/busqueda
+        <section className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Campus</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {data.campuses.map((campus) => (
+                <Link
+                  key={campus.id}
+                  href={buildHref({ ...baseParams, campus: campus.id })}
+                  className={
+                    campus.id === data.selectedCampusId
+                      ? "rounded-full bg-portoBlue px-4 py-2 text-sm font-semibold text-white"
+                      : "rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                  }
+                >
+                  {campus.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[240px_1fr]">
+            <form className="flex items-end gap-2">
+              <input type="hidden" name="campus" value={data.selectedCampusId ?? ""} />
+              <input type="hidden" name="mode" value={data.mode} />
+              {data.birthYear ? <input type="hidden" name="birthYear" value={data.birthYear} /> : null}
+              {data.search ? <input type="hidden" name="q" value={data.search} /> : null}
+              <label className="flex-1 text-sm font-medium">
+                Mes
+                <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                Ver mes
+              </button>
+            </form>
+            <form className="flex items-end gap-2">
+              <input type="hidden" name="campus" value={data.selectedCampusId ?? ""} />
+              <input type="hidden" name="month" value={data.selectedMonth} />
+              <input type="hidden" name="mode" value={data.mode} />
+              {data.birthYear ? <input type="hidden" name="birthYear" value={data.birthYear} /> : null}
+              <label className="flex-1 text-sm font-medium">
+                Buscar
+                <input name="q" defaultValue={data.search} placeholder="Jugador o ID" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                Buscar
+              </button>
+            </form>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Categoria</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link
+                href={buildHref({ ...baseParams, birthYear: null })}
+                className={
+                  data.birthYear === null
+                    ? "rounded-full bg-portoBlue px-4 py-2 text-sm font-semibold text-white"
+                    : "rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                }
+              >
+                Todas
+              </Link>
+              {data.birthYears.map((year) => (
+                <Link
+                  key={year}
+                  href={buildHref({ ...baseParams, birthYear: year })}
+                  className={
+                    data.birthYear === year
+                      ? "rounded-full bg-portoBlue px-4 py-2 text-sm font-semibold text-white"
+                      : "rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                  }
+                >
+                  {year}
+                </Link>
+              ))}
+              <Link href={buildHref({ campus: data.selectedCampusId, month: data.selectedMonth, mode: data.mode })} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
+                Limpiar
               </Link>
             </div>
-          </form>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Tipo de pago a registrar</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href={buildHref({ ...baseParams, mode: "early" })}
+              className={
+                data.mode === "early"
+                  ? "rounded-full bg-portoBlue px-4 py-2 text-sm font-semibold text-white"
+                  : "rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-100"
+              }
+            >
+              Pago temprano
+            </Link>
+            <Link
+              href={buildHref({ ...baseParams, mode: "late" })}
+              className={
+                data.mode === "late"
+                  ? "rounded-full bg-portoBlue px-4 py-2 text-sm font-semibold text-white"
+                  : "rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-100"
+              }
+            >
+              Pago tardio
+            </Link>
+          </div>
+          <p className="mt-2 text-sm text-blue-900">
+            {data.mode === "early"
+              ? "Se registraran pagos usando el precio temprano de la mensualidad."
+              : "Se registraran pagos usando el precio tardio de la mensualidad."}
+          </p>
         </section>
 
         <div className="grid gap-3 md:grid-cols-4">
@@ -127,86 +205,15 @@ export default async function Posting360PlayerPage({ searchParams }: { searchPar
           </div>
         </div>
 
-        <form action={post360PlayerMonthlyBatchAction} className="space-y-4">
-          <input type="hidden" name="campus" value={data.selectedCampusId ?? ""} />
-          <input type="hidden" name="month" value={data.selectedMonth} />
-          <input type="hidden" name="mode" value={data.mode} />
-          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
-            <div className="grid gap-3 md:grid-cols-[1fr_220px_auto] md:items-end">
-              <div>
-                <p className="font-semibold">Confirmacion de publicacion 360Player</p>
-                <p className="mt-1">
-                  {selectedCampus?.name ?? "Campus"} | {formatPostingMonth(data.periodMonth)} | modo {data.mode === "early" ? "temprano" : "tardio"}.
-                  Solo se procesan cargos elegibles seleccionados; cada fila se revalida en servidor antes de tocar finanzas.
-                </p>
-              </div>
-              <label className="text-sm font-medium">
-                Fecha real del pago
-                <input name="paidAt" type="datetime-local" defaultValue={defaultPaidAt} className="mt-1 block w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900" />
-              </label>
-              <button disabled={eligibleRows.length === 0} className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50">
-                Publicar seleccionados
-              </button>
-            </div>
-          </section>
-
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
-                <tr>
-                  <th className="px-3 py-2">Sel</th>
-                  <th className="px-3 py-2">Jugador</th>
-                  <th className="px-3 py-2">Cargo actual</th>
-                  <th className="px-3 py-2">Temprano</th>
-                  <th className="px-3 py-2">Tardio</th>
-                  <th className="px-3 py-2">Accion</th>
-                  <th className="px-3 py-2">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.rows.map((row) => (
-                  <tr key={row.chargeId} className={row.status === "eligible" ? "bg-white dark:bg-slate-950" : "bg-slate-50 text-slate-500 dark:bg-slate-900/60"}>
-                    <td className="px-3 py-2 align-top">
-                      <input
-                        type="checkbox"
-                        name="chargeId"
-                        value={row.chargeId}
-                        disabled={row.status !== "eligible"}
-                        defaultChecked={row.status === "eligible"}
-                        aria-label={`Seleccionar pago 360Player de ${row.playerName}`}
-                      />
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <Link href={`/players/${row.playerId}`} className="font-semibold text-portoBlue hover:underline">{row.playerName}</Link>
-                      <p className="text-xs text-slate-500">{row.publicPlayerId ?? "-"} | Cat. {row.birthYear ?? "-"} | {row.campusName}</p>
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <p className="font-semibold">{money(row.chargeAmount, row.currency)}</p>
-                      <p className="text-xs text-slate-500">Pendiente {money(row.pendingAmount, row.currency)}</p>
-                    </td>
-                    <td className="px-3 py-2 align-top">{money(row.earlyAmount, row.currency)}</td>
-                    <td className="px-3 py-2 align-top">{money(row.lateAmount, row.currency)}</td>
-                    <td className="max-w-xs px-3 py-2 align-top text-xs">{row.actionLabel}</td>
-                    <td className="px-3 py-2 align-top">
-                      {row.status === "eligible" ? (
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">Lista</span>
-                      ) : (
-                        <span className="text-xs text-slate-500">{row.reason}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {data.rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
-                      No hay mensualidades pendientes con estos filtros.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </form>
+        <PostingSelectionTable
+          rows={data.rows}
+          campusId={data.selectedCampusId}
+          campusName={selectedCampus?.name ?? "Campus"}
+          month={data.selectedMonth}
+          periodLabel={formatPostingMonth(data.periodMonth)}
+          mode={data.mode}
+          defaultPaidAt={defaultPaidAt}
+        />
       </div>
     </PageShell>
   );
