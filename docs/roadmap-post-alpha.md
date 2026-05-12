@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.140`
-- Current preview line: `v1.16.145`
+- Current preview line: `v1.16.146`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -97,6 +97,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | ✅ | `Jugadores > Vista por grupos` | RPC + client/API split + service-role server path brought production grouped roster down to usable latency. Export is now available. |
 | ✅ | `/admin/regularizacion-historica` | `v1.16.132` trims selected-account opening to enrollment/balance/pending charges first; full payment/refund history is available on demand. |
 | 🟡 | Attendance submit | Multiple passes reduced submit overhead and revalidation. Monitor large real rosters after field use. |
+| 🟢 | Attendance group category labels | Preview `v1.16.146` appends configured YOB ranges to training-group session labels, so repeated levels on `Asistencia > Hoy` are distinguishable. |
 | 🟡 | Front Desk hot paths | Timing instrumentation exists for payment posting, intake, receipt prep/print, and attendance saves. Use logs when operators report lag. |
 | 🔴 | Dashboard / Panel drilldowns | Add only after canonical finance-source checks so dashboards do not introduce drift. |
 

@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-05-12 (session 176)
+
+### Attendance Today Group Category Labels (v1.16.146)
+
+- Updated attendance session source labels so training-group sessions include the configured birth-year range when the group name does not already include it.
+- This makes `Asistencia > Hoy` cards distinguish repeated levels such as `Avanzado B1 2016`, `Avanzado B1 2017`, or `2016/2017` instead of showing only the level name.
+- Applied the same source-label helper to attendance session detail, calendar, notes, and schedule-template contexts.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 175)
 
 ### Bajas Default Ordering (v1.16.145)

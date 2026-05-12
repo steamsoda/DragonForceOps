@@ -286,7 +286,7 @@ type SessionRow = {
     name: string | null;
     coaches: { first_name: string | null; last_name: string | null } | null;
   } | null;
-  training_groups: { name: string | null } | null;
+  training_groups: { name: string | null; birth_year_min: number | null; birth_year_max: number | null } | null;
 };
 
 type AttendanceClosureRow = {
@@ -313,7 +313,7 @@ type TemplateRow = {
   is_active: boolean;
   campuses: { name: string | null } | null;
   teams: { name: string | null; coaches: { first_name: string | null; last_name: string | null } | null } | null;
-  training_groups: { name: string | null } | null;
+  training_groups: { name: string | null; birth_year_min: number | null; birth_year_max: number | null } | null;
 };
 
 type AttendanceGroupRow = {
@@ -417,11 +417,18 @@ async function getTrainingGroupCoachMap(trainingGroupIds: string[]) {
   return result;
 }
 
-function getSessionSource(row: { team_id: string | null; training_group_id: string | null; teams?: { name: string | null; coaches?: { first_name: string | null; last_name: string | null } | null } | null; training_groups?: { name: string | null } | null }, trainingGroupCoachMap: Map<string, string | null>) {
+function formatTrainingGroupSessionName(group: { name: string | null; birth_year_min?: number | null; birth_year_max?: number | null } | null | undefined) {
+  const name = group?.name ?? "Grupo";
+  const birthYearLabel = formatTrainingGroupBirthYearRange(group?.birth_year_min ?? null, group?.birth_year_max ?? null);
+  if (birthYearLabel === "Sin categoria" || name.includes(birthYearLabel)) return name;
+  return `${name} ${birthYearLabel}`;
+}
+
+function getSessionSource(row: { team_id: string | null; training_group_id: string | null; teams?: { name: string | null; coaches?: { first_name: string | null; last_name: string | null } | null } | null; training_groups?: { name: string | null; birth_year_min?: number | null; birth_year_max?: number | null } | null }, trainingGroupCoachMap: Map<string, string | null>) {
   if (row.training_group_id) {
     return {
       sourceType: "training_group" as const,
-      name: row.training_groups?.name ?? "Grupo",
+      name: formatTrainingGroupSessionName(row.training_groups),
       coach: trainingGroupCoachMap.get(row.training_group_id) ?? null,
     };
   }
@@ -452,7 +459,7 @@ export async function listAttendanceSessions(filters: { date?: string; campusId?
   const [{ data: sessions }, { data: teamRosterRows }, { data: groupRosterRows }, { data: recordCounts }] = await Promise.all([
     admin
       .from("attendance_sessions")
-      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
       .in("campus_id", selectedCampusIds)
       .eq("session_date", selectedDate)
       .order("campus_id", { ascending: true })
@@ -533,7 +540,7 @@ export async function listAttendanceScheduleTemplates() {
   const [{ data: templates }, { data: teams }, { data: trainingGroups }] = await Promise.all([
     admin
       .from("attendance_schedule_templates")
-      .select("id, campus_id, team_id, training_group_id, day_of_week, start_time, end_time, effective_start, effective_end, is_active, campuses(name), teams(name, coaches(first_name, last_name)), training_groups(name)")
+      .select("id, campus_id, team_id, training_group_id, day_of_week, start_time, end_time, effective_start, effective_end, is_active, campuses(name), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
       .in("campus_id", access.campusIds)
       .order("day_of_week", { ascending: true })
       .order("start_time", { ascending: true })
@@ -613,7 +620,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
 
   const { data: session } = await admin
     .from("attendance_sessions")
-    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
     .eq("id", sessionId)
     .maybeSingle<SessionRow | null>();
 
@@ -1105,7 +1112,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
   const [{ data: sessionRows }, { data: closureRows }] = await Promise.all([
     admin
       .from("attendance_sessions")
-      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
       .in("campus_id", selectedCampusIds)
       .gte("session_date", monthBounds.periodMonth)
       .lt("session_date", monthEndDate)
@@ -1220,7 +1227,7 @@ export async function getAttendanceDailyNotes(filters: { campusId?: string; date
   const admin = createAdminClient();
   const { data: sessionRows } = await admin
     .from("attendance_sessions")
-    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name)")
+    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
     .in("campus_id", selectedCampusIds)
     .eq("session_date", selectedDate)
     .order("campus_id", { ascending: true })
