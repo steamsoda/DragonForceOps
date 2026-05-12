@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-05-12 (session 175)
+
+### Bajas Default Ordering (v1.16.145)
+
+- Updated `Jugadores > Bajas` so the default list order is most recent baja first instead of alphabetical by player name.
+- Name sorting remains as a tie-breaker when multiple bajas share the same effective baja date.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
+## 2026-05-12 (session 174)
+
+### Dependency Security Patch Pass (v1.16.144)
+
+- Patched the app dependency stack after the May 2026 npm supply-chain review:
+  - `next` `16.2.2` -> `16.2.6`
+  - `eslint-config-next` `16.1.6` -> `16.2.6`
+  - root `postcss` `8.5.6` -> `8.5.14`
+- Result: `npm audit --audit-level=high` now passes; the previous high-severity Next advisories are cleared.
+- Residual note: `npm audit` still reports a moderate PostCSS advisory through Next's own nested `postcss@8.4.31`. The available npm "fix" is an unsafe downgrade to `next@9.3.3`, so we are leaving that to the next upstream Next patch instead of forcing an invalid override.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-11 (session 173)
 
 ### 360Player Posting Submit Feedback (v1.16.143)

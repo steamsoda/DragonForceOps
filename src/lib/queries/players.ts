@@ -656,6 +656,8 @@ export async function listBajas(filters: BajaListFilters) {
     }
     return true;
   }).sort((a, b) => {
+    const dateCompare = (b.end_date ?? "").localeCompare(a.end_date ?? "");
+    if (dateCompare !== 0) return dateCompare;
     const nameA = `${a.players?.first_name ?? ""} ${a.players?.last_name ?? ""}`.trim();
     const nameB = `${b.players?.first_name ?? ""} ${b.players?.last_name ?? ""}`.trim();
     return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
