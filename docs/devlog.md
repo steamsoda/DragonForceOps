@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-05-11 (session 171)
+
+### 360Player Monthly Batch Posting (v1.16.141)
+
+- Added a protected `/admin/360player-posting` workflow for manually posting many monthly tuition payments received through 360Player.
+- Added the `360Player` shortcut to the Diario sidebar for operational users.
+- The page is intentionally narrow and only handles pending monthly tuition charges for the selected campus/month.
+- Operators can filter by campus, month, category/YOB, search text, and payment timing:
+  - `Temprano` uses the day-1 tuition rule.
+  - `Tardio` uses the late/month-end tuition rule.
+- Each row shows the current Invicta charge amount, expected early amount, expected late amount, selected posting amount, and whether the action will reprice before posting.
+- The server action revalidates each selected charge before mutation and skips unsafe rows:
+  - non-monthly or wrong-month charges
+  - inactive enrollments
+  - full scholarships
+  - already allocated or already paid rows
+  - duplicate monthly charges for the same enrollment/month
+  - rows whose current amount does not match either expected pricing rule
+- Successful rows update the charge amount when needed, create a posted `stripe_360player` payment, allocate it exactly to that monthly charge, clear resolved follow-up status, and write audit entries for both payment posting and repricing.
+- If the payment or allocation insert fails after a reprice, the action attempts to restore the original charge amount/rule before skipping that row.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-11 (session 170)
 
 ### Production Promotion (v1.16.140)

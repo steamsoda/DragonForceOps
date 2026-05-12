@@ -130,6 +130,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     label: "Diario",
     items: [
       { href: "/caja", label: "Caja" },
+      { href: "/admin/360player-posting", label: "360Player" },
       { href: "/players", label: "Jugadores" },
       { href: "/uniforms", label: "Uniformes" },
     ],
