@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.140`
-- Current preview line: `v1.16.142`
+- Current preview line: `v1.16.143`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -53,7 +53,7 @@ These are the highest-value items to consider next. Keep this list short.
 | 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
 | ✅ | Attendance quick UX pass | Shipped in `v1.16.138`; the logo links home and attendance campus dropdowns are now direct campus buttons on Hoy, Calendario, Grupos, and Reportes. | General UX / Asistencia items below, `v1.16.138` devlog |
 | 🟢 | Front Desk contact cleanup queue | Preview `v1.16.136` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.136` devlog |
-| 🟢 | 360Player monthly batch posting | Preview `v1.16.142` adds the guarded monthly-tuition batch workflow plus safer staff UX: explicit row selection, confirmation modal, payment-mode buttons, and prior-month arrears lock. | Front Desk/Caja item below, `v1.16.141`-`v1.16.142` devlog |
+| 🟢 | 360Player monthly batch posting | Preview `v1.16.143` adds the guarded monthly-tuition batch workflow plus safer staff UX: explicit row selection, confirmation modal, submit-loading feedback, payment-mode buttons, and prior-month arrears lock. | Front Desk/Caja item below, `v1.16.141`-`v1.16.143` devlog |
 
 ## Next
 
@@ -69,7 +69,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🔴 | Coach match posting v1 | Let coaches start posting match info before the parent/mobile app launch, so the habit and data shape can be tested early. |
 | 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
-| 🟢 | Batch 360Player monthly posting | Preview `v1.16.142` adds the first guarded workflow and UX polish: campus/month/category/search filters, early-vs-late pricing mode, explicit row selection, confirmation checkbox, prior-month arrears lock, server-side charge revalidation, exact charge allocation, repricing audit, and duplicate/partial-payment skips. |
+| 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds the first guarded workflow and UX polish: campus/month/category/search filters, early-vs-late pricing mode, explicit row selection, confirmation checkbox, submit-loading feedback, prior-month arrears lock, server-side charge revalidation, exact charge allocation, repricing audit, and duplicate/partial-payment skips. |
 | 🟡 | Torneos workflow redesign | Larger planning item after urgent ops polish; needs confirmed team, signup, payment, and roster behavior. |
 | 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
@@ -109,7 +109,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
 | 🔴 | Caja refunds and payment reassignment | Needs planning. Include recent payment/charge context from Caja, direct refund registration, and a separate credit-reassignment path for cases like cancelled tournament participation. |
-| 🟢 | Batch 360Player monthly posting | Preview `v1.16.142` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
+| 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, submit-loading feedback, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |

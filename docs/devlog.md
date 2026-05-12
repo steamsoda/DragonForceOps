@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-05-11 (session 173)
+
+### 360Player Posting Submit Feedback (v1.16.143)
+
+- Added visible processing feedback to the `/admin/360player-posting` confirmation modal.
+- After Front Desk clicks `Marcar como pagados`, the modal now:
+  - disables row/checkbox/cancel interactions
+  - changes the submit button to `Registrando...`
+  - shows a spinner and message: `Registrando pagos y actualizando cargos. No cierres esta ventana.`
+- This is a UX-only pass; the guarded finance posting and arrears-lock logic remains unchanged from `v1.16.142`.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-11 (session 172)
 
 ### 360Player Posting UX + Arrears Guard (v1.16.142)

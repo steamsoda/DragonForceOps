@@ -32,6 +32,7 @@ export function PostingSelectionTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmedPlayers, setConfirmedPlayers] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const eligibleRows = rows.filter((row) => row.status === "eligible");
   const selectedRows = useMemo(
     () => eligibleRows.filter((row) => selectedIds.has(row.chargeId)),
@@ -40,6 +41,7 @@ export function PostingSelectionTable({
   const selectedTotal = selectedRows.reduce((sum, row) => sum + (row.selectedAmount ?? 0), 0);
 
   function toggleRow(row: Player360PostingRow) {
+    if (isSubmitting) return;
     if (row.status !== "eligible") return;
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -53,13 +55,18 @@ export function PostingSelectionTable({
   }
 
   function openConfirmation() {
+    if (isSubmitting) return;
     if (selectedRows.length === 0) return;
     setConfirmedPlayers(false);
     setConfirmOpen(true);
   }
 
   return (
-    <form action={post360PlayerMonthlyBatchAction} className="space-y-4">
+    <form
+      action={post360PlayerMonthlyBatchAction}
+      className="space-y-4"
+      onSubmit={() => setIsSubmitting(true)}
+    >
       <input type="hidden" name="campus" value={campusId ?? ""} />
       <input type="hidden" name="month" value={month} />
       <input type="hidden" name="mode" value={mode} />
@@ -84,7 +91,7 @@ export function PostingSelectionTable({
           </label>
           <button
             type="button"
-            disabled={selectedRows.length === 0}
+            disabled={selectedRows.length === 0 || isSubmitting}
             onClick={openConfirmation}
             className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -137,7 +144,7 @@ export function PostingSelectionTable({
                       type="checkbox"
                       name="chargeId"
                       value={row.chargeId}
-                      disabled={row.status !== "eligible"}
+                      disabled={row.status !== "eligible" || isSubmitting}
                       checked={selected}
                       onChange={() => toggleRow(row)}
                       onClick={(event) => event.stopPropagation()}
@@ -211,25 +218,33 @@ export function PostingSelectionTable({
               <input
                 type="checkbox"
                 checked={confirmedPlayers}
+                disabled={isSubmitting}
                 onChange={(event) => setConfirmedPlayers(event.target.checked)}
                 className="mt-1"
               />
               <span>Jugadores confirmados en 360Player.</span>
             </label>
+            {isSubmitting ? (
+              <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900">
+                <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-900 align-[-1px]" />
+                Registrando pagos y actualizando cargos. No cierres esta ventana.
+              </div>
+            ) : null}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setConfirmOpen(false)}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-900"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={!confirmedPlayers}
+                disabled={!confirmedPlayers || isSubmitting}
                 className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Marcar como pagados
+                {isSubmitting ? "Registrando..." : "Marcar como pagados"}
               </button>
             </div>
           </div>
