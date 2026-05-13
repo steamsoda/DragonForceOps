@@ -162,10 +162,10 @@ function RecentPaymentsPanel({
           return (
             <div
               key={payment.id}
-              className="grid gap-3 px-4 py-3 text-sm xl:grid-cols-[150px_minmax(160px,0.7fr)_minmax(260px,1fr)_minmax(300px,auto)] xl:items-center"
+              className="grid gap-3 px-4 py-3 text-sm xl:grid-cols-[160px_minmax(170px,0.7fr)_minmax(280px,1fr)_minmax(320px,auto)] xl:items-center xl:text-center"
             >
               <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 xl:justify-center">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
                     {formatMoney(payment.amount, payment.currency)}
                   </span>
@@ -185,12 +185,12 @@ function RecentPaymentsPanel({
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-medium uppercase text-slate-400">Cargo origen</p>
-                <p className="break-words text-xs text-slate-700 dark:text-slate-300">{sourceSummary}</p>
+                <p className="break-words text-xs text-slate-700 dark:text-slate-300 xl:mx-auto xl:max-w-[420px]">{sourceSummary}</p>
                 {payment.notes?.trim() ? (
-                  <p className="break-words text-xs text-slate-400">{payment.notes}</p>
+                  <p className="break-words text-xs text-slate-400 xl:mx-auto xl:max-w-[420px]">{payment.notes}</p>
                 ) : null}
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[300px]">
+              <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[320px] xl:justify-center">
                 {payment.canReassign ? (
                   <Link
                     href={`/enrollments/${enrollmentId}/payments/${payment.id}/reassign?returnTo=${encodeURIComponent(returnTo)}`}

@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-05-13 (session 180)
+
+### Caja Recent Payments Column Alignment (v1.16.150)
+
+- Center-aligned the desktop columns in the Caja `Ultimos pagos` bottom panel so amount, date, source charge, and action columns read more like an organized ledger.
+- Kept the mobile layout stacked/readable; this is a UI-only polish pass.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-13 (session 179)
 
 ### Caja Recent Payments Layout Polish (v1.16.149)
