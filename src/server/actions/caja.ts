@@ -78,6 +78,7 @@ export type CajaRecentPayment = {
 
 export type CajaEnrollmentData = {
   enrollmentId: string;
+  playerId: string | null;
   playerName: string;
   campusId: string;
   campusName: string;
@@ -875,6 +876,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
 
   return {
     enrollmentId,
+    playerId: ledger.enrollment.playerId,
     playerName: ledger.enrollment.playerName,
     campusId: ledger.enrollment.campusId,
     campusName: ledger.enrollment.campusName,

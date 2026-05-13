@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-05-13 (session 179)
+
+### Caja Recent Payments Layout Polish (v1.16.149)
+
+- Widened the Caja workspace so Front Desk can use more of a 1920px desktop screen while staying responsive on smaller screens.
+- Moved `Ultimos pagos` to a full-width bottom panel and cleaned the row layout so amount, date, source charge, notes, and guarded actions no longer collide.
+- Added `playerId` to the Caja enrollment payload so deep-linked/reloaded Caja accounts keep the player name clickable back to the player profile.
+- Changed monthly-tuition blocked action copy to `Mensualidad no reembolsable` / `Mensualidad no reasignable`.
+- Logged the larger partial-refund / partial-reassignment model as a future finance-hardening item instead of changing allocation behavior in this UX pass.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 178)
 
 ### Caja Recent Payments Shortcuts (v1.16.148)
