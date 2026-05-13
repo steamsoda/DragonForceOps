@@ -46,6 +46,10 @@ function getErrorMessage(code: string) {
     payment_already_refunded: "Este pago ya fue reembolsado.",
     payment_not_posted: "Solo se pueden reembolsar pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
+    payment_not_fully_allocated: "Solo se pueden reembolsar pagos aplicados al 100%.",
+    source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
+    source_charge_not_exclusive: "El cargo origen no esta cubierto exclusivamente por este pago.",
+    source_charge_monthly_tuition: "Las mensualidades no se reembolsan desde Caja. Usa una correccion administrativa.",
     payment_not_found: "No se encontró el pago seleccionado.",
     refund_insert_failed: "No se pudo registrar el reembolso por un problema en los datos del pago.",
     refund_function_missing: "La función de reembolsos todavía no está disponible en la base de datos.",
@@ -83,7 +87,7 @@ export function PaymentRefundPanel({
   };
 }) {
   const router = useRouter();
-  const [refundMethod, setRefundMethod] = useState(payment.method);
+  const [refundMethod, setRefundMethod] = useState(payment.method === "card" ? "card" : "cash");
   const [refundedAt, setRefundedAt] = useState("");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
@@ -99,7 +103,7 @@ export function PaymentRefundPanel({
 
   function submitRefund() {
     setErrorMessage(null);
-    setPendingMessage("Registrando el reembolso y reabriendo el saldo de la cuenta...");
+    setPendingMessage("Registrando el reembolso y anulando el cargo origen...");
 
     startTransition(async () => {
       const formData = new FormData();
@@ -138,8 +142,8 @@ export function PaymentRefundPanel({
       <section className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-100">
         <p className="font-semibold">Qué va a pasar al confirmar</p>
         <p className="mt-1 text-xs text-sky-800/90 dark:text-sky-100/80">
-          El pago original seguirá visible en el historial, el saldo volverá a abrirse y el reembolso se contará con la
-          fecha y el método reales de devolución.
+          El pago original seguirá visible en el historial. El cargo origen se anulará para que no vuelva a quedar como
+          pendiente, y el reembolso se contará con la fecha y el método reales de devolución.
         </p>
       </section>
 
@@ -175,10 +179,7 @@ export function PaymentRefundPanel({
               className="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
             >
               <option value="cash">Efectivo</option>
-              <option value="transfer">Transferencia</option>
               <option value="card">Tarjeta</option>
-              <option value="stripe_360player">360Player</option>
-              <option value="other">Otro</option>
             </select>
           </label>
           <label className="space-y-1 text-sm">

@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-05-12 (session 177)
+
+### Caja Refund / Reassignment Guardrails (v1.16.147)
+
+- Hardened payment refund/reassignment eligibility around the Front Desk Caja workflow:
+  - monthly tuition payments can no longer be used as the source for refund or concept reassignment from the operational flow
+  - only fully allocated, exclusive, non-shared source charges are eligible
+  - refunds are restricted to real full refunds via `Efectivo` or `Tarjeta`
+- Added a database migration that updates `record_payment_refund(...)` and `reassign_payment_to_charges(...)` with the same source-charge guardrails.
+- Updated refund behavior so eligible non-monthly source charges are voided after the refund is recorded, avoiding the confusing state where a cancelled tournament/uniform charge reopens as pending.
+- Updated the ledger UI so unsafe payments show disabled refund/reassignment actions instead of exposing buttons that should not be used.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 176)
 
 ### Attendance Today Group Category Labels (v1.16.146)

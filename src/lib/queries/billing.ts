@@ -50,6 +50,7 @@ type ChargeRow = {
 
 const CORRECTION_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
 const REPAIR_ONLY_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
+const MONTHLY_TUITION_CHARGE_TYPE_CODE = "monthly_tuition";
 
 type PaymentRow = {
   id: string;
@@ -155,6 +156,8 @@ export type EnrollmentLedger = {
     refundNotes: string | null;
     canReassign: boolean;
     reassignBlockedReason: string | null;
+    canRefund: boolean;
+    refundBlockedReason: string | null;
     sourceCharges: Array<{
       chargeId: string;
       description: string;
@@ -384,22 +387,22 @@ export async function getEnrollmentLedger(
         };
       });
 
-      let reassignBlockedReason: string | null = null;
+      let workflowBlockedReason: string | null = null;
       if (row.status !== "posted") {
-        reassignBlockedReason = "payment_not_posted";
+        workflowBlockedReason = "payment_not_posted";
       } else if (refund) {
-        reassignBlockedReason = "payment_already_refunded";
+        workflowBlockedReason = "payment_already_refunded";
       } else if (paymentAllocations.length === 0) {
-        reassignBlockedReason = "payment_has_no_allocations";
+        workflowBlockedReason = "payment_has_no_allocations";
       } else if (Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01) {
-        reassignBlockedReason = "payment_not_fully_allocated";
+        workflowBlockedReason = "payment_not_fully_allocated";
       } else if (
         paymentAllocations.some((allocation) => {
           const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
           return chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id);
         })
       ) {
-        reassignBlockedReason = "source_charge_shared";
+        workflowBlockedReason = "source_charge_shared";
       } else if (
         paymentAllocations.some((allocation) => {
           const charge = chargeById.get(allocation.charge_id);
@@ -407,7 +410,14 @@ export async function getEnrollmentLedger(
           return !charge || Math.abs(charge.amount - totalAllocated) > 0.01 || charge.status === "void";
         })
       ) {
-        reassignBlockedReason = "source_charge_not_exclusive";
+        workflowBlockedReason = "source_charge_not_exclusive";
+      } else if (
+        paymentAllocations.some((allocation) => {
+          const charge = chargeById.get(allocation.charge_id);
+          return charge?.typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE;
+        })
+      ) {
+        workflowBlockedReason = "source_charge_monthly_tuition";
       }
 
       return {
@@ -428,8 +438,10 @@ export async function getEnrollmentLedger(
         refundMethod: refund?.refund_method ?? null,
         refundReason: refund?.reason ?? null,
         refundNotes: refund?.notes ?? null,
-        canReassign: reassignBlockedReason === null,
-        reassignBlockedReason,
+        canReassign: workflowBlockedReason === null,
+        reassignBlockedReason: workflowBlockedReason,
+        canRefund: workflowBlockedReason === null,
+        refundBlockedReason: workflowBlockedReason,
         sourceCharges,
       };
     }),
