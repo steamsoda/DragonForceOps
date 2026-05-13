@@ -37,7 +37,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.146`
-- Current preview line: `v1.16.147`
+- Current preview line: `v1.16.148`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -64,7 +64,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | Status | Item | Notes |
 |---|---|---|
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; allows current/pending monthly tuition plus advance tuition in one receipt only when prior monthly charges are selected and the payment covers the staged total. |
-| 🟢 | Caja refund / reassignment guardrails | Preview `v1.16.147` tightens the existing ledger refund/reassignment path: source monthly tuition is blocked, only exclusive fully paid non-monthly charges are eligible, refunds are cash/card only, and refunded source charges are voided. |
+| 🟢 | Caja refund / reassignment guardrails | Preview `v1.16.147` tightens the existing ledger refund/reassignment path; preview `v1.16.148` adds Caja `Ultimos pagos` shortcuts into those guarded flows. |
 | ✅ | Attendance daily notes overview | Shipped in `v1.16.140`; adds a read-only day-level notes view at `/attendance/notes` for scanning session and player notes across all groups. |
 | 🔴 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🔴 | Coach match posting v1 | Let coaches start posting match info before the parent/mobile app launch, so the habit and data shape can be tested early. |
@@ -111,7 +111,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🟢 | `Jugadores > Bajas` recency sort | Preview `v1.16.145` makes the default bajas list sort by most recent effective baja date first, with player name as the tie-breaker. |
 | 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. |
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
-| 🟢 | Caja refunds and payment reassignment guardrails | Preview `v1.16.147` hardens the existing ledger actions before adding more Caja surface area: no monthly-tuition source moves/refunds, cash/card-only refunds, exclusive-charge checks, and automatic source-charge voiding after eligible refunds/reassignments. |
+| 🟢 | Caja refunds and payment reassignment guardrails | Preview `v1.16.147` hardens the existing ledger actions; preview `v1.16.148` adds a Caja recent-payments panel with guarded `Cambiar concepto` / `Reembolsar` shortcuts and disabled reason chips. |
 | 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, submit-loading feedback, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
@@ -210,6 +210,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- ✅ `v1.16.148` — Caja now shows `Ultimos pagos` shortcuts for guarded refund/reassignment workflows.
 - ✅ `v1.16.147` — Caja refund/reassignment guardrails previewed: source monthly tuition blocked, eligible non-monthly source charges void after refund/reassignment, and refunds limited to cash/card.
 - ✅ `v1.16.146` — Attendance `Hoy` group cards now show configured YOB ranges for repeated non-selectivo levels.
 

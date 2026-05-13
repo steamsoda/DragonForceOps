@@ -17,6 +17,7 @@ import {
   listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
+  type CajaRecentPayment,
   type CajaPaymentResult,
   type CajaProduct,
   type CajaProductCategory,
@@ -51,6 +52,33 @@ function methodLabel(method: string) {
     other: "Otro"
   };
   return labels[method] ?? method;
+}
+
+function formatDateTimeShort(value: string) {
+  return new Date(value).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
+}
+
+function getPaymentWorkflowBlockedReason(code: string | null, action: "refund" | "reassign") {
+  const messages: Record<string, string> = {
+    payment_not_posted: "Solo pagos vigentes.",
+    payment_already_refunded: "Pago ya reembolsado.",
+    payment_has_no_allocations: "Sin cargos aplicados.",
+    payment_not_fully_allocated: "No esta aplicado al 100%.",
+    source_charge_shared: "Cargo origen compartido.",
+    source_charge_not_exclusive: "Cargo origen no exclusivo.",
+    source_charge_monthly_tuition:
+      action === "refund"
+        ? "Mensualidad: no se reembolsa desde Caja."
+        : "Mensualidad: no se cambia de concepto desde Caja.",
+  };
+  return code ? messages[code] ?? "No disponible con seguridad." : null;
 }
 
 function formatDateOnly(dateStr: string | null | undefined) {
@@ -95,6 +123,98 @@ function ActiveIncidentBanner({
       : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200";
 
   return <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>{message}</div>;
+}
+
+function RecentPaymentsPanel({
+  enrollmentId,
+  payments,
+}: {
+  enrollmentId: string;
+  payments: CajaRecentPayment[];
+}) {
+  if (payments.length === 0) return null;
+
+  const returnTo = `/caja?enrollmentId=${encodeURIComponent(enrollmentId)}`;
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos pagos</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Revisa pagos recientes para reembolso o cambio de concepto.</p>
+        </div>
+        <Link
+          href={`/enrollments/${enrollmentId}/charges`}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Ver historial
+        </Link>
+      </div>
+      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        {payments.map((payment) => {
+          const sourceSummary =
+            payment.sourceCharges.length > 0
+              ? payment.sourceCharges.map((charge) => charge.description).join(", ")
+              : "Sin cargo aplicado";
+          const refundBlockedReason = getPaymentWorkflowBlockedReason(payment.refundBlockedReason, "refund");
+          const reassignBlockedReason = getPaymentWorkflowBlockedReason(payment.reassignBlockedReason, "reassign");
+
+          return (
+            <div key={payment.id} className="grid gap-3 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {formatMoney(payment.amount, payment.currency)}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {methodLabel(payment.method)}
+                  </span>
+                  {payment.refundStatus === "refunded" ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      Reembolsado
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTimeShort(payment.paidAt)}</p>
+                <p className="truncate text-xs text-slate-600 dark:text-slate-300">{sourceSummary}</p>
+                {payment.notes?.trim() ? (
+                  <p className="truncate text-xs text-slate-400">{payment.notes}</p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                {payment.canReassign ? (
+                  <Link
+                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/reassign?returnTo=${encodeURIComponent(returnTo)}`}
+                    prefetch={false}
+                    className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20"
+                  >
+                    Cambiar concepto
+                  </Link>
+                ) : (
+                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700">
+                    {reassignBlockedReason ?? "Cambiar concepto"}
+                  </span>
+                )}
+                {payment.canRefund ? (
+                  <Link
+                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/refund?returnTo=${encodeURIComponent(returnTo)}`}
+                    prefetch={false}
+                    className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
+                  >
+                    Reembolsar
+                  </Link>
+                ) : (
+                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700">
+                    {refundBlockedReason ?? "Reembolsar"}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 const PAYMENT_METHOD_OPTIONS = [
@@ -1106,6 +1226,7 @@ function PosEnrollmentPanel({
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
           <ActiveIncidentBanner incident={data.activeIncident} />
+          <RecentPaymentsPanel enrollmentId={data.enrollmentId} payments={data.recentPayments} />
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos pendientes</p>

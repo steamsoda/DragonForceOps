@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-05-12 (session 178)
+
+### Caja Recent Payments Shortcuts (v1.16.148)
+
+- Added a discoverable `Ultimos pagos` panel inside the active Caja account screen.
+- The panel shows the five latest posted payments with amount, method, date/time, source charge summary, and notes.
+- Eligible non-monthly payments now expose direct `Cambiar concepto` and `Reembolsar` shortcuts that link into the guarded ledger workflows from `v1.16.147`.
+- Unsafe payments remain visible but show disabled reason chips, including the monthly-tuition block, so Front Desk can understand why a payment cannot be refunded or reassigned from Caja.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 177)
 
 ### Caja Refund / Reassignment Guardrails (v1.16.147)
