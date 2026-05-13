@@ -150,7 +150,13 @@ function RecentPaymentsPanel({
           Ver historial
         </Link>
       </div>
-      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div>
+        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 xl:grid xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center">
+          <span>Pago</span>
+          <span>Fecha</span>
+          <span>Cargo origen</span>
+          <span className="text-center">Acciones</span>
+        </div>
         {payments.map((payment) => {
           const sourceSummary =
             payment.sourceCharges.length > 0
@@ -162,10 +168,10 @@ function RecentPaymentsPanel({
           return (
             <div
               key={payment.id}
-              className="grid gap-3 px-4 py-3 text-sm xl:grid-cols-[160px_minmax(170px,0.7fr)_minmax(280px,1fr)_minmax(320px,auto)] xl:items-center xl:text-center"
+              className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center"
             >
               <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2 xl:justify-center">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
                     {formatMoney(payment.amount, payment.currency)}
                   </span>
@@ -180,17 +186,17 @@ function RecentPaymentsPanel({
                 </div>
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase text-slate-400">Fecha</p>
+                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Fecha</p>
                 <p className="text-xs text-slate-600 dark:text-slate-300">{formatDateTimeShort(payment.paidAt)}</p>
               </div>
               <div className="min-w-0 space-y-1">
-                <p className="text-xs font-medium uppercase text-slate-400">Cargo origen</p>
-                <p className="break-words text-xs text-slate-700 dark:text-slate-300 xl:mx-auto xl:max-w-[420px]">{sourceSummary}</p>
+                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Cargo origen</p>
+                <p className="break-words text-xs text-slate-700 dark:text-slate-300">{sourceSummary}</p>
                 {payment.notes?.trim() ? (
-                  <p className="break-words text-xs text-slate-400 xl:mx-auto xl:max-w-[420px]">{payment.notes}</p>
+                  <p className="break-words text-xs text-slate-400">{payment.notes}</p>
                 ) : null}
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[320px] xl:justify-center">
+              <div className="grid gap-2 sm:grid-cols-2 xl:w-[340px]">
                 {payment.canReassign ? (
                   <Link
                     href={`/enrollments/${enrollmentId}/payments/${payment.id}/reassign?returnTo=${encodeURIComponent(returnTo)}`}

@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-05-13 (session 181)
+
+### Caja Recent Payments Grid Polish (v1.16.151)
+
+- Converted the Caja `Ultimos pagos` bottom panel into a more uniform desktop grid with a visible header row: `Pago`, `Fecha`, `Cargo origen`, and `Acciones`.
+- Kept the mobile layout stacked, with inline labels only where the header row is hidden.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-13 (session 180)
 
 ### Caja Recent Payments Column Alignment (v1.16.150)
