@@ -255,6 +255,8 @@ function getPaymentWorkflowError(error: string) {
     source_charge_shared: "Este pago comparte cargo origen con otro pago y no se puede mover autom\u00e1ticamente.",
     source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto de forma exclusiva por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_required: "Selecciona qu\u00e9 parte del pago quieres mover.",
+    source_charge_invalid: "La parte del pago seleccionada ya no est\u00e1 disponible.",
     target_charge_required: "Selecciona al menos un cargo destino.",
     target_charge_conflict: "No puedes volver a aplicar el pago sobre el mismo cargo origen.",
     target_charge_invalid: "Alguno de los cargos destino ya no es v\u00e1lido.",
@@ -641,9 +643,12 @@ export async function reassignPaymentAction(
 
   const supabase = workflowContext.supabase;
   const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
+  const sourceChargeId = String(formData.get("sourceChargeId") ?? "").trim();
   if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
-  const sourceBlockReason = await getPaymentSourceWorkflowBlockReason(supabase, enrollmentId, paymentId);
-  if (sourceBlockReason) return { ok: false, error: sourceBlockReason };
+  if (!sourceChargeId) {
+    const sourceBlockReason = await getPaymentSourceWorkflowBlockReason(supabase, enrollmentId, paymentId);
+    if (sourceBlockReason) return { ok: false, error: sourceBlockReason };
+  }
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
   const paymentSnapshot = await supabase
@@ -657,10 +662,16 @@ export async function reassignPaymentAction(
       charges: Array<{ charge_id: string; amount: number; charges: { description: string | null } | null }>;
     } | null>();
 
-  const { data, error } = await supabase.rpc("reassign_payment_to_charges", {
-    p_payment_id: paymentId,
-    p_target_charge_ids: targetChargeIds,
-  });
+  const { data, error } = sourceChargeId
+    ? await supabase.rpc("reassign_payment_source_charge_to_charges", {
+        p_payment_id: paymentId,
+        p_source_charge_id: sourceChargeId,
+        p_target_charge_ids: targetChargeIds,
+      })
+    : await supabase.rpc("reassign_payment_to_charges", {
+        p_payment_id: paymentId,
+        p_target_charge_ids: targetChargeIds,
+      });
 
   const resultRow = Array.isArray(data) ? data[0] : data;
   if (error || !resultRow?.ok) {
@@ -681,7 +692,8 @@ export async function reassignPaymentAction(
     recordId: paymentId,
     afterData: {
       enrollment_id: enrollmentId,
-      amount: paymentSnapshot.data?.amount ?? null,
+      amount: resultRow?.moved_amount ?? paymentSnapshot.data?.amount ?? null,
+      source_charge_id: sourceChargeId || null,
       old_charges: (paymentSnapshot.data?.charges ?? []).map((row) => ({
         charge_id: row.charge_id,
         description: row.charges?.description ?? "Cargo",

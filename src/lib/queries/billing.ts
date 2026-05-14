@@ -165,6 +165,8 @@ export type EnrollmentLedger = {
       typeName: string;
       amount: number;
       allocatedAmount: number;
+      canReassign: boolean;
+      reassignBlockedReason: string | null;
     }>;
   }>;
   incidents: Array<{
@@ -375,8 +377,30 @@ export async function getEnrollmentLedger(
     payments: (payments ?? []).map((row) => {
       const paymentAllocations = allocationsByPayment.get(row.id) ?? [];
       const refund = refundByPaymentId.get(row.id) ?? null;
+      const paymentBaseBlockedReason =
+        row.status !== "posted"
+          ? "payment_not_posted"
+          : refund
+            ? "payment_already_refunded"
+            : paymentAllocations.length === 0
+              ? "payment_has_no_allocations"
+              : Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01
+                ? "payment_not_fully_allocated"
+                : null;
+
       const sourceCharges = paymentAllocations.map((allocation) => {
         const charge = chargeById.get(allocation.charge_id);
+        const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
+        const totalAllocated = allocatedByCharge.get(allocation.charge_id) ?? 0;
+        const sourceBlockedReason =
+          paymentBaseBlockedReason ??
+          (charge?.typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE
+            ? "source_charge_monthly_tuition"
+            : chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id)
+              ? "source_charge_shared"
+              : !charge || charge.status === "void" || Math.abs((charge.amount ?? 0) - totalAllocated) > 0.01
+                ? "source_charge_not_exclusive"
+                : null);
         return {
           chargeId: allocation.charge_id,
           description: charge?.description ?? "Cargo",
@@ -384,6 +408,8 @@ export async function getEnrollmentLedger(
           typeName: charge?.typeName ?? "-",
           amount: charge?.amount ?? allocation.amount,
           allocatedAmount: allocation.amount,
+          canReassign: sourceBlockedReason === null,
+          reassignBlockedReason: sourceBlockedReason,
         };
       });
 
@@ -420,6 +446,9 @@ export async function getEnrollmentLedger(
         workflowBlockedReason = "source_charge_monthly_tuition";
       }
 
+      const canReassignAnySource =
+        workflowBlockedReason === null || sourceCharges.some((charge) => charge.canReassign);
+
       return {
         id: row.id,
         paidAt: row.paid_at,
@@ -438,8 +467,8 @@ export async function getEnrollmentLedger(
         refundMethod: refund?.refund_method ?? null,
         refundReason: refund?.reason ?? null,
         refundNotes: refund?.notes ?? null,
-        canReassign: workflowBlockedReason === null,
-        reassignBlockedReason: workflowBlockedReason,
+        canReassign: canReassignAnySource,
+        reassignBlockedReason: canReassignAnySource ? null : workflowBlockedReason,
         canRefund: workflowBlockedReason === null,
         refundBlockedReason: workflowBlockedReason,
         sourceCharges,

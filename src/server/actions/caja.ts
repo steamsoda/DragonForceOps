@@ -73,6 +73,8 @@ export type CajaRecentPayment = {
     typeCode: string;
     typeName: string;
     allocatedAmount: number;
+    canReassign: boolean;
+    reassignBlockedReason: string | null;
   }>;
 };
 
@@ -914,6 +916,8 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
           typeCode: charge.typeCode,
           typeName: charge.typeName,
           allocatedAmount: charge.allocatedAmount,
+          canReassign: charge.canReassign,
+          reassignBlockedReason: charge.reassignBlockedReason,
         })),
       })),
     advanceTuitionOptions: advanceTuitionOptions.map((option) => ({

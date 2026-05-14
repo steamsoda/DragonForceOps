@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-05-14 (session 182)
+
+### Caja Allocation-Level Reassignment Pass 1 (v1.16.152)
+
+- Added an allocation-level reassignment path for Caja mixed payments.
+- Mixed payments are no longer blocked as a whole when one part is monthly tuition: monthly tuition source allocations are visible but protected, while eligible non-monthly source allocations can be moved.
+- Added a guarded database function that moves only the selected source charge allocation to selected/new destination charges, keeps the original payment amount unchanged, preserves the rest of the payment allocations, and voids the selected non-monthly source charge after the move.
+- Updated the `Cambiar concepto` page to select the source allocation first, then cover that selected amount with pending/new destination charges.
+- Kept partial cash/card refunds out of scope for this pass.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ## 2026-05-13 (session 181)
 
 ### Caja Recent Payments Grid Polish (v1.16.151)
