@@ -50,6 +50,7 @@ function getErrorMessage(code: string) {
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no esta cubierto exclusivamente por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan desde Caja. Usa una correccion administrativa.",
+    source_charge_inscription: "Las inscripciones no se reembolsan desde Caja. Usa una correccion administrativa.",
     payment_not_found: "No se encontró el pago seleccionado.",
     refund_insert_failed: "No se pudo registrar el reembolso por un problema en los datos del pago.",
     refund_function_missing: "La función de reembolsos todavía no está disponible en la base de datos.",

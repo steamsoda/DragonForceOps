@@ -89,6 +89,7 @@ function getActionErrorMessage(code: string) {
     source_charge_shared: "El cargo origen también tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no está cubierto exclusivamente por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se pueden mover desde Caja. Usa una correccion administrativa.",
+    source_charge_inscription: "Las inscripciones no se pueden mover desde Caja. Usa una correccion administrativa.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
     payment_not_posted: "Solo se pueden mover pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
@@ -259,9 +260,12 @@ export function PaymentReassignmentPanel({
             {payment.sourceCharges.map((charge) => {
               const selected = selectedSourceChargeId === charge.chargeId;
               const isTuition = charge.typeCode === "monthly_tuition";
+              const isInscription = charge.typeCode === "inscription";
               const blockedText = isTuition
                 ? "Mensualidad protegida"
-                : charge.reassignBlockedReason
+                : isInscription
+                  ? "Inscripcion protegida"
+                  : charge.reassignBlockedReason
                   ? getActionErrorMessage(charge.reassignBlockedReason)
                   : "No disponible";
 
@@ -290,7 +294,7 @@ export function PaymentReassignmentPanel({
                           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                             charge.canReassign
                               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
-                              : isTuition
+                              : isTuition || isInscription
                                 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
                                 : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                           }`}

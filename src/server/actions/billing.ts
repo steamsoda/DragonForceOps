@@ -48,6 +48,13 @@ type EnrollmentIncidentInsert = {
 const INCIDENT_TYPES = new Set(["absence", "injury", "other"]);
 const REFUND_PAYMENT_METHODS = new Set(["cash", "card"]);
 const MONTHLY_TUITION_CHARGE_TYPE_CODE = "monthly_tuition";
+const INSCRIPTION_CHARGE_TYPE_CODE = "inscription";
+
+function getProtectedSourceChargeBlockedReason(typeCode: string | null | undefined) {
+  if (typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE) return "source_charge_monthly_tuition";
+  if (typeCode === INSCRIPTION_CHARGE_TYPE_CODE) return "source_charge_inscription";
+  return null;
+}
 
 type PaymentReassignmentResult =
   | { ok: true }
@@ -183,8 +190,16 @@ async function getPaymentSourceWorkflowBlockReason(
   if (Math.abs(allocatedTotal - payment.amount) > 0.01) return "payment_not_fully_allocated";
 
   const sourceChargeIds = [...new Set(paymentAllocations.map((row) => row.charge_id))];
-  if (paymentAllocations.some((row) => row.charges?.charge_types?.code === MONTHLY_TUITION_CHARGE_TYPE_CODE)) {
-    return "source_charge_monthly_tuition";
+  const protectedSourceReason =
+    paymentAllocations
+      .map((row) => getProtectedSourceChargeBlockedReason(row.charges?.charge_types?.code))
+      .find((reason) => reason === "source_charge_inscription") ??
+    paymentAllocations
+      .map((row) => getProtectedSourceChargeBlockedReason(row.charges?.charge_types?.code))
+      .find(Boolean) ??
+    null;
+  if (protectedSourceReason) {
+    return protectedSourceReason;
   }
 
   if (paymentAllocations.some((row) => !row.charges || row.charges.status === "void")) {
@@ -255,6 +270,7 @@ function getPaymentWorkflowError(error: string) {
     source_charge_shared: "Este pago comparte cargo origen con otro pago y no se puede mover autom\u00e1ticamente.",
     source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto de forma exclusiva por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan ni se cambian de concepto desde Caja.",
     source_charge_required: "Selecciona qu\u00e9 parte del pago quieres mover.",
     source_charge_invalid: "La parte del pago seleccionada ya no est\u00e1 disponible.",
     target_charge_required: "Selecciona al menos un cargo destino.",
@@ -287,6 +303,7 @@ function normalizeRefundWorkflowError(raw: string | null | undefined) {
     "source_charge_shared",
     "source_charge_not_exclusive",
     "source_charge_monthly_tuition",
+    "source_charge_inscription",
     "refund_reason_required",
     "refunded_at_required",
     "invalid_refund_method",

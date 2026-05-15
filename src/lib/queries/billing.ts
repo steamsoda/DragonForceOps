@@ -51,6 +51,13 @@ type ChargeRow = {
 const CORRECTION_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
 const REPAIR_ONLY_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
 const MONTHLY_TUITION_CHARGE_TYPE_CODE = "monthly_tuition";
+const INSCRIPTION_CHARGE_TYPE_CODE = "inscription";
+
+function getProtectedSourceChargeBlockedReason(typeCode: string | null | undefined) {
+  if (typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE) return "source_charge_monthly_tuition";
+  if (typeCode === INSCRIPTION_CHARGE_TYPE_CODE) return "source_charge_inscription";
+  return null;
+}
 
 type PaymentRow = {
   id: string;
@@ -392,10 +399,11 @@ export async function getEnrollmentLedger(
         const charge = chargeById.get(allocation.charge_id);
         const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
         const totalAllocated = allocatedByCharge.get(allocation.charge_id) ?? 0;
+        const protectedSourceReason = getProtectedSourceChargeBlockedReason(charge?.typeCode);
         const sourceBlockedReason =
           paymentBaseBlockedReason ??
-          (charge?.typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE
-            ? "source_charge_monthly_tuition"
+          (protectedSourceReason
+            ? protectedSourceReason
             : chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id)
               ? "source_charge_shared"
               : !charge || charge.status === "void" || Math.abs((charge.amount ?? 0) - totalAllocated) > 0.01
@@ -440,10 +448,15 @@ export async function getEnrollmentLedger(
       } else if (
         paymentAllocations.some((allocation) => {
           const charge = chargeById.get(allocation.charge_id);
-          return charge?.typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE;
+          return getProtectedSourceChargeBlockedReason(charge?.typeCode) !== null;
         })
       ) {
-        workflowBlockedReason = "source_charge_monthly_tuition";
+        workflowBlockedReason = paymentAllocations.some((allocation) => {
+          const charge = chargeById.get(allocation.charge_id);
+          return charge?.typeCode === INSCRIPTION_CHARGE_TYPE_CODE;
+        })
+          ? "source_charge_inscription"
+          : "source_charge_monthly_tuition";
       }
 
       const canReassignAnySource =

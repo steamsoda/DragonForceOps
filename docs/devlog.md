@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-05-14 (session 183)
+
+### Caja Inscription Payment Protection (v1.16.153)
+
+- Extended Caja refund/reassignment guardrails so `inscription` charges are treated like monthly tuition: visible for context, but not refundable and not reassignable.
+- Added the same protection to the database refund/reassignment functions, including the allocation-level reassignment RPC, so direct action/RPC paths reject inscription sources with `source_charge_inscription`.
+- Updated Caja, ledger, refund, and reassignment UI messages so staff see `Inscripcion no reembolsable` / `Inscripcion no reasignable` instead of a generic disabled state.
+- Kept leftover-overpayment / account-credit behavior out of scope for this pass; that remains a deliberate finance-ledger follow-up.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ## 2026-05-14 (session 182)
 
 ### Caja Allocation-Level Reassignment Pass 1 (v1.16.152)

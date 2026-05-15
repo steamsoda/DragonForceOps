@@ -77,6 +77,10 @@ function getPaymentWorkflowBlockedReason(code: string | null, action: "refund" |
       action === "refund"
         ? "Mensualidad no reembolsable"
         : "Mensualidad no reasignable",
+    source_charge_inscription:
+      action === "refund"
+        ? "Inscripcion no reembolsable"
+        : "Inscripcion no reasignable",
   };
   return code ? messages[code] ?? "No disponible con seguridad." : null;
 }

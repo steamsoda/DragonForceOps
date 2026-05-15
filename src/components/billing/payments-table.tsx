@@ -81,6 +81,7 @@ function getReassignBlockedReason(code: string | null) {
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no esta cubierto de forma exclusiva por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan ni se cambian de concepto desde Caja.",
   };
   return code ? messages[code] ?? "Este pago no se puede mover con seguridad." : null;
 }
@@ -94,6 +95,7 @@ function getRefundBlockedReason(code: string | null) {
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no esta cubierto de forma exclusiva por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan desde Caja.",
   };
   return code ? messages[code] ?? "Este pago no se puede reembolsar con seguridad." : null;
 }
