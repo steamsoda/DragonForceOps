@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-05-19 (session 186)
+
+### Caja Account Credit Read-Only Display (v1.16.155)
+
+- Added a read-only Caja account-credit summary panel fed by the new explicit credit-balance view plus legacy posted-payment remainders that are not applied at 100%.
+- Kept this pass display-only: no credit creation, no `Usar credito` write path, no payment allocation changes, no legacy conversion, and no balance-view changes.
+- Removed the older empty-state copy that implied negative balances were immediately usable as credit, so staff see credit context without accidental action language.
+- Added a small compile-checked helper test around explicit credit, legacy implicit credit, and combined visible credit totals.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ## 2026-05-19 (session 185)
 
 ### Caja Account Credit Ledger Schema V1 (v1.16.154)

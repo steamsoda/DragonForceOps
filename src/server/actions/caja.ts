@@ -29,6 +29,7 @@ import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parse
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { createPerfTimer } from "@/lib/perf/timing";
+import type { AccountCreditSummary } from "@/lib/finance/account-credit";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 
@@ -86,6 +87,7 @@ export type CajaEnrollmentData = {
   campusName: string;
   balance: number;
   currency: string;
+  accountCredit: AccountCreditSummary;
   activeIncident: ActiveIncident | null;
   pendingCharges: CajaPendingCharge[];
   recentPayments: CajaRecentPayment[];
@@ -884,6 +886,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     campusName: ledger.enrollment.campusName,
     balance: ledger.totals.balance,
     currency: ledger.enrollment.currency,
+    accountCredit: ledger.accountCredit,
     activeIncident: resolveActiveIncident(
       ledger.incidents.map((incident) => ({
         incidentType: incident.typeCode,

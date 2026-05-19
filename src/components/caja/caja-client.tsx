@@ -129,6 +129,50 @@ function ActiveIncidentBanner({
   return <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>{message}</div>;
 }
 
+function AccountCreditPanel({
+  summary,
+  currency,
+}: {
+  summary: CajaEnrollmentData["accountCredit"];
+  currency: string;
+}) {
+  if (!summary.hasAnyCredit) return null;
+
+  return (
+    <section className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+            Credito visible en cuenta: {formatMoney(summary.totalVisibleCreditAmount, currency)}
+          </p>
+          <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+            Solo lectura por ahora. No se aplica automaticamente ni cambia cargos o pagos.
+          </p>
+        </div>
+        {summary.hasExplicitCredit ? (
+          <span className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            Ledger: {formatMoney(summary.explicitAvailableAmount, currency)}
+          </span>
+        ) : null}
+      </div>
+      {summary.hasLegacyImplicitCredit ? (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
+          Credito legado detectado: {formatMoney(summary.legacyImplicitCreditAmount, currency)} de pagos antiguos no aplicados al 100%.
+        </div>
+      ) : null}
+      {summary.hasExplicitCredit ? (
+        <button
+          type="button"
+          disabled
+          className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-900"
+        >
+          Usar credito (siguiente paso)
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 function RecentPaymentsPanel({
   enrollmentId,
   payments,
@@ -1242,6 +1286,8 @@ function PosEnrollmentPanel({
         </div>
       </div>
 
+      <AccountCreditPanel summary={data.accountCredit} currency={data.currency} />
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
           <ActiveIncidentBanner incident={data.activeIncident} />
@@ -1252,9 +1298,7 @@ function PosEnrollmentPanel({
             </div>
             {data.pendingCharges.length === 0 ? (
               <div className="px-4 py-4 text-sm text-emerald-700">
-                {data.balance < 0
-                  ? `Crédito disponible: ${formatMoney(Math.abs(data.balance), data.currency)}`
-                  : "No hay cargos pendientes."}
+                No hay cargos pendientes.
               </div>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1982,6 +2026,8 @@ function EnrollmentPanel({
         </div>
       </div>
 
+      <AccountCreditPanel summary={data.accountCredit} currency={data.currency} />
+
       <ActiveIncidentBanner incident={data.activeIncident} />
 
       {/* Pending charges */}
@@ -2054,9 +2100,7 @@ function EnrollmentPanel({
         </div>
       ) : (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {data.balance < 0
-            ? `Crédito disponible: ${formatMoney(Math.abs(data.balance), data.currency)}. Se aplicará al siguiente cargo.`
-            : "No hay cargos pendientes. ✓"}
+          No hay cargos pendientes.
         </div>
       )}
 

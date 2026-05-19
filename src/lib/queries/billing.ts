@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { summarizeAccountCredit, type AccountCreditSummary } from "@/lib/finance/account-credit";
 import { createPerfTimer } from "@/lib/perf/timing";
 
 type EnrollmentRow = {
@@ -31,6 +32,14 @@ type BalanceRow = {
   total_charges: number;
   total_payments: number;
   balance: number;
+};
+
+type CreditBalanceRow = {
+  enrollment_id: string;
+  original_credit_total: number;
+  applied_credit_total: number;
+  available_credit_total: number;
+  open_credit_count: number;
 };
 
 type ChargeRow = {
@@ -126,6 +135,7 @@ export type EnrollmentLedger = {
     totalPayments: number;
     balance: number;
   };
+  accountCredit: AccountCreditSummary;
   charges: Array<{
     id: string;
     typeCode: string;
@@ -237,7 +247,14 @@ export async function getEnrollmentLedger(
     chargeQuery = chargeQuery.eq("status", "pending");
   }
 
-  const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }, { data: incidents }] = await Promise.all([
+  const [
+    { data: enrollment },
+    { data: balance },
+    { data: creditBalance },
+    { data: charges },
+    { data: payments },
+    { data: incidents },
+  ] = await Promise.all([
     supabase
       .from("enrollments")
       .select("id, status, start_date, end_date, campus_id, campuses(id, name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
@@ -250,6 +267,12 @@ export async function getEnrollmentLedger(
       .eq("enrollment_id", enrollmentId)
       .maybeSingle()
       .returns<BalanceRow | null>(),
+    supabase
+      .from("v_enrollment_credit_balances")
+      .select("enrollment_id, original_credit_total, applied_credit_total, available_credit_total, open_credit_count")
+      .eq("enrollment_id", enrollmentId)
+      .maybeSingle()
+      .returns<CreditBalanceRow | null>(),
     chargeQuery
       .order("created_at", { ascending: false })
       .returns<ChargeRow[]>(),
@@ -334,6 +357,18 @@ export async function getEnrollmentLedger(
     allocationsByCharge.set(row.charge_id, [...(allocationsByCharge.get(row.charge_id) ?? []), row]);
   });
 
+  const accountCredit = summarizeAccountCredit({
+    explicitAvailableAmount: creditBalance?.available_credit_total ?? 0,
+    explicitOriginalAmount: creditBalance?.original_credit_total ?? 0,
+    explicitAppliedAmount: creditBalance?.applied_credit_total ?? 0,
+    openCreditCount: creditBalance?.open_credit_count ?? 0,
+    payments: (payments ?? []).map((row) => ({
+      status: row.status,
+      amount: row.amount,
+      allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+    })),
+  });
+
   return {
     enrollment: {
       id: enrollment.id,
@@ -356,6 +391,7 @@ export async function getEnrollmentLedger(
       totalPayments: balance?.total_payments ?? 0,
       balance: balance?.balance ?? 0
     },
+    accountCredit,
     charges: (charges ?? []).map((row) => {
       const allocatedAmount = allocatedByCharge.get(row.id) ?? 0;
       return {
