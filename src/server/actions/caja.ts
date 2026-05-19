@@ -54,8 +54,33 @@ export type CajaPendingCharge = {
   dueDate: string | null;
 };
 
+export type CajaRecentPayment = {
+  id: string;
+  paidAt: string;
+  method: string;
+  amount: number;
+  currency: string;
+  notes: string | null;
+  refundStatus: "not_refunded" | "refunded";
+  refundedAt: string | null;
+  canReassign: boolean;
+  reassignBlockedReason: string | null;
+  canRefund: boolean;
+  refundBlockedReason: string | null;
+  sourceCharges: Array<{
+    chargeId: string;
+    description: string;
+    typeCode: string;
+    typeName: string;
+    allocatedAmount: number;
+    canReassign: boolean;
+    reassignBlockedReason: string | null;
+  }>;
+};
+
 export type CajaEnrollmentData = {
   enrollmentId: string;
+  playerId: string | null;
   playerName: string;
   campusId: string;
   campusName: string;
@@ -63,6 +88,7 @@ export type CajaEnrollmentData = {
   currency: string;
   activeIncident: ActiveIncident | null;
   pendingCharges: CajaPendingCharge[];
+  recentPayments: CajaRecentPayment[];
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
 };
 
@@ -852,6 +878,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
 
   return {
     enrollmentId,
+    playerId: ledger.enrollment.playerId,
     playerName: ledger.enrollment.playerName,
     campusId: ledger.enrollment.campusId,
     campusName: ledger.enrollment.campusName,
@@ -867,6 +894,32 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
       })),
     ),
     pendingCharges,
+    recentPayments: ledger.payments
+      .filter((payment) => payment.status === "posted")
+      .slice(0, 5)
+      .map((payment) => ({
+        id: payment.id,
+        paidAt: payment.paidAt,
+        method: payment.method,
+        amount: payment.amount,
+        currency: payment.currency,
+        notes: payment.notes,
+        refundStatus: payment.refundStatus,
+        refundedAt: payment.refundedAt,
+        canReassign: payment.canReassign,
+        reassignBlockedReason: payment.reassignBlockedReason,
+        canRefund: payment.canRefund,
+        refundBlockedReason: payment.refundBlockedReason,
+        sourceCharges: payment.sourceCharges.map((charge) => ({
+          chargeId: charge.chargeId,
+          description: charge.description,
+          typeCode: charge.typeCode,
+          typeName: charge.typeName,
+          allocatedAmount: charge.allocatedAmount,
+          canReassign: charge.canReassign,
+          reassignBlockedReason: charge.reassignBlockedReason,
+        })),
+      })),
     advanceTuitionOptions: advanceTuitionOptions.map((option) => ({
       periodMonth: option.periodMonth,
       label: option.label,

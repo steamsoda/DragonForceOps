@@ -50,6 +50,14 @@ type ChargeRow = {
 
 const CORRECTION_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
 const REPAIR_ONLY_CHARGE_TYPE_CODES = new Set(["corrective_charge", "balance_adjustment"]);
+const MONTHLY_TUITION_CHARGE_TYPE_CODE = "monthly_tuition";
+const INSCRIPTION_CHARGE_TYPE_CODE = "inscription";
+
+function getProtectedSourceChargeBlockedReason(typeCode: string | null | undefined) {
+  if (typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE) return "source_charge_monthly_tuition";
+  if (typeCode === INSCRIPTION_CHARGE_TYPE_CODE) return "source_charge_inscription";
+  return null;
+}
 
 type PaymentRow = {
   id: string;
@@ -155,6 +163,8 @@ export type EnrollmentLedger = {
     refundNotes: string | null;
     canReassign: boolean;
     reassignBlockedReason: string | null;
+    canRefund: boolean;
+    refundBlockedReason: string | null;
     sourceCharges: Array<{
       chargeId: string;
       description: string;
@@ -162,6 +172,8 @@ export type EnrollmentLedger = {
       typeName: string;
       amount: number;
       allocatedAmount: number;
+      canReassign: boolean;
+      reassignBlockedReason: string | null;
     }>;
   }>;
   incidents: Array<{
@@ -372,8 +384,31 @@ export async function getEnrollmentLedger(
     payments: (payments ?? []).map((row) => {
       const paymentAllocations = allocationsByPayment.get(row.id) ?? [];
       const refund = refundByPaymentId.get(row.id) ?? null;
+      const paymentBaseBlockedReason =
+        row.status !== "posted"
+          ? "payment_not_posted"
+          : refund
+            ? "payment_already_refunded"
+            : paymentAllocations.length === 0
+              ? "payment_has_no_allocations"
+              : Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01
+                ? "payment_not_fully_allocated"
+                : null;
+
       const sourceCharges = paymentAllocations.map((allocation) => {
         const charge = chargeById.get(allocation.charge_id);
+        const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
+        const totalAllocated = allocatedByCharge.get(allocation.charge_id) ?? 0;
+        const protectedSourceReason = getProtectedSourceChargeBlockedReason(charge?.typeCode);
+        const sourceBlockedReason =
+          paymentBaseBlockedReason ??
+          (protectedSourceReason
+            ? protectedSourceReason
+            : chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id)
+              ? "source_charge_shared"
+              : !charge || charge.status === "void" || Math.abs((charge.amount ?? 0) - totalAllocated) > 0.01
+                ? "source_charge_not_exclusive"
+                : null);
         return {
           chargeId: allocation.charge_id,
           description: charge?.description ?? "Cargo",
@@ -381,25 +416,27 @@ export async function getEnrollmentLedger(
           typeName: charge?.typeName ?? "-",
           amount: charge?.amount ?? allocation.amount,
           allocatedAmount: allocation.amount,
+          canReassign: sourceBlockedReason === null,
+          reassignBlockedReason: sourceBlockedReason,
         };
       });
 
-      let reassignBlockedReason: string | null = null;
+      let workflowBlockedReason: string | null = null;
       if (row.status !== "posted") {
-        reassignBlockedReason = "payment_not_posted";
+        workflowBlockedReason = "payment_not_posted";
       } else if (refund) {
-        reassignBlockedReason = "payment_already_refunded";
+        workflowBlockedReason = "payment_already_refunded";
       } else if (paymentAllocations.length === 0) {
-        reassignBlockedReason = "payment_has_no_allocations";
+        workflowBlockedReason = "payment_has_no_allocations";
       } else if (Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01) {
-        reassignBlockedReason = "payment_not_fully_allocated";
+        workflowBlockedReason = "payment_not_fully_allocated";
       } else if (
         paymentAllocations.some((allocation) => {
           const chargeAllocations = allocationsByCharge.get(allocation.charge_id) ?? [];
           return chargeAllocations.some((chargeAllocation) => chargeAllocation.payment_id !== row.id);
         })
       ) {
-        reassignBlockedReason = "source_charge_shared";
+        workflowBlockedReason = "source_charge_shared";
       } else if (
         paymentAllocations.some((allocation) => {
           const charge = chargeById.get(allocation.charge_id);
@@ -407,8 +444,23 @@ export async function getEnrollmentLedger(
           return !charge || Math.abs(charge.amount - totalAllocated) > 0.01 || charge.status === "void";
         })
       ) {
-        reassignBlockedReason = "source_charge_not_exclusive";
+        workflowBlockedReason = "source_charge_not_exclusive";
+      } else if (
+        paymentAllocations.some((allocation) => {
+          const charge = chargeById.get(allocation.charge_id);
+          return getProtectedSourceChargeBlockedReason(charge?.typeCode) !== null;
+        })
+      ) {
+        workflowBlockedReason = paymentAllocations.some((allocation) => {
+          const charge = chargeById.get(allocation.charge_id);
+          return charge?.typeCode === INSCRIPTION_CHARGE_TYPE_CODE;
+        })
+          ? "source_charge_inscription"
+          : "source_charge_monthly_tuition";
       }
+
+      const canReassignAnySource =
+        workflowBlockedReason === null || sourceCharges.some((charge) => charge.canReassign);
 
       return {
         id: row.id,
@@ -428,8 +480,10 @@ export async function getEnrollmentLedger(
         refundMethod: refund?.refund_method ?? null,
         refundReason: refund?.reason ?? null,
         refundNotes: refund?.notes ?? null,
-        canReassign: reassignBlockedReason === null,
-        reassignBlockedReason,
+        canReassign: canReassignAnySource,
+        reassignBlockedReason: canReassignAnySource ? null : workflowBlockedReason,
+        canRefund: workflowBlockedReason === null,
+        refundBlockedReason: workflowBlockedReason,
         sourceCharges,
       };
     }),

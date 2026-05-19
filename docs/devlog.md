@@ -1,5 +1,76 @@
 # Devlog
 
+## 2026-05-14 (session 183)
+
+### Caja Inscription Payment Protection (v1.16.153)
+
+- Extended Caja refund/reassignment guardrails so `inscription` charges are treated like monthly tuition: visible for context, but not refundable and not reassignable.
+- Added the same protection to the database refund/reassignment functions, including the allocation-level reassignment RPC, so direct action/RPC paths reject inscription sources with `source_charge_inscription`.
+- Updated Caja, ledger, refund, and reassignment UI messages so staff see `Inscripcion no reembolsable` / `Inscripcion no reasignable` instead of a generic disabled state.
+- Kept leftover-overpayment / account-credit behavior out of scope for this pass; that remains a deliberate finance-ledger follow-up.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## 2026-05-14 (session 182)
+
+### Caja Allocation-Level Reassignment Pass 1 (v1.16.152)
+
+- Added an allocation-level reassignment path for Caja mixed payments.
+- Mixed payments are no longer blocked as a whole when one part is monthly tuition: monthly tuition source allocations are visible but protected, while eligible non-monthly source allocations can be moved.
+- Added a guarded database function that moves only the selected source charge allocation to selected/new destination charges, keeps the original payment amount unchanged, preserves the rest of the payment allocations, and voids the selected non-monthly source charge after the move.
+- Updated the `Cambiar concepto` page to select the source allocation first, then cover that selected amount with pending/new destination charges.
+- Kept partial cash/card refunds out of scope for this pass.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## 2026-05-13 (session 181)
+
+### Caja Recent Payments Grid Polish (v1.16.151)
+
+- Converted the Caja `Ultimos pagos` bottom panel into a more uniform desktop grid with a visible header row: `Pago`, `Fecha`, `Cargo origen`, and `Acciones`.
+- Kept the mobile layout stacked, with inline labels only where the header row is hidden.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
+## 2026-05-13 (session 180)
+
+### Caja Recent Payments Column Alignment (v1.16.150)
+
+- Center-aligned the desktop columns in the Caja `Ultimos pagos` bottom panel so amount, date, source charge, and action columns read more like an organized ledger.
+- Kept the mobile layout stacked/readable; this is a UI-only polish pass.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
+## 2026-05-13 (session 179)
+
+### Caja Recent Payments Layout Polish (v1.16.149)
+
+- Widened the Caja workspace so Front Desk can use more of a 1920px desktop screen while staying responsive on smaller screens.
+- Moved `Ultimos pagos` to a full-width bottom panel and cleaned the row layout so amount, date, source charge, notes, and guarded actions no longer collide.
+- Added `playerId` to the Caja enrollment payload so deep-linked/reloaded Caja accounts keep the player name clickable back to the player profile.
+- Changed monthly-tuition blocked action copy to `Mensualidad no reembolsable` / `Mensualidad no reasignable`.
+- Logged the larger partial-refund / partial-reassignment model as a future finance-hardening item instead of changing allocation behavior in this UX pass.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
+## 2026-05-12 (session 178)
+
+### Caja Recent Payments Shortcuts (v1.16.148)
+
+- Added a discoverable `Ultimos pagos` panel inside the active Caja account screen.
+- The panel shows the five latest posted payments with amount, method, date/time, source charge summary, and notes.
+- Eligible non-monthly payments now expose direct `Cambiar concepto` and `Reembolsar` shortcuts that link into the guarded ledger workflows from `v1.16.147`.
+- Unsafe payments remain visible but show disabled reason chips, including the monthly-tuition block, so Front Desk can understand why a payment cannot be refunded or reassigned from Caja.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
+## 2026-05-12 (session 177)
+
+### Caja Refund / Reassignment Guardrails (v1.16.147)
+
+- Hardened payment refund/reassignment eligibility around the Front Desk Caja workflow:
+  - monthly tuition payments can no longer be used as the source for refund or concept reassignment from the operational flow
+  - only fully allocated, exclusive, non-shared source charges are eligible
+  - refunds are restricted to real full refunds via `Efectivo` or `Tarjeta`
+- Added a database migration that updates `record_payment_refund(...)` and `reassign_payment_to_charges(...)` with the same source-charge guardrails.
+- Updated refund behavior so eligible non-monthly source charges are voided after the refund is recorded, avoiding the confusing state where a cancelled tournament/uniform charge reopens as pending.
+- Updated the ledger UI so unsafe payments show disabled refund/reassignment actions instead of exposing buttons that should not be used.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-05-12 (session 176)
 
 ### Attendance Today Group Category Labels (v1.16.146)

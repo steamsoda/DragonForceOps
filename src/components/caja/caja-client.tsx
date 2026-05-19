@@ -17,6 +17,7 @@ import {
   listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
+  type CajaRecentPayment,
   type CajaPaymentResult,
   type CajaProduct,
   type CajaProductCategory,
@@ -51,6 +52,37 @@ function methodLabel(method: string) {
     other: "Otro"
   };
   return labels[method] ?? method;
+}
+
+function formatDateTimeShort(value: string) {
+  return new Date(value).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
+}
+
+function getPaymentWorkflowBlockedReason(code: string | null, action: "refund" | "reassign") {
+  const messages: Record<string, string> = {
+    payment_not_posted: "Solo pagos vigentes.",
+    payment_already_refunded: "Pago ya reembolsado.",
+    payment_has_no_allocations: "Sin cargos aplicados.",
+    payment_not_fully_allocated: "No esta aplicado al 100%.",
+    source_charge_shared: "Pago combinado: requiere ajuste parcial.",
+    source_charge_not_exclusive: "Cargo origen completado.",
+    source_charge_monthly_tuition:
+      action === "refund"
+        ? "Mensualidad no reembolsable"
+        : "Mensualidad no reasignable",
+    source_charge_inscription:
+      action === "refund"
+        ? "Inscripcion no reembolsable"
+        : "Inscripcion no reasignable",
+  };
+  return code ? messages[code] ?? "No disponible con seguridad." : null;
 }
 
 function formatDateOnly(dateStr: string | null | undefined) {
@@ -97,6 +129,113 @@ function ActiveIncidentBanner({
   return <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>{message}</div>;
 }
 
+function RecentPaymentsPanel({
+  enrollmentId,
+  payments,
+}: {
+  enrollmentId: string;
+  payments: CajaRecentPayment[];
+}) {
+  if (payments.length === 0) return null;
+
+  const returnTo = `/caja?enrollmentId=${encodeURIComponent(enrollmentId)}`;
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos pagos</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Revisa pagos recientes para reembolso o cambio de concepto.</p>
+        </div>
+        <Link
+          href={`/enrollments/${enrollmentId}/charges`}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Ver historial
+        </Link>
+      </div>
+      <div>
+        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 xl:grid xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center">
+          <span>Pago</span>
+          <span>Fecha</span>
+          <span>Cargo origen</span>
+          <span className="text-center">Acciones</span>
+        </div>
+        {payments.map((payment) => {
+          const sourceSummary =
+            payment.sourceCharges.length > 0
+              ? payment.sourceCharges.map((charge) => charge.description).join(", ")
+              : "Sin cargo aplicado";
+          const refundBlockedReason = getPaymentWorkflowBlockedReason(payment.refundBlockedReason, "refund");
+          const reassignBlockedReason = getPaymentWorkflowBlockedReason(payment.reassignBlockedReason, "reassign");
+
+          return (
+            <div
+              key={payment.id}
+              className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {formatMoney(payment.amount, payment.currency)}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {methodLabel(payment.method)}
+                  </span>
+                  {payment.refundStatus === "refunded" ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      Reembolsado
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Fecha</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">{formatDateTimeShort(payment.paidAt)}</p>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Cargo origen</p>
+                <p className="break-words text-xs text-slate-700 dark:text-slate-300">{sourceSummary}</p>
+                {payment.notes?.trim() ? (
+                  <p className="break-words text-xs text-slate-400">{payment.notes}</p>
+                ) : null}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:w-[340px]">
+                {payment.canReassign ? (
+                  <Link
+                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/reassign?returnTo=${encodeURIComponent(returnTo)}`}
+                    prefetch={false}
+                    className="rounded-md border border-blue-300 px-3 py-1.5 text-center text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20"
+                  >
+                    Cambiar concepto
+                  </Link>
+                ) : (
+                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-400 dark:border-slate-700">
+                    {reassignBlockedReason ?? "Cambiar concepto"}
+                  </span>
+                )}
+                {payment.canRefund ? (
+                  <Link
+                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/refund?returnTo=${encodeURIComponent(returnTo)}`}
+                    prefetch={false}
+                    className="rounded-md border border-amber-300 px-3 py-1.5 text-center text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
+                  >
+                    Reembolsar
+                  </Link>
+                ) : (
+                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-400 dark:border-slate-700">
+                    {refundBlockedReason ?? "Reembolsar"}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 const PAYMENT_METHOD_OPTIONS = [
   { value: "cash", label: "Efectivo" },
   { value: "card", label: "Tarjeta" },
@@ -137,7 +276,7 @@ function paymentMethodTone(method: string, active: boolean) {
   return active ? tone.selected : tone.idle;
 }
 
-function PlayerProfileLink({ playerId, playerName }: { playerId: string; playerName: string }) {
+function PlayerProfileLink({ playerId, playerName }: { playerId: string | null | undefined; playerName: string }) {
   if (!playerId) {
     return <p className="text-lg font-semibold text-portoDark">{playerName}</p>;
   }
@@ -277,7 +416,7 @@ export function CajaClient({
     return {
       tag: "enrollment",
       player: {
-        playerId: "",
+        playerId: initialEnrollmentData.playerId ?? "",
         playerName: initialEnrollmentData.playerName,
         birthYear: null,
         enrollmentId: initialEnrollmentData.enrollmentId,
@@ -313,7 +452,7 @@ export function CajaClient({
         return;
       }
       const syntheticPlayer: CajaPlayerResult = {
-        playerId: "",
+        playerId: data.playerId ?? "",
         playerName: data.playerName,
         birthYear: null,
         enrollmentId: data.enrollmentId,
@@ -457,7 +596,7 @@ export function CajaClient({
   const showSearchArea = view.tag === "idle" || view.tag === "searching" || view.tag === "results";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-0 py-2 sm:space-y-8 sm:px-2 sm:py-4 lg:px-6 xl:px-8">
+    <div className="mx-auto w-full max-w-[1680px] space-y-6 px-0 py-2 sm:space-y-8 sm:px-2 sm:py-4 lg:px-6 xl:px-8">
       {/* Search box — always visible unless in a later state */}
       {showSearchArea && (
         <SearchPanel
@@ -1079,7 +1218,7 @@ function PosEnrollmentPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
+          <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}
           </p>
@@ -1690,6 +1829,8 @@ function PosEnrollmentPanel({
           </form>
         </div>
       </div>
+
+      <RecentPaymentsPanel enrollmentId={data.enrollmentId} payments={data.recentPayments} />
     </div>
   );
 }
@@ -1819,7 +1960,7 @@ function EnrollmentPanel({
       {/* Player header */}
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
+          <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">
@@ -2314,7 +2455,7 @@ function ProductGridPanel({
       {/* Player header */}
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
-          <PlayerProfileLink playerId={player.playerId} playerName={data.playerName} />
+          <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
           <p className="text-sm text-slate-500 dark:text-slate-400">{data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}</p>
           {player.teamName && (
             <p className="text-xs text-slate-400 mt-0.5">

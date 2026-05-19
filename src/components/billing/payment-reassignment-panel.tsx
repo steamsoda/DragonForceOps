@@ -22,6 +22,8 @@ type ReassignmentPayment = {
     typeName: string;
     amount: number;
     allocatedAmount: number;
+    canReassign: boolean;
+    reassignBlockedReason: string | null;
   }>;
 };
 
@@ -81,9 +83,13 @@ function getActionErrorMessage(code: string) {
     target_capacity_too_small: "Los cargos destino no absorben el pago completo.",
     target_charge_invalid: "Alguno de los cargos destino ya no es válido.",
     target_charge_conflict: "No puedes reusar el mismo cargo origen como destino.",
+    source_charge_required: "Selecciona qué parte del pago quieres mover.",
+    source_charge_invalid: "La parte del pago seleccionada ya no está disponible.",
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
     source_charge_shared: "El cargo origen también tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no está cubierto exclusivamente por este pago.",
+    source_charge_monthly_tuition: "Las mensualidades no se pueden mover desde Caja. Usa una correccion administrativa.",
+    source_charge_inscription: "Las inscripciones no se pueden mover desde Caja. Usa una correccion administrativa.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
     payment_not_posted: "Solo se pueden mover pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
@@ -110,6 +116,9 @@ export function PaymentReassignmentPanel({
 }) {
   const router = useRouter();
   const [pendingCharges, setPendingCharges] = useState(initialPendingCharges);
+  const [selectedSourceChargeId, setSelectedSourceChargeId] = useState(
+    payment.sourceCharges.find((charge) => charge.canReassign)?.chargeId ?? "",
+  );
   const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
   const [chargeAmount, setChargeAmount] = useState("");
@@ -129,8 +138,11 @@ export function PaymentReassignmentPanel({
     [pendingCharges, selectedChargeIds],
   );
 
-  const remainingToCover = Math.round((payment.amount - selectedTotal) * 100) / 100;
+  const selectedSourceCharge = payment.sourceCharges.find((charge) => charge.chargeId === selectedSourceChargeId) ?? null;
+  const sourceAmount = selectedSourceCharge?.allocatedAmount ?? 0;
+  const remainingToCover = Math.round((sourceAmount - selectedTotal) * 100) / 100;
   const selectionIsEnough = remainingToCover <= 0;
+  const hasSelectableSource = payment.sourceCharges.some((charge) => charge.canReassign);
 
   function toggleCharge(chargeId: string) {
     setSelectedChargeIds((current) =>
@@ -205,11 +217,16 @@ export function PaymentReassignmentPanel({
   }
 
   function submitReassignment() {
+    if (!selectedSourceCharge) {
+      setErrorMessage(getActionErrorMessage("source_charge_required"));
+      return;
+    }
     setErrorMessage(null);
     setPendingMessage("Moviendo el pago a los nuevos cargos y cerrando el cargo origen...");
 
     startTransition(async () => {
       const formData = new FormData();
+      formData.set("sourceChargeId", selectedSourceChargeId);
       formData.set("targetChargeIds", selectedChargeIds.join(","));
       const result = await reassignPaymentAction(enrollmentId, payment.id, formData);
       if (!result.ok) {
@@ -238,30 +255,76 @@ export function PaymentReassignmentPanel({
         </div>
 
         <div className="mt-4 space-y-2">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos origen</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Selecciona la parte del pago que quieres mover</p>
           <div className="space-y-2">
-            {payment.sourceCharges.map((charge) => (
-              <div key={charge.chargeId} className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-slate-100">{charge.description}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{charge.typeName}</p>
+            {payment.sourceCharges.map((charge) => {
+              const selected = selectedSourceChargeId === charge.chargeId;
+              const isTuition = charge.typeCode === "monthly_tuition";
+              const isInscription = charge.typeCode === "inscription";
+              const blockedText = isTuition
+                ? "Mensualidad protegida"
+                : isInscription
+                  ? "Inscripcion protegida"
+                  : charge.reassignBlockedReason
+                  ? getActionErrorMessage(charge.reassignBlockedReason)
+                  : "No disponible";
+
+              return (
+                <button
+                  key={charge.chargeId}
+                  type="button"
+                  disabled={isPending || !charge.canReassign}
+                  onClick={() => {
+                    setSelectedSourceChargeId(charge.chargeId);
+                    setErrorMessage(null);
+                  }}
+                  className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
+                    selected
+                      ? "border-portoBlue bg-portoBlue/5 ring-1 ring-portoBlue"
+                      : charge.canReassign
+                        ? "border-slate-200 hover:border-portoBlue hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                        : "cursor-not-allowed border-slate-200 bg-slate-50 opacity-80 dark:border-slate-700 dark:bg-slate-800/50"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{charge.description}</p>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            charge.canReassign
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
+                              : isTuition || isInscription
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                                : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                          }`}
+                        >
+                          {charge.canReassign ? "Disponible para ajustar" : blockedText}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{charge.typeName}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      {formatMoney(charge.allocatedAmount, payment.currency)}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {formatMoney(charge.allocatedAmount, payment.currency)}
-                  </span>
-                </div>
-              </div>
-            ))}
+                </button>
+              );
+            })}
           </div>
+          {!hasSelectableSource ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              Este pago no tiene cargos no mensuales disponibles para mover desde Caja.
+            </p>
+          ) : null}
         </div>
       </section>
 
       <section className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/20 dark:text-sky-100">
         <p className="font-semibold">Qué va a pasar al confirmar</p>
         <p className="mt-1 text-xs text-sky-800/90 dark:text-sky-100/80">
-          El pago conservará su folio, fecha y método. Solo se moverán sus asignaciones y los cargos origen exclusivos
-          quedarán anulados automáticamente.
+          El pago conservará su folio, fecha y método. Solo se moverá la parte seleccionada del pago; las mensualidades
+          quedan protegidas y los cargos origen no mensuales exclusivos quedarán anulados automáticamente.
         </p>
       </section>
 
@@ -292,19 +355,26 @@ export function PaymentReassignmentPanel({
             <span className="font-semibold text-slate-900 dark:text-slate-100">
               {formatMoney(selectedTotal, payment.currency)}
             </span>
+            {selectedSourceCharge ? (
+              <span className="ml-2 text-xs text-slate-500">
+                de {formatMoney(sourceAmount, payment.currency)}
+              </span>
+            ) : null}
           </div>
         </div>
 
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
-            selectionIsEnough
+            selectedSourceCharge && selectionIsEnough
               ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
               : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
           }`}
         >
-          {selectionIsEnough
-            ? "El monto seleccionado absorbe el pago completo."
-            : `Todavía faltan ${formatMoney(Math.max(remainingToCover, 0), payment.currency)} por cubrir.`}
+          {!selectedSourceCharge
+            ? "Selecciona primero la parte del pago que quieres mover."
+            : selectionIsEnough
+              ? "El destino seleccionado absorbe la parte del pago que se moverá."
+              : `Todavía faltan ${formatMoney(Math.max(remainingToCover, 0), payment.currency)} por cubrir.`}
         </div>
 
         <div className="space-y-2">
@@ -537,7 +607,7 @@ export function PaymentReassignmentPanel({
         </p>
         <button
           type="button"
-          disabled={isPending || selectedChargeIds.length === 0}
+          disabled={isPending || !selectedSourceCharge || selectedChargeIds.length === 0 || !selectionIsEnough}
           onClick={submitReassignment}
           className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
         >

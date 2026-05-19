@@ -46,7 +46,15 @@ type EnrollmentIncidentInsert = {
 };
 
 const INCIDENT_TYPES = new Set(["absence", "injury", "other"]);
-const PAYMENT_METHODS = new Set(["cash", "transfer", "card", "stripe_360player", "other"]);
+const REFUND_PAYMENT_METHODS = new Set(["cash", "card"]);
+const MONTHLY_TUITION_CHARGE_TYPE_CODE = "monthly_tuition";
+const INSCRIPTION_CHARGE_TYPE_CODE = "inscription";
+
+function getProtectedSourceChargeBlockedReason(typeCode: string | null | undefined) {
+  if (typeCode === MONTHLY_TUITION_CHARGE_TYPE_CODE) return "source_charge_monthly_tuition";
+  if (typeCode === INSCRIPTION_CHARGE_TYPE_CODE) return "source_charge_inscription";
+  return null;
+}
 
 type PaymentReassignmentResult =
   | { ok: true }
@@ -133,13 +141,108 @@ function parseChargeIdList(raw: string | null | undefined) {
     .filter(Boolean);
 }
 
+async function getPaymentSourceWorkflowBlockReason(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+  paymentId: string,
+): Promise<string | null> {
+  const [{ data: payment }, { data: refundRow }] = await Promise.all([
+    supabase
+      .from("payments")
+      .select("id, amount, status")
+      .eq("id", paymentId)
+      .eq("enrollment_id", enrollmentId)
+      .maybeSingle<{ id: string; amount: number; status: string } | null>(),
+    supabase
+      .from("payment_refunds")
+      .select("payment_id")
+      .eq("payment_id", paymentId)
+      .maybeSingle<{ payment_id: string } | null>(),
+  ]);
+
+  if (!payment) return "payment_not_found";
+  if (payment.status !== "posted") return "payment_not_posted";
+  if (refundRow?.payment_id) return "payment_already_refunded";
+
+  const { data: allocations, error: allocationError } = await supabase
+    .from("payment_allocations")
+    .select("payment_id, charge_id, amount, charges(id, amount, status, charge_types(code))")
+    .eq("payment_id", paymentId)
+    .returns<
+      Array<{
+        payment_id: string;
+        charge_id: string;
+        amount: number;
+        charges: {
+          id: string;
+          amount: number;
+          status: string;
+          charge_types: { code: string | null } | null;
+        } | null;
+      }>
+    >();
+
+  if (allocationError) return "payment_has_no_allocations";
+  const paymentAllocations = allocations ?? [];
+  if (paymentAllocations.length === 0) return "payment_has_no_allocations";
+
+  const allocatedTotal = paymentAllocations.reduce((sum, row) => sum + row.amount, 0);
+  if (Math.abs(allocatedTotal - payment.amount) > 0.01) return "payment_not_fully_allocated";
+
+  const sourceChargeIds = [...new Set(paymentAllocations.map((row) => row.charge_id))];
+  const protectedSourceReason =
+    paymentAllocations
+      .map((row) => getProtectedSourceChargeBlockedReason(row.charges?.charge_types?.code))
+      .find((reason) => reason === "source_charge_inscription") ??
+    paymentAllocations
+      .map((row) => getProtectedSourceChargeBlockedReason(row.charges?.charge_types?.code))
+      .find(Boolean) ??
+    null;
+  if (protectedSourceReason) {
+    return protectedSourceReason;
+  }
+
+  if (paymentAllocations.some((row) => !row.charges || row.charges.status === "void")) {
+    return "source_charge_not_exclusive";
+  }
+
+  const { data: sourceChargeAllocations } = await supabase
+    .from("payment_allocations")
+    .select("payment_id, charge_id, amount")
+    .in("charge_id", sourceChargeIds)
+    .returns<Array<{ payment_id: string; charge_id: string; amount: number }>>();
+
+  const allSourceAllocations = sourceChargeAllocations ?? [];
+  if (allSourceAllocations.some((row) => row.payment_id !== paymentId)) {
+    return "source_charge_shared";
+  }
+
+  const allocatedByCharge = new Map<string, number>();
+  for (const allocation of allSourceAllocations) {
+    allocatedByCharge.set(allocation.charge_id, (allocatedByCharge.get(allocation.charge_id) ?? 0) + allocation.amount);
+  }
+
+  if (
+    paymentAllocations.some((allocation) => {
+      const charge = allocation.charges;
+      if (!charge) return true;
+      const chargeAllocated = allocatedByCharge.get(allocation.charge_id) ?? 0;
+      return Math.abs(charge.amount - chargeAllocated) > 0.01;
+    })
+  ) {
+    return "source_charge_not_exclusive";
+  }
+
+  return null;
+}
+
 function parseRefundFormData(formData: FormData) {
   const refundMethod = String(formData.get("refundMethod") ?? "").trim();
   const refundedAtRaw = String(formData.get("refundedAt") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
 
-  if (!PAYMENT_METHODS.has(refundMethod)) return { ok: false as const, error: "invalid_refund_method" };
+  if (!REFUND_PAYMENT_METHODS.has(refundMethod)) return { ok: false as const, error: "invalid_refund_method" };
   if (!reason) return { ok: false as const, error: "refund_reason_required" };
   if (!refundedAtRaw) return { ok: false as const, error: "refunded_at_required" };
 
@@ -166,6 +269,10 @@ function getPaymentWorkflowError(error: string) {
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
     source_charge_shared: "Este pago comparte cargo origen con otro pago y no se puede mover autom\u00e1ticamente.",
     source_charge_not_exclusive: "El cargo origen no est\u00e1 cubierto de forma exclusiva por este pago.",
+    source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_required: "Selecciona qu\u00e9 parte del pago quieres mover.",
+    source_charge_invalid: "La parte del pago seleccionada ya no est\u00e1 disponible.",
     target_charge_required: "Selecciona al menos un cargo destino.",
     target_charge_conflict: "No puedes volver a aplicar el pago sobre el mismo cargo origen.",
     target_charge_invalid: "Alguno de los cargos destino ya no es v\u00e1lido.",
@@ -192,6 +299,11 @@ function normalizeRefundWorkflowError(raw: string | null | undefined) {
     "payment_not_posted",
     "payment_already_refunded",
     "payment_has_no_allocations",
+    "payment_not_fully_allocated",
+    "source_charge_shared",
+    "source_charge_not_exclusive",
+    "source_charge_monthly_tuition",
+    "source_charge_inscription",
     "refund_reason_required",
     "refunded_at_required",
     "invalid_refund_method",
@@ -548,7 +660,12 @@ export async function reassignPaymentAction(
 
   const supabase = workflowContext.supabase;
   const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
+  const sourceChargeId = String(formData.get("sourceChargeId") ?? "").trim();
   if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
+  if (!sourceChargeId) {
+    const sourceBlockReason = await getPaymentSourceWorkflowBlockReason(supabase, enrollmentId, paymentId);
+    if (sourceBlockReason) return { ok: false, error: sourceBlockReason };
+  }
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
 
   const paymentSnapshot = await supabase
@@ -562,10 +679,16 @@ export async function reassignPaymentAction(
       charges: Array<{ charge_id: string; amount: number; charges: { description: string | null } | null }>;
     } | null>();
 
-  const { data, error } = await supabase.rpc("reassign_payment_to_charges", {
-    p_payment_id: paymentId,
-    p_target_charge_ids: targetChargeIds,
-  });
+  const { data, error } = sourceChargeId
+    ? await supabase.rpc("reassign_payment_source_charge_to_charges", {
+        p_payment_id: paymentId,
+        p_source_charge_id: sourceChargeId,
+        p_target_charge_ids: targetChargeIds,
+      })
+    : await supabase.rpc("reassign_payment_to_charges", {
+        p_payment_id: paymentId,
+        p_target_charge_ids: targetChargeIds,
+      });
 
   const resultRow = Array.isArray(data) ? data[0] : data;
   if (error || !resultRow?.ok) {
@@ -586,7 +709,8 @@ export async function reassignPaymentAction(
     recordId: paymentId,
     afterData: {
       enrollment_id: enrollmentId,
-      amount: paymentSnapshot.data?.amount ?? null,
+      amount: resultRow?.moved_amount ?? paymentSnapshot.data?.amount ?? null,
+      source_charge_id: sourceChargeId || null,
       old_charges: (paymentSnapshot.data?.charges ?? []).map((row) => ({
         charge_id: row.charge_id,
         description: row.charges?.description ?? "Cargo",
@@ -632,6 +756,8 @@ export async function refundPaymentAction(
   if (!parsed.ok) return { ok: false, error: parsed.error };
 
   const supabase = workflowContext.supabase;
+  const sourceBlockReason = await getPaymentSourceWorkflowBlockReason(supabase, enrollmentId, paymentId);
+  if (sourceBlockReason) return { ok: false, error: sourceBlockReason };
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   const { data: paymentRow } = await supabase
     .from("payments")

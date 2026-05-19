@@ -19,6 +19,8 @@ type PaymentItem = {
   refundNotes: string | null;
   canReassign: boolean;
   reassignBlockedReason: string | null;
+  canRefund: boolean;
+  refundBlockedReason: string | null;
 };
 
 type PaymentsTableProps = {
@@ -78,8 +80,24 @@ function getReassignBlockedReason(code: string | null) {
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
     source_charge_not_exclusive: "El cargo origen no esta cubierto de forma exclusiva por este pago.",
+    source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan ni se cambian de concepto desde Caja.",
   };
   return code ? messages[code] ?? "Este pago no se puede mover con seguridad." : null;
+}
+
+function getRefundBlockedReason(code: string | null) {
+  const messages: Record<string, string> = {
+    payment_not_posted: "Solo se pueden reembolsar pagos vigentes.",
+    payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
+    payment_not_fully_allocated: "Solo se pueden reembolsar pagos aplicados al 100%.",
+    source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
+    source_charge_not_exclusive: "El cargo origen no esta cubierto de forma exclusiva por este pago.",
+    source_charge_monthly_tuition: "Las mensualidades no se reembolsan desde Caja.",
+    source_charge_inscription: "Las inscripciones no se reembolsan desde Caja.",
+  };
+  return code ? messages[code] ?? "Este pago no se puede reembolsar con seguridad." : null;
 }
 
 export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction }: PaymentsTableProps) {
@@ -178,11 +196,7 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                             Cambiar concepto
                           </span>
                         )}
-                        {row.refundStatus === "refunded" ? (
-                          <span className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400">
-                            Reembolsar
-                          </span>
-                        ) : (
+                        {row.refundStatus !== "refunded" && row.canRefund ? (
                           <Link
                             href={`/enrollments/${enrollmentId}/payments/${row.id}/refund${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
                             prefetch={false}
@@ -190,10 +204,22 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                           >
                             Reembolsar
                           </Link>
+                        ) : (
+                          <span
+                            className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400"
+                            title={getRefundBlockedReason(row.refundBlockedReason) ?? undefined}
+                          >
+                            Reembolsar
+                          </span>
                         )}
                         {!row.canReassign && row.reassignBlockedReason ? (
                           <p className="max-w-[14rem] text-[11px] text-slate-500 dark:text-slate-400">
                             {getReassignBlockedReason(row.reassignBlockedReason)}
+                          </p>
+                        ) : null}
+                        {!row.canRefund && row.refundBlockedReason && row.refundBlockedReason !== row.reassignBlockedReason ? (
+                          <p className="max-w-[14rem] text-[11px] text-slate-500 dark:text-slate-400">
+                            {getRefundBlockedReason(row.refundBlockedReason)}
                           </p>
                         ) : null}
                       </>
