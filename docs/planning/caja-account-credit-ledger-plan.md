@@ -236,21 +236,23 @@ Document a review-first conversion system, not an automatic backfill.
 - Modify: `src/lib/queries/enrollment-finance-diagnostics.ts`
 - Test: add SQL verification notes to the migration or a finance sanity script pass
 
-- [ ] **Step 1: Create migration with additive tables**
+- [x] **Step 1: Create migration with additive tables**
 
 Use `supabase migration new account_credit_ledger_v1`, then create `enrollment_credits` and `enrollment_credit_applications` with RLS enabled.
 
-- [ ] **Step 2: Add RLS policies**
+- [x] **Step 2: Add RLS policies**
 
 Authenticated users can read credits only when they can access the enrollment/campus through existing finance permissions. Writes should go through RPCs/server actions, not broad table insert/update from the client.
 
-- [ ] **Step 3: Add read-only views**
+- [x] **Step 3: Add read-only views**
 
 Create `v_enrollment_credit_balances` and `v_enrollment_credit_events` with `security_invoker = true`.
 
-- [ ] **Step 4: Verify old balances are unchanged**
+- [x] **Step 4: Verify old balances are unchanged**
 
 Before any write UI exists, confirm that `v_enrollment_balances` results match before/after for a representative sample.
+
+Completed in preview `v1.16.154`: additive tables/views, read-only grants, RLS, trigger validations, and preview rollback smoke test. No app write path or legacy conversion was added.
 
 ### Phase 3: Read-Only Caja Display
 

@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-05-19 (session 185)
+
+### Caja Account Credit Ledger Schema V1 (v1.16.154)
+
+- Added the first additive account-credit schema on preview: `enrollment_credits`, `enrollment_credit_applications`, read-only credit-balance/event views, RLS, and validation triggers.
+- Kept this pass intentionally read-only from the app: no Caja UI writes, no payment/allocation rewrites, no `v_enrollment_balances` changes, and no legacy credit conversion.
+- Applied the migration to the linked preview database and verified the new objects exist while the existing enrollment-balance view still returns rows.
+- Caught and fixed two safety issues during verification: tightened table grants to SELECT-only for `authenticated`, and revoked direct RPC execute access from the trigger-only validation functions.
+- Verified a rollback-only insert/application smoke test succeeds and leaves `enrollment_credits` at zero rows afterward.
+- Advisor check no longer reports the new validation functions; remaining advisor output is pre-existing mobile-test/security-definer and broader multiple-policy noise, not introduced by this credit-ledger pass.
+
 ## 2026-05-19 (session 184)
 
 ### Caja Account Credit Ledger Planning
