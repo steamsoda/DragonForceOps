@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-05-19 (session 184)
+
+### Caja Account Credit Ledger Planning
+
+- Added `docs/planning/caja-account-credit-ledger-plan.md` as the implementation plan for explicit Caja account credits.
+- Documented the current implicit-credit behavior: posted payments whose allocated amount is lower than payment amount, plus Caja/normalization paths that can sweep that remainder into pending charges.
+- Set the safety model for the future build: additive schema first, no automatic backfill, no retroactive mutation of legacy payments/allocations/charges, and legacy implicit credits stay warning-only until reviewed and manually converted.
+- Planned the explicit credit model around `enrollment_credits`, `enrollment_credit_applications`, read-only credit-balance views, a conservative `Usar credito` Caja workflow, and later reassignment remainders.
+- Updated the roadmap to link the planning spec and keep the credit-ledger work visible as a finance-foundation follow-up after `v1.16.153`.
+- Verification: docs-only planning pass; no runtime code, schema, or app version changes.
+
 ## 2026-05-14 (session 183)
 
 ### Caja Inscription Payment Protection (v1.16.153)
