@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import {
   getAdvanceTuitionOptions,
@@ -126,6 +127,10 @@ export type CajaChargeResult =
 
 export type CajaAdvanceTuitionResult =
   | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string; mode: "created" | "repriced" }
+  | { ok: false; error: string };
+
+export type CajaCreditApplyResult =
+  | { ok: true; updatedData: CajaEnrollmentData; appliedAmount: number; applicationCount: number }
   | { ok: false; error: string };
 
 export type CajaCartItemInput =
@@ -877,6 +882,8 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
   const advanceTuitionOptions = planCode
     ? await getAdvanceTuitionOptions(supabase, { planCode, existingPeriodMonths: existingPeriods })
     : [];
+  const payableBalance = pendingCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
+  const displayBalance = payableBalance > 0 ? payableBalance : ledger.totals.balance < 0 ? ledger.totals.balance : 0;
 
   return {
     enrollmentId,
@@ -884,7 +891,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     playerName: ledger.enrollment.playerName,
     campusId: ledger.enrollment.campusId,
     campusName: ledger.enrollment.campusName,
-    balance: ledger.totals.balance,
+    balance: displayBalance,
     currency: ledger.enrollment.currency,
     accountCredit: ledger.accountCredit,
     activeIncident: resolveActiveIncident(
@@ -932,6 +939,108 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
 }
 
 // ── Post payment from Caja (returns result, does not redirect) ────────────────
+
+export async function applyCajaCreditAction(
+  enrollmentId: string,
+  formData: FormData,
+): Promise<CajaCreditApplyResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+
+  const targetChargeIds =
+    formData.get("targetChargeIds")?.toString().split(",").map((value) => value.trim()).filter(Boolean) ?? [];
+  const requestedAmount = Number.parseFloat(formData.get("amount")?.toString() ?? "");
+  const applicationKey = formData.get("applicationKey")?.toString().trim() ?? "";
+
+  if (targetChargeIds.length === 0 || !Number.isFinite(requestedAmount) || requestedAmount <= 0 || !applicationKey) {
+    return { ok: false, error: "invalid_form" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return { ok: false, error: "unauthenticated" };
+
+  const ledger = await getEnrollmentLedger(enrollmentId);
+  if (!ledger) return { ok: false, error: "enrollment_not_found" };
+  if (ledger.enrollment.status === "ended" || ledger.enrollment.status === "cancelled") {
+    return { ok: false, error: "enrollment_inactive" };
+  }
+  if (!ledger.accountCredit.hasExplicitCredit) return { ok: false, error: "no_available_credit" };
+
+  const targetSet = new Set(targetChargeIds);
+  const targetCharges = ledger.charges.filter(
+    (charge) => targetSet.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0,
+  );
+  if (targetCharges.length !== targetSet.size) return { ok: false, error: "invalid_target_charge" };
+
+  const targetPendingAmount = targetCharges.reduce(
+    (sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100,
+    0,
+  );
+  const amountToApply = Math.min(
+    Math.round(requestedAmount * 100) / 100,
+    targetPendingAmount,
+    ledger.accountCredit.explicitAvailableAmount,
+  );
+  if (amountToApply <= 0.009) return { ok: false, error: "no_applicable_credit" };
+
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .rpc("apply_enrollment_credit_to_charges", {
+      p_enrollment_id: enrollmentId,
+      p_charge_ids: Array.from(targetSet),
+      p_requested_amount: amountToApply,
+      p_actor_id: user.id,
+      p_application_key: applicationKey,
+      p_notes: "Caja: credito aplicado a cargos seleccionados",
+    })
+    .returns<Array<{ applied_amount: number; application_count: number }>>();
+
+  if (error) {
+    const message = error.message || "";
+    if (message.includes("no_applicable_credit")) return { ok: false, error: "no_applicable_credit" };
+    if (message.includes("invalid_target_charge")) return { ok: false, error: "invalid_target_charge" };
+    if (message.includes("enrollment_inactive")) return { ok: false, error: "enrollment_inactive" };
+    return { ok: false, error: "credit_apply_failed" };
+  }
+
+  const creditResultRows = Array.isArray(data) ? data : [];
+  const appliedAmount = Math.round(Number(creditResultRows[0]?.applied_amount ?? 0) * 100) / 100;
+  const applicationCount = Number(creditResultRows[0]?.application_count ?? 0);
+  if (appliedAmount <= 0.009 || applicationCount <= 0) return { ok: false, error: "no_applicable_credit" };
+
+  await writeAuditLog(admin, {
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "account_credit.applied",
+    tableName: "enrollment_credit_applications",
+    recordId: applicationKey,
+    afterData: {
+      enrollment_id: enrollmentId,
+      target_charge_ids: Array.from(targetSet),
+      applied_amount: appliedAmount,
+      application_count: applicationCount,
+      source: "caja",
+    },
+  });
+
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    triggerAction: "account_credit.applied.caja",
+    before: anomalyBefore,
+  });
+
+  await revalidatePaymentSurfaces(ledger);
+  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+  if (!updatedData) return { ok: false, error: "reload_failed" };
+
+  return { ok: true, updatedData, appliedAmount, applicationCount };
+}
 
 export async function checkoutCajaCartAction(
   enrollmentId: string,

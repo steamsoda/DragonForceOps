@@ -11,6 +11,7 @@ import {
   postCajaPaymentAction,
   getProductsForCajaAction,
   postCajaChargeAction,
+  applyCajaCreditAction,
   createAdvanceTuitionAction,
   checkoutCajaCartAction,
   getCajaDrilldownMetaAction,
@@ -35,6 +36,10 @@ function formatMoney(amount: number, currency: string) {
 function parseMoneyInput(value: string) {
   const amount = Number(value.replace(",", "."));
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
+function createClientUuid() {
+  return globalThis.crypto?.randomUUID?.() ?? `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function formatPeriodMonth(periodMonth: string | null): string {
@@ -132,11 +137,31 @@ function ActiveIncidentBanner({
 function AccountCreditPanel({
   summary,
   currency,
+  selectedChargeCount = 0,
+  selectedPendingAmount = 0,
+  isApplying = false,
+  confirmed = false,
+  onConfirmedChange,
+  onApplyCredit,
 }: {
   summary: CajaEnrollmentData["accountCredit"];
   currency: string;
+  selectedChargeCount?: number;
+  selectedPendingAmount?: number;
+  isApplying?: boolean;
+  confirmed?: boolean;
+  onConfirmedChange?: (checked: boolean) => void;
+  onApplyCredit?: () => void;
 }) {
   if (!summary.hasAnyCredit) return null;
+  const canApplyCredit =
+    Boolean(onApplyCredit) &&
+    summary.hasExplicitCredit &&
+    selectedChargeCount > 0 &&
+    selectedPendingAmount > 0 &&
+    confirmed &&
+    !isApplying;
+  const amountToApply = Math.min(summary.explicitAvailableAmount, selectedPendingAmount);
 
   return (
     <section className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -161,13 +186,34 @@ function AccountCreditPanel({
         </div>
       ) : null}
       {summary.hasExplicitCredit ? (
-        <button
-          type="button"
-          disabled
-          className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-900"
-        >
-          Usar credito (siguiente paso)
-        </button>
+        <div className="mt-3 space-y-2">
+          {selectedChargeCount > 0 ? (
+            <label className="flex items-center gap-2 text-xs font-medium text-emerald-800 dark:text-emerald-200">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => onConfirmedChange?.(event.target.checked)}
+                className="h-4 w-4 rounded border-emerald-300"
+              />
+              Confirmo aplicar credito a los cargos seleccionados.
+            </label>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!canApplyCredit}
+            onClick={onApplyCredit}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
+          >
+            {isApplying ? "Aplicando..." : "Usar credito"}
+          </button>
+          <span className="text-xs text-emerald-700 dark:text-emerald-300">
+            {selectedChargeCount > 0
+              ? `Aplicara hasta ${formatMoney(amountToApply, currency)} a ${selectedChargeCount} cargo${selectedChargeCount === 1 ? "" : "s"} seleccionado${selectedChargeCount === 1 ? "" : "s"}.`
+              : "Selecciona cargos pendientes para aplicar credito."}
+          </span>
+          </div>
+        </div>
       ) : null}
     </section>
   );
@@ -1013,6 +1059,9 @@ function PosEnrollmentPanel({
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
+  const [isCreditPending, startCreditTransition] = useTransition();
+  const [creditApplicationKey, setCreditApplicationKey] = useState(createClientUuid);
+  const [creditConfirmed, setCreditConfirmed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1037,6 +1086,7 @@ function PosEnrollmentPanel({
       }
       return next;
     });
+    setCreditConfirmed(false);
   }, [data.pendingCharges]);
 
   const stagedTuitionPeriods = new Set(
@@ -1119,6 +1169,7 @@ function PosEnrollmentPanel({
 
   function toggleCharge(id: string) {
     setPanelError(null);
+    setCreditConfirmed(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -1258,6 +1309,49 @@ function PosEnrollmentPanel({
     });
   }
 
+  function handleApplyCredit() {
+    setPanelError(null);
+    if (!data.accountCredit.hasExplicitCredit) {
+      setPanelError("No hay credito disponible para aplicar.");
+      return;
+    }
+    if (selectedCharges.length === 0) {
+      setPanelError("Selecciona primero los cargos pendientes donde quieres aplicar el credito.");
+      return;
+    }
+    if (!creditConfirmed) {
+      setPanelError("Confirma que quieres aplicar credito a los cargos seleccionados.");
+      return;
+    }
+
+    const amountToApply = Math.min(
+      data.accountCredit.explicitAvailableAmount,
+      selectedCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0),
+    );
+    if (amountToApply <= 0.009) {
+      setPanelError("No hay monto pendiente para aplicar credito.");
+      return;
+    }
+
+    startCreditTransition(async () => {
+      const formData = new FormData();
+      formData.set("targetChargeIds", Array.from(selectedIds).join(","));
+      formData.set("amount", amountToApply.toFixed(2));
+      formData.set("applicationKey", creditApplicationKey);
+
+      const result = await applyCajaCreditAction(data.enrollmentId, formData);
+      if (!result.ok) {
+        setPanelError(errorMessage(result.error));
+        return;
+      }
+
+      setSelectedIds(new Set());
+      setCreditConfirmed(false);
+      setCreditApplicationKey(createClientUuid());
+      onDataUpdate(result.updatedData);
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
@@ -1286,7 +1380,16 @@ function PosEnrollmentPanel({
         </div>
       </div>
 
-      <AccountCreditPanel summary={data.accountCredit} currency={data.currency} />
+      <AccountCreditPanel
+        summary={data.accountCredit}
+        currency={data.currency}
+        selectedChargeCount={selectedCharges.length}
+        selectedPendingAmount={selectedCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0)}
+        isApplying={isCreditPending}
+        confirmed={creditConfirmed}
+        onConfirmedChange={setCreditConfirmed}
+        onApplyCredit={handleApplyCredit}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
@@ -2660,7 +2763,11 @@ function errorMessage(code: string): string {
     tuition_rate_not_found: "No se pudo determinar la tarifa de mensualidad.",
     prior_month_arrears: "El alumno tiene mensualidades anteriores sin pagar.",
     advance_tuition_full_payment_required: "Para cobrar mensualidad adelantada junto con pendientes, el pago debe cubrir el total seleccionado.",
-    charge_type_not_found: "Error de configuracion: tipo de cargo no encontrado."
+    charge_type_not_found: "Error de configuracion: tipo de cargo no encontrado.",
+    no_available_credit: "No hay credito disponible para aplicar.",
+    no_applicable_credit: "No hay credito aplicable a los cargos seleccionados.",
+    invalid_target_charge: "Selecciona cargos pendientes validos para aplicar credito.",
+    credit_apply_failed: "No se pudo aplicar el credito. Verifica con administracion."
   };
   return messages[code] ?? "Error desconocido. Intenta de nuevo.";
 }

@@ -87,6 +87,11 @@ type AllocationRow = {
   amount: number;
 };
 
+type CreditApplicationRow = {
+  charge_id: string;
+  amount: number;
+};
+
 type PaymentRefundRow = {
   payment_id: string;
   refunded_at: string;
@@ -312,6 +317,7 @@ export async function getEnrollmentLedger(
   const paymentIds = (payments ?? []).map((row) => row.id);
 
   let allocations: AllocationRow[] = [];
+  let creditApplications: CreditApplicationRow[] = [];
   if (chargeIds.length > 0) {
     let allocationQuery = supabase
       .from("payment_allocations")
@@ -321,6 +327,13 @@ export async function getEnrollmentLedger(
 
     const { data: allocationRows } = await allocationQuery.returns<AllocationRow[]>();
     allocations = allocationRows ?? [];
+
+    const { data: creditApplicationRows } = await supabase
+      .from("enrollment_credit_applications")
+      .select("charge_id, amount")
+      .in("charge_id", chargeIds)
+      .returns<CreditApplicationRow[]>();
+    creditApplications = creditApplicationRows ?? [];
   }
 
   const { data: refundRows } = includeRefunds && paymentIds.length
@@ -332,6 +345,7 @@ export async function getEnrollmentLedger(
     : { data: [] as PaymentRefundRow[] };
 
   const allocatedByCharge = new Map<string, number>();
+  const creditAppliedByCharge = new Map<string, number>();
   const allocatedByPayment = new Map<string, number>();
   const allocationsByPayment = new Map<string, AllocationRow[]>();
   const allocationsByCharge = new Map<string, AllocationRow[]>();
@@ -355,6 +369,9 @@ export async function getEnrollmentLedger(
     allocatedByPayment.set(row.payment_id, (allocatedByPayment.get(row.payment_id) ?? 0) + row.amount);
     allocationsByPayment.set(row.payment_id, [...(allocationsByPayment.get(row.payment_id) ?? []), row]);
     allocationsByCharge.set(row.charge_id, [...(allocationsByCharge.get(row.charge_id) ?? []), row]);
+  });
+  creditApplications.forEach((row) => {
+    creditAppliedByCharge.set(row.charge_id, (creditAppliedByCharge.get(row.charge_id) ?? 0) + row.amount);
   });
 
   const accountCredit = summarizeAccountCredit({
@@ -394,6 +411,7 @@ export async function getEnrollmentLedger(
     accountCredit,
     charges: (charges ?? []).map((row) => {
       const allocatedAmount = allocatedByCharge.get(row.id) ?? 0;
+      const creditAppliedAmount = creditAppliedByCharge.get(row.id) ?? 0;
       return {
         id: row.id,
         typeCode: row.charge_types?.code ?? "-",
@@ -406,7 +424,7 @@ export async function getEnrollmentLedger(
         periodMonth: row.period_month,
         createdAt: row.created_at,
         allocatedAmount,
-        pendingAmount: Math.max(row.amount - allocatedAmount, 0),
+        pendingAmount: Math.max(row.amount - allocatedAmount - creditAppliedAmount, 0),
         isCorrection: CORRECTION_CHARGE_TYPE_CODES.has(row.charge_types?.code ?? ""),
         correctionKind:
           row.charge_types?.code === "corrective_charge" || row.charge_types?.code === "balance_adjustment"

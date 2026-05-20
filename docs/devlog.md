@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-05-20 (session 187)
+
+### Caja Explicit Credit Application (v1.16.156)
+
+- Added the first writable explicit account-credit flow on preview: Caja can apply explicit ledger credit to selected pending charges.
+- Added `public.apply_enrollment_credit_to_charges(...)` as a service-role-only RPC with an idempotency key, selected-charge validation, credit availability checks, target pending checks, and oldest-credit/oldest-charge application order.
+- Kept the flow non-cash: it writes `enrollment_credit_applications` only, does not create payment rows, does not touch cash sessions, and does not convert legacy implicit credit.
+- Updated Caja so staff must select pending charges and check `Confirmo aplicar credito a los cargos seleccionados` before `Usar credito` becomes available.
+- Updated Caja ledger loading so pending amounts subtract explicit credit applications, and the active Caja balance reflects payable amount after credit applications.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed; migration `20260520210752` is applied on preview; the RPC execute grants are service-role only; advisor output did not flag the new credit function/tables by name; and a rollback smoke test applied $125 credit to a selected charge then left zero smoke rows after rollback.
+
 ## 2026-05-19 (session 186)
 
 ### Caja Account Credit Read-Only Display (v1.16.155)

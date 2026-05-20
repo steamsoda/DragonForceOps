@@ -262,15 +262,15 @@ Completed in preview `v1.16.154`: additive tables/views, read-only grants, RLS, 
 - Modify: `src/app/caja/page.tsx` or the active Caja account component
 - Modify: `src/lib/queries/enrollment-finance-diagnostics.ts`
 
-- [ ] **Step 1: Fetch explicit credit balances**
+- [x] **Step 1: Fetch explicit credit balances**
 
 Load `v_enrollment_credit_balances` alongside existing Caja ledger data.
 
-- [ ] **Step 2: Display explicit credit and legacy warning**
+- [x] **Step 2: Display explicit credit and legacy warning**
 
 Show explicit available credit separately from legacy implicit credit. Do not add write buttons yet.
 
-- [ ] **Step 3: Verify no Caja mutation path changed**
+- [x] **Step 3: Verify no Caja mutation path changed**
 
 Run typecheck/build and smoke-test Caja payment posting to confirm behavior is unchanged.
 
@@ -283,19 +283,19 @@ Run typecheck/build and smoke-test Caja payment posting to confirm behavior is u
 - Modify: Caja account UI
 - Modify: receipts/audit display if needed
 
-- [ ] **Step 1: Add `apply_enrollment_credit_to_charges` RPC**
+- [x] **Step 1: Add `apply_enrollment_credit_to_charges` RPC**
 
 The RPC must revalidate enrollment access, credit availability, target charge ownership, target pending amount, and idempotency.
 
-- [ ] **Step 2: Add server action**
+- [x] **Step 2: Add server action**
 
 The server action should call the RPC, then revalidate Caja/account paths.
 
-- [ ] **Step 3: Add the confirmation UI**
+- [x] **Step 3: Add the confirmation UI**
 
 Staff must select charges and check a confirmation box before submit.
 
-- [ ] **Step 4: Verify credit application is non-cash**
+- [x] **Step 4: Verify credit application is non-cash**
 
 Confirm Corte Diario and cash reports do not count credit application as collected money.
 
