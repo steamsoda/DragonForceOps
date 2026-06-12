@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-06-11 (session 188)
+
+### Caja Reassignment Remainder Credit (v1.16.157)
+
+- Added the next guarded account-credit pass on preview: when Caja changes the concept for an eligible non-monthly/non-inscription source charge and selected destination charges do not absorb the whole source amount, the remainder becomes explicit `enrollment_credits` ledger credit.
+- Kept monthly tuition and inscription source charges protected; cash/card refund behavior is unchanged, and legacy implicit credit remains warning-only/read-only.
+- Updated `Cambiar concepto` so staff can apply part of the selected source amount and must confirm before leaving the remainder as account credit.
+- Updated Caja ledger credit summaries so explicit credits sourced from a payment are subtracted from the legacy leftover detector, avoiding duplicate visible credit.
+- Applied migration `20260612021538` to preview and verified rollback smoke behavior: a temporary `$1,000` source moved `$700` to a target charge, voided the source charge, created `$300` explicit credit, then rolled back with zero smoke charges/payments/credits left behind.
+- Verification: `npm run typecheck`, `npm run build`, `supabase db push --linked --dry-run`, remote migration list, function grant check, rollback smoke test, rollback cleanup query, and `git diff --check` passed. The standalone `node src/lib/finance/account-credit.test.ts` still does not run directly under the current Node ESM setup because the existing test imports the TS module without an extension.
+
 ## 2026-05-20 (session 187)
 
 ### Caja Explicit Credit Application (v1.16.156)

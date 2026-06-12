@@ -661,8 +661,8 @@ export async function reassignPaymentAction(
   const supabase = workflowContext.supabase;
   const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
   const sourceChargeId = String(formData.get("sourceChargeId") ?? "").trim();
-  if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
   if (!sourceChargeId) {
+    if (targetChargeIds.length === 0) return { ok: false, error: "target_charge_required" };
     const sourceBlockReason = await getPaymentSourceWorkflowBlockReason(supabase, enrollmentId, paymentId);
     if (sourceBlockReason) return { ok: false, error: sourceBlockReason };
   }

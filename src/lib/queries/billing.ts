@@ -92,6 +92,12 @@ type CreditApplicationRow = {
   amount: number;
 };
 
+type EnrollmentCreditRow = {
+  source_payment_id: string | null;
+  original_amount: number;
+  status: string;
+};
+
 type PaymentRefundRow = {
   payment_id: string;
   refunded_at: string;
@@ -363,6 +369,24 @@ export async function getEnrollmentLedger(
     ]),
   );
   const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
+  const { data: paymentCreditRows } = paymentIds.length
+    ? await supabase
+        .from("enrollment_credits")
+        .select("source_payment_id, original_amount, status")
+        .eq("enrollment_id", enrollmentId)
+        .in("source_payment_id", paymentIds)
+        .neq("status", "void")
+        .returns<EnrollmentCreditRow[]>()
+    : { data: [] as EnrollmentCreditRow[] };
+
+  const explicitCreditOriginalByPayment = new Map<string, number>();
+  for (const credit of paymentCreditRows ?? []) {
+    if (!credit.source_payment_id) continue;
+    explicitCreditOriginalByPayment.set(
+      credit.source_payment_id,
+      (explicitCreditOriginalByPayment.get(credit.source_payment_id) ?? 0) + credit.original_amount,
+    );
+  }
 
   allocations.forEach((row) => {
     allocatedByCharge.set(row.charge_id, (allocatedByCharge.get(row.charge_id) ?? 0) + row.amount);
@@ -383,6 +407,7 @@ export async function getEnrollmentLedger(
       status: row.status,
       amount: row.amount,
       allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+      explicitCreditOriginalAmount: explicitCreditOriginalByPayment.get(row.id) ?? 0,
     })),
   });
 

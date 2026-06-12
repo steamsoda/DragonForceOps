@@ -14,6 +14,7 @@ type CreditPaymentInput = {
   status: string;
   amount: number;
   allocatedAmount: number;
+  explicitCreditOriginalAmount?: number;
 };
 
 type CreditApplicationCreditInput = {
@@ -59,7 +60,9 @@ export function summarizeAccountCredit({
   const explicitApplied = positiveMoney(explicitAppliedAmount);
   const legacyImplicit = payments.reduce((sum, payment) => {
     if (payment.status !== "posted") return sum;
-    return roundMoney(sum + positiveMoney(payment.amount - payment.allocatedAmount));
+    return roundMoney(
+      sum + positiveMoney(payment.amount - payment.allocatedAmount - (payment.explicitCreditOriginalAmount ?? 0)),
+    );
   }, 0);
   const totalVisibleCredit = roundMoney(explicitAvailable + legacyImplicit);
 
