@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-12 (session 189)
+
+### Finance Sanity Export and Warning Review (v1.16.158)
+
+- Added a superadmin-only CSV export for `/admin/finance-sanity` that preserves the selected campus, anomaly, severity, and scan-mode filters.
+- The export includes summary rows, active anomaly rows, drift/mismatch rows, and recent anomaly events so finance sanity checks can be shared without screenshots.
+- Reviewed the three active production warnings after the Caja credit release: all are June 2026 monthly tuition charges with partial payments already applied and no balance drift.
+- The warnings are intentional manual-review cautions: repricing those partially paid monthly charges should stay manual, not automatic.
+- Verification: production deep scan showed canonical, Pendientes RPC, and Panel KPI all at `$438,200.00`, with `$0.00` drift and only three warning-level accounts; `npm run typecheck` passed.
+
 ## 2026-06-11 (session 188)
 
 ### Caja Reassignment Remainder Credit (v1.16.157)

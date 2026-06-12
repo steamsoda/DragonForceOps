@@ -82,6 +82,26 @@ function buildFilterHref({
   return `/admin/finance-sanity${query ? `?${query}` : ""}`;
 }
 
+function buildExportHref({
+  campus,
+  anomaly,
+  severity,
+  scan,
+}: {
+  campus?: string;
+  anomaly?: string;
+  severity?: string;
+  scan?: string;
+}) {
+  const params = new URLSearchParams();
+  if (campus) params.set("campus", campus);
+  if (anomaly) params.set("anomaly", anomaly);
+  if (severity) params.set("severity", severity);
+  if (scan) params.set("scan", scan);
+  const query = params.toString();
+  return `/api/exports/finance-sanity${query ? `?${query}` : ""}`;
+}
+
 export default async function FinanceSanityPage({ searchParams }: { searchParams: SearchParams }) {
   await requireSuperAdminContext("/unauthorized");
   const params = await searchParams;
@@ -162,7 +182,7 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
             <option value="needs_correction">Requiere correccion</option>
             <option value="warning">Advertencia</option>
           </select>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <select
               name="scan"
               defaultValue={selectedScanMode}
@@ -177,6 +197,17 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
             >
               Verificar
             </button>
+            <Link
+              href={buildExportHref({
+                campus: selectedCampusId || undefined,
+                anomaly: selectedAnomalyCode,
+                severity: selectedSeverity,
+                scan: selectedScanMode,
+              })}
+              className="rounded-md border border-portoBlue px-4 py-2 text-center text-sm font-medium text-portoBlue hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            >
+              Exportar CSV
+            </Link>
           </div>
         </form>
 

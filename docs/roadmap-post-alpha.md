@@ -36,8 +36,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.153`
-- Current preview line: `v1.16.157`
+- Current production line: `v1.16.157`
+- Current preview line: `v1.16.158`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -74,7 +74,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🟡 | Torneos workflow redesign | Larger planning item after urgent ops polish; needs confirmed team, signup, payment, and roster behavior. |
 | 🟢 | Product/admin KPI language cleanup | Preview `v1.16.133` renames product KPIs away from sales/revenue language and adds confirmed collected/pending amounts. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |
-| 🟡 | Finance drift monitoring | Read-only prod export on 2026-05-08 scanned 735 enrollments and found 43 warning-only accounts, with no correction-grade report result. Keep using `/admin/finance-sanity` and exports after finance-sensitive work. |
+| 🟡 | Finance drift monitoring | Preview `v1.16.158` adds a filtered CSV export for `/admin/finance-sanity`; latest production deep scan after the Caja credit release showed `$0.00` drift and three warning-only June repricing cautions. Keep using this page after finance-sensitive work. |
 | 🟡 | Nutrition vNext | V1 and OMS/report passes are shipped; keep circumference metrics, parent PDF polish, richer analytics, and workflow speedups open. |
 | 🟡 | Uniformes follow-up | Compact menu feedback and auto-sync captured uniform size into player technical data. Keep stock/supplier management separate. |
 | 🟡 | Player profile consolidation polish | Continue making `/players/[id]` the single-player hub; remaining polish includes local date formatting and account navigation. |
@@ -87,7 +87,7 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🟡 | Role permissions audit and stabilization | Keep active. Manual direct-route checklist exists; later follow-up can automate the highest-risk route assertions. |
 | ✅ | Finance direct-URL hardening | Caja, receipts, reports, enrollment ledgers, charge/reassign/refund pages, and finance helpers fail closed unless the user has the right operational access. See devlog around `v1.16.107`. |
 | ✅ | Supabase advisor cleanup pass | Advisor-backed function/RLS/search-path/index cleanup shipped in `v1.16.104`-`v1.16.105`; rerun advisor before large DB/security releases. |
-| 🟡 | Finance drift monitoring | Tooling exists through `/admin/finance-sanity` and `npm run diagnose:finance`; latest prod read-only export found warning-only historical/account-structure items, not a correction-grade drift result. |
+| 🟡 | Finance drift monitoring | Tooling exists through `/admin/finance-sanity`, its CSV export, and `npm run diagnose:finance`; latest prod deep scan found zero drift and only warning-level monthly repricing cautions. |
 | 🟢 | Dependency security patch pass | Preview `v1.16.144` updates Next, eslint-config-next, and root PostCSS. High-severity audit items are cleared; one moderate nested PostCSS advisory remains inside Next until an upstream stable patch replaces Next's pinned dependency. |
 | 🧊 | Auth hardening settings | Supabase leaked-password protection and more MFA options remain admin-console settings, not repo changes. Revisit when operationally ready. |
 
@@ -212,6 +212,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟡 `v1.16.158` — Sanidad financiera now has a filtered CSV export; production warning review found only manual June repricing cautions, not drift.
 - 🟡 `v1.16.157` — Caja now turns eligible `Cambiar concepto` remainders into explicit account credit, with confirmation and no legacy auto-conversion.
 - ✅ `v1.16.153` — Caja now treats inscriptions like monthly tuition for refund/reassignment guardrails: visible, but non-refundable and non-reassignable.
 - 🟡 `v1.16.154` — Caja account-credit ledger schema foundation added on preview: explicit credit tables/views with read-only grants and no app write behavior yet.
