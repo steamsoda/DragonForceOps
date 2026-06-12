@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { summarizeAccountCredit, type AccountCreditSummary } from "@/lib/finance/account-credit";
 import { createPerfTimer } from "@/lib/perf/timing";
 
 type EnrollmentRow = {
@@ -31,6 +32,14 @@ type BalanceRow = {
   total_charges: number;
   total_payments: number;
   balance: number;
+};
+
+type CreditBalanceRow = {
+  enrollment_id: string;
+  original_credit_total: number;
+  applied_credit_total: number;
+  available_credit_total: number;
+  open_credit_count: number;
 };
 
 type ChargeRow = {
@@ -76,6 +85,17 @@ type AllocationRow = {
   payment_id: string;
   charge_id: string;
   amount: number;
+};
+
+type CreditApplicationRow = {
+  charge_id: string;
+  amount: number;
+};
+
+type EnrollmentCreditRow = {
+  source_payment_id: string | null;
+  original_amount: number;
+  status: string;
 };
 
 type PaymentRefundRow = {
@@ -126,6 +146,7 @@ export type EnrollmentLedger = {
     totalPayments: number;
     balance: number;
   };
+  accountCredit: AccountCreditSummary;
   charges: Array<{
     id: string;
     typeCode: string;
@@ -237,7 +258,14 @@ export async function getEnrollmentLedger(
     chargeQuery = chargeQuery.eq("status", "pending");
   }
 
-  const [{ data: enrollment }, { data: balance }, { data: charges }, { data: payments }, { data: incidents }] = await Promise.all([
+  const [
+    { data: enrollment },
+    { data: balance },
+    { data: creditBalance },
+    { data: charges },
+    { data: payments },
+    { data: incidents },
+  ] = await Promise.all([
     supabase
       .from("enrollments")
       .select("id, status, start_date, end_date, campus_id, campuses(id, name, code), players(id, first_name, last_name, birth_date), pricing_plans(name, currency)")
@@ -250,6 +278,12 @@ export async function getEnrollmentLedger(
       .eq("enrollment_id", enrollmentId)
       .maybeSingle()
       .returns<BalanceRow | null>(),
+    supabase
+      .from("v_enrollment_credit_balances")
+      .select("enrollment_id, original_credit_total, applied_credit_total, available_credit_total, open_credit_count")
+      .eq("enrollment_id", enrollmentId)
+      .maybeSingle()
+      .returns<CreditBalanceRow | null>(),
     chargeQuery
       .order("created_at", { ascending: false })
       .returns<ChargeRow[]>(),
@@ -289,6 +323,7 @@ export async function getEnrollmentLedger(
   const paymentIds = (payments ?? []).map((row) => row.id);
 
   let allocations: AllocationRow[] = [];
+  let creditApplications: CreditApplicationRow[] = [];
   if (chargeIds.length > 0) {
     let allocationQuery = supabase
       .from("payment_allocations")
@@ -298,6 +333,13 @@ export async function getEnrollmentLedger(
 
     const { data: allocationRows } = await allocationQuery.returns<AllocationRow[]>();
     allocations = allocationRows ?? [];
+
+    const { data: creditApplicationRows } = await supabase
+      .from("enrollment_credit_applications")
+      .select("charge_id, amount")
+      .in("charge_id", chargeIds)
+      .returns<CreditApplicationRow[]>();
+    creditApplications = creditApplicationRows ?? [];
   }
 
   const { data: refundRows } = includeRefunds && paymentIds.length
@@ -309,6 +351,7 @@ export async function getEnrollmentLedger(
     : { data: [] as PaymentRefundRow[] };
 
   const allocatedByCharge = new Map<string, number>();
+  const creditAppliedByCharge = new Map<string, number>();
   const allocatedByPayment = new Map<string, number>();
   const allocationsByPayment = new Map<string, AllocationRow[]>();
   const allocationsByCharge = new Map<string, AllocationRow[]>();
@@ -326,12 +369,46 @@ export async function getEnrollmentLedger(
     ]),
   );
   const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
+  const { data: paymentCreditRows } = paymentIds.length
+    ? await supabase
+        .from("enrollment_credits")
+        .select("source_payment_id, original_amount, status")
+        .eq("enrollment_id", enrollmentId)
+        .in("source_payment_id", paymentIds)
+        .neq("status", "void")
+        .returns<EnrollmentCreditRow[]>()
+    : { data: [] as EnrollmentCreditRow[] };
+
+  const explicitCreditOriginalByPayment = new Map<string, number>();
+  for (const credit of paymentCreditRows ?? []) {
+    if (!credit.source_payment_id) continue;
+    explicitCreditOriginalByPayment.set(
+      credit.source_payment_id,
+      (explicitCreditOriginalByPayment.get(credit.source_payment_id) ?? 0) + credit.original_amount,
+    );
+  }
 
   allocations.forEach((row) => {
     allocatedByCharge.set(row.charge_id, (allocatedByCharge.get(row.charge_id) ?? 0) + row.amount);
     allocatedByPayment.set(row.payment_id, (allocatedByPayment.get(row.payment_id) ?? 0) + row.amount);
     allocationsByPayment.set(row.payment_id, [...(allocationsByPayment.get(row.payment_id) ?? []), row]);
     allocationsByCharge.set(row.charge_id, [...(allocationsByCharge.get(row.charge_id) ?? []), row]);
+  });
+  creditApplications.forEach((row) => {
+    creditAppliedByCharge.set(row.charge_id, (creditAppliedByCharge.get(row.charge_id) ?? 0) + row.amount);
+  });
+
+  const accountCredit = summarizeAccountCredit({
+    explicitAvailableAmount: creditBalance?.available_credit_total ?? 0,
+    explicitOriginalAmount: creditBalance?.original_credit_total ?? 0,
+    explicitAppliedAmount: creditBalance?.applied_credit_total ?? 0,
+    openCreditCount: creditBalance?.open_credit_count ?? 0,
+    payments: (payments ?? []).map((row) => ({
+      status: row.status,
+      amount: row.amount,
+      allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+      explicitCreditOriginalAmount: explicitCreditOriginalByPayment.get(row.id) ?? 0,
+    })),
   });
 
   return {
@@ -356,8 +433,10 @@ export async function getEnrollmentLedger(
       totalPayments: balance?.total_payments ?? 0,
       balance: balance?.balance ?? 0
     },
+    accountCredit,
     charges: (charges ?? []).map((row) => {
       const allocatedAmount = allocatedByCharge.get(row.id) ?? 0;
+      const creditAppliedAmount = creditAppliedByCharge.get(row.id) ?? 0;
       return {
         id: row.id,
         typeCode: row.charge_types?.code ?? "-",
@@ -370,7 +449,7 @@ export async function getEnrollmentLedger(
         periodMonth: row.period_month,
         createdAt: row.created_at,
         allocatedAmount,
-        pendingAmount: Math.max(row.amount - allocatedAmount, 0),
+        pendingAmount: Math.max(row.amount - allocatedAmount - creditAppliedAmount, 0),
         isCorrection: CORRECTION_CHARGE_TYPE_CODES.has(row.charge_types?.code ?? ""),
         correctionKind:
           row.charge_types?.code === "corrective_charge" || row.charge_types?.code === "balance_adjustment"

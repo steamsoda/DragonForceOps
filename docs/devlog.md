@@ -1,5 +1,59 @@
 # Devlog
 
+## 2026-06-11 (session 188)
+
+### Caja Reassignment Remainder Credit (v1.16.157)
+
+- Added the next guarded account-credit pass on preview: when Caja changes the concept for an eligible non-monthly/non-inscription source charge and selected destination charges do not absorb the whole source amount, the remainder becomes explicit `enrollment_credits` ledger credit.
+- Kept monthly tuition and inscription source charges protected; cash/card refund behavior is unchanged, and legacy implicit credit remains warning-only/read-only.
+- Updated `Cambiar concepto` so staff can apply part of the selected source amount and must confirm before leaving the remainder as account credit.
+- Updated Caja ledger credit summaries so explicit credits sourced from a payment are subtracted from the legacy leftover detector, avoiding duplicate visible credit.
+- Applied migration `20260612021538` to preview and verified rollback smoke behavior: a temporary `$1,000` source moved `$700` to a target charge, voided the source charge, created `$300` explicit credit, then rolled back with zero smoke charges/payments/credits left behind.
+- Verification: `npm run typecheck`, `npm run build`, `supabase db push --linked --dry-run`, remote migration list, function grant check, rollback smoke test, rollback cleanup query, and `git diff --check` passed. The standalone `node src/lib/finance/account-credit.test.ts` still does not run directly under the current Node ESM setup because the existing test imports the TS module without an extension.
+
+## 2026-05-20 (session 187)
+
+### Caja Explicit Credit Application (v1.16.156)
+
+- Added the first writable explicit account-credit flow on preview: Caja can apply explicit ledger credit to selected pending charges.
+- Added `public.apply_enrollment_credit_to_charges(...)` as a service-role-only RPC with an idempotency key, selected-charge validation, credit availability checks, target pending checks, and oldest-credit/oldest-charge application order.
+- Kept the flow non-cash: it writes `enrollment_credit_applications` only, does not create payment rows, does not touch cash sessions, and does not convert legacy implicit credit.
+- Updated Caja so staff must select pending charges and check `Confirmo aplicar credito a los cargos seleccionados` before `Usar credito` becomes available.
+- Updated Caja ledger loading so pending amounts subtract explicit credit applications, and the active Caja balance reflects payable amount after credit applications.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed; migration `20260520210752` is applied on preview; the RPC execute grants are service-role only; advisor output did not flag the new credit function/tables by name; and a rollback smoke test applied $125 credit to a selected charge then left zero smoke rows after rollback.
+
+## 2026-05-19 (session 186)
+
+### Caja Account Credit Read-Only Display (v1.16.155)
+
+- Added a read-only Caja account-credit summary panel fed by the new explicit credit-balance view plus legacy posted-payment remainders that are not applied at 100%.
+- Kept this pass display-only: no credit creation, no `Usar credito` write path, no payment allocation changes, no legacy conversion, and no balance-view changes.
+- Removed the older empty-state copy that implied negative balances were immediately usable as credit, so staff see credit context without accidental action language.
+- Added a small compile-checked helper test around explicit credit, legacy implicit credit, and combined visible credit totals.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## 2026-05-19 (session 185)
+
+### Caja Account Credit Ledger Schema V1 (v1.16.154)
+
+- Added the first additive account-credit schema on preview: `enrollment_credits`, `enrollment_credit_applications`, read-only credit-balance/event views, RLS, and validation triggers.
+- Kept this pass intentionally read-only from the app: no Caja UI writes, no payment/allocation rewrites, no `v_enrollment_balances` changes, and no legacy credit conversion.
+- Applied the migration to the linked preview database and verified the new objects exist while the existing enrollment-balance view still returns rows.
+- Caught and fixed two safety issues during verification: tightened table grants to SELECT-only for `authenticated`, and revoked direct RPC execute access from the trigger-only validation functions.
+- Verified a rollback-only insert/application smoke test succeeds and leaves `enrollment_credits` at zero rows afterward.
+- Advisor check no longer reports the new validation functions; remaining advisor output is pre-existing mobile-test/security-definer and broader multiple-policy noise, not introduced by this credit-ledger pass.
+
+## 2026-05-19 (session 184)
+
+### Caja Account Credit Ledger Planning
+
+- Added `docs/planning/caja-account-credit-ledger-plan.md` as the implementation plan for explicit Caja account credits.
+- Documented the current implicit-credit behavior: posted payments whose allocated amount is lower than payment amount, plus Caja/normalization paths that can sweep that remainder into pending charges.
+- Set the safety model for the future build: additive schema first, no automatic backfill, no retroactive mutation of legacy payments/allocations/charges, and legacy implicit credits stay warning-only until reviewed and manually converted.
+- Planned the explicit credit model around `enrollment_credits`, `enrollment_credit_applications`, read-only credit-balance views, a conservative `Usar credito` Caja workflow, and later reassignment remainders.
+- Updated the roadmap to link the planning spec and keep the credit-ledger work visible as a finance-foundation follow-up after `v1.16.153`.
+- Verification: docs-only planning pass; no runtime code, schema, or app version changes.
+
 ## 2026-05-14 (session 183)
 
 ### Caja Inscription Payment Protection (v1.16.153)

@@ -128,6 +128,7 @@ export function PaymentReassignmentPanel({
   const [addChargeMode, setAddChargeMode] = useState<AddChargeMode>("product");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [creditConfirmed, setCreditConfirmed] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const selectedTotal = useMemo(
@@ -141,10 +142,13 @@ export function PaymentReassignmentPanel({
   const selectedSourceCharge = payment.sourceCharges.find((charge) => charge.chargeId === selectedSourceChargeId) ?? null;
   const sourceAmount = selectedSourceCharge?.allocatedAmount ?? 0;
   const remainingToCover = Math.round((sourceAmount - selectedTotal) * 100) / 100;
-  const selectionIsEnough = remainingToCover <= 0;
+  const creditRemainder = Math.max(remainingToCover, 0);
+  const createsCredit = creditRemainder > 0.009;
+  const hasDestinationSelection = selectedChargeIds.length > 0 && selectedTotal > 0.009;
   const hasSelectableSource = payment.sourceCharges.some((charge) => charge.canReassign);
 
   function toggleCharge(chargeId: string) {
+    setCreditConfirmed(false);
     setSelectedChargeIds((current) =>
       current.includes(chargeId) ? current.filter((id) => id !== chargeId) : [...current, chargeId],
     );
@@ -152,6 +156,7 @@ export function PaymentReassignmentPanel({
 
   function syncPendingCharges(nextCharges: CajaPendingCharge[], newChargeId?: string) {
     setPendingCharges(nextCharges);
+    setCreditConfirmed(false);
     if (newChargeId) {
       setSelectedChargeIds((current) => Array.from(new Set([...current, newChargeId])));
     }
@@ -221,8 +226,20 @@ export function PaymentReassignmentPanel({
       setErrorMessage(getActionErrorMessage("source_charge_required"));
       return;
     }
+    if (!hasDestinationSelection && !createsCredit) {
+      setErrorMessage(getActionErrorMessage("target_charge_required"));
+      return;
+    }
+    if (createsCredit && !creditConfirmed) {
+      setErrorMessage("Confirma que el remanente quedara como credito en cuenta.");
+      return;
+    }
     setErrorMessage(null);
-    setPendingMessage("Moviendo el pago a los nuevos cargos y cerrando el cargo origen...");
+    setPendingMessage(
+      createsCredit
+        ? "Moviendo el pago y creando credito en cuenta con el remanente..."
+        : "Moviendo el pago a los nuevos cargos y cerrando el cargo origen...",
+    );
 
     startTransition(async () => {
       const formData = new FormData();
@@ -276,6 +293,7 @@ export function PaymentReassignmentPanel({
                   disabled={isPending || !charge.canReassign}
                   onClick={() => {
                     setSelectedSourceChargeId(charge.chargeId);
+                    setCreditConfirmed(false);
                     setErrorMessage(null);
                   }}
                   className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
@@ -365,17 +383,33 @@ export function PaymentReassignmentPanel({
 
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
-            selectedSourceCharge && selectionIsEnough
+            selectedSourceCharge
               ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
               : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
           }`}
         >
           {!selectedSourceCharge
             ? "Selecciona primero la parte del pago que quieres mover."
-            : selectionIsEnough
-              ? "El destino seleccionado absorbe la parte del pago que se moverá."
-              : `Todavía faltan ${formatMoney(Math.max(remainingToCover, 0), payment.currency)} por cubrir.`}
+            : createsCredit
+              ? `${formatMoney(creditRemainder, payment.currency)} quedara como credito en cuenta.`
+              : "El destino seleccionado absorbe la parte del pago que se movera."}
         </div>
+
+        {createsCredit ? (
+          <label className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <input
+              type="checkbox"
+              checked={creditConfirmed}
+              disabled={isPending}
+              onChange={(event) => setCreditConfirmed(event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-emerald-300"
+            />
+            <span>
+              Confirmo dejar {formatMoney(creditRemainder, payment.currency)} como credito en cuenta para usarlo despues
+              desde Caja.
+            </span>
+          </label>
+        ) : null}
 
         <div className="space-y-2">
           {pendingCharges.length === 0 ? (
@@ -607,11 +641,11 @@ export function PaymentReassignmentPanel({
         </p>
         <button
           type="button"
-          disabled={isPending || !selectedSourceCharge || selectedChargeIds.length === 0 || !selectionIsEnough}
+          disabled={isPending || !selectedSourceCharge || (!hasDestinationSelection && !createsCredit) || (createsCredit && !creditConfirmed)}
           onClick={submitReassignment}
           className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
         >
-          {isPending ? "Aplicando cambio..." : "Aplicar cambio de concepto"}
+          {isPending ? "Aplicando cambio..." : createsCredit ? "Aplicar cambio y crear credito" : "Aplicar cambio de concepto"}
         </button>
       </div>
     </div>
