@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-06-15.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -24,6 +24,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 - Prefer short rows with a devlog version reference over long historical bullets. Example: `Nutrition v2 metrics/reporting base ✅ shipped in v1.16.78-v1.16.83`.
 - Do not delete historical planning detail without preserving it in an archive or moving it into the devlog.
 - When adding a new item, place it in one product-area lane and only duplicate it in `Now` or `Next` if it is actively being considered.
+- New staff/user feedback starts in `User Feedback Intake`; if it duplicates an existing product-area item, link to that item instead of creating a second copy.
+- When feedback ships, mark the feedback row done with the version/devlog reference and keep the durable product note in the relevant product-area lane.
 
 ## Status Legend
 
@@ -42,18 +44,47 @@ Full pre-reorg roadmap snapshot is preserved at:
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
 
+## Checkpoint: 2026-06-15
+
+This checkpoint marks the state before the next wave of user feedback is reprioritized.
+
+**Stable / Usable Now**
+
+- ✅ Caja core workflows are usable: normal payments, current + advance tuition in one receipt, guarded refund/reassignment, protected tuition/inscription allocations, and explicit account-credit handling are live through `v1.16.157`.
+- ✅ Finance sanity monitoring is available; preview `v1.16.158` adds CSV export, and the latest production deep scan showed `$0.00` drift with only warning-level June repricing cautions.
+- ✅ `Jugadores` grouped roster performance and export are stable enough for daily use after the RPC/API/server fast path and Excel export passes.
+- ✅ `Llamadas`, bajas, injury omission, contact cleanup, and dropout analytics are operational; keep gathering staff feedback before large workflow rewrites.
+- ✅ Attendance capture/correction workflows are stable after correction-permission widening, Contry 2016/2017 split, campus-button UX, daily notes, and YOB label polish.
+
+**Parked / Lower Priority**
+
+- 🧊 Baja confirmation workflow remains planned, but intentionally lower priority until Front Desk/Admin finish the current workflow-feedback cycle.
+- 🧊 Legacy implicit credit cleanup remains review-only. Do not auto-convert old credit until a deliberate cleanup pass is planned and tested.
+- 🧊 Offline fallback, coach match posting, tournament redesign, parent/mobile work, Nutrition vNext, and uniform follow-up stay visible but should not interrupt urgent operator fixes unless promoted.
+
+**Next Planning Mode**
+
+- 🔴 Use `User Feedback Intake` below as the first stop for the new feedback wave.
+- 🔴 Promote only the highest-impact, lowest-risk items into `Now`; leave the rest in product lanes or `Next`.
+- 🔴 For finance-sensitive feedback, keep using preview first plus `/admin/finance-sanity` before main.
+
 ## Now
 
-These are the highest-value items to consider next. Keep this list short.
+These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Role-regression checklist validation | Latest static pass confirmed `Datos faltantes` uses the operational route/action boundary and exposes no finance fields; next step is still manual direct-URL checks before the next permission-sensitive merge. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md`, `v1.16.136` devlog |
-| ✅ | Regularización Histórica performance pass | Shipped in `v1.16.132`; selected accounts now open with a pending-focused ledger and load full payment/refund history on demand. | `v1.16.112`-`v1.16.114`, `v1.16.127`, `v1.16.128`, `v1.16.132` devlog |
-| 🟢 | Front Desk feedback cycle | Recent `Llamadas`, `Bajas`, and `Jugadores` export changes are live; gather real operator feedback before another broad workflow pass. | `v1.16.118`-`v1.16.130` devlog |
-| ✅ | Attendance quick UX pass | Shipped in `v1.16.138`; the logo links home and attendance campus dropdowns are now direct campus buttons on Hoy, Calendario, Grupos, and Reportes. | General UX / Asistencia items below, `v1.16.138` devlog |
-| 🟢 | Front Desk contact cleanup queue | Preview `v1.16.136` adds `Datos faltantes` for completing missing tutor phone/contact data without exposing finance fields. Validate with Front Desk roles. | Front Desk item below, `v1.16.134`-`v1.16.136` devlog |
-| 🟢 | 360Player monthly batch posting | Preview `v1.16.143` adds the guarded monthly-tuition batch workflow plus safer staff UX: explicit row selection, confirmation modal, submit-loading feedback, payment-mode buttons, and prior-month arrears lock. | Front Desk/Caja item below, `v1.16.141`-`v1.16.143` devlog |
+| 🔴 | User feedback intake / checkpoint triage | New staff feedback should be captured once, de-duplicated against existing lanes, and promoted only when it is the next real edit. | `User Feedback Intake` below |
+| 🟡 | Finance sanity export production follow-up | Preview `v1.16.158` adds the export. If validated, merge/push to main and keep using it after finance-sensitive work. | Reports / Finance / Admin below, `v1.16.158` devlog |
+| 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
+| 🟢 | Role-regression direct-route spot checks | Static audits are clean, but permission-sensitive surfaces still need occasional manual direct-URL checks before risky merges. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
+
+**How `Now` Works**
+
+- `Now` is not the backlog. It is the short list we are actively deciding or editing next.
+- New feedback starts in `User Feedback Intake`; if it is already represented elsewhere, add a pointer instead of a duplicate task.
+- When a feedback item becomes the next edit, promote it to `Now` and keep the durable product detail in its product-area lane.
+- When it ships, mark it ✅ with the version/devlog reference, then remove it from `Now` at the next checkpoint.
 
 ## Next
 
@@ -79,6 +110,17 @@ Recently promoted: `v1.16.138` app-shell/attendance UX polish and `v1.16.139` Ca
 | 🟡 | Uniformes follow-up | Compact menu feedback and auto-sync captured uniform size into player technical data. Keep stock/supplier management separate. |
 | 🟡 | Player profile consolidation polish | Continue making `/players/[id]` the single-player hub; remaining polish includes local date formatting and account navigation. |
 | 🧊 | Drag-and-drop group editing | Later UI layer over the existing audited batch group assignment flow. Current dropdown edit mode is usable. |
+
+## User Feedback Intake
+
+Use this lane for fresh operator/admin feedback before it becomes roadmap work. The goal is to prevent duplicate rows while still preserving where the request came from.
+
+| Status | Feedback | Routing / decision | Reference |
+|---|---|---|---|
+| 🔴 | June 2026 feedback wave | Open intake. Capture new requests here first, then either promote to `Now` or link to an existing product-area item. | Checkpoint 2026-06-15 |
+| 🧊 | Baja confirmation before final dropout | Already captured under `Jugadores > Bajas confirmation workflow`; keep parked until higher-priority Front Desk/Admin changes are handled. | Jugadores lane |
+| 🧊 | Tournament, coach, and parent/mobile-adjacent feedback | Do not treat these as one feature. Split into specs before promotion: coach match posting, tournament redesign, and parent/mobile data contract. | Sports / Tournaments, Strategic Later Phases |
+| 🟡 | Finance/Caja edge cases from real use | Route through Caja product lane and validate with preview plus `/admin/finance-sanity`; avoid ad hoc production fixes. | Front Desk / Caja / Collections, Safety / Permissions / Data Integrity |
 
 ## Safety / Permissions / Data Integrity
 

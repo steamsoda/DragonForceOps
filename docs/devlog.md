@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-06-15 (session 190)
+
+### Roadmap Checkpoint and Feedback Intake
+
+- Added a dated roadmap checkpoint before the next user-feedback wave.
+- Clarified the current stable surfaces: Caja/payment guardrails, finance sanity monitoring, Jugadores roster/export, Llamadas/bajas/contact cleanup, and attendance operations.
+- Marked intentionally parked work, including baja confirmation, legacy implicit-credit cleanup, offline fallback, coach match posting, tournament redesign, parent/mobile, Nutrition vNext, and uniform follow-up.
+- Reworked `Now` into a short active-decision list and added explicit rules for how items enter and leave `Now`.
+- Added a `User Feedback Intake` lane so fresh staff/admin feedback can be captured once, de-duplicated against product lanes, and marked done with version/devlog references when shipped.
+- Verification: docs-only checkpoint; no runtime code, schema, or app version changes.
+
 ## 2026-06-12 (session 189)
 
 ### Finance Sanity Export and Warning Review (v1.16.158)
