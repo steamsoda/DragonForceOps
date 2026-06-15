@@ -9,6 +9,9 @@
 - Marked intentionally parked work, including baja confirmation, legacy implicit-credit cleanup, offline fallback, coach match posting, tournament redesign, parent/mobile, Nutrition vNext, and uniform follow-up.
 - Reworked `Now` into a short active-decision list and added explicit rules for how items enter and leave `Now`.
 - Added a `User Feedback Intake` lane so fresh staff/admin feedback can be captured once, de-duplicated against product lanes, and marked done with version/devlog references when shipped.
+- Promoted the June 2026 operator-feedback wave into an ordered eight-item priority sequence: re-enrollment pricing fix, training-group permissions audit, B1 auto-assignment for new enrollments, confirmed-absence risk badge, Pendientes attendance summary, collections/attendance relation report, injury/tuition-omission redesign, and attendance nomenclature cleanup.
+- Captured the attendance-risk rule: the 3-session tag should count only confirmed true absences, not missing attendance records.
+- Logged Expenses / Nomina as a larger finance module requiring its own spec before schema or UI work.
 - Verification: docs-only checkpoint; no runtime code, schema, or app version changes.
 
 ## 2026-06-12 (session 189)

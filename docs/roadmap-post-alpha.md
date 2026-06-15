@@ -74,10 +74,11 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🔴 | User feedback intake / checkpoint triage | New staff feedback should be captured once, de-duplicated against existing lanes, and promoted only when it is the next real edit. | `User Feedback Intake` below |
-| 🟡 | Finance sanity export production follow-up | Preview `v1.16.158` adds the export. If validated, merge/push to main and keep using it after finance-sensitive work. | Reports / Finance / Admin below, `v1.16.158` devlog |
+| 🔴 | Re-enrollment pricing tier fix | Front Desk found one re-enrollment pricing tier still using `$600` instead of the current `$700`; inspect whether this is UI, pricing config, or DB pricing logic before changing. | User Feedback Intake below |
+| 🔴 | Training-group permissions audit | Before expanding group automation, confirm exactly who can view, move, remove, batch-edit, or auto-trigger training group assignments. | Jugadores / Safety lanes |
+| 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
+| 🔴 | Attendance risk + collections signal | Build the confirmed-absence risk badge first, then reuse it in Pendientes and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
-| 🟢 | Role-regression direct-route spot checks | Static audits are clean, but permission-sensitive surfaces still need occasional manual direct-URL checks before risky merges. | `docs/role-regression-checklist.md`, `docs/role-permissions-audit.md` |
 
 **How `Now` Works**
 
@@ -117,10 +118,19 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 
 | Status | Feedback | Routing / decision | Reference |
 |---|---|---|---|
-| 🔴 | June 2026 feedback wave | Open intake. Capture new requests here first, then either promote to `Now` or link to an existing product-area item. | Checkpoint 2026-06-15 |
+| 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
+| 🔴 | 1. Re-enrollment pricing tier still at `$600` | First urgent pass. Find the source of the stale tier and update it to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections |
+| 🔴 | 2. Training-group move permissions audit | Confirm group-edit visibility and write permissions for Super Admin, Director Admin, Director Deportivo, Front Desk, and Field Admin before expanding assignment automation. | Safety / Permissions / Data Integrity, Jugadores |
+| 🔴 | 3. New-enrollment B1 auto-assignment | Auto-assign new enrollments only when there is exactly one matching active B1 Futbol Para Todos group by campus, category/YOB, and gender. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores |
+| 🔴 | 4. Attendance risk badge | Add a derived global badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing records do not count as absences. | Asistencia, Front Desk / Caja / Collections |
+| 🔴 | 5. Pendientes attendance summary | Add compact attendance context to pending-month detail views, reusing the same attendance-risk source instead of duplicating calculations. | Front Desk / Caja / Collections |
+| 🔴 | 6. Collections + attendance relation report | Build a finance-visible report for `no paga y no asiste`, `no paga pero si asiste`, and related risk combinations. Keep attendance-only users out of money data. | Reports / Finance / Admin |
+| 🟡 | 7. Injury workflow + tuition omission rework | Needs a separate design because it can touch charge generation, current-month voiding, omissions, and possible approval rules. | Front Desk / Caja / Collections, Asistencia |
+| 🟡 | 8. Attendance nomenclature pass | Keep as a copy/label cleanup after the data-flow items are clearer, so terms stay consistent across Hoy, Calendario, Grupos, Reportes, player profile, and Pendientes. | Asistencia |
 | 🧊 | Baja confirmation before final dropout | Already captured under `Jugadores > Bajas confirmation workflow`; keep parked until higher-priority Front Desk/Admin changes are handled. | Jugadores lane |
 | 🧊 | Tournament, coach, and parent/mobile-adjacent feedback | Do not treat these as one feature. Split into specs before promotion: coach match posting, tournament redesign, and parent/mobile data contract. | Sports / Tournaments, Strategic Later Phases |
 | 🟡 | Finance/Caja edge cases from real use | Route through Caja product lane and validate with preview plus `/admin/finance-sanity`; avoid ad hoc production fixes. | Front Desk / Caja / Collections, Safety / Permissions / Data Integrity |
+| ⚠️ | Expenses / Nomina module | Big finance module, not a quick UX pass. Needs a dedicated spec for expense categories, payroll, campus attribution, payment method, evidence, permissions, and finance reports. | Reports / Finance / Admin, Strategic Later Phases |
 
 ## Safety / Permissions / Data Integrity
 
@@ -161,6 +171,8 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | `v1.16.147` adds stronger source-charge guardrails; `v1.16.148`-`v1.16.149` add and polish Caja shortcuts; `v1.16.153` protects inscriptions like tuition. Future scope includes receipt printing for refunds, possible policy windows, and a deliberate account-credit model for mixed payments. |
+| 🔴 | Re-enrollment pricing tier fix | Front Desk found a re-enrollment pricing tier still showing `$600`; first pass should identify the source and update it to `$700` without changing unrelated tuition, inscription, or scholarship behavior. |
+| 🔴 | Pendientes attendance context | Add compact attendance context to pending detail views: confirmed-absence streak, recent attendance summary, and last attended date. Reuse the future attendance-risk source. |
 | ✅ | Corte Diario revamp | Automatic checkpoints, detailed reports, 360Player visibility, historical browsing, and receipt/corte print improvements are shipped. |
 
 ### Jugadores
@@ -174,6 +186,8 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; keep open for broader list/export needs. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
+| 🔴 | Training-group movement permissions audit | Deep dive who can view/edit/remove/batch-move training group assignments and who can trigger auto-assignment through enrollment. Use this before adding more group automation. |
+| 🔴 | New enrollment B1 auto-assignment | Auto-assign new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups should be preferred for female players when available. |
 
 ### Regularización Histórica
 
@@ -195,6 +209,9 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Campus button selectors | Shipped in `v1.16.138`; replaces campus dropdowns on Hoy, Calendario, Grupos, and Reportes with direct campus buttons that preserve the active date/month/report filters. |
 | ✅ | Daily notes overview | Shipped in `v1.16.140`; adds a day-level notes review for session notes and player-level attendance observations. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
+| 🔴 | Confirmed-absence risk badge | Derived badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing attendance records are not absences. Surface the badge across Asistencia, Jugadores, Caja, and Pendientes once built. |
+| 🟡 | Attendance nomenclature pass | Rename/copy-clean attendance tracking labels in one sweep after the risk/reporting source is settled, so all attendance surfaces use consistent terms. |
+| 🟡 | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
 | 🧊 | Parent-facing attendance | Out of scope for now. |
 
@@ -226,6 +243,8 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🔴 | Panel KPI drilldowns + trends | Add pending-tuition breakdowns and trend charts only after canonical checks. |
 | 🔴 | Folio → payment lookup in Actividad | Surface payment ID in audit/activity so staff can trace transactions by folio. |
 | 🔴 | Caja pending charge detail | Expandable rows showing period month and charge type before payment. |
+| 🔴 | Collections + attendance relation report | Add a finance-visible report showing combinations such as players who owe and stopped attending, owe but are still attending, and are current but stopped attending. This must stay behind finance-capable roles. |
+| ⚠️ | Expenses / Nomina module | New finance module for daily expenses, payroll/nomina payments, campus attribution, evidence, methods, categories, and reporting. Needs its own spec before implementation. |
 | ⚠️ | Custom receipt tickets | Needs product list and ticket spec before implementation. |
 | 🧊 | Receipt encoding artifact cleanup | Low-priority cleanup for remaining accent/`Ñ` artifacts in edge receipts. |
 
@@ -249,6 +268,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 | 🧊 | Coach module | Coach login and session capture can build on attendance foundations later. |
 | 🧊 | Document uploads | Supabase Storage, RLS, and admin-only document surfaces remain future work. |
 | 🧊 | Specialist appointments | Product-catalog/admin pass for physiotherapy, psychology, nutrition appointments. |
+| 🧊 | Expenses / Nomina expansion | Larger finance-control phase after the near-term Front Desk/attendance feedback wave. Start with a dedicated planning spec before adding tables or UI. |
 
 ## Recently Shipped Shortlist
 
