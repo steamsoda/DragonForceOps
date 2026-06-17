@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-06-17 (session 192)
+
+### Admin Oficina Role and Training-Group Permission Guardrails (v1.16.160)
+
+- Added the global `Admin Oficina` role for both campuses.
+- Scoped the role to `Jugadores`, `Datos faltantes`, and the full `Asistencia` menu; Caja, Pendientes, Llamadas, receipts, reports, finance admin, and enrollment ledger actions still require operational access.
+- Allowed `Admin Oficina` to edit missing player/tutor contact data from `Datos faltantes`, while hiding player-profile finance amounts and finance action links.
+- Added the database role/RLS migration for non-finance player/contact reads, guardian contact writes, attendance read/write access across active campuses, and no direct charge/payment/cash-session grants.
+- Hardened training-group assignment writes with an explicit attendance-campus write check before the service-role mutation runs.
+- Added the preview debug persona and access-audit labels so this role can be tested without touching real staff accounts.
+- Verification: `npm run typecheck` and `npm run build` passed.
+
 ## 2026-06-16 (session 191)
 
 ### Re-Enrollment Pricing Tier Fix (v1.16.159)

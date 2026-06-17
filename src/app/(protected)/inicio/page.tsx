@@ -20,6 +20,20 @@ export default async function InicioPage() {
           },
         ]
       : []),
+    ...(context?.hasPlayerDataAccess && !context.hasOperationalAccess
+      ? [
+          {
+            href: "/players",
+            title: "Jugadores",
+            description: "Roster, grupos y datos generales de jugadores.",
+          },
+          {
+            href: "/datos-faltantes",
+            title: "Datos faltantes",
+            description: "Captura rapida de telefonos y datos de tutores.",
+          },
+        ]
+      : []),
     ...(context?.hasSportsAccess
       ? [
           {

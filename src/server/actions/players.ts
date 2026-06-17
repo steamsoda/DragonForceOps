@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { canAccessGuardianRecord, canAccessPlayerRecord } from "@/lib/auth/permissions";
+import { canAccessGuardianRecord, canAccessPlayerRecord, getPermissionContext } from "@/lib/auth/permissions";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { parsePlayerFormData } from "@/lib/validations/player";
@@ -101,6 +101,8 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+  const context = await getPermissionContext();
+  if (!context?.hasOperationalAccess) redirect(`${BASE}?err=unauthorized`);
   if (!(await canAccessPlayerRecord(playerId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase
@@ -148,6 +150,8 @@ export async function updateGuardianAction(
   const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
+  const context = await getPermissionContext();
+  if (!context?.hasOperationalAccess) redirect(`${BASE}?err=unauthorized`);
   if (!(await canAccessGuardianRecord(playerId, guardianId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase

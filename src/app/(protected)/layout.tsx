@@ -109,10 +109,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasAttendanceWriteAccess = ATTENDANCE_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
+  const isOfficeAdmin = roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
   const hasAttendanceReadAccess = hasAttendanceWriteAccess || roleCodes.includes(APP_ROLES.FRONT_DESK);
   const canManageAttendanceSetup = isDirectorOrAbove || hasSportsAccess;
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
+  const canAccess = isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -134,6 +135,16 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       { href: "/players", label: "Jugadores" },
       { href: "/uniforms", label: "Uniformes" },
     ],
+  };
+
+  const officeStaffSection: NavSection = {
+    label: "Diario",
+    items: [{ href: "/players", label: "Jugadores" }],
+  };
+
+  const officeGestionSection: NavSection = {
+    label: "Gestion",
+    items: [{ href: "/datos-faltantes", label: "Datos faltantes" }],
   };
 
   const competitionSection: NavSection = {
@@ -158,7 +169,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const attendanceSection: NavSection = {
     ...ATTENDANCE_BASE_SECTION,
-    items: canManageAttendanceSetup
+    items: canManageAttendanceSetup || isOfficeAdmin
       ? ATTENDANCE_BASE_SECTION.items
       : hasAttendanceWriteAccess
         ? ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance" || item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports")
@@ -166,8 +177,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   };
 
   const sections: NavSection[] = [
-    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : []),
-    ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : []),
+    ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
     ...(hasAttendanceReadAccess ? [attendanceSection] : []),
@@ -175,9 +186,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
   const debugQuickLinks = [
-    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/players", label: "Jugadores" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk || isOfficeAdmin ? [{ href: "/players", label: "Jugadores" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/caja", label: "Caja" }] : []),
-    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : isOfficeAdmin ? [{ href: "/datos-faltantes", label: "Datos faltantes" }] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [{ href: "/sports-signups", label: "Torneos" }] : []),
     ...(hasNutritionAccess ? [{ href: "/nutrition", label: "Nutricion" }] : []),
     ...(hasAttendanceReadAccess

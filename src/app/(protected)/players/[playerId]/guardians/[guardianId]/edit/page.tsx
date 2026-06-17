@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { canAccessGuardianRecord } from "@/lib/auth/permissions";
+import { canAccessGuardianRecord, getPermissionContext } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { GuardianForm } from "@/components/players/guardian-form";
 import { updateGuardianAction } from "@/server/actions/players";
@@ -28,6 +28,9 @@ type GuardianRow = {
 export default async function EditGuardianPage({ params, searchParams }: PageProps) {
   const { playerId, guardianId } = await params;
   const { err } = await searchParams;
+  const permissionContext = await getPermissionContext();
+
+  if (!permissionContext?.hasOperationalAccess) redirect(`/players/${playerId}?err=unauthorized`);
 
   const supabase = await createClient();
 

@@ -169,6 +169,7 @@ function getUniformSummary(orders: Array<{ status: string }>) {
 function EnrollmentHistoryCard({
   enrollment,
   playerId,
+  showFinanceDetails,
 }: {
   enrollment: {
     id: string;
@@ -187,6 +188,7 @@ function EnrollmentHistoryCard({
     balance: number;
   };
   playerId: string;
+  showFinanceDetails: boolean;
 }) {
   const balanceTone =
     enrollment.balance > 0 ? "amber" : enrollment.balance < 0 ? "emerald" : "slate";
@@ -198,10 +200,12 @@ function EnrollmentHistoryCard({
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-slate-900 dark:text-slate-100">{enrollment.campusName}</p>
             <SummaryChip label={enrollment.status === "active" ? "Activa" : "Historica"} tone="slate" />
-            <SummaryChip
-              label={enrollment.balance > 0 ? "Saldo pendiente" : enrollment.balance < 0 ? "Credito" : "Al corriente"}
-              tone={balanceTone}
-            />
+            {showFinanceDetails ? (
+              <SummaryChip
+                label={enrollment.balance > 0 ? "Saldo pendiente" : enrollment.balance < 0 ? "Credito" : "Al corriente"}
+                tone={balanceTone}
+              />
+            ) : null}
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {fmtDate(enrollment.startDate)} - {fmtDate(enrollment.endDate)} | {enrollment.pricingPlanName}
@@ -209,7 +213,7 @@ function EnrollmentHistoryCard({
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
           <span>{formatDuration(enrollment.startDate, enrollment.endDate)}</span>
-          <span>{formatMoney(enrollment.balance, enrollment.currency)}</span>
+          {showFinanceDetails ? <span>{formatMoney(enrollment.balance, enrollment.currency)}</span> : null}
           <span className="text-portoBlue group-open:hidden">Expandir</span>
           <span className="hidden text-portoBlue group-open:inline">Ocultar</span>
         </div>
@@ -225,20 +229,24 @@ function EnrollmentHistoryCard({
           <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Inscripcion</p>
           <p className="font-medium">{fmtDate(enrollment.inscriptionDate)}</p>
         </div>
-        <div>
-          <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total cargos</p>
-          <p className="font-medium">{formatMoney(enrollment.totalCharges, enrollment.currency)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total pagos</p>
-          <p className="font-medium">{formatMoney(enrollment.totalPayments, enrollment.currency)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo final</p>
-          <p className={`font-semibold ${enrollment.balance > 0 ? "text-rose-600" : enrollment.balance < 0 ? "text-emerald-600" : ""}`}>
-            {formatMoney(enrollment.balance, enrollment.currency)}
-          </p>
-        </div>
+        {showFinanceDetails ? (
+          <>
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total cargos</p>
+              <p className="font-medium">{formatMoney(enrollment.totalCharges, enrollment.currency)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Total pagos</p>
+              <p className="font-medium">{formatMoney(enrollment.totalPayments, enrollment.currency)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo final</p>
+              <p className={`font-semibold ${enrollment.balance > 0 ? "text-rose-600" : enrollment.balance < 0 ? "text-emerald-600" : ""}`}>
+                {formatMoney(enrollment.balance, enrollment.currency)}
+              </p>
+            </div>
+          </>
+        ) : null}
         <div className="md:col-span-3">
           <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Motivo de baja</p>
           <p className="font-medium">
@@ -250,6 +258,7 @@ function EnrollmentHistoryCard({
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{enrollment.dropoutNotes}</p>
           ) : null}
         </div>
+        {showFinanceDetails ? (
         <div className="md:col-span-4">
           <Link
             href={`/enrollments/${enrollment.id}/charges`}
@@ -258,6 +267,7 @@ function EnrollmentHistoryCard({
             Abrir cuenta historica
           </Link>
         </div>
+        ) : null}
       </div>
     </details>
   );
@@ -271,12 +281,13 @@ export default async function PlayerDetailPage({
   searchParams: Promise<{ ok?: string; err?: string; nuked?: string; returnTo?: string }>;
 }) {
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) redirect("/unauthorized");
+  if (!permissionContext?.hasPlayerDataAccess) redirect("/unauthorized");
 
   const { playerId } = await params;
   const sp = await searchParams;
   const pendingReturnTo = getSafePendingReturnTo(sp.returnTo);
-  const player = await getPlayerDetail(playerId);
+  const canViewFinanceDetails = permissionContext.hasOperationalAccess;
+  const player = await getPlayerDetail(playerId, { includeFinance: canViewFinanceDetails });
   const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
   const isDirector = permissionContext?.isDirector ?? false;
 
@@ -291,7 +302,7 @@ export default async function PlayerDetailPage({
   const incidentSummary = activeIncidentSummary(activeIncident);
   const primaryGuardian = player.guardians[0] ?? null;
   const uniformSummary = getUniformSummary(uniformOrders);
-  const profileBalance = activeLedger?.totals.balance ?? activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0;
+  const profileBalance = canViewFinanceDetails ? activeLedger?.totals.balance ?? activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0 : 0;
   const financeDiagnostics =
     isSuperAdmin && activeEnrollmentId
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
@@ -380,16 +391,18 @@ export default async function PlayerDetailPage({
                   <SummaryChip label={activeIncident.type === "injury" ? "Lesion activa" : "Ausencia activa"} tone={activeIncident.type === "injury" ? "rose" : "blue"} />
                 ) : null}
                 {activeEnrollment ? <SummaryChip label={uniformSummary.label} tone={uniformSummary.tone} /> : null}
-                <SummaryChip
-                  label={
-                    profileBalance > 0
-                      ? "Saldo pendiente"
-                      : profileBalance < 0
-                        ? "Credito"
-                        : "Al corriente"
-                  }
-                  tone={balanceTone}
-                />
+                {canViewFinanceDetails ? (
+                  <SummaryChip
+                    label={
+                      profileBalance > 0
+                        ? "Saldo pendiente"
+                        : profileBalance < 0
+                          ? "Credito"
+                          : "Al corriente"
+                    }
+                    tone={balanceTone}
+                  />
+                ) : null}
               </div>
 
               {incidentSummary ? (
@@ -414,15 +427,17 @@ export default async function PlayerDetailPage({
                       ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
                       : "Sin motivo registrado"}
                   </span>
-                  <span className={`${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-700 dark:text-slate-300"}`}>
-                    {archiveEnrollment.balance > 0 ? `Saldo pendiente: ${formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}` : "Sin saldo pendiente"}
-                  </span>
+                  {canViewFinanceDetails ? (
+                    <span className={`${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-700 dark:text-slate-300"}`}>
+                      {archiveEnrollment.balance > 0 ? `Saldo pendiente: ${formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}` : "Sin saldo pendiente"}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2 xl:max-w-[30rem] xl:justify-end">
-              {pendingReturnTo ? (
+              {pendingReturnTo && canViewFinanceDetails ? (
                 <Link
                   href={pendingReturnTo}
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
@@ -430,22 +445,24 @@ export default async function PlayerDetailPage({
                   Volver a Pendientes
                 </Link>
               ) : null}
-              {activeEnrollmentId ? (
-                <Link
-                  href={`/caja?enrollmentId=${activeEnrollmentId}`}
-                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-                >
-                  Abrir Caja
-                </Link>
-              ) : (
-                <Link
-                  href={`/players/${player.id}/enrollments/new`}
-                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-                >
-                  Nueva inscripcion
-                </Link>
-              )}
-              {activeEnrollmentId ? (
+              {canViewFinanceDetails ? (
+                activeEnrollmentId ? (
+                  <Link
+                    href={`/caja?enrollmentId=${activeEnrollmentId}`}
+                    className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                  >
+                    Abrir Caja
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/players/${player.id}/enrollments/new`}
+                    className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                  >
+                    Nueva inscripcion
+                  </Link>
+                )
+              ) : null}
+              {activeEnrollmentId && canViewFinanceDetails ? (
                 <Link
                   href={`/players/${player.id}/enrollments/${activeEnrollmentId}/edit`}
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
@@ -453,7 +470,7 @@ export default async function PlayerDetailPage({
                   Editar inscripcion
                 </Link>
               ) : null}
-              {activeEnrollmentId ? (
+              {activeEnrollmentId && canViewFinanceDetails ? (
                 <Link
                   href={`/players/${player.id}/enrollments/${activeEnrollmentId}/dropout`}
                   className="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
@@ -461,7 +478,7 @@ export default async function PlayerDetailPage({
                   Dar de baja
                 </Link>
               ) : null}
-              {!activeEnrollmentId && archiveEnrollment ? (
+              {!activeEnrollmentId && archiveEnrollment && canViewFinanceDetails ? (
                 <Link
                   href={`/enrollments/${archiveEnrollment.id}/charges`}
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
@@ -469,7 +486,7 @@ export default async function PlayerDetailPage({
                   Ver cuenta anterior
                 </Link>
               ) : null}
-              {!activeEnrollmentId && archiveEnrollment?.balance && archiveEnrollment.balance > 0 ? (
+              {!activeEnrollmentId && archiveEnrollment?.balance && archiveEnrollment.balance > 0 && canViewFinanceDetails ? (
                 <Link
                   href="/pending/bajas"
                   className="rounded-md border border-amber-300 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
@@ -477,12 +494,14 @@ export default async function PlayerDetailPage({
                   Ir a Bajas y saldos pendientes
                 </Link>
               ) : null}
+              {canViewFinanceDetails ? (
               <Link
                 href={`/players/${player.id}/edit`}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
               >
                 Editar jugador
               </Link>
+              ) : null}
               {isSuperAdmin ? (
                 <Link
                   href={`/players/${player.id}/nuke`}
@@ -578,12 +597,14 @@ export default async function PlayerDetailPage({
                       {fmtDate(archiveEnrollment.startDate)} - {fmtDate(archiveEnrollment.endDate)}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo pendiente</p>
-                    <p className={`font-medium ${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : ""}`}>
-                      {formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}
-                    </p>
-                  </div>
+                  {canViewFinanceDetails ? (
+                    <div>
+                      <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Saldo pendiente</p>
+                      <p className={`font-medium ${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                        {formatMoney(archiveEnrollment.balance, archiveEnrollment.currency)}
+                      </p>
+                    </div>
+                  ) : null}
                   <div>
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Motivo de baja</p>
                     <p className="font-medium">
@@ -657,7 +678,7 @@ export default async function PlayerDetailPage({
 
         <PlayerAttendanceSummary summary={attendanceSummary} />
 
-        {activeLedger ? (
+        {canViewFinanceDetails && activeLedger ? (
           <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -770,7 +791,7 @@ export default async function PlayerDetailPage({
               </div>
             </div>
           </section>
-        ) : archiveEnrollment ? (
+        ) : archiveEnrollment && canViewFinanceDetails ? (
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -849,7 +870,7 @@ export default async function PlayerDetailPage({
           </section>
         ) : null}
 
-        {activeEnrollmentId ? (
+        {activeEnrollmentId && canViewFinanceDetails ? (
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
             <UniformOrdersSection enrollmentId={activeEnrollmentId} initialOrders={uniformOrders} />
           </div>
@@ -865,12 +886,14 @@ export default async function PlayerDetailPage({
               </p>
             </div>
             {!activeEnrollment ? (
-              <Link
-                href={`/players/${player.id}/enrollments/new`}
-                className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
-              >
-                Nueva inscripcion
-              </Link>
+              canViewFinanceDetails ? (
+                <Link
+                  href={`/players/${player.id}/enrollments/new`}
+                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+                >
+                  Nueva inscripcion
+                </Link>
+              ) : null
             ) : null}
           </div>
 
@@ -879,7 +902,7 @@ export default async function PlayerDetailPage({
           ) : (
             <div className="space-y-3">
               {player.historicalEnrollments.map((enrollment) => (
-                <EnrollmentHistoryCard key={enrollment.id} enrollment={enrollment} playerId={player.id} />
+                <EnrollmentHistoryCard key={enrollment.id} enrollment={enrollment} playerId={player.id} showFinanceDetails={canViewFinanceDetails} />
               ))}
             </div>
           )}

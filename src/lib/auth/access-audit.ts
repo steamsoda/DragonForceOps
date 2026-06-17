@@ -76,10 +76,13 @@ function resolveUserAccess(rows: UserRoleRow[], activeCampuses: AccessCampus[]) 
   const frontDeskRows = rows.filter((row) => row.app_roles?.code === APP_ROLES.FRONT_DESK);
   const sportsRows = rows.filter((row) => row.app_roles?.code === APP_ROLES.DIRECTOR_DEPORTIVO);
   const nutritionRows = rows.filter((row) => row.app_roles?.code === APP_ROLES.NUTRITIONIST);
+  const attendanceRows = rows.filter((row) => row.app_roles?.code === APP_ROLES.ATTENDANCE_ADMIN);
+  const officeRows = rows.filter((row) => row.app_roles?.code === APP_ROLES.OFFICE_ADMIN);
 
   const hasGlobalFrontDesk = frontDeskRows.some((row) => row.campus_id === null);
   const hasGlobalSports = sportsRows.some((row) => row.campus_id === null);
   const hasGlobalNutrition = nutritionRows.some((row) => row.campus_id === null);
+  const hasGlobalOffice = officeRows.some((row) => row.campus_id === null);
 
   const operationalCampuses =
     isDirector || hasGlobalFrontDesk || hasGlobalSports
@@ -92,22 +95,33 @@ function resolveUserAccess(rows: UserRoleRow[], activeCampuses: AccessCampus[]) 
       : resolveScopedCampuses(nutritionRows, activeCampuses);
 
   const hasOperationalAccess = isDirector || frontDeskRows.length > 0;
+  const hasPlayerDataAccess = hasOperationalAccess || officeRows.length > 0;
   const hasSportsAccess = isDirector || sportsRows.length > 0;
   const hasNutritionAccess = isDirector || nutritionRows.length > 0;
+  const hasAttendanceAccess = isDirector || sportsRows.length > 0 || attendanceRows.length > 0 || officeRows.length > 0;
+  const attendanceCampuses =
+    isDirector || hasGlobalSports || hasGlobalOffice
+      ? activeCampuses
+      : resolveScopedCampuses([...sportsRows, ...attendanceRows, ...officeRows], activeCampuses);
 
   return {
     roleCodes,
     isSuperAdmin,
     isDirector,
     hasOperationalAccess,
+    hasPlayerDataAccess,
     hasSportsAccess,
     hasNutritionAccess,
+    hasAttendanceAccess,
     operationalCampuses,
     nutritionCampuses,
+    attendanceCampuses,
     checks: {
       caja: hasOperationalAccess && operationalCampuses.length > 0,
       sports: hasSportsAccess && operationalCampuses.length > 0,
       nutrition: hasNutritionAccess && nutritionCampuses.length > 0,
+      playerData: hasPlayerDataAccess,
+      attendance: hasAttendanceAccess && attendanceCampuses.length > 0,
       director: isDirector,
     },
   };

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requirePlayerDataContext } from "@/lib/auth/permissions";
 import {
   getContactCleanupData,
   type ContactCleanupGuardian,
@@ -184,7 +184,7 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
 }
 
 export default async function DatosFaltantesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireOperationalContext("/unauthorized");
+  await requirePlayerDataContext("/unauthorized");
   const params = await searchParams;
   const data = await getContactCleanupData({
     campusId: params.campus,

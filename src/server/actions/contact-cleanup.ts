@@ -38,7 +38,7 @@ export async function saveContactCleanupGuardianAction(formData: FormData): Prom
   }
 
   const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess) redirect("/unauthorized");
+  if (!context?.hasPlayerDataAccess) redirect("/unauthorized");
 
   const { supabase, user } = context;
   const canAccessPlayer = await canAccessPlayerRecord(playerId, context);

@@ -30,7 +30,9 @@ export type PermissionContext = {
   isSportsDirector: boolean;
   isNutritionist: boolean;
   isAttendanceAdmin: boolean;
+  isOfficeAdmin: boolean;
   isFrontDesk: boolean;
+  hasPlayerDataAccess: boolean;
   hasOperationalAccess: boolean;
   hasSportsAccess: boolean;
   hasNutritionAccess: boolean;
@@ -54,6 +56,7 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
   const isSportsDirector = isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO);
   const isNutritionist = roleCodes.includes(APP_ROLES.NUTRITIONIST);
   const isAttendanceAdmin = roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN);
+  const isOfficeAdmin = roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
 
   return {
@@ -68,18 +71,26 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     isSportsDirector,
     isNutritionist,
     isAttendanceAdmin,
+    isOfficeAdmin,
     isFrontDesk,
+    hasPlayerDataAccess: isDirector || isFrontDesk || isOfficeAdmin,
     hasOperationalAccess: isDirector || isFrontDesk,
     hasSportsAccess: isSportsDirector,
     hasNutritionAccess: isDirector || isNutritionist,
-    hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk,
-    hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin,
+    hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
+    hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin || isOfficeAdmin,
   };
 }
 
 export async function requireOperationalContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasOperationalAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requirePlayerDataContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasPlayerDataAccess) redirect(redirectTo);
   return context;
 }
 
@@ -124,7 +135,7 @@ export async function canAccessEnrollmentRecord(
   context?: PermissionContext | null
 ): Promise<boolean> {
   const resolvedContext = context ?? (await getPermissionContext());
-  if (!resolvedContext?.hasOperationalAccess) return false;
+  if (!resolvedContext?.hasPlayerDataAccess) return false;
 
   const { data } = await resolvedContext.supabase
     .from("enrollments")
@@ -140,7 +151,7 @@ export async function canAccessPlayerRecord(
   context?: PermissionContext | null
 ): Promise<boolean> {
   const resolvedContext = context ?? (await getPermissionContext());
-  if (!resolvedContext?.hasOperationalAccess) return false;
+  if (!resolvedContext?.hasPlayerDataAccess) return false;
 
   const { data } = await resolvedContext.supabase
     .from("enrollments")
@@ -157,7 +168,7 @@ export async function canAccessGuardianRecord(
   context?: PermissionContext | null
 ): Promise<boolean> {
   const resolvedContext = context ?? (await getPermissionContext());
-  if (!resolvedContext?.hasOperationalAccess) return false;
+  if (!resolvedContext?.hasPlayerDataAccess) return false;
 
   if (!(await canAccessPlayerRecord(playerId, resolvedContext))) return false;
 

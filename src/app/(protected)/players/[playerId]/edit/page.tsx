@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { DateInputWithPicker } from "@/components/ui/date-input-with-picker";
-import { canAccessPlayerRecord } from "@/lib/auth/permissions";
+import { canAccessPlayerRecord, getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { updatePlayerAction } from "@/server/actions/players";
 
@@ -18,6 +18,9 @@ export default async function PlayerEditPage({
 }) {
   const { playerId } = await params;
   const sp = await searchParams;
+  const permissionContext = await getPermissionContext();
+
+  if (!permissionContext?.hasOperationalAccess) redirect(`/players/${playerId}?err=unauthorized`);
 
   if (!(await canAccessPlayerRecord(playerId))) {
     redirect(`/players/${playerId}?err=unauthorized`);

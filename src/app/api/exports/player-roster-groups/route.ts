@@ -28,7 +28,7 @@ function slugForFilename(value: string) {
 export async function GET(request: Request) {
   const context = await getPermissionContext();
   if (!context) return NextResponse.json({ message: "No autenticado." }, { status: 401 });
-  if (!context.hasOperationalAccess) return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
+  if (!context.hasPlayerDataAccess) return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
 
   const url = new URL(request.url);
   const campusId = url.searchParams.get("campus") ?? undefined;

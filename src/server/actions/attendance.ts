@@ -858,8 +858,9 @@ async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {
   const isGlobalSportsDirector = sportsRows.some((row) => row.campus_id === null);
   const attendanceRows = roleRows.filter((row) => row.app_roles?.code === APP_ROLES.ATTENDANCE_ADMIN);
   const isAttendanceAdmin = attendanceRows.some((row) => row.campus_id !== null);
+  const isOfficeAdmin = roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
 
-  if (!isDirector && !isSportsDirector && !isAttendanceAdmin) redirect("/unauthorized");
+  if (!isDirector && !isSportsDirector && !isAttendanceAdmin && !isOfficeAdmin) redirect("/unauthorized");
 
   const scopedCampusIds = new Set(
     [...sportsRows, ...attendanceRows]
@@ -872,6 +873,7 @@ async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {
     isSportsDirector,
     isGlobalSportsDirector,
     isAttendanceAdmin,
+    isOfficeAdmin,
     isFrontDesk: roleCodes.includes(APP_ROLES.FRONT_DESK),
     canWrite: true,
     campuses: [],

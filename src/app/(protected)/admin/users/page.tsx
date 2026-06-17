@@ -11,6 +11,7 @@ const ALL_ROLES = [
   { code: "director_deportivo", label: "Director Deportivo" },
   { code: "nutritionist", label: "Nutricionista" },
   { code: "attendance_admin", label: "Admin de Campo" },
+  { code: "admin_oficina", label: "Admin Oficina" },
   { code: "front_desk", label: "Recepcion / Caja" },
   { code: "coach", label: "Coach" }
 ] as const;
@@ -169,7 +170,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
         </button>
         <p className="text-[11px] text-slate-400">
           Recepcion / Caja, Nutricionista y Admin de Campo requieren campus. Director Deportivo puede usar campus especifico o
-          `Sin campus` para `Todos`.
+          `Sin campus` para `Todos`. Admin Oficina es global y debe quedarse en `Sin campus`.
         </p>
         <p className="hidden">
           Recepcion / Caja requiere campus. Director Deportivo puede usar campus especÃ­fico o `Sin campus` para `Todos`.

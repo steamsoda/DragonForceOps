@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { writeAuditLog } from "@/lib/audit";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
-import { canWriteAttendanceCampus } from "@/lib/auth/campuses";
+import { canWriteAttendanceCampus, type AttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -71,11 +71,12 @@ async function upsertTrainingGroupAssignment(params: {
   admin: ReturnType<typeof createAdminClient>;
   actorUserId: string;
   actorEmail: string | null;
+  attendanceCampusAccess: AttendanceCampusAccess | null;
   enrollmentId: string;
   trainingGroupId: string;
   assignmentStart: string;
 }) {
-  const { admin, actorUserId, actorEmail, enrollmentId, trainingGroupId, assignmentStart } = params;
+  const { admin, actorUserId, actorEmail, attendanceCampusAccess, enrollmentId, trainingGroupId, assignmentStart } = params;
   const [{ data: enrollment }, { data: targetGroup }, { data: existingAssignment }] = await Promise.all([
     admin
       .from("enrollments")
@@ -96,6 +97,9 @@ async function upsertTrainingGroupAssignment(params: {
   ]);
 
   if (!enrollment || enrollment.status !== "active" || !targetGroup || enrollment.campus_id !== targetGroup.campus_id) {
+    return false;
+  }
+  if (!canWriteAttendanceCampus(attendanceCampusAccess, enrollment.campus_id)) {
     return false;
   }
 
@@ -148,10 +152,11 @@ async function closeTrainingGroupAssignment(params: {
   admin: ReturnType<typeof createAdminClient>;
   actorUserId: string;
   actorEmail: string | null;
+  attendanceCampusAccess: AttendanceCampusAccess | null;
   enrollmentId: string;
   assignmentStart: string;
 }) {
-  const { admin, actorUserId, actorEmail, enrollmentId, assignmentStart } = params;
+  const { admin, actorUserId, actorEmail, attendanceCampusAccess, enrollmentId, assignmentStart } = params;
   const [{ data: enrollment }, { data: existingAssignment }] = await Promise.all([
     admin
       .from("enrollments")
@@ -167,6 +172,7 @@ async function closeTrainingGroupAssignment(params: {
   ]);
 
   if (!enrollment || enrollment.status !== "active" || !existingAssignment) return false;
+  if (!canWriteAttendanceCampus(attendanceCampusAccess, enrollment.campus_id)) return false;
 
   const endDate = assignmentStart > existingAssignment.start_date
     ? new Date(`${assignmentStart}T12:00:00.000Z`)
@@ -345,6 +351,7 @@ export async function assignTrainingGroupAction(formData: FormData) {
     admin,
     actorUserId: context.user.id,
     actorEmail: context.user.email,
+    attendanceCampusAccess: context.attendanceCampusAccess,
     enrollmentId,
     trainingGroupId,
     assignmentStart,
@@ -389,6 +396,7 @@ export async function assignTrainingGroupsBatchAction(formData: FormData) {
       admin,
       actorUserId: context.user.id,
       actorEmail: context.user.email,
+      attendanceCampusAccess: context.attendanceCampusAccess,
       enrollmentId,
       trainingGroupId,
       assignmentStart,
@@ -438,6 +446,7 @@ export async function updatePlayerRosterTrainingGroupsAction(formData: FormData)
         admin,
         actorUserId: context.user.id,
         actorEmail: context.user.email,
+        attendanceCampusAccess: context.attendanceCampusAccess,
         enrollmentId,
         assignmentStart,
       });
@@ -450,6 +459,7 @@ export async function updatePlayerRosterTrainingGroupsAction(formData: FormData)
       admin,
       actorUserId: context.user.id,
       actorEmail: context.user.email,
+      attendanceCampusAccess: context.attendanceCampusAccess,
       enrollmentId,
       trainingGroupId,
       assignmentStart,
@@ -553,6 +563,7 @@ export async function applySuggestedTrainingGroupsAction(formData: FormData) {
       admin,
       actorUserId: context.user.id,
       actorEmail: context.user.email,
+      attendanceCampusAccess: context.attendanceCampusAccess,
       enrollmentId: enrollment.id,
       trainingGroupId: suggestion.suggestionGroupId,
       assignmentStart: enrollment.start_date || getMonterreyDateString(),

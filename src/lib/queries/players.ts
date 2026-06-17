@@ -712,10 +712,11 @@ export async function listBirthYears(): Promise<number[]> {
   return [...new Set(rows.map((row) => parseInt(row.birth_date.slice(0, 4), 10)).filter(Number.isFinite))].sort((a, b) => a - b);
 }
 
-export async function getPlayerDetail(playerId: string) {
+export async function getPlayerDetail(playerId: string, options: { includeFinance?: boolean } = {}) {
   const supabase = await createClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return null;
+  const includeFinance = options.includeFinance ?? true;
 
   const [{ data: player }, { data: guardianRows }, { data: enrollmentRows }] = await Promise.all([
     supabase
@@ -767,7 +768,7 @@ export async function getPlayerDetail(playerId: string) {
   let activeEnrollmentLedger: EnrollmentLedger | null = null;
 
   await Promise.all([
-    enrollmentIds.length > 0
+    includeFinance && enrollmentIds.length > 0
       ? supabase
           .from("v_enrollment_balances")
           .select("enrollment_id, total_charges, total_payments, balance")
@@ -839,7 +840,7 @@ export async function getPlayerDetail(playerId: string) {
       : Promise.resolve(),
   ]);
 
-  if (activeEnrollmentRow) {
+  if (includeFinance && activeEnrollmentRow) {
     activeEnrollmentLedger = await getEnrollmentLedger(activeEnrollmentRow.id);
   }
 

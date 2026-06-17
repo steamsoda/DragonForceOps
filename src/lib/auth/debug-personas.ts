@@ -96,6 +96,12 @@ const PERSONAS: DebugPersonaSpec[] = [
     campusTarget: "contry",
   },
   {
+    key: "office-admin",
+    email: "admin.oficina.debug@preview",
+    roleCode: APP_ROLES.OFFICE_ADMIN,
+    campusTarget: "all",
+  },
+  {
     key: "director",
     email: "director.debug@preview",
     roleCode: APP_ROLES.DIRECTOR_ADMIN,
@@ -126,7 +132,7 @@ function resolvePersonaCampuses(target: PersonaCampusTarget, campuses: CampusRow
 }
 
 function buildRoleRows(spec: DebugPersonaSpec, campuses: CampusRow[]): DebugRoleRow[] {
-  if (spec.roleCode === APP_ROLES.DIRECTOR_ADMIN) {
+  if (spec.roleCode === APP_ROLES.DIRECTOR_ADMIN || spec.roleCode === APP_ROLES.OFFICE_ADMIN) {
     return [
       {
         campus_id: null,

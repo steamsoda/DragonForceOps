@@ -113,7 +113,9 @@ export default async function AccessAuditPage() {
                     <td className="px-3 py-3 align-top">
                       <div className="flex flex-wrap gap-1">
                         <StatusPill tone={user.checks.caja ? "good" : "neutral"} label={`Caja ${user.checks.caja ? "si" : "no"}`} />
+                        <StatusPill tone={user.checks.playerData ? "good" : "neutral"} label={`Datos ${user.checks.playerData ? "si" : "no"}`} />
                         <StatusPill tone={user.checks.sports ? "good" : "neutral"} label={`Sports ${user.checks.sports ? "si" : "no"}`} />
+                        <StatusPill tone={user.checks.attendance ? "good" : "neutral"} label={`Asistencia ${user.checks.attendance ? "si" : "no"}`} />
                         <StatusPill tone={user.checks.nutrition ? "good" : "neutral"} label={`Nutricion ${user.checks.nutrition ? "si" : "no"}`} />
                         <StatusPill tone={user.checks.director ? "good" : "neutral"} label={`Director ${user.checks.director ? "si" : "no"}`} />
                       </div>

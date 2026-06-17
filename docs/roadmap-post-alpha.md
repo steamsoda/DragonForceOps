@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.157`
-- Current preview line: `v1.16.159`
+- Current preview line: `v1.16.160`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -75,7 +75,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | Re-enrollment pricing tier fix | Preview `v1.16.159` updates returning-enrollment `Solo inscripcion` from `$600` to `$700` and adds a pricing assertion. | Front Desk / Caja / Collections below, `v1.16.159` devlog |
-| 🔴 | Training-group permissions audit | Before expanding group automation, confirm exactly who can view, move, remove, batch-edit, or auto-trigger training group assignments. | Jugadores / Safety lanes |
+| ✅ | Training-group permissions audit | Preview `v1.16.160` adds explicit training-group write guardrails and the global `Admin Oficina` role for player/contact + attendance work without finance access. | Jugadores / Safety lanes, `v1.16.160` devlog |
 | 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
 | 🔴 | Attendance risk + collections signal | Build the confirmed-absence risk badge first, then reuse it in Pendientes and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
@@ -120,7 +120,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|---|
 | 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
 | ✅ | 1. Re-enrollment pricing tier still at `$600` | Preview `v1.16.159` updates the returning `Solo inscripcion` option to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections, `v1.16.159` devlog |
-| 🔴 | 2. Training-group move permissions audit | Confirm group-edit visibility and write permissions for Super Admin, Director Admin, Director Deportivo, Front Desk, and Field Admin before expanding assignment automation. | Safety / Permissions / Data Integrity, Jugadores |
+| ✅ | 2. Training-group move permissions audit | Preview `v1.16.160` confirms the route/action split and adds explicit attendance-campus write checks before service-role group assignment writes. It also adds `Admin Oficina` as a global non-finance player/contact + attendance role. | Safety / Permissions / Data Integrity, Jugadores, `v1.16.160` devlog |
 | 🔴 | 3. New-enrollment B1 auto-assignment | Auto-assign new enrollments only when there is exactly one matching active B1 Futbol Para Todos group by campus, category/YOB, and gender. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores |
 | 🔴 | 4. Attendance risk badge | Add a derived global badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing records do not count as absences. | Asistencia, Front Desk / Caja / Collections |
 | 🔴 | 5. Pendientes attendance summary | Add compact attendance context to pending-month detail views, reusing the same attendance-risk source instead of duplicating calculations. | Front Desk / Caja / Collections |
@@ -136,7 +136,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 
 | Status | Item | Current decision |
 |---|---|---|
-| 🟡 | Role permissions audit and stabilization | Keep active. Manual direct-route checklist exists; later follow-up can automate the highest-risk route assertions. |
+| 🟡 | Role permissions audit and stabilization | Keep active. `v1.16.160` adds the `Admin Oficina` non-finance role and hardens training-group writes; later follow-up can automate the highest-risk route assertions. |
 | ✅ | Finance direct-URL hardening | Caja, receipts, reports, enrollment ledgers, charge/reassign/refund pages, and finance helpers fail closed unless the user has the right operational access. See devlog around `v1.16.107`. |
 | ✅ | Supabase advisor cleanup pass | Advisor-backed function/RLS/search-path/index cleanup shipped in `v1.16.104`-`v1.16.105`; rerun advisor before large DB/security releases. |
 | 🟡 | Finance drift monitoring | Tooling exists through `/admin/finance-sanity`, its CSV export, and `npm run diagnose:finance`; latest prod deep scan found zero drift and only warning-level monthly repricing cautions. |
@@ -186,7 +186,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; keep open for broader list/export needs. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
-| 🔴 | Training-group movement permissions audit | Deep dive who can view/edit/remove/batch-move training group assignments and who can trigger auto-assignment through enrollment. Use this before adding more group automation. |
+| ✅ | Training-group movement permissions audit | Preview `v1.16.160` adds explicit attendance-campus write checks before group assignment service-role writes and documents the next automation boundary. |
 | 🔴 | New enrollment B1 auto-assignment | Auto-assign new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups should be preferred for female players when available. |
 
 ### Regularización Histórica
