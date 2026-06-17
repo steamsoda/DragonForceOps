@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.157`
-- Current preview line: `v1.16.158`
+- Current preview line: `v1.16.159`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -74,7 +74,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🔴 | Re-enrollment pricing tier fix | Front Desk found one re-enrollment pricing tier still using `$600` instead of the current `$700`; inspect whether this is UI, pricing config, or DB pricing logic before changing. | User Feedback Intake below |
+| ✅ | Re-enrollment pricing tier fix | Preview `v1.16.159` updates returning-enrollment `Solo inscripcion` from `$600` to `$700` and adds a pricing assertion. | Front Desk / Caja / Collections below, `v1.16.159` devlog |
 | 🔴 | Training-group permissions audit | Before expanding group automation, confirm exactly who can view, move, remove, batch-edit, or auto-trigger training group assignments. | Jugadores / Safety lanes |
 | 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
 | 🔴 | Attendance risk + collections signal | Build the confirmed-absence risk badge first, then reuse it in Pendientes and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
@@ -119,7 +119,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | Status | Feedback | Routing / decision | Reference |
 |---|---|---|---|
 | 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
-| 🔴 | 1. Re-enrollment pricing tier still at `$600` | First urgent pass. Find the source of the stale tier and update it to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections |
+| ✅ | 1. Re-enrollment pricing tier still at `$600` | Preview `v1.16.159` updates the returning `Solo inscripcion` option to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections, `v1.16.159` devlog |
 | 🔴 | 2. Training-group move permissions audit | Confirm group-edit visibility and write permissions for Super Admin, Director Admin, Director Deportivo, Front Desk, and Field Admin before expanding assignment automation. | Safety / Permissions / Data Integrity, Jugadores |
 | 🔴 | 3. New-enrollment B1 auto-assignment | Auto-assign new enrollments only when there is exactly one matching active B1 Futbol Para Todos group by campus, category/YOB, and gender. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores |
 | 🔴 | 4. Attendance risk badge | Add a derived global badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing records do not count as absences. | Asistencia, Front Desk / Caja / Collections |
@@ -171,7 +171,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | `v1.16.147` adds stronger source-charge guardrails; `v1.16.148`-`v1.16.149` add and polish Caja shortcuts; `v1.16.153` protects inscriptions like tuition. Future scope includes receipt printing for refunds, possible policy windows, and a deliberate account-credit model for mixed payments. |
-| 🔴 | Re-enrollment pricing tier fix | Front Desk found a re-enrollment pricing tier still showing `$600`; first pass should identify the source and update it to `$700` without changing unrelated tuition, inscription, or scholarship behavior. |
+| ✅ | Re-enrollment pricing tier fix | Preview `v1.16.159` updates returning-enrollment `Solo inscripcion` to `$700` and adds a regression assertion. |
 | 🔴 | Pendientes attendance context | Add compact attendance context to pending detail views: confirmed-absence streak, recent attendance summary, and last attended date. Reuse the future attendance-risk source. |
 | ✅ | Corte Diario revamp | Automatic checkpoints, detailed reports, 360Player visibility, historical browsing, and receipt/corte print improvements are shipped. |
 
@@ -274,6 +274,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.159` — returning-enrollment `Solo inscripcion` pricing now uses `$700` and is covered by `npm run test:pricing`.
 - 🟡 `v1.16.158` — Sanidad financiera now has a filtered CSV export; production warning review found only manual June repricing cautions, not drift.
 - 🟡 `v1.16.157` — Caja now turns eligible `Cambiar concepto` remainders into explicit account credit, with confirmation and no legacy auto-conversion.
 - ✅ `v1.16.153` — Caja now treats inscriptions like monthly tuition for refund/reassignment guardrails: visible, but non-refundable and non-reassignable.

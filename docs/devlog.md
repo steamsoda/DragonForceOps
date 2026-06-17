@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-16 (session 191)
+
+### Re-Enrollment Pricing Tier Fix (v1.16.159)
+
+- Updated the returning-enrollment `Solo inscripcion` option from `$600` to `$700`.
+- The shared returning-enrollment option feeds the visible intake/re-enrollment UI and the server actions that create the returning inscription charge, so this fixes both display and charge creation.
+- Added a focused returning-enrollment pricing assertion and wired it into `npm run test:pricing` alongside the existing enrollment pricing assertions.
+- Kept unrelated tuition, inscription, scholarship, and pricing-plan behavior unchanged; no schema migration was needed.
+- Verification: watched the new assertion fail at `$600`, then pass after the source change; `npm run test:pricing`, `npm run typecheck`, and `npm run build` passed.
+
 ## 2026-06-15 (session 190)
 
 ### Roadmap Checkpoint and Feedback Intake

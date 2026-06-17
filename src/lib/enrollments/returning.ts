@@ -10,7 +10,7 @@ export const RETURNING_INSCRIPTION_OPTIONS = [
     mode: "inscription_only",
     label: "Solo inscripcion",
     description: "Solo se cobra la inscripcion porque ya cuenta con uniforme.",
-    amount: 600,
+    amount: 700,
     chargeDescription: "Solo inscripcion regreso",
   },
   {
