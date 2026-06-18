@@ -2,6 +2,13 @@
 
 ## 2026-06-17 (session 192)
 
+### Attendance Daily Report and Capture Nomenclature (v1.16.165)
+
+- Updated the attendance capture cards from `P/A` shorthand to operator-facing `A Asistio`, `F Falta`, `🩹 Lesion`, and `📝 Justificada` while keeping the existing color coding and save behavior.
+- Added a read-only daily attendance report inside `Asistencia > Reportes` with date filtering, session status totals, expected-vs-recorded counts, attendance status counts, closures, and day-level session/player notes.
+- Kept injury finance handling, 3-confirmed-absence risk tags, and cancelled-class workflow redesign out of this pass; those remain separate follow-ups.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ### Datos Faltantes Tutor Form Layout Polish (v1.16.164)
 
 - Moved the `Crear tutor(es)` submit button out of the first tutor input grid so `Parentesco` keeps the same column alignment as the other fields.

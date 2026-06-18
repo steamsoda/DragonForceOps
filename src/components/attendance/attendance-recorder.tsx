@@ -7,10 +7,10 @@ import { saveAttendanceSessionAction } from "@/server/actions/attendance";
 import type { AttendanceSaveResult } from "@/server/actions/attendance";
 
 const STATUS_META = {
-  present: { label: "Presente", short: "P", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
-  absent: { label: "Ausente", short: "A", className: "border-rose-300 bg-rose-50 text-rose-800" },
-  injury: { label: "Lesion", short: "L", className: "border-sky-300 bg-sky-50 text-sky-800" },
-  justified: { label: "Justificada", short: "J", className: "border-slate-300 bg-slate-50 text-slate-700" },
+  present: { label: "Asistio", short: "A", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+  absent: { label: "Falta", short: "F", className: "border-rose-300 bg-rose-50 text-rose-800" },
+  injury: { label: "Lesion", short: "🩹", className: "border-sky-300 bg-sky-50 text-sky-800" },
+  justified: { label: "Justificada", short: "📝", className: "border-slate-300 bg-slate-50 text-slate-700" },
 } as const;
 
 type Status = keyof typeof STATUS_META;
@@ -53,7 +53,10 @@ const AttendancePlayerRow = memo(function AttendancePlayerRow({
               Cat. {player.birthYear ?? "-"}{isIncident ? " | prellenado por incidente" : ""}
             </span>
           </span>
-          <span className="rounded-full border border-current px-3 py-1 text-sm font-bold">{meta.short}</span>
+          <span className="flex min-w-24 items-center justify-center rounded-full border border-current px-3 py-1 text-sm font-bold">
+            <span aria-hidden="true" className="mr-1">{meta.short}</span>
+            {meta.label}
+          </span>
         </button>
 
         {isIncident ? (
@@ -192,11 +195,11 @@ export function AttendanceRecorder({
         </div>
       ) : null}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
           {presentCount}/{roster.length} cuentan como asistencia
         </p>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Marca ausentes conforme recorres la lista. Guarda al final de la pagina.
+          Toca cada jugador para alternar entre A Asistio y F Falta. Usa Lesion o Justificada cuando aplique.
         </p>
       </div>
 

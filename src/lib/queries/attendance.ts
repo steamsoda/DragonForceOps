@@ -267,6 +267,43 @@ export type AttendanceDailyNotesData = {
   };
 };
 
+export type AttendanceDailyReportSession = AttendanceSessionListItem & {
+  notes: string | null;
+  cancelledReasonCode: string | null;
+  cancelledReason: string | null;
+  counts: {
+    present: number;
+    absent: number;
+    injury: number;
+    justified: number;
+    total: number;
+  };
+  playerNotes: AttendanceDailyNotePlayer[];
+};
+
+export type AttendanceDailyReportData = {
+  campuses: AttendanceCampusOption[];
+  selectedCampusId: string | null;
+  selectedDate: string;
+  sessions: AttendanceDailyReportSession[];
+  closures: AttendanceCalendarClosure[];
+  totals: {
+    sessions: number;
+    scheduled: number;
+    completed: number;
+    cancelled: number;
+    expectedPlayers: number;
+    recorded: number;
+    missingRecords: number;
+    present: number;
+    absent: number;
+    injury: number;
+    justified: number;
+    sessionNotes: number;
+    playerNotes: number;
+  };
+};
+
 type SessionRow = {
   id: string;
   campus_id: string;
@@ -1342,6 +1379,213 @@ export async function getAttendanceDailyNotes(filters: { campusId?: string; date
       sessionNotes: sessions.filter((session) => Boolean(session.notes)).length,
       playerNotes: sessions.reduce((total, session) => total + session.playerNotes.length, 0),
     },
+  };
+}
+
+export async function getAttendanceDailyReport(filters: { campusId?: string; date?: string }): Promise<AttendanceDailyReportData> {
+  const access = await getAttendanceScope();
+  const selectedDate = isDateOnly(filters.date) ? filters.date! : getMonterreyDateString();
+
+  const emptyTotals = {
+    sessions: 0,
+    scheduled: 0,
+    completed: 0,
+    cancelled: 0,
+    expectedPlayers: 0,
+    recorded: 0,
+    missingRecords: 0,
+    present: 0,
+    absent: 0,
+    injury: 0,
+    justified: 0,
+    sessionNotes: 0,
+    playerNotes: 0,
+  };
+
+  if (!access) {
+    return {
+      campuses: [],
+      selectedCampusId: null,
+      selectedDate,
+      sessions: [],
+      closures: [],
+      totals: emptyTotals,
+    };
+  }
+
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
+
+  if (selectedCampusIds.length === 0) {
+    return {
+      campuses: access.campuses,
+      selectedCampusId,
+      selectedDate,
+      sessions: [],
+      closures: [],
+      totals: emptyTotals,
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: sessionRows } = await admin
+    .from("attendance_sessions")
+    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
+    .in("campus_id", selectedCampusIds)
+    .eq("session_date", selectedDate)
+    .order("campus_id", { ascending: true })
+    .order("start_time", { ascending: true })
+    .returns<SessionRow[]>();
+
+  const sessionIds = (sessionRows ?? []).map((row) => row.id);
+  const teamIds = [...new Set((sessionRows ?? []).map((row) => row.team_id).filter((value): value is string => Boolean(value)))];
+  const trainingGroupIds = [...new Set((sessionRows ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
+
+  const emptyRecordRows: Array<{
+    id: string;
+    session_id: string;
+    player_id: string;
+    status: string;
+    note: string | null;
+    players: { first_name: string | null; last_name: string | null; birth_date: string | null } | null;
+  }> = [];
+
+  const [{ data: closureRows }, { data: teamRosterRows }, { data: groupRosterRows }, { data: recordRows }] = await Promise.all([
+    admin
+      .from("attendance_closures")
+      .select("id, campus_id, starts_on, ends_on, reason_code, title, notes, campuses(name, code)")
+      .lte("starts_on", selectedDate)
+      .gte("ends_on", selectedDate)
+      .order("starts_on", { ascending: true })
+      .returns<AttendanceClosureRow[]>(),
+    teamIds.length === 0
+      ? Promise.resolve({ data: [] as Array<{ team_id: string }> })
+      : admin
+          .from("team_assignments")
+          .select("team_id")
+          .in("team_id", teamIds)
+          .is("end_date", null)
+          .eq("is_primary", true)
+          .returns<Array<{ team_id: string }>>(),
+    trainingGroupIds.length === 0
+      ? Promise.resolve({ data: [] as Array<{ training_group_id: string }> })
+      : admin
+          .from("training_group_assignments")
+          .select("training_group_id")
+          .in("training_group_id", trainingGroupIds)
+          .is("end_date", null)
+          .returns<Array<{ training_group_id: string }>>(),
+    sessionIds.length === 0
+      ? Promise.resolve({ data: emptyRecordRows })
+      : admin
+          .from("attendance_records")
+          .select("id, session_id, player_id, status, note, players(first_name, last_name, birth_date)")
+          .in("session_id", sessionIds)
+          .order("recorded_at", { ascending: true })
+          .returns<typeof emptyRecordRows>(),
+  ]);
+
+  const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
+
+  const teamRosterCountMap = new Map<string, number>();
+  for (const row of teamRosterRows ?? []) teamRosterCountMap.set(row.team_id, (teamRosterCountMap.get(row.team_id) ?? 0) + 1);
+  const groupRosterCountMap = new Map<string, number>();
+  for (const row of groupRosterRows ?? []) groupRosterCountMap.set(row.training_group_id, (groupRosterCountMap.get(row.training_group_id) ?? 0) + 1);
+
+  const recordsBySession = new Map<string, typeof emptyRecordRows>();
+  for (const row of recordRows ?? []) {
+    recordsBySession.set(row.session_id, [...(recordsBySession.get(row.session_id) ?? []), row]);
+  }
+
+  const totals = { ...emptyTotals };
+  const sessions: AttendanceDailyReportSession[] = (sessionRows ?? []).map((row) => {
+    const source = getSessionSource(row, trainingGroupCoachMap);
+    const records = recordsBySession.get(row.id) ?? [];
+    const counts = {
+      present: records.filter((record) => record.status === "present").length,
+      absent: records.filter((record) => record.status === "absent").length,
+      injury: records.filter((record) => record.status === "injury").length,
+      justified: records.filter((record) => record.status === "justified").length,
+      total: records.length,
+    };
+    const rosterCount = row.training_group_id
+      ? (groupRosterCountMap.get(row.training_group_id) ?? 0)
+      : (row.team_id ? (teamRosterCountMap.get(row.team_id) ?? 0) : 0);
+    const playerNotes: AttendanceDailyNotePlayer[] = records
+      .map((record) => {
+        const note = record.note?.trim();
+        if (!note) return null;
+        return {
+          recordId: record.id,
+          playerId: record.player_id,
+          playerName: `${record.players?.first_name ?? ""} ${record.players?.last_name ?? ""}`.replace(/\s+/g, " ").trim() || "Jugador",
+          birthYear: birthYear(record.players?.birth_date),
+          status: record.status,
+          note,
+        };
+      })
+      .filter((note): note is AttendanceDailyNotePlayer => Boolean(note));
+
+    totals.sessions += 1;
+    if (row.status === "scheduled") totals.scheduled += 1;
+    if (row.status === "completed") totals.completed += 1;
+    if (row.status === "cancelled") totals.cancelled += 1;
+    if (row.status !== "cancelled") totals.expectedPlayers += rosterCount;
+    totals.recorded += counts.total;
+    if (row.status !== "cancelled") totals.missingRecords += Math.max(rosterCount - counts.total, 0);
+    totals.present += counts.present;
+    totals.absent += counts.absent;
+    totals.injury += counts.injury;
+    totals.justified += counts.justified;
+    if (row.notes?.trim()) totals.sessionNotes += 1;
+    totals.playerNotes += playerNotes.length;
+
+    return {
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campuses?.name ?? "Campus",
+      teamId: row.team_id,
+      trainingGroupId: row.training_group_id,
+      teamName: source.name,
+      coachName: source.coach,
+      sessionType: row.session_type,
+      status: row.status,
+      sessionDate: row.session_date,
+      startTime: normalizeTime(row.start_time),
+      endTime: normalizeTime(row.end_time),
+      rosterCount,
+      recordedCount: counts.total,
+      sourceType: source.sourceType,
+      notes: row.notes?.trim() ? row.notes.trim() : null,
+      cancelledReasonCode: row.cancelled_reason_code,
+      cancelledReason: row.cancelled_reason,
+      counts,
+      playerNotes: playerNotes.sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")),
+    };
+  });
+
+  const closures: AttendanceCalendarClosure[] = (closureRows ?? [])
+    .filter((row) => !row.campus_id || selectedCampusIds.includes(row.campus_id))
+    .map((row) => ({
+      id: row.id,
+      campusId: row.campus_id,
+      campusName: row.campus_id ? (row.campuses?.name ?? "Campus") : "Todos los campus",
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      reasonCode: row.reason_code,
+      title: row.title,
+      notes: row.notes,
+    }));
+
+  return {
+    campuses: access.campuses,
+    selectedCampusId,
+    selectedDate,
+    sessions,
+    closures,
+    totals,
   };
 }
 
