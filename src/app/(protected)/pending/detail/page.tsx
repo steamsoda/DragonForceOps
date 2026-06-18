@@ -208,7 +208,7 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
                     <th className="border border-slate-300 px-2 py-1 text-left">Jugador</th>
                     <th className="border border-slate-300 px-2 py-1 text-left">Campus</th>
                     <th className="border border-slate-300 px-2 py-1 text-left">Nivel</th>
-                    <th className="border border-slate-300 px-2 py-1 text-left">Equipo</th>
+                    <th className="border border-slate-300 px-2 py-1 text-left">Telefono tutor</th>
                     <th className="border border-slate-300 px-2 py-1 text-left">Mensualidades</th>
                     <th className="border border-slate-300 px-2 py-1 text-left">Estado</th>
                   </tr>
@@ -220,7 +220,7 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
                       <td className="border border-slate-300 px-2 py-1">{player.playerName}</td>
                       <td className="border border-slate-300 px-2 py-1">{player.campusName}</td>
                       <td className="border border-slate-300 px-2 py-1">{player.level ?? "-"}</td>
-                      <td className="border border-slate-300 px-2 py-1">{player.teamName ?? "-"}</td>
+                      <td className="border border-slate-300 px-2 py-1">{player.primaryPhone ?? "-"}</td>
                       <td className="border border-slate-300 px-2 py-1">{pendingMonthsText(player)}</td>
                       <td className="border border-slate-300 px-2 py-1">
                         {urgencyLabel(player)}

@@ -2,6 +2,11 @@
 
 ## 2026-06-17 (session 192)
 
+### Pendientes Print Tutor Phone Polish (v1.16.162)
+
+- Updated the `Pendientes` detail print list so the printed table shows the primary tutor phone instead of the team column.
+- Reused the existing primary tutor lookup pattern from `Llamadas`; the screen cards and finance data remain unchanged.
+
 ### Pendientes Detail Grouping and Export (v1.16.161)
 
 - Updated `Pendientes` detail views for the 1-month, 2-month, and 3+ month cards so players sort by category/YOB first and player name second.

@@ -36,6 +36,11 @@ type TeamAssignmentRow = {
   } | null;
 };
 
+type GuardianPhoneRow = {
+  player_id: string;
+  guardians: { phone_primary: string | null } | null;
+};
+
 export type PendingTuitionMonth = {
   periodMonth: string;
   label: string;
@@ -53,6 +58,7 @@ export type PendingTuitionPlayer = {
   campusCode: string;
   level: string | null;
   teamName: string | null;
+  primaryPhone: string | null;
   pendingMonths: PendingTuitionMonth[];
   pendingMonthCount: number;
   overdueMonthCount: number;
@@ -167,6 +173,30 @@ async function loadTeamAssignments(enrollmentIds: string[]) {
   return result;
 }
 
+async function loadPrimaryGuardianPhones(playerIds: string[]) {
+  if (playerIds.length === 0) return new Map<string, string | null>();
+
+  const admin = createAdminClient();
+  const result = new Map<string, string | null>();
+  const chunkSize = 500;
+
+  for (let index = 0; index < playerIds.length; index += chunkSize) {
+    const { data, error } = await admin
+      .from("player_guardians")
+      .select("player_id, guardians(phone_primary)")
+      .in("player_id", playerIds.slice(index, index + chunkSize))
+      .eq("is_primary", true)
+      .returns<GuardianPhoneRow[]>();
+
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (!result.has(row.player_id)) result.set(row.player_id, row.guardians?.phone_primary ?? null);
+    }
+  }
+
+  return result;
+}
+
 async function loadTuitionCharges(enrollmentIds: string[], selectedMonth: string) {
   if (enrollmentIds.length === 0) return [] as TuitionChargeRow[];
 
@@ -269,9 +299,11 @@ export async function getPendingTuitionDashboardData(filters: { campusId?: strin
   const enrollmentRows = enrollments ?? [];
   const enrollmentById = new Map(enrollmentRows.map((row) => [row.id, row]));
   const enrollmentIds = enrollmentRows.map((row) => row.id);
-  const [charges, teamByEnrollment] = await Promise.all([
+  const playerIds = [...new Set(enrollmentRows.map((row) => row.player_id))];
+  const [charges, teamByEnrollment, primaryPhoneByPlayer] = await Promise.all([
     loadTuitionCharges(enrollmentIds, selectedMonth),
     loadTeamAssignments(enrollmentIds),
+    loadPrimaryGuardianPhones(playerIds),
   ]);
 
   const pendingMonthsByEnrollment = new Map<string, PendingTuitionMonth[]>();
@@ -310,6 +342,7 @@ export async function getPendingTuitionDashboardData(filters: { campusId?: strin
       campusCode: enrollment.campuses.code,
       level: team?.level ?? enrollment.players?.level ?? null,
       teamName: team?.name ?? null,
+      primaryPhone: primaryPhoneByPlayer.get(enrollment.player_id) ?? null,
       pendingMonths: sortedMonths,
       pendingMonthCount: sortedMonths.length,
       overdueMonthCount: sortedMonths.filter((month) => month.isOverdue).length,
