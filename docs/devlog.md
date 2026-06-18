@@ -2,6 +2,13 @@
 
 ## 2026-06-17 (session 192)
 
+### Datos Faltantes Second Tutor Capture (v1.16.163)
+
+- Updated `Datos Faltantes` so staff can capture a principal tutor plus an optional second tutor in one submit when a player has no linked tutor.
+- Added an inline `Agregar segundo tutor` row for players with exactly one linked tutor; new additional tutors are linked as non-primary while existing tutor edits keep their current primary/non-primary status.
+- Kept the change additive: no schema migration, no finance exposure, and existing guardian edit behavior remains unchanged.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ### Pendientes Print Tutor Phone Polish (v1.16.162)
 
 - Updated the `Pendientes` detail print list so the printed table shows the primary tutor phone instead of the team column.

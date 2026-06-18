@@ -81,16 +81,26 @@ function ContactForm({
   row,
   guardian,
   returnTo,
+  createAsPrimary = !guardian,
+  title,
+  submitLabel,
+  showAdditionalTutor = false,
 }: {
   row: ContactCleanupRow;
   guardian: ContactCleanupGuardian | null;
   returnTo: string;
+  createAsPrimary?: boolean;
+  title?: string;
+  submitLabel?: string;
+  showAdditionalTutor?: boolean;
 }) {
   return (
     <form action={saveContactCleanupGuardianAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
       <input type="hidden" name="playerId" value={row.playerId} />
       <input type="hidden" name="guardianId" value={guardian?.id ?? ""} />
+      <input type="hidden" name="createAsPrimary" value={createAsPrimary ? "true" : "false"} />
       <input type="hidden" name="returnTo" value={returnTo} />
+      {title ? <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2 xl:col-span-6">{title}</p> : null}
       <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Nombre opcional
         <input name="firstName" defaultValue={guardian?.firstName ?? ""} placeholder="Si lo tienen" className={inputClass()} />
@@ -117,9 +127,38 @@ function ContactForm({
           <input name="relationshipLabel" defaultValue={guardian?.relationshipLabel ?? ""} placeholder="Mama, Papa, Tutor" className={inputClass()} />
         </label>
         <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-          {guardian ? "Guardar" : "Crear tutor"}
+          {submitLabel ?? (guardian ? "Guardar" : "Crear tutor")}
         </button>
       </div>
+      {showAdditionalTutor ? (
+        <div className="grid gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 md:col-span-2 md:grid-cols-2 xl:col-span-6 xl:grid-cols-6 xl:items-end">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2 xl:col-span-6">Segundo tutor opcional</p>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Nombre opcional
+            <input name="additionalFirstName" placeholder="Si lo tienen" className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Apellido opcional
+            <input name="additionalLastName" placeholder="Si lo tienen" className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Telefono principal
+            <input name="additionalPhonePrimary" type="tel" className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Telefono secundario
+            <input name="additionalPhoneSecondary" type="tel" className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Email
+            <input name="additionalEmail" type="email" className={inputClass()} />
+          </label>
+          <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Parentesco
+            <input name="additionalRelationshipLabel" placeholder="Mama, Papa, Tutor" className={inputClass()} />
+          </label>
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -172,11 +211,14 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
               <ContactForm row={row} guardian={guardian} returnTo={returnTo} />
             </div>
           ))}
+          {row.guardians.length < 2 ? (
+            <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary={false} title="Agregar segundo tutor" submitLabel="Crear segundo tutor" />
+          ) : null}
         </div>
       ) : (
         <div className="space-y-2">
           <p className="text-sm text-slate-600 dark:text-slate-400">No hay tutor vinculado. Captura un contacto principal para este jugador.</p>
-          <ContactForm row={row} guardian={null} returnTo={returnTo} />
+          <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary title="Tutor principal" submitLabel="Crear tutor(es)" showAdditionalTutor />
         </div>
       )}
     </article>
