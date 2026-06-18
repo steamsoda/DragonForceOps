@@ -121,15 +121,10 @@ function ContactForm({
         Email
         <input name="email" type="email" defaultValue={guardian?.email ?? ""} className={inputClass()} />
       </label>
-      <div className="grid gap-2">
-        <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Parentesco
-          <input name="relationshipLabel" defaultValue={guardian?.relationshipLabel ?? ""} placeholder="Mama, Papa, Tutor" className={inputClass()} />
-        </label>
-        <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-          {submitLabel ?? (guardian ? "Guardar" : "Crear tutor")}
-        </button>
-      </div>
+      <label className="grid gap-1 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Parentesco
+        <input name="relationshipLabel" defaultValue={guardian?.relationshipLabel ?? ""} placeholder="Mama, Papa, Tutor" className={inputClass()} />
+      </label>
       {showAdditionalTutor ? (
         <div className="grid gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 md:col-span-2 md:grid-cols-2 xl:col-span-6 xl:grid-cols-6 xl:items-end">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2 xl:col-span-6">Segundo tutor opcional</p>
@@ -159,6 +154,11 @@ function ContactForm({
           </label>
         </div>
       ) : null}
+      <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-slate-700 md:col-span-2 xl:col-span-6">
+        <button type="submit" className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark sm:w-auto sm:min-w-48">
+          {submitLabel ?? (guardian ? "Guardar" : "Crear tutor")}
+        </button>
+      </div>
     </form>
   );
 }

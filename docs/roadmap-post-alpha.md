@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.162`
-- Current preview line: `v1.16.163`
+- Current preview line: `v1.16.164`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -162,7 +162,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|
 | ✅ | `Llamadas` v1/v2 workflow polish | Board/detail queues, follow-up statuses, auto-save status, direct baja, and inline injury omission shipped in `v1.16.118`-`v1.16.122`. |
 | 🟢 | `Jugadores > Bajas` recency sort | Preview `v1.16.145` makes the default bajas list sort by most recent effective baja date first, with player name as the tie-breaker. |
-| 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. Preview `v1.16.163` adds principal + optional second-tutor capture without schema changes. |
+| 🟢 | `Datos faltantes` contact cleanup | Preview `v1.16.134`-`v1.16.136` adds a fast operational queue for missing tutor phones/contact fields, campus/YOB/gender filtering, phone-only tutor capture, and default YOB scoping. Preview `v1.16.163` adds principal + optional second-tutor capture without schema changes; `v1.16.164` polishes the tutor form button layout. |
 | ✅ | Caja current + next-month same-receipt unlock | Shipped in `v1.16.139`; keeps the pending-tuition safety rule and adds a one-receipt exception only when the pending monthly charges are selected and covered in the same Caja checkout. |
 | 🟢 | Caja refunds and payment reassignment guardrails | Preview `v1.16.147` hardens the existing ledger actions; preview `v1.16.148` adds a Caja recent-payments panel with guarded `Cambiar concepto` / `Reembolsar` shortcuts and disabled reason chips; preview `v1.16.149`-`v1.16.151` widen/polish the bottom grid; preview `v1.16.152` lets staff move only eligible non-monthly source allocations from mixed payments while keeping tuition protected; preview `v1.16.153` also makes inscriptions non-refundable/non-reassignable. |
 | 🟢 | Caja account credit ledger / partial refund model | Planning spec in `docs/planning/caja-account-credit-ledger-plan.md`; preview `v1.16.154` adds the additive schema foundation, `v1.16.155` surfaces explicit/legacy credit in Caja, `v1.16.156` applies explicit credit to selected charges with a confirmation checkbox and service-role-only RPC, and `v1.16.157` turns eligible Caja reassignment remainders into explicit credit. Future passes: legacy implicit-credit review/conversion and deeper credit reporting. Legacy implicit credits stay warning-only until manually reviewed. |
@@ -274,6 +274,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.164` — Datos Faltantes tutor form button moved to a footer so `Parentesco` keeps the same row alignment.
 - 🟢 `v1.16.163` — Datos Faltantes can now capture a principal tutor plus optional second tutor; additional tutors are linked as non-primary.
 - 🟢 `v1.16.159` — returning-enrollment `Solo inscripcion` pricing now uses `$700` and is covered by `npm run test:pricing`.
 - 🟡 `v1.16.158` — Sanidad financiera now has a filtered CSV export; production warning review found only manual June repricing cautions, not drift.

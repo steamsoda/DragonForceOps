@@ -2,6 +2,12 @@
 
 ## 2026-06-17 (session 192)
 
+### Datos Faltantes Tutor Form Layout Polish (v1.16.164)
+
+- Moved the `Crear tutor(es)` submit button out of the first tutor input grid so `Parentesco` keeps the same column alignment as the other fields.
+- Kept the second-tutor save behavior from `v1.16.163` unchanged.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ### Datos Faltantes Second Tutor Capture (v1.16.163)
 
 - Updated `Datos Faltantes` so staff can capture a principal tutor plus an optional second tutor in one submit when a player has no linked tutor.
