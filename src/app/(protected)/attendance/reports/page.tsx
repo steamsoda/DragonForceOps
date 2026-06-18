@@ -10,6 +10,15 @@ function formatRate(rate: number | null) {
   return rate == null ? "Sin datos" : `${rate}%`;
 }
 
+function formatPercent(numerator: number, denominator: number) {
+  if (denominator <= 0) return "Sin datos";
+  return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function dailyAttendanceCount(counts: { present: number; absent: number; injury: number; justified: number; total: number }) {
+  return counts.present + counts.injury + counts.justified;
+}
+
 const SESSION_STATUS_LABELS: Record<string, string> = {
   scheduled: "Sin registrar",
   completed: "Registrada",
@@ -49,6 +58,14 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   ]);
 
   const birthYears = Array.from(new Set(data.inactivePlayers.map((row) => row.birthYear).filter((value): value is number => Boolean(value)))).sort((a, b) => b - a);
+  const dailyCountedAttendance = daily.totals.present + daily.totals.injury + daily.totals.justified;
+  const dailyAttendanceRate = formatPercent(dailyCountedAttendance, daily.totals.recorded);
+  const dailyCaptureRate = formatPercent(daily.totals.recorded, daily.totals.expectedPlayers);
+  const distributionTotal = Math.max(daily.totals.recorded, 1);
+  const presentWidth = (daily.totals.present / distributionTotal) * 100;
+  const absentWidth = (daily.totals.absent / distributionTotal) * 100;
+  const injuryWidth = (daily.totals.injury / distributionTotal) * 100;
+  const justifiedWidth = (daily.totals.justified / distributionTotal) * 100;
 
   return (
     <PageShell title="Reportes de asistencia" subtitle="Lectura operativa para detectar inactividad y comparar equipos." wide>
@@ -104,9 +121,10 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               <p className="text-xs text-slate-500">{daily.totals.completed} registradas | {daily.totals.scheduled} sin registrar | {daily.totals.cancelled} canceladas</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-              <p className="text-xs uppercase text-slate-500">Esperados</p>
+              <p className="text-xs uppercase text-slate-500">Roster real</p>
               <p className="text-2xl font-bold">{daily.totals.expectedPlayers}</p>
-              <p className="text-xs text-slate-500">{daily.totals.recorded} registros | {daily.totals.missingRecords} pendientes</p>
+              <p className="text-xs text-slate-500">{daily.totals.recorded} capturados | {daily.totals.missingRecords} pendientes</p>
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{dailyCaptureRate} captura</p>
             </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
               <p className="text-xs uppercase">A Asistio</p>
@@ -124,6 +142,53 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               <p className="text-xs uppercase">📝 Notas</p>
               <p className="text-2xl font-bold">{daily.totals.sessionNotes + daily.totals.playerNotes}</p>
               <p className="text-xs text-slate-500">{daily.totals.sessionNotes} sesion | {daily.totals.playerNotes} jugador</p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Distribucion de asistencia</h3>
+                  <p className="text-xs text-slate-500">Porcentaje calculado sobre registros capturados del dia.</p>
+                </div>
+                <span className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">{dailyAttendanceRate}</span>
+              </div>
+              <div className="mt-4 flex h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-label="Distribucion de asistencia diaria">
+                <div className="bg-emerald-500" style={{ width: `${presentWidth}%` }} title={`A Asistio: ${daily.totals.present}`} />
+                <div className="bg-rose-500" style={{ width: `${absentWidth}%` }} title={`F Falta: ${daily.totals.absent}`} />
+                <div className="bg-sky-500" style={{ width: `${injuryWidth}%` }} title={`Lesion: ${daily.totals.injury}`} />
+                <div className="bg-amber-400" style={{ width: `${justifiedWidth}%` }} title={`Justificada: ${daily.totals.justified}`} />
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-4 dark:text-slate-300">
+                <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />A {daily.totals.present}</span>
+                <span><span className="mr-1 inline-block size-2 rounded-full bg-rose-500" />F {daily.totals.absent}</span>
+                <span><span className="mr-1 inline-block size-2 rounded-full bg-sky-500" />Lesion {daily.totals.injury}</span>
+                <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-400" />Just. {daily.totals.justified}</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Captura por sesion</h3>
+              <div className="mt-3 max-h-52 space-y-3 overflow-y-auto pr-1">
+                {daily.sessions.filter((session) => session.status !== "cancelled").map((session) => {
+                  const width = session.rosterCount > 0 ? Math.min(100, (session.recordedCount / session.rosterCount) * 100) : 0;
+                  return (
+                    <div key={session.id}>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate font-medium text-slate-700 dark:text-slate-200">{session.teamName}</span>
+                        <span className="shrink-0 text-slate-500">{session.recordedCount}/{session.rosterCount}</span>
+                      </div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className={session.recordedCount >= session.rosterCount ? "h-full bg-emerald-500" : "h-full bg-amber-500"} style={{ width: `${width}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {daily.sessions.filter((session) => session.status !== "cancelled").length === 0 ? (
+                  <p className="text-sm text-slate-500">Sin sesiones activas para graficar.</p>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -146,8 +211,8 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                 <tr>
                   <th className="px-3 py-2">Sesion</th>
                   <th className="px-3 py-2">Estado</th>
-                  <th className="px-3 py-2">Esperados</th>
-                  <th className="px-3 py-2">Registros</th>
+                  <th className="px-3 py-2">Roster</th>
+                  <th className="px-3 py-2">Asistencia</th>
                   <th className="px-3 py-2">A</th>
                   <th className="px-3 py-2">F</th>
                   <th className="px-3 py-2">Lesion</th>
@@ -169,7 +234,10 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                       </span>
                     </td>
                     <td className="px-3 py-2">{session.rosterCount}</td>
-                    <td className={`px-3 py-2 font-semibold ${session.status !== "cancelled" && session.recordedCount < session.rosterCount ? "text-amber-700 dark:text-amber-300" : ""}`}>{session.recordedCount}</td>
+                    <td className={`px-3 py-2 font-semibold ${session.status !== "cancelled" && session.recordedCount < session.rosterCount ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                      {formatPercent(dailyAttendanceCount(session.counts), session.counts.total)}
+                      <p className="text-xs font-normal text-slate-500">{session.recordedCount}/{session.rosterCount} capturados</p>
+                    </td>
                     <td className="px-3 py-2 text-emerald-700 dark:text-emerald-300">{session.counts.present}</td>
                     <td className="px-3 py-2 text-rose-700 dark:text-rose-300">{session.counts.absent}</td>
                     <td className="px-3 py-2 text-sky-700 dark:text-sky-300">{session.counts.injury}</td>

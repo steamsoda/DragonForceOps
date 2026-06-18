@@ -1289,18 +1289,22 @@ export async function getAttendanceDailyNotes(filters: { campusId?: string; date
       ? Promise.resolve({ data: [] as Array<{ team_id: string }> })
       : admin
           .from("team_assignments")
-          .select("team_id")
+          .select("team_id, enrollments!inner(status)")
           .in("team_id", teamIds)
-          .is("end_date", null)
           .eq("is_primary", true)
+          .lte("start_date", selectedDate)
+          .or(`end_date.is.null,end_date.gte.${selectedDate}`)
+          .eq("enrollments.status", "active")
           .returns<Array<{ team_id: string }>>(),
     trainingGroupIds.length === 0
       ? Promise.resolve({ data: [] as Array<{ training_group_id: string }> })
       : admin
           .from("training_group_assignments")
-          .select("training_group_id")
+          .select("training_group_id, enrollments!inner(status)")
           .in("training_group_id", trainingGroupIds)
-          .is("end_date", null)
+          .lte("start_date", selectedDate)
+          .or(`end_date.is.null,end_date.gte.${selectedDate}`)
+          .eq("enrollments.status", "active")
           .returns<Array<{ training_group_id: string }>>(),
     sessionIds.length === 0
       ? Promise.resolve({ data: [] as Array<{ session_id: string }> })
@@ -1464,18 +1468,22 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
       ? Promise.resolve({ data: [] as Array<{ team_id: string }> })
       : admin
           .from("team_assignments")
-          .select("team_id")
+          .select("team_id, enrollments!inner(status)")
           .in("team_id", teamIds)
-          .is("end_date", null)
           .eq("is_primary", true)
+          .lte("start_date", selectedDate)
+          .or(`end_date.is.null,end_date.gte.${selectedDate}`)
+          .eq("enrollments.status", "active")
           .returns<Array<{ team_id: string }>>(),
     trainingGroupIds.length === 0
       ? Promise.resolve({ data: [] as Array<{ training_group_id: string }> })
       : admin
           .from("training_group_assignments")
-          .select("training_group_id")
+          .select("training_group_id, enrollments!inner(status)")
           .in("training_group_id", trainingGroupIds)
-          .is("end_date", null)
+          .lte("start_date", selectedDate)
+          .or(`end_date.is.null,end_date.gte.${selectedDate}`)
+          .eq("enrollments.status", "active")
           .returns<Array<{ training_group_id: string }>>(),
     sessionIds.length === 0
       ? Promise.resolve({ data: emptyRecordRows })
