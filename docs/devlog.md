@@ -2,6 +2,15 @@
 
 ## 2026-06-17 (session 192)
 
+### Pendientes Detail Grouping and Export (v1.16.161)
+
+- Updated `Pendientes` detail views for the 1-month, 2-month, and 3+ month cards so players sort by category/YOB first and player name second.
+- Added visible category dividers in the detailed list so Front Desk can scan each YOB block separately.
+- Added an authenticated Excel export for the current detailed filter, including category, player, campus, level, team, pending months, and urgency state.
+- Added a print action with a clean print-only table for the same filtered list.
+- Kept this pass read-only: no charge, payment, enrollment, or finance-balance mutation paths were changed.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
 ### Admin Oficina Role and Training-Group Permission Guardrails (v1.16.160)
 
 - Added the global `Admin Oficina` role for both campuses.

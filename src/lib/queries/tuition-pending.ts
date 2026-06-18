@@ -231,6 +231,15 @@ function filterPlayersByBucket(players: PendingTuitionPlayer[], bucket: PendingT
   return players.filter((player) => player.pendingMonthCount >= 3);
 }
 
+function comparePendingPlayersForDetail(a: PendingTuitionPlayer, b: PendingTuitionPlayer) {
+  return (
+    (a.birthYear ?? 9999) - (b.birthYear ?? 9999) ||
+    a.playerName.localeCompare(b.playerName, "es-MX") ||
+    (a.teamName ?? "").localeCompare(b.teamName ?? "", "es-MX") ||
+    a.enrollmentId.localeCompare(b.enrollmentId)
+  );
+}
+
 export async function getPendingTuitionDashboardData(filters: { campusId?: string; month?: string }) {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) {
@@ -387,12 +396,7 @@ export async function getPendingTuitionCategoryDetailData(filters: {
     : dashboard.campusBoards.flatMap((board) => board.categories).flatMap((category) => category.players);
 
   if (bucket) {
-    const players = filterPlayersByBucket(selectedPlayers, bucket).sort(
-      (a, b) =>
-        b.pendingMonthCount - a.pendingMonthCount ||
-        b.overdueMonthCount - a.overdueMonthCount ||
-        a.playerName.localeCompare(b.playerName, "es-MX")
-    );
+    const players = filterPlayersByBucket(selectedPlayers, bucket).sort(comparePendingPlayersForDetail);
 
     return {
       campusId: dashboard.selectedCampusId,
@@ -411,12 +415,7 @@ export async function getPendingTuitionCategoryDetailData(filters: {
       .flatMap((board) => board.categories)
       .filter((candidate) => candidate.key === key)
       .flatMap((category) => category.players)
-      .sort(
-        (a, b) =>
-          b.pendingMonthCount - a.pendingMonthCount ||
-          b.overdueMonthCount - a.overdueMonthCount ||
-          a.playerName.localeCompare(b.playerName, "es-MX")
-      );
+      .sort(comparePendingPlayersForDetail);
 
     if (players.length === 0) return null;
     const birthYear = key === "sin-categoria" ? null : Number(key);
@@ -446,6 +445,6 @@ export async function getPendingTuitionCategoryDetailData(filters: {
     birthYear: category.birthYear,
     categoryLabel: category.label,
     selectedMonth: dashboard.selectedMonth,
-    players: category.players,
+    players: [...category.players].sort(comparePendingPlayersForDetail),
   } satisfies PendingTuitionCategoryDetailData;
 }

@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.157`
-- Current preview line: `v1.16.160`
+- Current production line: `v1.16.160`
+- Current preview line: `v1.16.161`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -123,7 +123,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | 2. Training-group move permissions audit | Preview `v1.16.160` confirms the route/action split and adds explicit attendance-campus write checks before service-role group assignment writes. It also adds `Admin Oficina` as a global non-finance player/contact + attendance role. | Safety / Permissions / Data Integrity, Jugadores, `v1.16.160` devlog |
 | 🔴 | 3. New-enrollment B1 auto-assignment | Auto-assign new enrollments only when there is exactly one matching active B1 Futbol Para Todos group by campus, category/YOB, and gender. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores |
 | 🔴 | 4. Attendance risk badge | Add a derived global badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing records do not count as absences. | Asistencia, Front Desk / Caja / Collections |
-| 🔴 | 5. Pendientes attendance summary | Add compact attendance context to pending-month detail views, reusing the same attendance-risk source instead of duplicating calculations. | Front Desk / Caja / Collections |
+| 🟡 | 5. Pendientes attendance summary | `v1.16.161` adds the first detail-view polish: YOB-first ordering, category dividers, Excel export, and print list. Attendance context still needs the future attendance-risk source. | Front Desk / Caja / Collections |
 | 🔴 | 6. Collections + attendance relation report | Build a finance-visible report for `no paga y no asiste`, `no paga pero si asiste`, and related risk combinations. Keep attendance-only users out of money data. | Reports / Finance / Admin |
 | 🟡 | 7. Injury workflow + tuition omission rework | Needs a separate design because it can touch charge generation, current-month voiding, omissions, and possible approval rules. | Front Desk / Caja / Collections, Asistencia |
 | 🟡 | 8. Attendance nomenclature pass | Keep as a copy/label cleanup after the data-flow items are clearer, so terms stay consistent across Hoy, Calendario, Grupos, Reportes, player profile, and Pendientes. | Asistencia |
