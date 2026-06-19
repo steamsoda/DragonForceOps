@@ -2,9 +2,9 @@ import type { AttendancePlayerSummary } from "@/lib/queries/attendance";
 import { formatDateOnlyDdMmYyyy } from "@/lib/time";
 
 const STATUS_META: Record<string, { symbol: string; className: string; label: string }> = {
-  present: { symbol: "P", className: "bg-emerald-100 text-emerald-800 border-emerald-300", label: "Presente" },
-  absent: { symbol: "A", className: "bg-rose-100 text-rose-800 border-rose-300", label: "Ausente" },
-  injury: { symbol: "L", className: "bg-sky-100 text-sky-800 border-sky-300", label: "Lesion" },
+  present: { symbol: "A", className: "bg-emerald-100 text-emerald-800 border-emerald-300", label: "A Asistio" },
+  absent: { symbol: "F", className: "bg-rose-100 text-rose-800 border-rose-300", label: "F Falta" },
+  injury: { symbol: "🩹", className: "bg-sky-100 text-sky-800 border-sky-300", label: "Lesion" },
   justified: { symbol: "J", className: "bg-slate-100 text-slate-700 border-slate-300", label: "Justificada" },
 };
 

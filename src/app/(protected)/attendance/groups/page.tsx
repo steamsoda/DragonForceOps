@@ -48,9 +48,9 @@ function statusChip(status: string | null) {
 
 function matrixStatusCell(status: string | null) {
   const meta: Record<string, { label: string; text: string; className: string }> = {
-    present: { label: "Presente", text: "P", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-    absent: { label: "Ausente", text: "A", className: "border-rose-200 bg-rose-50 text-rose-800" },
-    injury: { label: "Lesion", text: "L", className: "border-sky-200 bg-sky-50 text-sky-800" },
+    present: { label: "A Asistio", text: "A", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    absent: { label: "F Falta", text: "F", className: "border-rose-200 bg-rose-50 text-rose-800" },
+    injury: { label: "Lesion", text: "🩹", className: "border-sky-200 bg-sky-50 text-sky-800" },
     justified: { label: "Justificada", text: "J", className: "border-slate-200 bg-slate-50 text-slate-700" },
   };
   const resolved = status ? meta[status] : null;
@@ -198,10 +198,10 @@ function SelectedGroupDetail({
       </div>
       <div className="flex flex-wrap gap-2 text-xs text-slate-500">
         <span className="font-semibold text-slate-600">Leyenda:</span>
-        <span>P = presente</span>
-        <span>A = ausente</span>
+        <span>A = asistio</span>
+        <span>F = falta</span>
         <span>J = justificada</span>
-        <span>L = lesion</span>
+        <span>🩹 = lesion</span>
         <span>- = sin registro</span>
       </div>
     </section>
