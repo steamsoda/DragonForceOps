@@ -466,8 +466,10 @@ function FollowUpCell({
         return;
       }
 
-      const nextFollowUpAt = nextStatus === "uncontacted" ? null : new Date().toISOString();
-      const savedNote = nextStatus === "uncontacted" ? null : nextNote.trim() || null;
+      const trimmedNote = nextNote.trim();
+      const shouldClearFollowUp = nextStatus === "uncontacted" && !trimmedNote;
+      const nextFollowUpAt = shouldClearFollowUp ? null : new Date().toISOString();
+      const savedNote = shouldClearFollowUp ? null : trimmedNote || null;
       const savedPromiseDate = nextStatus === "promise_to_pay" ? nextPromiseDate : null;
 
       setFollowUpAt(nextFollowUpAt);
@@ -583,12 +585,13 @@ function FollowUpCell({
         >
           Lesionado
         </button>
-        {saved ? <span className="text-xs text-emerald-600">OK</span> : null}
+        {saved ? <span className="text-xs font-medium text-emerald-600">Guardado</span> : null}
       </div>
 
-      {status !== "uncontacted" ? (
+      {status !== "uncontacted" || note.trim() || followUpAt ? (
         <div className="space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
           <p>Estado actual: {STATUS_LABELS[status]}</p>
+          {note.trim() ? <p className="whitespace-pre-wrap">Nota en seguimiento: {note.trim()}</p> : null}
           {status === "promise_to_pay" && promiseDate ? <p>Promesa: {formatDate(promiseDate)}</p> : null}
           {followUpAt ? <p>Ultima actualizacion: {formatDateTime(followUpAt)}</p> : null}
         </div>

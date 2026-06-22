@@ -992,6 +992,7 @@ export async function updatePendingFollowUpAction(
 
   const followUpStatus = status as PendingFollowUpStatus;
   const followUpNote = note.trim() || null;
+  const shouldClearFollowUp = followUpStatus === "uncontacted" && !followUpNote;
 
   const { data: current } = await supabase
     .from("enrollments")
@@ -1008,9 +1009,9 @@ export async function updatePendingFollowUpAction(
     .update(
       {
         follow_up_status: followUpStatus === "uncontacted" ? null : followUpStatus,
-        follow_up_at: followUpStatus === "uncontacted" ? null : new Date().toISOString(),
-        follow_up_by: followUpStatus === "uncontacted" ? null : user.id,
-        follow_up_note: followUpStatus === "uncontacted" ? null : followUpNote,
+        follow_up_at: shouldClearFollowUp ? null : new Date().toISOString(),
+        follow_up_by: shouldClearFollowUp ? null : user.id,
+        follow_up_note: shouldClearFollowUp ? null : followUpNote,
         promise_date: followUpStatus === "promise_to_pay" ? promiseDate : null,
       }
     )
@@ -1031,7 +1032,7 @@ export async function updatePendingFollowUpAction(
     },
     afterData: {
       follow_up_status: followUpStatus === "uncontacted" ? null : followUpStatus,
-      follow_up_note: followUpStatus === "uncontacted" ? null : followUpNote,
+      follow_up_note: shouldClearFollowUp ? null : followUpNote,
       promise_date: followUpStatus === "promise_to_pay" ? promiseDate : null,
     },
   });
