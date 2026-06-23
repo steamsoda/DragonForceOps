@@ -30,6 +30,13 @@
 - Kept the existing `Pendientes` Excel export and print list unchanged for this pass.
 - No finance, payment, enrollment, or attendance-write behavior changed.
 
+### Handoff Checkpoint After Main Push (v1.16.168)
+
+- Production `main` is at `4106ea2` with `v1.16.167` and `v1.16.168` merged: `Jugadores` and `Pendientes` now both show compact recent-attendance chips from the shared batch source.
+- Current roadmap priorities after this checkpoint: confirmed-absence risk badge / collections signal, new-enrollment B1 auto-assignment, and continued Caja finance-sensitive monitoring.
+- Known uncommitted local files remain unrelated planning/assets: `docs/planning/README.md`, `docs/OMS_GROWTH_CURVES_IMPLEMENTATION.md`, `docs/planning/parent-mobile-test-app-architecture.md`, and two `public/logo Invicta-*` images.
+- Verification before the production push: `npm run typecheck`, `npm run build`, and `git diff --check` passed for the attendance chips work.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)
