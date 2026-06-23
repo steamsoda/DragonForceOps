@@ -49,6 +49,85 @@ function groupedRosterExportHref({ campusId, gender, birthYear }: { campusId?: s
   return query ? `/api/exports/player-roster-groups?${query}` : "/api/exports/player-roster-groups";
 }
 
+function todayLabel() {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Monterrey",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
+  const printedAt = todayLabel();
+  const genderLabel = data.selectedGender === "male" ? "Varonil" : data.selectedGender === "female" ? "Femenil" : "Todos los generos";
+  const categoryLabel = data.selectedBirthYear ? `Cat. ${data.selectedBirthYear}` : "Todas las categorias";
+
+  return (
+    <div className="coach-roster-print-root" aria-hidden="true">
+      {data.sections.map((section) => {
+        const rows = [...section.rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "es-MX"));
+        return (
+          <section key={section.id} className="coach-roster-print-page">
+            <header className="coach-roster-print-header">
+              <div>
+                <p className="coach-roster-print-kicker">Dragon Force Monterrey</p>
+                <h1>{section.name}</h1>
+                <p>{section.subtitle}</p>
+              </div>
+              <div className="coach-roster-print-meta">
+                <p>{data.selectedCampusName}</p>
+                <p>{genderLabel}</p>
+                <p>{categoryLabel}</p>
+                <p>{printedAt}</p>
+              </div>
+            </header>
+
+            <div className="coach-roster-print-count">
+              <span>{rows.length} jugadores</span>
+              <span>Lista para coach</span>
+            </div>
+
+            <table className="coach-roster-print-table">
+              <thead>
+                <tr>
+                  <th className="coach-print-col-number">#</th>
+                  <th className="coach-print-col-id">ID</th>
+                  <th>Nombre completo</th>
+                  <th className="coach-print-col-date">Fecha insc.</th>
+                  <th className="coach-print-col-check">Conozco a este jugador?</th>
+                  <th className="coach-print-col-notes">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>Sin jugadores activos en este grupo.</td>
+                  </tr>
+                ) : (
+                  rows.map((row, index) => (
+                    <tr key={row.enrollmentId}>
+                      <td className="coach-print-col-number">{index + 1}</td>
+                      <td className="coach-print-col-id">{row.publicPlayerId}</td>
+                      <td>{row.fullName}</td>
+                      <td className="coach-print-col-date">{row.inscriptionDate}</td>
+                      <td className="coach-print-col-check">
+                        <span className="coach-print-checkbox" /> Si
+                        <span className="coach-print-checkbox coach-print-checkbox-gap" /> No
+                      </td>
+                      <td className="coach-print-col-notes" />
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function LoadingRoster() {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -173,16 +252,30 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 {editMode ? "Salir de edicion" : "Editar grupos"}
               </button>
             ) : null}
-            <a
-              href={groupedRosterExportHref({
-                campusId: data.selectedCampusId,
-                gender: data.selectedGender,
-                birthYear: data.selectedBirthYear,
-              })}
-              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
-            >
-              Exportar Excel
-            </a>
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-portoBlue hover:text-portoBlue dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
+                Herramientas
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-64 rounded-md border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-950">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="block w-full rounded-md px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-portoBlue dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Imprimir lista coaches
+                </button>
+                <a
+                  href={groupedRosterExportHref({
+                    campusId: data.selectedCampusId,
+                    gender: data.selectedGender,
+                    birthYear: data.selectedBirthYear,
+                  })}
+                  className="block rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-portoBlue dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Exportar Excel
+                </a>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -402,6 +495,152 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
           </section>
         ))}
       </div>
+
+      <CoachRosterPrintSheet data={data} />
+      <style jsx global>{`
+        .coach-roster-print-root {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: letter landscape;
+            margin: 10mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .coach-roster-print-root,
+          .coach-roster-print-root * {
+            visibility: visible !important;
+          }
+
+          .coach-roster-print-root {
+            display: block !important;
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            background: white;
+            color: black;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .coach-roster-print-page {
+            break-after: page;
+            page-break-after: always;
+          }
+
+          .coach-roster-print-page:last-child {
+            break-after: auto;
+            page-break-after: auto;
+          }
+
+          .coach-roster-print-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+          }
+
+          .coach-roster-print-kicker {
+            margin: 0 0 2px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .coach-roster-print-header h1 {
+            margin: 0;
+            font-size: 18px;
+            line-height: 1.15;
+          }
+
+          .coach-roster-print-header p {
+            margin: 2px 0 0;
+            font-size: 10px;
+          }
+
+          .coach-roster-print-meta {
+            min-width: 180px;
+            text-align: right;
+            font-size: 10px;
+            line-height: 1.25;
+          }
+
+          .coach-roster-print-count {
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid #000;
+            padding: 4px 6px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            font-weight: 700;
+          }
+
+          .coach-roster-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 10px;
+          }
+
+          .coach-roster-print-table th,
+          .coach-roster-print-table td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            vertical-align: middle;
+            height: 24px;
+          }
+
+          .coach-roster-print-table th {
+            font-size: 9px;
+            text-transform: uppercase;
+            background: #f1f1f1;
+          }
+
+          .coach-print-col-number {
+            width: 32px;
+            text-align: center;
+          }
+
+          .coach-print-col-id {
+            width: 78px;
+            text-align: center;
+          }
+
+          .coach-print-col-date {
+            width: 82px;
+            text-align: center;
+          }
+
+          .coach-print-col-check {
+            width: 150px;
+            white-space: nowrap;
+          }
+
+          .coach-print-col-notes {
+            width: 28%;
+          }
+
+          .coach-print-checkbox {
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            border: 1px solid #000;
+            margin-right: 4px;
+            vertical-align: -1px;
+          }
+
+          .coach-print-checkbox-gap {
+            margin-left: 18px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-06-23 (session 193)
+
+### Roadmap Intake: Coach Print Sheet and Attendance Visibility
+
+- Captured a new Front Desk feedback wave and promoted it above the remaining attendance bundle work.
+- Added `Jugadores` coach roster print sheet to `Now`: direct browser print, one training group per page, alphabetical players, visible ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes space.
+- Added recent attendance at-a-glance as a shared follow-up: a batch/RPC-backed last-5-sessions summary should feed `Jugadores`, `Pendientes`, and later the 3-confirmed-absence risk badge without creating per-player request storms.
+- Initial intake was docs-only before the coach print implementation below.
+
+### Jugadores Coach Print Sheet (v1.16.166)
+
+- Added a `Herramientas` menu to `Jugadores > Vista por grupos` so operational print/export actions are grouped away from the main filters.
+- Added `Imprimir lista coaches`, a direct browser-print sheet generated from the already-loaded grouped roster data.
+- The printed sheet is read-only and print-only: one training group per page, players sorted alphabetically, with count, ID, full name, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and a notes column.
+- Kept the existing Excel export unchanged and did not add database queries, schema changes, or finance behavior.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)
