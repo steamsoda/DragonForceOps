@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.165`
-- Current preview line: `v1.16.166`
+- Current production line: `v1.16.166`
+- Current preview line: `v1.16.167`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -75,7 +75,7 @@ Front Desk added a small but high-value feedback wave before the remaining atten
 **Promoted**
 
 - ✅ `Jugadores` coach roster print sheet shipped in `v1.16.166`: direct print from the app, one group per page, alphabetical players, ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes space.
-- 🔴 Recent attendance at-a-glance: reusable last-5-sessions player summary for `Jugadores`, `Pendientes`, and other operational surfaces. This should share the same attendance source as the planned 3-confirmed-absence risk badge and must avoid per-player query storms.
+- 🟢 Recent attendance at-a-glance: `v1.16.167` adds the shared batch source and first `Jugadores` roster chips. `Pendientes` and other operational surfaces can reuse it next.
 
 **Still Active**
 
@@ -90,7 +90,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` coach roster print sheet | Shipped in `v1.16.166`: coaches can print a group-by-group checklist directly from `Jugadores` without exporting Excel first. | User Feedback Intake 2026-06-23, Jugadores lane, `v1.16.166` devlog |
-| 🔴 | Recent attendance at-a-glance | Front Desk wants attendance context visible beside players in `Jugadores`, `Pendientes`, and similar work queues. Build a shared last-5-sessions source before adding UI chips to avoid performance regressions. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes |
+| 🟢 | Recent attendance at-a-glance | Preview `v1.16.167` adds the shared batch source and first chips in `Jugadores`; next pass should reuse it in `Pendientes`. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167` devlog |
 | 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
 | 🔴 | Attendance risk + collections signal | Build the confirmed-absence risk badge first, then reuse it in Pendientes and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
@@ -135,7 +135,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|---|
 | 🔴 | 2026-06-23 Front Desk print + attendance visibility wave | Promote the coach print sheet first if staff need paper immediately; build recent attendance through a shared source before surfacing it across queues. | Checkpoint 2026-06-23 |
 | ✅ | Coach roster print sheet from `Jugadores` | Shipped in `v1.16.166`: direct-print action under `Herramientas`, separate from `Exportar Excel`. One group per printed page; players alphabetical; columns: count, full name, ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes. | Jugadores, `v1.16.166` devlog |
-| 🔴 | Recent attendance visible beside players | Add a compact last-5-sessions indicator to player-heavy surfaces. Start with `Jugadores` and `Pendientes`; reuse the same data source for the 3-confirmed-absence risk badge and later relation reports. | Asistencia, Jugadores, Front Desk / Caja / Collections |
+| 🟡 | Recent attendance visible beside players | Preview `v1.16.167` adds the shared batch source and first `Jugadores` roster chips. Continue with `Pendientes`, then reuse for the 3-confirmed-absence risk badge and later relation reports. | Asistencia, Jugadores, Front Desk / Caja / Collections, `v1.16.167` devlog |
 | 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
 | ✅ | 1. Re-enrollment pricing tier still at `$600` | Preview `v1.16.159` updates the returning `Solo inscripcion` option to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections, `v1.16.159` devlog |
 | ✅ | 2. Training-group move permissions audit | Preview `v1.16.160` confirms the route/action split and adds explicit attendance-campus write checks before service-role group assignment writes. It also adds `Admin Oficina` as a global non-finance player/contact + attendance role. | Safety / Permissions / Data Integrity, Jugadores, `v1.16.160` devlog |
@@ -205,7 +205,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; `v1.16.166` adds a direct-print coach roster sheet. Keep open for broader list/export needs. |
 | ✅ | Coach roster direct print sheet | Shipped in `v1.16.166`: print-only roster sheet from `Jugadores > Vista por grupos`, inside `Herramientas`, one training group per page, alphabetical roster, ID, enrollment date, coach familiarity checkboxes, and notes column. |
-| 🔴 | Recent attendance on player roster | Show compact last-5-sessions attendance context beside players without adding per-player client queries. Reuse the shared attendance summary source planned for `Pendientes` and the absence-risk badge. |
+| 🟢 | Recent attendance on player roster | Preview `v1.16.167` shows compact last-5-sessions attendance chips beside players without per-player client queries. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
 | ✅ | Training-group movement permissions audit | Preview `v1.16.160` adds explicit attendance-campus write checks before group assignment service-role writes and documents the next automation boundary. |
 | 🔴 | New enrollment B1 auto-assignment | Auto-assign new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups should be preferred for female players when available. |
@@ -232,7 +232,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Daily attendance report | Preview `v1.16.165` adds a read-only daily report inside `Asistencia > Reportes` with session totals, expected-vs-recorded counts, status counts, closures, and notes. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🔴 | Confirmed-absence risk badge | Derived badge for players with 3 confirmed true absences in their last consecutive scheduled sessions. Missing attendance records are not absences. Surface the badge across Asistencia, Jugadores, Caja, and Pendientes once built. |
-| 🔴 | Shared recent attendance summary source | Build a batch/RPC-backed player attendance summary for the latest five relevant sessions. It should power player chips in `Jugadores`, `Pendientes`, and future risk/collections reports without N+1 requests. |
+| 🟢 | Shared recent attendance summary source | Preview `v1.16.167` adds the batch/RPC-backed source for latest player attendance. Reuse it in `Pendientes` and future risk/collections reports. |
 | 🟢 | Attendance nomenclature pass | Preview `v1.16.165` updates the attendance capture UI to `A Asistio`, `F Falta`, `🩹 Lesion`, and `📝 Justificada`; broader report/player copy cleanup can ride with the risk badge pass. |
 | 🟡 | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
@@ -297,6 +297,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.167` — `Jugadores > Vista por grupos` now shows compact recent-attendance chips from a batch SQL source.
 - ✅ `v1.16.166` — `Jugadores > Vista por grupos` now has a direct-print coach roster sheet under `Herramientas`.
 - 🟢 `v1.16.165` — Asistencia now has a daily report in Reportes and clearer capture labels: `A Asistio`, `F Falta`, `🩹 Lesion`, `📝 Justificada`.
 - 🟢 `v1.16.164` — Datos Faltantes tutor form button moved to a footer so `Parentesco` keeps the same row alignment.

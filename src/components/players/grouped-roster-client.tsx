@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import type { PlayerRosterGroupsData, RosterTuitionCell } from "@/lib/queries/player-roster-groups";
+import type { PlayerRecentAttendanceItem, PlayerRosterGroupsData, RosterTuitionCell } from "@/lib/queries/player-roster-groups";
 import { updatePlayerRosterTrainingGroupsAction } from "@/server/actions/training-groups";
 
 type GroupedRosterFilters = {
@@ -21,6 +21,65 @@ function tuitionCellClass(state: RosterTuitionCell["state"]) {
   if (state === "platform") return "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200";
   if (state === "paid") return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200";
   return "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400";
+}
+
+const ATTENDANCE_META: Record<PlayerRecentAttendanceItem["status"], { label: string; symbol: string; className: string }> = {
+  present: {
+    label: "A Asistio",
+    symbol: "A",
+    className: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
+  },
+  absent: {
+    label: "F Falta",
+    symbol: "F",
+    className: "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200",
+  },
+  injury: {
+    label: "Lesion",
+    symbol: "🩹",
+    className: "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200",
+  },
+  justified: {
+    label: "Justificada",
+    symbol: "J",
+    className: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  },
+};
+
+const ATTENDANCE_TYPE_LABELS: Record<string, string> = {
+  training: "Entrenamiento",
+  match: "Partido",
+  special: "Especial",
+};
+
+function formatAttendanceDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return day ? `${day}/${month}` : value;
+}
+
+function RecentAttendanceChips({ items }: { items: PlayerRecentAttendanceItem[] }) {
+  if (items.length === 0) {
+    return <span className="text-xs text-slate-400 dark:text-slate-500">Sin registros</span>;
+  }
+
+  return (
+    <div className="flex min-w-32 flex-wrap justify-center gap-1">
+      {items.map((item) => {
+        const meta = ATTENDANCE_META[item.status] ?? ATTENDANCE_META.present;
+        const title = `${formatAttendanceDate(item.sessionDate)} | ${ATTENDANCE_TYPE_LABELS[item.sessionType] ?? item.sessionType} | ${meta.label}`;
+        return (
+          <span
+            key={`${item.sessionId}-${item.status}`}
+            title={title}
+            aria-label={title}
+            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full border px-1.5 text-[10px] font-bold leading-none ${meta.className}`}
+          >
+            {meta.symbol}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function groupedRosterHref({ campusId, gender, birthYear }: { campusId?: string; gender?: string; birthYear?: number | string | null }) {
@@ -432,6 +491,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">CAT</th>
                     <th className="border-b border-slate-200 px-2 py-2 dark:border-slate-700">Nivel/Grupo</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">INSC</th>
+                    <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">ULT. ASIST.</th>
                     {data.months.map((month) => (
                       <th key={month.periodMonth} className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">
                         {month.label}
@@ -442,7 +502,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {section.rows.length === 0 ? (
                     <tr>
-                      <td colSpan={6 + data.months.length} className="px-3 py-4 text-slate-500 dark:text-slate-400">
+                      <td colSpan={7 + data.months.length} className="px-3 py-4 text-slate-500 dark:text-slate-400">
                         Sin jugadores activos en este grupo.
                       </td>
                     </tr>
@@ -479,6 +539,9 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                           ) : row.levelGroup}
                         </td>
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.inscriptionDate}</td>
+                        <td className="px-2 py-2 text-center">
+                          <RecentAttendanceChips items={row.recentAttendance} />
+                        </td>
                         {row.tuition.map((cell) => (
                           <td key={cell.periodMonth} className="px-2 py-2 text-center">
                             <span className={`inline-flex min-h-6 min-w-20 items-center justify-center rounded border px-2 py-1 font-medium leading-none ${tuitionCellClass(cell.state)}`}>

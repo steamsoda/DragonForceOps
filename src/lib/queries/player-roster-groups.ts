@@ -47,6 +47,14 @@ type RosterRpcRow = {
   month_3_latest_paid_at: string | null;
 };
 
+type RecentAttendanceRpcRow = {
+  player_id: string;
+  session_id: string;
+  session_date: string;
+  session_type: string;
+  status: PlayerRecentAttendanceItem["status"];
+};
+
 type RosterSupabaseClient = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
 export type RosterTuitionMonth = {
@@ -62,6 +70,13 @@ export type RosterTuitionCell = {
   state: "paid" | "platform" | "pending" | "empty";
 };
 
+export type PlayerRecentAttendanceItem = {
+  sessionId: string;
+  sessionDate: string;
+  sessionType: string;
+  status: "present" | "absent" | "injury" | "justified";
+};
+
 export type PlayerRosterGroupRow = {
   enrollmentId: string;
   playerId: string;
@@ -73,6 +88,7 @@ export type PlayerRosterGroupRow = {
   inscriptionDate: string;
   startDate: string;
   tuition: RosterTuitionCell[];
+  recentAttendance: PlayerRecentAttendanceItem[];
 };
 
 export type PlayerRosterGroupSection = {
@@ -257,6 +273,34 @@ function buildTuitionCellsFromRpc(months: RosterTuitionMonth[], row: RosterRpcRo
   ];
 }
 
+async function getRecentAttendanceByPlayer(supabase: RosterSupabaseClient, playerIds: string[]) {
+  const uniquePlayerIds = [...new Set(playerIds)].filter(Boolean);
+  if (uniquePlayerIds.length === 0) return new Map<string, PlayerRecentAttendanceItem[]>();
+
+  const { data, error } = await supabase.rpc("get_recent_player_attendance", {
+    p_player_ids: uniquePlayerIds,
+    p_limit: 5,
+  });
+
+  if (error) {
+    throw new Error(`recent player attendance: ${error.message ?? "query failed"}`);
+  }
+
+  const grouped = new Map<string, PlayerRecentAttendanceItem[]>();
+  for (const row of (data ?? []) as RecentAttendanceRpcRow[]) {
+    const entries = grouped.get(row.player_id) ?? [];
+    entries.push({
+      sessionId: row.session_id,
+      sessionDate: row.session_date,
+      sessionType: row.session_type,
+      status: row.status,
+    });
+    grouped.set(row.player_id, entries);
+  }
+
+  return grouped;
+}
+
 export async function getPlayerRosterGroupsData(
   filters: { campusId?: string; gender?: string; birthYear?: string | number } = {},
   options: { campusAccess?: OperationalCampusAccess | null; supabase?: RosterSupabaseClient } = {},
@@ -340,6 +384,7 @@ export async function getPlayerRosterGroupsData(
 
   const birthYears = [...new Set(birthYearRows.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
   const groupsById = new Map(groups.map((group) => [group.id, group]));
+  const recentAttendanceByPlayer = await getRecentAttendanceByPlayer(supabase, rosterRows.map((row) => row.player_id));
 
   const sectionMap = new Map<string, PlayerRosterGroupSection>();
   for (const group of [...groups].sort((a, b) => {
@@ -400,6 +445,7 @@ export async function getPlayerRosterGroupsData(
       inscriptionDate: formatDateOnly(row.inscription_date ?? row.start_date),
       startDate: row.start_date,
       tuition: buildTuitionCellsFromRpc(months, row),
+      recentAttendance: recentAttendanceByPlayer.get(row.player_id) ?? [],
     });
   }
 

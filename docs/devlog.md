@@ -16,6 +16,13 @@
 - The printed sheet is read-only and print-only: one training group per page, players sorted alphabetically, with count, ID, full name, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and a notes column.
 - Kept the existing Excel export unchanged and did not add database queries, schema changes, or finance behavior.
 
+### Jugadores Recent Attendance At-A-Glance (v1.16.167)
+
+- Added a batch SQL helper, `public.get_recent_player_attendance(...)`, to return the latest attendance rows per player with one database call.
+- Added compact recent-attendance chips to `Jugadores > Vista por grupos` using the same `A/F/🩹/J` status language as the attendance capture/reporting pass.
+- Kept the first UI surface scoped to `Jugadores`; `Pendientes` can reuse the same data source in the next pass.
+- No finance, payment, enrollment, or attendance-write behavior changed.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)
