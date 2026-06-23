@@ -23,6 +23,13 @@
 - Kept the first UI surface scoped to `Jugadores`; `Pendientes` can reuse the same data source in the next pass.
 - No finance, payment, enrollment, or attendance-write behavior changed.
 
+### Pendientes Recent Attendance At-A-Glance (v1.16.168)
+
+- Reused the same batch recent-attendance RPC added for `Jugadores` and moved the TypeScript grouping helper into the shared attendance query module.
+- Added compact last-five attendance chips to `Pendientes` detail rows so Front Desk can see recent attendance context beside each pending-tuition player.
+- Kept the existing `Pendientes` Excel export and print list unchanged for this pass.
+- No finance, payment, enrollment, or attendance-write behavior changed.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)

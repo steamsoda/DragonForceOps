@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPendingTuitionCategoryDetailData, type PendingTuitionPlayer } from "@/lib/queries/tuition-pending";
+import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
 import { PendingDetailPrintButton } from "@/components/pending/pending-detail-print-button";
 import { PageShell } from "@/components/ui/page-shell";
 
@@ -140,7 +141,7 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
                     <Link
                       key={player.enrollmentId}
                       href={withParams(`/players/${player.playerId}`, { returnTo: detailReturnTo })}
-                      className="grid gap-3 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 md:grid-cols-[minmax(260px,1.4fr)_minmax(150px,0.8fr)_minmax(260px,1fr)_minmax(150px,auto)] md:items-center"
+                      className="grid gap-3 px-4 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 md:grid-cols-[minmax(240px,1.25fr)_minmax(140px,0.75fr)_minmax(150px,0.75fr)_minmax(240px,1fr)_minmax(150px,auto)] md:items-center"
                     >
                       <div>
                         <p className="font-semibold text-portoBlue">{player.playerName}</p>
@@ -155,6 +156,12 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
                         <p>
                           <span className="font-medium text-slate-700 dark:text-slate-200">Equipo</span> {player.teamName ?? "-"}
                         </p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                          Ult. asistencia
+                        </p>
+                        <RecentAttendanceChips items={player.recentAttendance} align="start" />
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {player.pendingMonths.map((month) => (

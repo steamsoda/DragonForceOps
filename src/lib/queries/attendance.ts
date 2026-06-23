@@ -119,6 +119,25 @@ export type AttendancePlayerSummary = {
   recentMonths: Array<{ label: string; rate: number | null }>;
 };
 
+export type RecentPlayerAttendanceItem = {
+  sessionId: string;
+  sessionDate: string;
+  sessionType: string;
+  status: "present" | "absent" | "injury" | "justified";
+};
+
+type RecentPlayerAttendanceRpcRow = {
+  player_id: string;
+  session_id: string;
+  session_date: string;
+  session_type: string;
+  status: RecentPlayerAttendanceItem["status"];
+};
+
+type RecentPlayerAttendanceRpcClient = {
+  rpc: ReturnType<typeof createAdminClient>["rpc"];
+};
+
 export type AttendanceInactivePlayerRow = {
   playerId: string;
   playerName: string;
@@ -857,6 +876,38 @@ export async function getPlayerAttendanceSummary(playerId: string): Promise<Atte
     },
     recentMonths,
   };
+}
+
+export async function getRecentPlayerAttendanceByPlayerIds(
+  playerIds: string[],
+  options: { supabase?: RecentPlayerAttendanceRpcClient; limit?: number } = {},
+) {
+  const uniquePlayerIds = [...new Set(playerIds)].filter(Boolean);
+  if (uniquePlayerIds.length === 0) return new Map<string, RecentPlayerAttendanceItem[]>();
+
+  const supabase = options.supabase ?? createAdminClient();
+  const { data, error } = await supabase.rpc("get_recent_player_attendance", {
+    p_player_ids: uniquePlayerIds,
+    p_limit: options.limit ?? 5,
+  });
+
+  if (error) {
+    throw new Error(`recent player attendance: ${error.message ?? "query failed"}`);
+  }
+
+  const grouped = new Map<string, RecentPlayerAttendanceItem[]>();
+  for (const row of (data ?? []) as RecentPlayerAttendanceRpcRow[]) {
+    const entries = grouped.get(row.player_id) ?? [];
+    entries.push({
+      sessionId: row.session_id,
+      sessionDate: row.session_date,
+      sessionType: row.session_type,
+      status: row.status,
+    });
+    grouped.set(row.player_id, entries);
+  }
+
+  return grouped;
 }
 
 export async function getAttendanceGroupsMonthlyData(filters: { campusId?: string; month?: string; groupId?: string }): Promise<AttendanceGroupsMonthlyData> {

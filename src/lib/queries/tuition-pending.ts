@@ -1,4 +1,5 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { getRecentPlayerAttendanceByPlayerIds, type RecentPlayerAttendanceItem } from "@/lib/queries/attendance";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type EnrollmentRow = {
@@ -62,6 +63,7 @@ export type PendingTuitionPlayer = {
   pendingMonths: PendingTuitionMonth[];
   pendingMonthCount: number;
   overdueMonthCount: number;
+  recentAttendance: RecentPlayerAttendanceItem[];
 };
 
 export type PendingTuitionCategoryGroup = {
@@ -270,7 +272,7 @@ function comparePendingPlayersForDetail(a: PendingTuitionPlayer, b: PendingTuiti
   );
 }
 
-export async function getPendingTuitionDashboardData(filters: { campusId?: string; month?: string }) {
+export async function getPendingTuitionDashboardData(filters: { campusId?: string; month?: string; includeRecentAttendance?: boolean }) {
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) {
     return {
@@ -346,7 +348,18 @@ export async function getPendingTuitionDashboardData(filters: { campusId?: strin
       pendingMonths: sortedMonths,
       pendingMonthCount: sortedMonths.length,
       overdueMonthCount: sortedMonths.filter((month) => month.isOverdue).length,
+      recentAttendance: [],
     });
+  }
+
+  if (filters.includeRecentAttendance) {
+    const recentAttendanceByPlayer = await getRecentPlayerAttendanceByPlayerIds(
+      players.map((player) => player.playerId),
+      { supabase: admin },
+    );
+    for (const player of players) {
+      player.recentAttendance = recentAttendanceByPlayer.get(player.playerId) ?? [];
+    }
   }
 
   players.sort(
@@ -419,7 +432,7 @@ export async function getPendingTuitionCategoryDetailData(filters: {
   month?: string;
   bucket?: string;
 }) {
-  const dashboard = await getPendingTuitionDashboardData({ campusId: filters.campusId, month: filters.month });
+  const dashboard = await getPendingTuitionDashboardData({ campusId: filters.campusId, month: filters.month, includeRecentAttendance: true });
   const bucket = normalizeBucket(filters.bucket);
   const key = filters.birthYear && /^\d{4}$/.test(filters.birthYear) ? filters.birthYear : "sin-categoria";
   const selectedPlayers = dashboard.selectedCampusId
