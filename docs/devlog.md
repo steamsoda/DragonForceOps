@@ -37,6 +37,13 @@
 - Known uncommitted local files remain unrelated planning/assets: `docs/planning/README.md`, `docs/OMS_GROWTH_CURVES_IMPLEMENTATION.md`, `docs/planning/parent-mobile-test-app-architecture.md`, and two `public/logo Invicta-*` images.
 - Verification before the production push: `npm run typecheck`, `npm run build`, and `git diff --check` passed for the attendance chips work.
 
+### Admin Oficina Datos Faltantes Guardrails (v1.16.169)
+
+- Fixed the Office Admin player/tutor edit path by aligning player and guardian edit actions with `hasPlayerDataAccess` instead of the broader operational finance-capable access gate.
+- Added an additive RLS policy so `Admin Oficina` can update non-finance player profile rows for players with enrollments, matching the intended Datos Faltantes scope.
+- Simplified `Datos Faltantes` tutor capture language: staff now use `Guardar datos` instead of `Crear tutor(es)` / `Crear segundo tutor`, and the no-tutor copy explains they can capture whatever data they have and save once.
+- Removed required browser/server constraints from tutor edit fields; any single tutor field is enough to save, while completely blank tutor saves remain blocked to avoid empty contacts.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)

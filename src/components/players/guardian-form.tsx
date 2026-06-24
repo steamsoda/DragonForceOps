@@ -22,33 +22,30 @@ export function GuardianForm({ action, defaultValues, errorMessage }: GuardianFo
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-300">Nombre *</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Nombre</span>
           <input
             type="text"
             name="firstName"
-            required
             defaultValue={defaultValues?.firstName ?? ""}
             className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
           />
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-300">Apellido *</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Apellido</span>
           <input
             type="text"
             name="lastName"
-            required
             defaultValue={defaultValues?.lastName ?? ""}
             className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
           />
         </label>
 
         <label className="space-y-1 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-300">Teléfono principal *</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300">Telefono principal</span>
           <input
             type="tel"
             name="phonePrimary"
-            required
             defaultValue={defaultValues?.phonePrimary ?? ""}
             className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2"
           />

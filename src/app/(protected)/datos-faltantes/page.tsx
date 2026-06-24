@@ -156,7 +156,7 @@ function ContactForm({
       ) : null}
       <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-slate-700 md:col-span-2 xl:col-span-6">
         <button type="submit" className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark sm:w-auto sm:min-w-48">
-          {submitLabel ?? (guardian ? "Guardar" : "Crear tutor")}
+          {submitLabel ?? "Guardar datos"}
         </button>
       </div>
     </form>
@@ -212,13 +212,13 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
             </div>
           ))}
           {row.guardians.length < 2 ? (
-            <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary={false} title="Agregar segundo tutor" submitLabel="Crear segundo tutor" />
+            <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary={false} title="Segundo tutor opcional" submitLabel="Guardar datos" />
           ) : null}
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-slate-600 dark:text-slate-400">No hay tutor vinculado. Captura un contacto principal para este jugador.</p>
-          <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary title="Tutor principal" submitLabel="Crear tutor(es)" showAdditionalTutor />
+          <p className="text-sm text-slate-600 dark:text-slate-400">No hay tutor vinculado. Captura los datos que tengas y guarda una sola vez.</p>
+          <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary title="Tutor principal" submitLabel="Guardar datos" showAdditionalTutor />
         </div>
       )}
     </article>

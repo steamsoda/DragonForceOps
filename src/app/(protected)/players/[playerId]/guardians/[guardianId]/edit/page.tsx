@@ -6,7 +6,7 @@ import { GuardianForm } from "@/components/players/guardian-form";
 import { updateGuardianAction } from "@/server/actions/players";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  missing_fields: "Nombre, apellido y teléfono principal son requeridos.",
+  missing_fields: "Captura al menos un dato del tutor antes de guardar.",
   update_failed: "No se pudo guardar. Intenta de nuevo.",
 };
 

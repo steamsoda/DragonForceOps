@@ -102,7 +102,7 @@ export async function updatePlayerAction(playerId: string, formData: FormData): 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
   const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess) redirect(`${BASE}?err=unauthorized`);
+  if (!context?.hasPlayerDataAccess) redirect(`${BASE}?err=unauthorized`);
   if (!(await canAccessPlayerRecord(playerId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase
@@ -136,14 +136,14 @@ export async function updateGuardianAction(
   const BASE = `/players/${playerId}`;
   await assertDebugWritesAllowed(`${BASE}/guardians/${guardianId}/edit`);
 
-  const firstName = formData.get("firstName")?.toString().trim();
-  const lastName = formData.get("lastName")?.toString().trim();
-  const phonePrimary = formData.get("phonePrimary")?.toString().trim();
+  const firstName = formData.get("firstName")?.toString().trim() || null;
+  const lastName = formData.get("lastName")?.toString().trim() || null;
+  const phonePrimary = formData.get("phonePrimary")?.toString().trim() || null;
   const phoneSecondary = formData.get("phoneSecondary")?.toString().trim() || null;
   const email = formData.get("email")?.toString().trim() || null;
   const relationshipLabel = formData.get("relationshipLabel")?.toString().trim() || null;
 
-  if (!firstName || !lastName || !phonePrimary) {
+  if (!firstName && !lastName && !phonePrimary && !phoneSecondary && !email && !relationshipLabel) {
     redirect(`${BASE}/guardians/${guardianId}/edit?err=missing_fields`);
   }
 
@@ -151,7 +151,7 @@ export async function updateGuardianAction(
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
   const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess) redirect(`${BASE}?err=unauthorized`);
+  if (!context?.hasPlayerDataAccess) redirect(`${BASE}?err=unauthorized`);
   if (!(await canAccessGuardianRecord(playerId, guardianId))) redirect(`${BASE}?err=unauthorized`);
 
   const { error } = await supabase

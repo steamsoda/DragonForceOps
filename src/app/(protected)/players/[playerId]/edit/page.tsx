@@ -20,7 +20,7 @@ export default async function PlayerEditPage({
   const sp = await searchParams;
   const permissionContext = await getPermissionContext();
 
-  if (!permissionContext?.hasOperationalAccess) redirect(`/players/${playerId}?err=unauthorized`);
+  if (!permissionContext?.hasPlayerDataAccess) redirect(`/players/${playerId}?err=unauthorized`);
 
   if (!(await canAccessPlayerRecord(playerId))) {
     redirect(`/players/${playerId}?err=unauthorized`);
