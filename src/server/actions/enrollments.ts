@@ -37,6 +37,7 @@ type EnrollmentScholarshipRow = {
   campus_id: string;
   status: string;
   scholarship_status: ScholarshipStatus;
+  custom_scholarship_amount: number | null;
   pricing_plan_id: string;
   pricing_plans: { plan_code: string; currency: string | null } | null;
 };
@@ -75,11 +76,13 @@ async function syncPendingTuitionForScholarshipChange(
     enrollment,
     chargeTypeId,
     nextScholarshipStatus,
+    nextCustomScholarshipAmount,
     userId,
   }: {
     enrollment: EnrollmentScholarshipRow;
     chargeTypeId: string;
     nextScholarshipStatus: ScholarshipStatus;
+    nextCustomScholarshipAmount: number | null;
     userId: string;
   },
 ) {
@@ -161,7 +164,7 @@ async function syncPendingTuitionForScholarshipChange(
         : quoteAdvanceTuitionFromVersions(pricingVersions, charge.period_month);
     if (!quote) return { ok: false as const, error: "scholarship_rate_not_found" };
 
-    const nextAmount = applyScholarshipToAmount(quote.amount, nextScholarshipStatus);
+    const nextAmount = applyScholarshipToAmount(quote.amount, nextScholarshipStatus, nextCustomScholarshipAmount);
     if (roundMoney(charge.amount) === nextAmount && charge.pricing_rule_id === quote.pricingRuleId) {
       continue;
     }
@@ -214,7 +217,7 @@ async function syncPendingTuitionForScholarshipChange(
           charge_type_id: chargeTypeId,
           period_month: currentPeriodMonth,
           description: `Mensualidad ${formatPeriodMonthLabel(currentPeriodMonth)}`,
-          amount: applyScholarshipToAmount(currentMonthQuote.amount, nextScholarshipStatus),
+          amount: applyScholarshipToAmount(currentMonthQuote.amount, nextScholarshipStatus, nextCustomScholarshipAmount),
           currency: enrollment.pricing_plans?.currency ?? currentMonthQuote.plan.currency ?? "MXN",
           status: "pending",
           due_date: lastDayOfMonth(currentPeriodMonth),
@@ -476,7 +479,7 @@ export async function updateEnrollmentAction(
 
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, campus_id, status, scholarship_status, pricing_plan_id, pricing_plans(plan_code, currency)")
+    .select("id, campus_id, status, scholarship_status, custom_scholarship_amount, pricing_plan_id, pricing_plans(plan_code, currency)")
     .eq("id", enrollmentId)
     .eq("player_id", playerId)
     .maybeSingle<EnrollmentScholarshipRow | null>();
@@ -495,6 +498,7 @@ export async function updateEnrollmentAction(
   }
 
   let nextScholarshipStatus = enrollment.scholarship_status;
+  let nextCustomScholarshipAmount = enrollment.custom_scholarship_amount;
   let scholarshipChanged = false;
   let scholarshipAffectedCount = 0;
   if (parsed.scholarshipStatusProvided) {
@@ -502,7 +506,10 @@ export async function updateEnrollmentAction(
       return redirectWithEditError(enrollmentId, playerId, "scholarship_forbidden");
     }
     nextScholarshipStatus = parsed.scholarshipStatus ?? enrollment.scholarship_status;
-    scholarshipChanged = nextScholarshipStatus !== enrollment.scholarship_status;
+    nextCustomScholarshipAmount = nextScholarshipStatus === "custom" ? parsed.customScholarshipAmount : null;
+    scholarshipChanged =
+      nextScholarshipStatus !== enrollment.scholarship_status ||
+      nextCustomScholarshipAmount !== enrollment.custom_scholarship_amount;
   }
 
   if (scholarshipChanged && parsed.status === "active") {
@@ -521,6 +528,7 @@ export async function updateEnrollmentAction(
       enrollment,
       chargeTypeId: chargeType.id,
       nextScholarshipStatus,
+      nextCustomScholarshipAmount,
       userId: user.id,
     });
 
@@ -538,6 +546,7 @@ export async function updateEnrollmentAction(
       end_date: endDate,
       campus_id: parsed.campusId,
       scholarship_status: nextScholarshipStatus,
+      custom_scholarship_amount: nextCustomScholarshipAmount,
       has_scholarship: nextScholarshipStatus === "full",
       notes: parsed.notes,
       dropout_reason: parsed.dropoutReason,
@@ -569,6 +578,7 @@ export async function updateEnrollmentAction(
       status: parsed.status,
       end_date: endDate,
       scholarship_status: nextScholarshipStatus,
+      custom_scholarship_amount: nextCustomScholarshipAmount,
       dropout_reason: parsed.dropoutReason,
     },
   });
@@ -580,9 +590,13 @@ export async function updateEnrollmentAction(
       action: "enrollment.scholarship_updated",
       tableName: "enrollments",
       recordId: enrollmentId,
-      beforeData: { scholarship_status: enrollment.scholarship_status },
+      beforeData: {
+        scholarship_status: enrollment.scholarship_status,
+        custom_scholarship_amount: enrollment.custom_scholarship_amount,
+      },
       afterData: {
         scholarship_status: nextScholarshipStatus,
+        custom_scholarship_amount: nextCustomScholarshipAmount,
         affected_pending_tuition_rows: scholarshipAffectedCount,
       },
     });

@@ -7,6 +7,7 @@ type EnrollmentEditFormProps = {
     campusId: string;
     notes: string | null;
     scholarshipStatus: ScholarshipStatus;
+    customScholarshipAmount: number | null;
     dropoutReason?: string | null;
     dropoutNotes?: string | null;
   };
@@ -125,16 +126,32 @@ export function EnrollmentEditForm({
               defaultValue={enrollment.scholarshipStatus}
               className={inputClass}
             >
-              {(["none", "half", "full"] as const).map((status) => (
+              {(["none", "half", "full", "custom"] as const).map((status) => (
                 <option key={status} value={status}>
                   {getScholarshipStatusLabel(status)}
                 </option>
               ))}
             </select>
           </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-300">Monto fijo mensual</span>
+            <input
+              type="number"
+              name="customScholarshipAmount"
+              min="0"
+              step="0.01"
+              defaultValue={enrollment.customScholarshipAmount ?? ""}
+              className={inputClass}
+              placeholder="Ej. 500"
+            />
+            <span className="block text-xs text-slate-500">
+              Solo se usa cuando eliges Beca personalizada. Para este caso captura 500.
+            </span>
+          </label>
           <p className="text-xs text-slate-600">
             <span className="font-medium">Media beca</span> = cobra 50% de mensualidad.{" "}
-            <span className="font-medium">Beca completa</span> = no genera mensualidad.
+            <span className="font-medium">Beca completa</span> = no genera mensualidad.{" "}
+            <span className="font-medium">Beca personalizada</span> = cobra el monto fijo mensual capturado.
           </p>
         </div>
       ) : null}

@@ -151,6 +151,7 @@ type EnrollmentPlanLookup = {
   id: string;
   status: string;
   scholarship_status: ScholarshipStatus;
+  custom_scholarship_amount: number | null;
   pricing_plans: { currency: string; plan_code: string } | null;
 };
 
@@ -297,7 +298,7 @@ async function createResolvedAdvanceTuitionCharge(
   }
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, status, scholarship_status, pricing_plans(currency, plan_code)")
+    .select("id, status, scholarship_status, custom_scholarship_amount, pricing_plans(currency, plan_code)")
     .eq("id", enrollmentId)
     .maybeSingle()
     .returns<EnrollmentPlanLookup | null>();
@@ -374,7 +375,11 @@ async function createResolvedAdvanceTuitionCharge(
 
   if (!chargeTypeResult.data) return { ok: false as const, error: "charge_type_not_found" };
   if (!tuitionQuote) return { ok: false as const, error: "tuition_rate_not_found" };
-  const resolvedAmount = applyScholarshipToAmount(tuitionQuote.amount, enrollment.scholarship_status);
+  const resolvedAmount = applyScholarshipToAmount(
+    tuitionQuote.amount,
+    enrollment.scholarship_status,
+    enrollment.custom_scholarship_amount,
+  );
 
   if (existingCharge?.data) {
     if (existingPeriodCharges[0].allocatedAmount > 0.009) {

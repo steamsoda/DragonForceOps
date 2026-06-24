@@ -26,6 +26,7 @@ export type ParsedEnrollmentEditInput = {
   dropoutReason: DropoutReason | null;
   dropoutNotes: string | null;
   scholarshipStatus: ScholarshipStatus | null;
+  customScholarshipAmount: number | null;
   scholarshipStatusProvided: boolean;
 };
 
@@ -54,10 +55,17 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
   const dropoutNotes = String(formData.get("dropoutNotes") ?? "").trim() || null;
   const scholarshipStatusProvided = formData.has("scholarshipStatus");
   let scholarshipStatus: ScholarshipStatus | null = null;
+  let customScholarshipAmount: number | null = null;
   if (scholarshipStatusProvided) {
     const scholarshipStatusRaw = String(formData.get("scholarshipStatus") ?? "").trim();
     if (!isScholarshipStatus(scholarshipStatusRaw)) return null;
     scholarshipStatus = scholarshipStatusRaw;
+    const customAmountRaw = String(formData.get("customScholarshipAmount") ?? "").trim();
+    if (scholarshipStatus === "custom") {
+      const parsedCustomAmount = Number(customAmountRaw);
+      if (!customAmountRaw || !Number.isFinite(parsedCustomAmount) || parsedCustomAmount <= 0) return null;
+      customScholarshipAmount = Math.round(parsedCustomAmount * 100) / 100;
+    }
   }
 
   // Dropout reason required when ending/cancelling
@@ -72,6 +80,7 @@ export function parseEnrollmentEditData(formData: FormData): ParsedEnrollmentEdi
     dropoutReason,
     dropoutNotes,
     scholarshipStatus,
+    customScholarshipAmount,
     scholarshipStatusProvided,
   };
 }

@@ -25,6 +25,7 @@ type ActiveEnrollmentRow = {
   id: string;
   pricing_plan_id: string;
   scholarship_status: ScholarshipStatus;
+  custom_scholarship_amount: number | null;
   pricing_plans: { currency: string } | null;
 };
 
@@ -66,7 +67,7 @@ export async function generateMonthlyChargesCore(
 
   const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("id, pricing_plan_id, scholarship_status, pricing_plans(currency)")
+    .select("id, pricing_plan_id, scholarship_status, custom_scholarship_amount, pricing_plans(currency)")
     .eq("status", "active")
     .neq("scholarship_status", "full");
 
@@ -158,7 +159,11 @@ export async function generateMonthlyChargesCore(
         charge_type_id: chargeType.id,
         period_month: periodMonth,
         description,
-        amount: applyScholarshipToAmount(selectedRule.amount, enrollment.scholarship_status),
+        amount: applyScholarshipToAmount(
+          selectedRule.amount,
+          enrollment.scholarship_status,
+          enrollment.custom_scholarship_amount,
+        ),
         currency: enrollment.pricing_plans?.currency ?? "MXN",
         status: "pending",
         due_date: dueDate,

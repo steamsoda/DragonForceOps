@@ -28,6 +28,7 @@ type ChargeContext = {
     status: string;
     campus_id: string;
     scholarship_status: ScholarshipStatus;
+    custom_scholarship_amount: number | null;
     pricing_plans: { plan_code: string | null; currency: string | null } | null;
     players: { id: string | null; first_name: string | null; last_name: string | null } | null;
   } | null;
@@ -92,7 +93,11 @@ async function calculateSelectedAmount(
   const quote = quoteTuitionForDayFromVersions(versions, charge.period_month, mode === "early" ? 1 : 31);
   if (!quote) return null;
   return {
-    amount: applyScholarshipToAmount(quote.amount, charge.enrollments.scholarship_status),
+    amount: applyScholarshipToAmount(
+      quote.amount,
+      charge.enrollments.scholarship_status,
+      charge.enrollments.custom_scholarship_amount,
+    ),
     pricingRuleId: quote.pricingRuleId,
   };
 }
@@ -103,7 +108,7 @@ async function getChargeContext(
 ) {
   const { data } = await supabase
     .from("charges")
-    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, charge_types(code), enrollments(id, status, campus_id, scholarship_status, pricing_plans(plan_code, currency), players(id, first_name, last_name))")
+    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, charge_types(code), enrollments(id, status, campus_id, scholarship_status, custom_scholarship_amount, pricing_plans(plan_code, currency), players(id, first_name, last_name))")
     .eq("id", chargeId)
     .maybeSingle<ChargeContext | null>();
   return data;

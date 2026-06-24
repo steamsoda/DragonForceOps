@@ -62,6 +62,7 @@ type ChargeRow = {
     id: string;
     status: string;
     scholarship_status: ScholarshipStatus;
+    custom_scholarship_amount: number | null;
     campus_id: string;
     campuses: { id: string; name: string | null; code: string | null } | null;
     pricing_plans: { plan_code: string | null; currency: string | null } | null;
@@ -183,7 +184,7 @@ export async function get360PlayerPostingData(filters: {
 
   const { data: chargeRows } = await admin
     .from("charges")
-    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, enrollments!inner(id, status, scholarship_status, campus_id, campuses(id, name, code), pricing_plans(plan_code, currency), players(id, public_player_id, first_name, last_name, birth_date))")
+    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, enrollments!inner(id, status, scholarship_status, custom_scholarship_amount, campus_id, campuses(id, name, code), pricing_plans(plan_code, currency), players(id, public_player_id, first_name, last_name, birth_date))")
     .eq("charge_type_id", chargeType.id)
     .eq("period_month", periodMonth)
     .neq("status", "void")
@@ -278,8 +279,12 @@ export async function get360PlayerPostingData(filters: {
     const enrollment = row.enrollments;
     const planCode = enrollment?.pricing_plans?.plan_code ?? null;
     const quotes = planCode ? quotesByPlan.get(planCode) : null;
-    const earlyAmount = quotes?.early ? applyScholarshipToAmount(quotes.early.amount, enrollment!.scholarship_status) : null;
-    const lateAmount = quotes?.late ? applyScholarshipToAmount(quotes.late.amount, enrollment!.scholarship_status) : null;
+    const earlyAmount = quotes?.early
+      ? applyScholarshipToAmount(quotes.early.amount, enrollment!.scholarship_status, enrollment!.custom_scholarship_amount)
+      : null;
+    const lateAmount = quotes?.late
+      ? applyScholarshipToAmount(quotes.late.amount, enrollment!.scholarship_status, enrollment!.custom_scholarship_amount)
+      : null;
     const selectedAmount = mode === "early" ? earlyAmount : lateAmount;
     const allocatedAmount = allocationByCharge.get(row.id) ?? 0;
     const pendingAmount = roundMoney(row.amount - allocatedAmount);

@@ -44,6 +44,13 @@
 - Simplified `Datos Faltantes` tutor capture language: staff now use `Guardar datos` instead of `Crear tutor(es)` / `Crear segundo tutor`, and the no-tutor copy explains they can capture whatever data they have and save once.
 - Removed required browser/server constraints from tutor edit fields; any single tutor field is enough to save, while completely blank tutor saves remain blocked to avoid empty contacts.
 
+### Custom Fixed Scholarship Amount (v1.16.170)
+
+- Added a `custom` monthly scholarship status with `custom_scholarship_amount` on enrollments for fixed-price scholarships such as `$500.00` monthly tuition.
+- Wired the existing scholarship section on enrollment edit to support `Beca personalizada` plus a fixed monthly amount; directors/admins remain the only users who can change scholarship settings.
+- Updated shared tuition calculations for enrollment scholarship sync, Caja advance tuition, 360Player batch posting, TypeScript monthly generation helper, and the live `generate_monthly_charges` / `reprice_pending_monthly_tuition` database functions.
+- Kept drift guardrails: full scholarships still skip monthly generation, custom scholarships still generate monthly charges, and pending tuition with existing payment allocations remains blocked from automatic scholarship repricing.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)

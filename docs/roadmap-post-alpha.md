@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.168`
-- Current preview line: `v1.16.169`
+- Current production line: `v1.16.169`
+- Current preview line: `v1.16.170`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -346,3 +346,7 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 - Attendance/training groups planning: `docs/planning/attendance-training-groups-roadmap.md`
 - Attendance calendar/closures planning: `docs/planning/attendance-calendar-closures-plan.md`
 - Full pre-reorg roadmap snapshot: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
+
+## Active Preview Addendum
+
+- 🟢 `v1.16.170` Custom fixed scholarship amount: adds `Beca personalizada` with a fixed monthly amount, currently for `$500.00` tuition, through the existing enrollment scholarship section and shared tuition calculation paths. Validate before main because it touches monthly charges/repricing.
