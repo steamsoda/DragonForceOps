@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
 import type { PlayerRosterGroupsData, RosterTuitionCell } from "@/lib/queries/player-roster-groups";
 import { updatePlayerRosterTrainingGroupsAction } from "@/server/actions/training-groups";
@@ -482,7 +483,10 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                         </td>
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.inscriptionDate}</td>
                         <td className="px-2 py-2 text-center">
-                          <RecentAttendanceChips items={row.recentAttendance} />
+                          <div className="flex flex-col items-center gap-1">
+                            <RecentAttendanceChips items={row.recentAttendance} />
+                            <AttendanceRiskBadge risk={row.attendanceRisk} compact />
+                          </div>
                         </td>
                         {row.tuition.map((cell) => (
                           <td key={cell.periodMonth} className="px-2 py-2 text-center">

@@ -1,5 +1,6 @@
 import { canAccessAttendanceCampus, canWriteAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { getAttendanceRiskTier, type AttendanceRiskTier } from "@/lib/attendance/risk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyDateString, getMonterreyMonthBounds, getMonterreyMonthString, getMonterreyWeekBounds } from "@/lib/time";
 import {
@@ -136,6 +137,31 @@ type RecentPlayerAttendanceRpcRow = {
 
 type RecentPlayerAttendanceRpcClient = {
   rpc: ReturnType<typeof createAdminClient>["rpc"];
+};
+
+type PlayerAttendanceRiskRpcRow = {
+  player_id: string;
+  enrollment_id: string | null;
+  absence_streak: number | null;
+  days_since_last_attendance: number | null;
+  last_absent_date: string | null;
+  last_attendance_date: string | null;
+  recent_statuses: Array<RecentPlayerAttendanceItem["status"]> | null;
+};
+
+type PlayerAttendanceRiskRpcClient = {
+  rpc: ReturnType<typeof createAdminClient>["rpc"];
+};
+
+export type PlayerAttendanceRisk = {
+  playerId: string;
+  enrollmentId: string | null;
+  absenceStreak: number;
+  daysSinceLastAttendance: number | null;
+  lastAbsentDate: string | null;
+  lastAttendanceDate: string | null;
+  recentStatuses: RecentPlayerAttendanceItem["status"][];
+  tier: AttendanceRiskTier | null;
 };
 
 export type AttendanceInactivePlayerRow = {
@@ -905,6 +931,43 @@ export async function getRecentPlayerAttendanceByPlayerIds(
       status: row.status,
     });
     grouped.set(row.player_id, entries);
+  }
+
+  return grouped;
+}
+
+export async function getPlayerAttendanceRiskByPlayerIds(
+  playerIds: string[],
+  options: { supabase?: PlayerAttendanceRiskRpcClient; today?: string } = {},
+) {
+  const uniquePlayerIds = [...new Set(playerIds)].filter(Boolean);
+  if (uniquePlayerIds.length === 0) return new Map<string, PlayerAttendanceRisk>();
+
+  const supabase = options.supabase ?? createAdminClient();
+  const today = options.today ?? getMonterreyDateString();
+  const { data, error } = await supabase.rpc("get_player_attendance_risk", {
+    p_player_ids: uniquePlayerIds,
+    p_today: today,
+  });
+
+  if (error) {
+    throw new Error(`player attendance risk: ${error.message ?? "query failed"}`);
+  }
+
+  const grouped = new Map<string, PlayerAttendanceRisk>();
+  for (const row of (data ?? []) as PlayerAttendanceRiskRpcRow[]) {
+    const absenceStreak = Number(row.absence_streak ?? 0);
+    const daysSinceLastAttendance = row.days_since_last_attendance == null ? null : Number(row.days_since_last_attendance);
+    grouped.set(row.player_id, {
+      playerId: row.player_id,
+      enrollmentId: row.enrollment_id,
+      absenceStreak,
+      daysSinceLastAttendance,
+      lastAbsentDate: row.last_absent_date,
+      lastAttendanceDate: row.last_attendance_date,
+      recentStatuses: row.recent_statuses ?? [],
+      tier: getAttendanceRiskTier({ absenceStreak, daysSinceLastAttendance }, today),
+    });
   }
 
   return grouped;

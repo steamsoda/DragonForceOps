@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPendingTuitionCategoryDetailData, type PendingTuitionPlayer } from "@/lib/queries/tuition-pending";
+import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
 import { PendingDetailPrintButton } from "@/components/pending/pending-detail-print-button";
 import { PageShell } from "@/components/ui/page-shell";
@@ -161,7 +162,10 @@ export default async function PendingTuitionDetailPage({ searchParams }: { searc
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                           Ult. asistencia
                         </p>
-                        <RecentAttendanceChips items={player.recentAttendance} align="start" />
+                        <div className="space-y-1">
+                          <RecentAttendanceChips items={player.recentAttendance} align="start" />
+                          <AttendanceRiskBadge risk={player.attendanceRisk} />
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {player.pendingMonths.map((month) => (

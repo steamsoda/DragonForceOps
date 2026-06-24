@@ -1,5 +1,10 @@
 import { canAccessCampus, getOperationalCampusAccess, type AccessibleCampus, type OperationalCampusAccess } from "@/lib/auth/campuses";
-import { getRecentPlayerAttendanceByPlayerIds, type RecentPlayerAttendanceItem } from "@/lib/queries/attendance";
+import {
+  getPlayerAttendanceRiskByPlayerIds,
+  getRecentPlayerAttendanceByPlayerIds,
+  type PlayerAttendanceRisk,
+  type RecentPlayerAttendanceItem,
+} from "@/lib/queries/attendance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getMonterreyDateParts } from "@/lib/time";
@@ -75,6 +80,7 @@ export type PlayerRosterGroupRow = {
   startDate: string;
   tuition: RosterTuitionCell[];
   recentAttendance: RecentPlayerAttendanceItem[];
+  attendanceRisk: PlayerAttendanceRisk | null;
 };
 
 export type PlayerRosterGroupSection = {
@@ -342,7 +348,11 @@ export async function getPlayerRosterGroupsData(
 
   const birthYears = [...new Set(birthYearRows.map((row) => getBirthYear(row.players?.birth_date)).filter((year): year is number => year != null))].sort((a, b) => b - a);
   const groupsById = new Map(groups.map((group) => [group.id, group]));
-  const recentAttendanceByPlayer = await getRecentPlayerAttendanceByPlayerIds(rosterRows.map((row) => row.player_id), { supabase });
+  const rosterPlayerIds = rosterRows.map((row) => row.player_id);
+  const [recentAttendanceByPlayer, attendanceRiskByPlayer] = await Promise.all([
+    getRecentPlayerAttendanceByPlayerIds(rosterPlayerIds, { supabase }),
+    getPlayerAttendanceRiskByPlayerIds(rosterPlayerIds, { supabase }),
+  ]);
 
   const sectionMap = new Map<string, PlayerRosterGroupSection>();
   for (const group of [...groups].sort((a, b) => {
@@ -404,6 +414,7 @@ export async function getPlayerRosterGroupsData(
       startDate: row.start_date,
       tuition: buildTuitionCellsFromRpc(months, row),
       recentAttendance: recentAttendanceByPlayer.get(row.player_id) ?? [],
+      attendanceRisk: attendanceRiskByPlayer.get(row.player_id) ?? null,
     });
   }
 

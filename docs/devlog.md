@@ -51,6 +51,14 @@
 - Updated shared tuition calculations for enrollment scholarship sync, Caja advance tuition, 360Player batch posting, TypeScript monthly generation helper, and the live `generate_monthly_charges` / `reprice_pending_monthly_tuition` database functions.
 - Kept drift guardrails: full scholarships still skip monthly generation, custom scholarships still generate monthly charges, and pending tuition with existing payment allocations remains blocked from automatic scholarship repricing.
 
+### Attendance Risk Badge Source (v1.16.171)
+
+- Added a batch SQL helper, `public.get_player_attendance_risk(...)`, for player-level attendance risk without per-player requests.
+- The risk source counts only explicit `absent` attendance records from completed sessions; missing records do not count, and `justified` / `injury` break the absence streak.
+- Added tiered labels for `3 faltas seguidas`, `4+ faltas seguidas`, `Sin asistir 30+ dias`, and `Sin asistir 60+ dias`.
+- Surfaced the badge first in `Jugadores > Vista por grupos` and `Pendientes` detail rows beside the existing recent-attendance chips.
+- Added a focused `npm run test:attendance-risk` assertion for the tier boundaries.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)
