@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.170`
-- Current preview line: `v1.16.171`
+- Current preview line: `v1.16.172`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -90,9 +90,9 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` coach roster print sheet | Shipped in `v1.16.166`: coaches can print a group-by-group checklist directly from `Jugadores` without exporting Excel first. | User Feedback Intake 2026-06-23, Jugadores lane, `v1.16.166` devlog |
-| 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.171` devlog |
+| 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source, and `v1.16.172` fixes large-roster RPC pagination. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.172` devlog |
 | 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
-| 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; next reuse it in Caja and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
+| 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches. Next reuse it in Caja and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
 
 **How `Now` Works**
@@ -135,7 +135,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|---|
 | 🔴 | 2026-06-23 Front Desk print + attendance visibility wave | Promote the coach print sheet first if staff need paper immediately; build recent attendance through a shared source before surfacing it across queues. | Checkpoint 2026-06-23 |
 | ✅ | Coach roster print sheet from `Jugadores` | Shipped in `v1.16.166`: direct-print action under `Herramientas`, separate from `Exportar Excel`. One group per printed page; players alphabetical; columns: count, full name, ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes. | Jugadores, `v1.16.166` devlog |
-| 🟢 | Recent attendance visible beside players | Production `v1.16.167` adds the shared batch source and first `Jugadores` roster chips; production `v1.16.168` adds the same last-five chips to `Pendientes` detail rows. Preview `v1.16.171` adds the tiered attendance-risk badge source. Continue later with Caja and relation reports. | Asistencia, Jugadores, Front Desk / Caja / Collections, `v1.16.167`-`v1.16.171` devlog |
+| 🟢 | Recent attendance visible beside players | Production `v1.16.167` adds the shared batch source and first `Jugadores` roster chips; production `v1.16.168` adds the same last-five chips to `Pendientes` detail rows. Preview `v1.16.171` adds the tiered attendance-risk badge source; `v1.16.172` fixes large-roster batch pagination. Continue later with Caja and relation reports. | Asistencia, Jugadores, Front Desk / Caja / Collections, `v1.16.167`-`v1.16.172` devlog |
 | 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
 | ✅ | 1. Re-enrollment pricing tier still at `$600` | Preview `v1.16.159` updates the returning `Solo inscripcion` option to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections, `v1.16.159` devlog |
 | ✅ | 2. Training-group move permissions audit | Preview `v1.16.160` confirms the route/action split and adds explicit attendance-campus write checks before service-role group assignment writes. It also adds `Admin Oficina` as a global non-finance player/contact + attendance role. | Safety / Permissions / Data Integrity, Jugadores, `v1.16.160` devlog |
@@ -205,7 +205,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; `v1.16.166` adds a direct-print coach roster sheet. Keep open for broader list/export needs. |
 | ✅ | Coach roster direct print sheet | Shipped in `v1.16.166`: print-only roster sheet from `Jugadores > Vista por grupos`, inside `Herramientas`, one training group per page, alphabetical roster, ID, enrollment date, coach familiarity checkboxes, and notes column. |
-| 🟢 | Recent attendance on player roster | Production `v1.16.167` shows compact last-5-sessions attendance chips beside players without per-player client queries; `v1.16.168` shares the same helper with `Pendientes`; preview `v1.16.171` adds tiered attendance-risk badges. |
+| 🟢 | Recent attendance on player roster | Production `v1.16.167` shows compact last-5-sessions attendance chips beside players without per-player client queries; `v1.16.168` shares the same helper with `Pendientes`; preview `v1.16.171` adds tiered attendance-risk badges; `v1.16.172` chunks large player batches to avoid truncated chip data. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
 | ✅ | Training-group movement permissions audit | Preview `v1.16.160` adds explicit attendance-campus write checks before group assignment service-role writes and documents the next automation boundary. |
 | 🔴 | New enrollment B1 auto-assignment | Auto-assign new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups should be preferred for female players when available. |
@@ -349,5 +349,6 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 
 ## Active Preview Addendum
 
+- 🟢 `v1.16.172` Attendance batch pagination fix: chunks large player RPC calls so recent attendance chips and risk badges do not drop later players from big rosters.
 - 🟢 `v1.16.171` Attendance risk badge source: adds the batched confirmed-absence / inactive-player risk RPC and first badges in `Jugadores` and `Pendientes`. Validate on preview before main; no attendance write or finance behavior changes.
 - ✅ `v1.16.170` Custom fixed scholarship amount: adds `Beca personalizada` with a fixed monthly amount, currently for `$500.00` tuition, through the existing enrollment scholarship section and shared tuition calculation paths.

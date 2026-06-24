@@ -59,6 +59,13 @@
 - Surfaced the badge first in `Jugadores > Vista por grupos` and `Pendientes` detail rows beside the existing recent-attendance chips.
 - Added a focused `npm run test:attendance-risk` assertion for the tier boundaries.
 
+### Attendance Batch Pagination Fix (v1.16.172)
+
+- Fixed a production bug where `Jugadores > Vista por grupos` could show `Sin registros` for players who did have recent attendance records.
+- Root cause: the shared recent-attendance RPC returned up to five rows per player, so large rosters could exceed the PostgREST response cap and silently omit later players from the batch result.
+- Added a shared player-RPC chunking helper and wired it into both recent-attendance chips and attendance-risk badges.
+- Added `npm run test:player-rpc-batching` to guard the chunking behavior.
+
 ## 2026-06-17 (session 192)
 
 ### Attendance Daily Report and Capture Nomenclature (v1.16.165)

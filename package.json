@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.171",
+  "version": "1.16.172",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:attendance-risk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-attendance-risk.mjs",
+    "test:player-rpc-batching": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-player-rpc-batching.mjs",
     "test:pricing": "node scripts/assert-enrollment-pricing-rules.mjs && node scripts/assert-returning-enrollment-pricing.mjs",
     "diagnose:finance": "node scripts/export-finance-anomaly-report.mjs",
     "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs",
