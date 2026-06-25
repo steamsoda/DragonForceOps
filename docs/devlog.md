@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-24 (session 194)
+
+### New Enrollment B1 Training Group Auto-Assignment (v1.16.173)
+
+- Added a guarded default training-group auto-assignment path for new enrollments and one-page intake enrollments.
+- New players now get assigned to an active B1 Futbol Para Todos training group only when campus, birth year/category, and gender resolve to exactly one safe match.
+- Female-specific groups are preferred when available; ambiguous/no-match cases remain `Sin grupo` for manual review.
+- Kept the legacy B2 competition-team auto-assignment untouched for this pass; it can be removed or rethought separately.
+- Added `npm run test:training-group-auto-assign` to cover the B1 matching and insert payload behavior.
+
 ## 2026-06-23 (session 193)
 
 ### Roadmap Intake: Coach Print Sheet and Attendance Visibility

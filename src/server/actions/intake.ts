@@ -12,6 +12,7 @@ import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
 import { parsePlayerFormData } from "@/lib/validations/player";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
+import { assignDefaultB1TrainingGroupForEnrollment } from "@/lib/training-groups/auto-assign";
 import { createPerfTimer } from "@/lib/perf/timing";
 
 type ChargeTypeRow = { id: string; code: string };
@@ -458,6 +459,19 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   // ────────────────────────────────────────────────────────────────────────
 
   const birthYear = Number(player.birthDate.slice(0, 4));
+  const defaultTrainingGroupResult = await assignDefaultB1TrainingGroupForEnrollment({
+    admin,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    enrollmentId: createdEnrollment.id,
+    playerId: createdPlayer.id,
+    campusId: enrollment.campusId,
+    birthYear,
+    gender: player.gender ?? null,
+    assignmentStart: enrollment.startDate,
+  });
+  perf.mark("auto_training_group_write");
+
   const b2Team = await findB2TeamForAutoAssign(enrollment.campusId, birthYear, player.gender ?? null);
   perf.mark("auto_assign_lookup");
   if (b2Team) {
@@ -517,6 +531,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     extraKit: addExtraKit,
     gameUniform: addGameUniform,
     autoAssignedB2: Boolean(b2Team),
+    autoAssignedTrainingGroup: defaultTrainingGroupResult.assigned,
   });
   redirect(`/caja?enrollmentId=${createdEnrollment.id}`);
 }

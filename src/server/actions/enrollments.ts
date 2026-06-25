@@ -18,6 +18,7 @@ import {
 import { parseEnrollmentDropoutData, parseEnrollmentFormData, parseEnrollmentEditData } from "@/lib/validations/enrollment";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
+import { assignDefaultB1TrainingGroupForEnrollment } from "@/lib/training-groups/auto-assign";
 import { getMonterreyDateString, getMonterreyMonthString, parseDateOnlyInput } from "@/lib/time";
 import { getPermissionContext } from "@/lib/auth/permissions";
 
@@ -401,6 +402,18 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
   }
 
   const birthYear = player.birth_date ? new Date(player.birth_date).getFullYear() : null;
+  await assignDefaultB1TrainingGroupForEnrollment({
+    admin,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    enrollmentId,
+    playerId,
+    campusId: parsed.campusId,
+    birthYear,
+    gender: player.gender ?? null,
+    assignmentStart: parsed.startDate,
+  });
+
   if (birthYear) {
     const b2Team = await findB2TeamForAutoAssign(parsed.campusId, birthYear, player.gender ?? null);
     if (b2Team) {

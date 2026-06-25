@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.170`
-- Current preview line: `v1.16.172`
+- Current production line: `v1.16.172`
+- Current preview line: `v1.16.173`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -80,7 +80,7 @@ Front Desk added a small but high-value feedback wave before the remaining atten
 **Still Active**
 
 - 🔴 Confirmed-absence risk badge remains the durable source for 3 true absences in a row.
-- 🔴 New-enrollment B1 auto-assignment remains active but can follow the Front Desk print/attendance visibility pass if the print sheet is needed first.
+- 🟢 New-enrollment B1 auto-assignment is implemented in preview `v1.16.173`; validate that new intake/re-enrollment players land in the intended B1 group and ambiguous cases remain `Sin grupo`.
 - 🟡 Caja refund/reassignment/account-credit monitoring stays active after finance-sensitive changes.
 
 ## Now
@@ -91,7 +91,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 |---|---|---|---|
 | ✅ | `Jugadores` coach roster print sheet | Shipped in `v1.16.166`: coaches can print a group-by-group checklist directly from `Jugadores` without exporting Excel first. | User Feedback Intake 2026-06-23, Jugadores lane, `v1.16.166` devlog |
 | 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source, and `v1.16.172` fixes large-roster RPC pagination. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.172` devlog |
-| 🔴 | New enrollment B1 auto-assignment | Reduce manual setup by auto-assigning new players to the matching B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous active group. | Jugadores lane |
+| 🟢 | New enrollment B1 auto-assignment | Preview `v1.16.173` auto-assigns new players to the matching active B1 Futbol Para Todos training group when campus + YOB + gender produce one unambiguous safe match. | Jugadores lane, `v1.16.173` devlog |
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches. Next reuse it in Caja and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
 
@@ -139,7 +139,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🔴 | June 2026 feedback wave | Active priority wave. Use the ordered sequence below; promote one or two items into implementation at a time. | Checkpoint 2026-06-15 |
 | ✅ | 1. Re-enrollment pricing tier still at `$600` | Preview `v1.16.159` updates the returning `Solo inscripcion` option to `$700` without changing unrelated pricing rules. | Front Desk / Caja / Collections, `v1.16.159` devlog |
 | ✅ | 2. Training-group move permissions audit | Preview `v1.16.160` confirms the route/action split and adds explicit attendance-campus write checks before service-role group assignment writes. It also adds `Admin Oficina` as a global non-finance player/contact + attendance role. | Safety / Permissions / Data Integrity, Jugadores, `v1.16.160` devlog |
-| 🔴 | 3. New-enrollment B1 auto-assignment | Auto-assign new enrollments only when there is exactly one matching active B1 Futbol Para Todos group by campus, category/YOB, and gender. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores |
+| 🟢 | 3. New-enrollment B1 auto-assignment | Preview `v1.16.173` wires guarded B1 auto-assignment into both existing-player enrollment and one-page intake. Female-specific group wins when available; ambiguous/no match stays `Sin grupo`. | Jugadores, `v1.16.173` devlog |
 | 🟢 | 4. Attendance risk badge | Preview `v1.16.171` adds a derived badge for 3 confirmed absences, 4+ confirmed absences, and 30+/60+ days since last positive attendance. Missing records do not count as absences. First surfaces: `Jugadores` and `Pendientes`; Caja/report reuse remains next. | Asistencia, Front Desk / Caja / Collections |
 | 🟢 | 5. Pendientes attendance summary | `v1.16.161` adds YOB-first ordering, category dividers, Excel export, and print list. `v1.16.162` adds primary tutor phone to the printed list. Production `v1.16.168` adds last-five attendance chips to detail rows; preview `v1.16.171` adds tiered attendance-risk badges. | Front Desk / Caja / Collections, `v1.16.168` and `v1.16.171` devlog |
 | 🔴 | 6. Collections + attendance relation report | Build a finance-visible report for `no paga y no asiste`, `no paga pero si asiste`, and related risk combinations. Keep attendance-only users out of money data. | Reports / Finance / Admin |
@@ -208,7 +208,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Recent attendance on player roster | Production `v1.16.167` shows compact last-5-sessions attendance chips beside players without per-player client queries; `v1.16.168` shares the same helper with `Pendientes`; preview `v1.16.171` adds tiered attendance-risk badges; `v1.16.172` chunks large player batches to avoid truncated chip data. |
 | 🔴 | Account-page YOB + breadcrumb polish | Restore year/category visibility and better navigation context on remaining account/finance surfaces. |
 | ✅ | Training-group movement permissions audit | Preview `v1.16.160` adds explicit attendance-campus write checks before group assignment service-role writes and documents the next automation boundary. |
-| 🔴 | New enrollment B1 auto-assignment | Auto-assign new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups should be preferred for female players when available. |
+| 🟢 | New enrollment B1 auto-assignment | Preview `v1.16.173` auto-assigns new players to the matching active B1 Futbol Para Todos group only when the match is unambiguous by campus, category/YOB, and gender. Female-specific groups are preferred for female players when available. |
 
 ### Regularización Histórica
 
@@ -297,6 +297,11 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.173` — New enrollments now auto-assign to the matching active B1 Futbol Para Todos training group when the campus/YOB/gender match is unambiguous.
+- 🟢 `v1.16.172` — Large player RPC batches are chunked so recent attendance chips and risk badges do not truncate big rosters.
+- 🟢 `v1.16.171` — Attendance risk badges identify confirmed absence streaks and 30+/60+ day inactivity.
+- ✅ `v1.16.170` — Enrollment scholarships now support custom fixed monthly tuition amounts.
+
 - 🟢 `v1.16.169` — Datos Faltantes now lets Admin Oficina save player/tutor contact updates with simpler `Guardar datos` wording and optional tutor fields.
 - 🟢 `v1.16.168` — `Pendientes` detail rows now show compact recent-attendance chips from the shared batch attendance source.
 - 🟢 `v1.16.167` — `Jugadores > Vista por grupos` now shows compact recent-attendance chips from a batch SQL source.
@@ -348,6 +353,8 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 - Full pre-reorg roadmap snapshot: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
 
 ## Active Preview Addendum
+
+- 🟢 `v1.16.173` New enrollment B1 auto-assignment: guarded default assignment for one-page intake and existing-player enrollment; ambiguous/no-match players remain `Sin grupo`.
 
 - 🟢 `v1.16.172` Attendance batch pagination fix: chunks large player RPC calls so recent attendance chips and risk badges do not drop later players from big rosters.
 - 🟢 `v1.16.171` Attendance risk badge source: adds the batched confirmed-absence / inactive-player risk RPC and first badges in `Jugadores` and `Pendientes`. Validate on preview before main; no attendance write or finance behavior changes.
