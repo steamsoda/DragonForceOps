@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-06-25 (session 195)
+
+### New Enrollment Female Combined-Year Auto-Assignment Fix (v1.16.174)
+
+- Fixed the new-enrollment default training group matcher so female players can be assigned to the single matching female Futbol Para Todos group for their campus/category even when the operational group code is not `B1`.
+- Confirmed preview metadata: 2015 female players now resolve to `Avanzado B2 Femenil` for the 2014/2015 combined group in both Linda Vista and Contry.
+- Kept the original guardrails: B1 remains the default target, male players are not sent to B2 fallback groups, and ambiguous/no-match cases still remain `Sin grupo`.
+- Added a regression assertion for the 2015 female / 2014-2015 Femenil combined-year case.
+
 ## 2026-06-24 (session 194)
 
 ### New Enrollment B1 Training Group Auto-Assignment (v1.16.173)

@@ -28,6 +28,20 @@ function genderRank(groupGender: string, playerGender: string | null | undefined
   return groupGender === playerGender ? 0 : null;
 }
 
+function defaultGroupRank(group: DefaultTrainingGroupCandidate, playerGender: string | null | undefined) {
+  const gender = genderRank(group.gender, playerGender);
+  if (gender == null) return null;
+
+  const code = normalizeCode(group.groupCode);
+  if (code === "B1") return { gender, code: 0 };
+
+  if (playerGender === "female" && group.gender === "female") {
+    return { gender, code: 1 };
+  }
+
+  return null;
+}
+
 export function resolveDefaultB1TrainingGroup(params: {
   groups: DefaultTrainingGroupCandidate[];
   campusId: string;
@@ -41,16 +55,17 @@ export function resolveDefaultB1TrainingGroup(params: {
       group.campusId === params.campusId &&
       group.status === "active" &&
       group.program === "futbol_para_todos" &&
-      normalizeCode(group.groupCode) === "B1" &&
       birthYearMatches(group, params.birthYear!)
     )
-    .map((group) => ({ group, rank: genderRank(group.gender, params.gender) }))
-    .filter((row): row is { group: DefaultTrainingGroupCandidate; rank: number } => row.rank != null);
+    .map((group) => ({ group, rank: defaultGroupRank(group, params.gender) }))
+    .filter((row): row is { group: DefaultTrainingGroupCandidate; rank: { gender: number; code: number } } => row.rank != null);
 
   if (compatible.length === 0) return null;
 
-  const bestRank = Math.min(...compatible.map((row) => row.rank));
-  const bestMatches = compatible.filter((row) => row.rank === bestRank).map((row) => row.group);
+  const bestGenderRank = Math.min(...compatible.map((row) => row.rank.gender));
+  const genderMatches = compatible.filter((row) => row.rank.gender === bestGenderRank);
+  const bestCodeRank = Math.min(...genderMatches.map((row) => row.rank.code));
+  const bestMatches = genderMatches.filter((row) => row.rank.code === bestCodeRank).map((row) => row.group);
 
   return bestMatches.length === 1 ? bestMatches[0] : null;
 }
@@ -89,7 +104,6 @@ export async function assignDefaultB1TrainingGroupForEnrollment(params: {
       .select("id, campus_id, name, program, group_code, gender, birth_year_min, birth_year_max, status")
       .eq("campus_id", campusId)
       .eq("program", "futbol_para_todos")
-      .eq("group_code", "B1")
       .eq("status", "active")
       .returns<Array<{
         id: string;

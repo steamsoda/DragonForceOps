@@ -48,6 +48,36 @@ assert.equal(
 assert.equal(
   resolveDefaultB1TrainingGroup({
     groups: [
+      {
+        ...baseGroup,
+        id: "group-male-2015",
+        campusId: "campus-lv",
+        name: "Avanzado B1",
+        gender: "male",
+        birthYearMin: 2015,
+        birthYearMax: 2015,
+      },
+      {
+        ...baseGroup,
+        id: "group-female-2014-2015",
+        campusId: "campus-lv",
+        name: "Avanzado B2 Femenil",
+        groupCode: "B2",
+        gender: "female",
+        birthYearMin: 2014,
+        birthYearMax: 2015,
+      },
+    ],
+    campusId: "campus-lv",
+    birthYear: 2015,
+    gender: "female",
+  })?.id,
+  "group-female-2014-2015",
+);
+
+assert.equal(
+  resolveDefaultB1TrainingGroup({
+    groups: [
       baseGroup,
       {
         ...baseGroup,
