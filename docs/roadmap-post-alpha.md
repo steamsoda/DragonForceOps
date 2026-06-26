@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.174`
-- Current preview line: `v1.16.175`
+- Current production line: `v1.16.175`
+- Current preview line: `v1.16.176`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -90,7 +90,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` coach roster print sheet | Shipped in `v1.16.166`: coaches can print a group-by-group checklist directly from `Jugadores` without exporting Excel first. | User Feedback Intake 2026-06-23, Jugadores lane, `v1.16.166` devlog |
-| 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source, and `v1.16.172` fixes large-roster RPC pagination. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.172` devlog |
+| 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source, `v1.16.172` fixes large-roster RPC pagination, and `v1.16.176` fixes `Grupos` monthly record pagination. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.176` devlog |
 | 🟢 | New enrollment B1 auto-assignment | Preview `v1.16.174` auto-assigns new players to the matching active Futbol Para Todos training group when campus + YOB + gender produce one unambiguous safe match, including the 2014/2015 Femenil combined-year group. | Jugadores lane, `v1.16.173`-`v1.16.174` devlog |
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches. Next reuse it in Caja and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
@@ -232,7 +232,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Daily attendance report | Preview `v1.16.165` adds a read-only daily report inside `Asistencia > Reportes` with session totals, expected-vs-recorded counts, status counts, closures, and notes. |
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🟢 | Confirmed-absence risk badge | Preview `v1.16.171` derives tiered badges for 3 confirmed absences, 4+ confirmed absences, and 30+/60+ days since last positive attendance. Missing attendance records are not absences. First surfaces: Jugadores and Pendientes; Caja and reports remain follow-up reuse. |
-| 🟢 | Shared recent attendance summary source | Production `v1.16.167` adds the batch/RPC-backed source for latest player attendance; `v1.16.168` reuses it in `Pendientes`; preview `v1.16.171` adds the companion attendance-risk RPC. Reuse both next for Caja/collections reports. |
+| 🟢 | Shared recent attendance summary source | Production `v1.16.167` adds the batch/RPC-backed source for latest player attendance; `v1.16.168` reuses it in `Pendientes`; preview `v1.16.171` adds the companion attendance-risk RPC; `v1.16.176` fixes paginated monthly record loading in `Grupos`. Reuse the sources next for Caja/collections reports. |
 | ✅ | Attendance nomenclature pass | Preview `v1.16.175` standardizes the attendance capture UI, shared chips, player summaries, daily reports, and group monthly views to `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; report/group `Ausencias` copy now reads as `Faltas`. |
 | 🟡 | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
@@ -297,6 +297,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.176` — `Asistencia > Grupos` detail matrices now paginate monthly attendance record loads so large campuses/months do not drop player-day cells.
 - 🟢 `v1.16.175` — Attendance nomenclature is standardized across capture, player summaries, recent chips, reports, and group views: `A Asistió`, `F Falta`, `🩹 Lesión`, `📝 Justificada`, with report `Faltas` wording.
 - 🟢 `v1.16.174` — Female 2014/2015 new enrollments now resolve to the single matching Femenil combined-year Futbol Para Todos group even when its operational code is not B1.
 - 🟢 `v1.16.173` — New enrollments now auto-assign to the matching active B1 Futbol Para Todos training group when the campus/YOB/gender match is unambiguous.
@@ -356,6 +357,7 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 
 ## Active Preview Addendum
 
+- 🟢 `v1.16.176` Attendance group monthly pagination fix: `Grupos` detail matrices fetch all monthly attendance records in pages/chunks instead of relying on one capped response; no write/session/roster logic changed.
 - 🟢 `v1.16.175` Attendance nomenclature cleanup: capture, player summaries, recent chips, reports, and group monthly views now use `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; no attendance write or roster logic changed.
 - 🟢 `v1.16.174` Female combined-year auto-assignment fix: 2014/2015 female players resolve to the single matching Femenil Futbol Para Todos group; ambiguous/no-match players remain `Sin grupo`.
 - 🟢 `v1.16.173` New enrollment B1 auto-assignment: guarded default assignment for one-page intake and existing-player enrollment; ambiguous/no-match players remain `Sin grupo`.

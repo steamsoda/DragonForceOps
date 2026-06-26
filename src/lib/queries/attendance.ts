@@ -154,6 +154,16 @@ type PlayerAttendanceRiskRpcClient = {
   rpc: ReturnType<typeof createAdminClient>["rpc"];
 };
 
+type AttendanceMonthlyRecordRow = {
+  status: string;
+  player_id: string;
+  enrollment_id: string;
+  session_id: string;
+};
+
+const ATTENDANCE_RECORD_PAGE_SIZE = 1000;
+const ATTENDANCE_SESSION_ID_CHUNK_SIZE = 100;
+
 export type PlayerAttendanceRisk = {
   playerId: string;
   enrollmentId: string | null;
@@ -976,6 +986,45 @@ export async function getPlayerAttendanceRiskByPlayerIds(
   return grouped;
 }
 
+function chunkValues<T>(values: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchAttendanceRecordsBySessionIds(
+  admin: ReturnType<typeof createAdminClient>,
+  sessionIds: string[],
+): Promise<AttendanceMonthlyRecordRow[]> {
+  if (sessionIds.length === 0) return [];
+
+  const rows: AttendanceMonthlyRecordRow[] = [];
+  for (const chunk of chunkValues(sessionIds, ATTENDANCE_SESSION_ID_CHUNK_SIZE)) {
+    for (let from = 0; ; from += ATTENDANCE_RECORD_PAGE_SIZE) {
+      const to = from + ATTENDANCE_RECORD_PAGE_SIZE - 1;
+      const { data, error } = await admin
+        .from("attendance_records")
+        .select("status, player_id, enrollment_id, session_id")
+        .in("session_id", chunk)
+        .order("session_id", { ascending: true })
+        .range(from, to)
+        .returns<AttendanceMonthlyRecordRow[]>();
+
+      if (error) {
+        console.error("Failed to fetch attendance records for group monthly report", error);
+        break;
+      }
+
+      rows.push(...(data ?? []));
+      if ((data ?? []).length < ATTENDANCE_RECORD_PAGE_SIZE) break;
+    }
+  }
+
+  return rows;
+}
+
 export async function getAttendanceGroupsMonthlyData(filters: { campusId?: string; month?: string; groupId?: string }): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
   const selectedMonth = filters.month && /^\d{4}-\d{2}$/.test(filters.month) ? filters.month : getMonterreyMonthString();
@@ -1071,13 +1120,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
 
   const sessionRows = sessions ?? [];
   const sessionIds = sessionRows.map((session) => session.id);
-  const { data: records } = sessionIds.length > 0
-    ? await admin
-        .from("attendance_records")
-        .select("status, player_id, enrollment_id, session_id")
-        .in("session_id", sessionIds)
-        .returns<Array<{ status: string; player_id: string; enrollment_id: string; session_id: string }>>()
-    : { data: [] as Array<{ status: string; player_id: string; enrollment_id: string; session_id: string }> };
+  const records = await fetchAttendanceRecordsBySessionIds(admin, sessionIds);
 
   const coachMap = new Map<string, string | null>();
   const coachEntries = new Map<string, Array<{ isPrimary: boolean; name: string | null }>>();
@@ -1117,7 +1160,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
   }
 
   const groupRecordCounts = new Map<string, { total: number; absent: number; injury: number; justified: number }>();
-  for (const record of records ?? []) {
+  for (const record of records) {
     const session = sessionById.get(record.session_id);
     if (!session || session.status !== "completed") continue;
     const counts = groupRecordCounts.get(session.training_group_id) ?? { total: 0, absent: 0, injury: 0, justified: 0 };
@@ -1164,7 +1207,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     : [];
   const recordsByPlayer = new Map<string, Array<{ status: string; sessionId: string; sessionDate: string }>>();
   if (selectedGroupId) {
-    for (const record of records ?? []) {
+    for (const record of records) {
       const session = sessionById.get(record.session_id);
       if (!session || session.status !== "completed" || session.training_group_id !== selectedGroupId) continue;
       const rows = recordsByPlayer.get(record.player_id) ?? [];

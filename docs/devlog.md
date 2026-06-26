@@ -2,6 +2,13 @@
 
 ## 2026-06-25 (session 195)
 
+### Attendance Group Monthly Record Pagination Fix (v1.16.176)
+
+- Fixed `Asistencia > Grupos` detail matrices so monthly attendance records are fetched in paginated session chunks instead of relying on a single capped Supabase/PostgREST response.
+- This addresses cases where a player profile showed recent attendance, but the group monthly detail rendered blanks because the all-groups monthly record query silently stopped at the default response limit.
+- Added `npm run test:attendance-groups-pagination` to guard the paginated fetch path.
+- No attendance save logic, session generation, roster assignments, permissions, or finance behavior changed.
+
 ### Attendance Nomenclature Cross-Surface Cleanup (v1.16.175)
 
 - Standardized attendance labels across shared summaries, `Hoy` capture cards, recent-attendance chips, `Reportes`, and `Grupos` monthly views: `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`.
