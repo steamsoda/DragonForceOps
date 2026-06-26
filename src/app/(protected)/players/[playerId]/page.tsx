@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { getPermissionContext } from "@/lib/auth/permissions";
+import { canAccessPlayerRosterRecord, getPermissionContext } from "@/lib/auth/permissions";
 import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
@@ -281,11 +281,14 @@ export default async function PlayerDetailPage({
   searchParams: Promise<{ ok?: string; err?: string; nuked?: string; returnTo?: string }>;
 }) {
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasPlayerDataAccess) redirect("/unauthorized");
+  if (!permissionContext?.hasPlayerRosterAccess) redirect("/unauthorized");
 
   const { playerId } = await params;
+  if (!(await canAccessPlayerRosterRecord(playerId, permissionContext))) redirect("/unauthorized");
+
   const sp = await searchParams;
   const pendingReturnTo = getSafePendingReturnTo(sp.returnTo);
+  const canViewPlayerData = permissionContext.hasPlayerDataAccess;
   const canViewFinanceDetails = permissionContext.hasOperationalAccess;
   const player = await getPlayerDetail(playerId, { includeFinance: canViewFinanceDetails });
   const isSuperAdmin = permissionContext?.isSuperAdmin ?? false;
@@ -374,7 +377,7 @@ export default async function PlayerDetailPage({
                 </p>
                 <h2 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{player.fullName}</h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  ID: {player.publicPlayerId ?? "-"} | Nacimiento: {fmtDate(player.birthDate)} {primaryGuardian ? `| Tutor principal: ${primaryGuardian.first_name} ${primaryGuardian.last_name}` : ""}
+                  ID: {player.publicPlayerId ?? "-"} | Nacimiento: {fmtDate(player.birthDate)} {canViewPlayerData && primaryGuardian ? `| Tutor principal: ${primaryGuardian.first_name} ${primaryGuardian.last_name}` : ""}
                 </p>
               </div>
 
@@ -518,7 +521,7 @@ export default async function PlayerDetailPage({
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Ficha del jugador</h3>
-              {primaryGuardian?.phone_primary ? (
+              {canViewPlayerData && primaryGuardian?.phone_primary ? (
                 <a
                   href={`tel:${primaryGuardian.phone_primary}`}
                   className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
@@ -622,6 +625,7 @@ export default async function PlayerDetailPage({
             </div>
           </section>
 
+          {canViewPlayerData ? (
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Tutores y contacto</h3>
@@ -674,6 +678,7 @@ export default async function PlayerDetailPage({
               </div>
             )}
           </section>
+          ) : null}
         </div>
 
         <PlayerAttendanceSummary summary={attendanceSummary} />

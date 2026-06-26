@@ -142,6 +142,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     items: [{ href: "/players", label: "Jugadores" }],
   };
 
+  const sportsStaffSection: NavSection = {
+    label: "Diario",
+    items: [{ href: "/players", label: "Jugadores" }],
+  };
+
   const officeGestionSection: NavSection = {
     label: "Gestion",
     items: [{ href: "/datos-faltantes", label: "Datos faltantes" }],
@@ -177,7 +182,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   };
 
   const sections: NavSection[] = [
-    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess ? [sportsStaffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
@@ -186,7 +191,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
   const debugQuickLinks = [
-    ...(isDirectorOrAbove || isFrontDesk || isOfficeAdmin ? [{ href: "/players", label: "Jugadores" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess ? [{ href: "/players", label: "Jugadores" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/caja", label: "Caja" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : isOfficeAdmin ? [{ href: "/datos-faltantes", label: "Datos faltantes" }] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [{ href: "/sports-signups", label: "Torneos" }] : []),

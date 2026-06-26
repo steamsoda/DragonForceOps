@@ -32,6 +32,7 @@ export type PermissionContext = {
   isAttendanceAdmin: boolean;
   isOfficeAdmin: boolean;
   isFrontDesk: boolean;
+  hasPlayerRosterAccess: boolean;
   hasPlayerDataAccess: boolean;
   hasOperationalAccess: boolean;
   hasSportsAccess: boolean;
@@ -73,6 +74,7 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     isAttendanceAdmin,
     isOfficeAdmin,
     isFrontDesk,
+    hasPlayerRosterAccess: isDirector || isFrontDesk || isOfficeAdmin || isSportsDirector,
     hasPlayerDataAccess: isDirector || isFrontDesk || isOfficeAdmin,
     hasOperationalAccess: isDirector || isFrontDesk,
     hasSportsAccess: isSportsDirector,
@@ -91,6 +93,12 @@ export async function requireOperationalContext(redirectTo = "/unauthorized") {
 export async function requirePlayerDataContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasPlayerDataAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requirePlayerRosterContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasPlayerRosterAccess) redirect(redirectTo);
   return context;
 }
 
@@ -152,6 +160,22 @@ export async function canAccessPlayerRecord(
 ): Promise<boolean> {
   const resolvedContext = context ?? (await getPermissionContext());
   if (!resolvedContext?.hasPlayerDataAccess) return false;
+
+  const { data } = await resolvedContext.supabase
+    .from("enrollments")
+    .select("campus_id")
+    .eq("player_id", playerId)
+    .returns<EnrollmentCampusRow[]>();
+
+  return (data ?? []).some((row) => canAccessCampus(resolvedContext.campusAccess, row.campus_id));
+}
+
+export async function canAccessPlayerRosterRecord(
+  playerId: string,
+  context?: PermissionContext | null
+): Promise<boolean> {
+  const resolvedContext = context ?? (await getPermissionContext());
+  if (!resolvedContext?.hasPlayerRosterAccess) return false;
 
   const { data } = await resolvedContext.supabase
     .from("enrollments")

@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requirePlayerDataContext } from "@/lib/auth/permissions";
+import { requirePlayerRosterContext } from "@/lib/auth/permissions";
 import { listBajas, listBirthYears, listCampuses, listPlayers } from "@/lib/queries/players";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
@@ -317,12 +318,16 @@ function BajaReasonSummaryPanel({ summary, filterLabel }: { summary: BajaSummary
   );
 }
 
-function PlayerViewTabs({ view }: { view: "active" | "bajas" | "groups" }) {
+function PlayerViewTabs({ view, canViewLists }: { view: "active" | "bajas" | "groups"; canViewLists: boolean }) {
   const items = [
     { href: "/players", key: "groups", label: "Vista por grupos" },
-    { href: "/players?view=active", key: "active", label: "Activos" },
-    { href: "/players?view=bajas", key: "bajas", label: "Bajas" },
-  ] as const;
+    ...(canViewLists
+      ? [
+          { href: "/players?view=active", key: "active", label: "Activos" },
+          { href: "/players?view=bajas", key: "bajas", label: "Bajas" },
+        ]
+      : []),
+  ] as Array<{ href: string; key: "active" | "bajas" | "groups"; label: string }>;
 
   return (
     <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700">
@@ -363,7 +368,7 @@ type SearchParams = Promise<{
 }>;
 
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
-  const permissionContext = await requirePlayerDataContext("/unauthorized");
+  const permissionContext = await requirePlayerRosterContext("/unauthorized");
   const params = await searchParams;
   const q = params.q ?? "";
   const phone = params.phone ?? "";
@@ -380,6 +385,10 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const view = params.view === "active" ? "active" : params.view === "bajas" ? "bajas" : "groups";
 
+  if (view !== "groups" && !permissionContext.hasPlayerDataAccess) {
+    redirect("/players");
+  }
+
   if (view === "groups") {
     const selectedGroupGender = gender === "male" || gender === "female" ? gender : "";
     return (
@@ -390,7 +399,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         wide
       >
         <div className="space-y-4">
-          <PlayerViewTabs view={view} />
+          <PlayerViewTabs view={view} canViewLists={permissionContext.hasPlayerDataAccess} />
           <GroupedRosterClient filters={{ campusId: campusId || undefined, gender: selectedGroupGender || undefined, birthYear: birthYear || undefined }} />
         </div>
       </PageShell>
@@ -475,7 +484,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
           </div>
         ) : null}
 
-        <PlayerViewTabs view={view} />
+        <PlayerViewTabs view={view} canViewLists={permissionContext.hasPlayerDataAccess} />
 
         <div className="space-y-3">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">

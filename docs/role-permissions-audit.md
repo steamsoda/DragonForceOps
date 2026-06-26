@@ -1,6 +1,6 @@
 # Role Permissions Audit
 
-Last updated: 2026-05-04
+Last updated: 2026-06-25
 
 This document is the working source of truth for app roles, navigation access, data access, and write boundaries in INVICTA. It exists because app-layer route guards, Supabase RLS, preview debug mode, and production login behavior can drift apart if they are not reviewed together.
 
@@ -108,6 +108,7 @@ Purpose: sports-only operations for assigned campus.
 
 Expected navigation:
 
+- `Diario`: Jugadores
 - `Competencias`: Inscripciones Torneos
 - Sports routes if exposed intentionally:
   - `/director-deportivo`
@@ -124,18 +125,23 @@ Expected permissions:
   - active enrollment identity
 - Read paid/unpaid competition signup status only as an operational state.
 - See status chips such as `Pagado` / `Pendiente` when needed for sports operations.
+- Open `Jugadores > Vista por grupos` for assigned campus scope.
+- Open player profiles as read-only sports context for assigned campus scope.
+- Edit active player training-group assignments from the grouped roster.
 - Manage sports teams, tournament source teams, squads, rosters, and interest/confirmation workflows where enabled.
 - No Caja.
 - No money amounts.
 - No payment methods.
 - No receipts.
 - No general player financial profile.
+- No basic player/tutor data editing.
 - No enrollment editing.
 - No nutrition data.
 
 Current guardrail:
 
 - `Inscripciones Torneos` is allowed for sports staff but must remain a no-money surface.
+- As of `v1.16.177`, `Jugadores` uses narrow `hasPlayerRosterAccess` for sports directors while `hasPlayerDataAccess` remains limited to Director/Admin, Front Desk, and Admin Oficina.
 - Sports access should be verified through the production access diagnostic and live `/sports-signups` smoke test.
 - Do not broadly grant sports users raw finance-table access. If a sports view needs derived payment state, keep using safe server-side summaries with no amounts or payment methods.
 

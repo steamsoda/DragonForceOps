@@ -2,6 +2,13 @@
 
 ## 2026-06-25 (session 195)
 
+### Director Deportivo Contry Player Roster Access (v1.16.177)
+
+- Added a narrow `hasPlayerRosterAccess` permission so `director_deportivo` users can open `Jugadores > Vista por grupos` for their assigned campus and use the existing training-group edit mode.
+- Kept `hasPlayerDataAccess` unchanged, so sports directors still do not receive player/tutor edit access, Caja, bajas, enrollment editing, or finance detail surfaces.
+- Updated the grouped roster API/export and player profile read guard to use campus-scoped roster access; Contry-only scope still comes from the existing `user_roles.campus_id` assignment.
+- Added `npm run test:director-deportivo-player-roster` to guard the intended split between roster access and broader player-data editing access.
+
 ### Attendance Group Monthly Record Pagination Fix (v1.16.176)
 
 - Fixed `Asistencia > Grupos` detail matrices so monthly attendance records are fetched in paginated session chunks instead of relying on a single capped Supabase/PostgREST response.

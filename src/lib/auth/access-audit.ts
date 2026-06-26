@@ -95,6 +95,7 @@ function resolveUserAccess(rows: UserRoleRow[], activeCampuses: AccessCampus[]) 
       : resolveScopedCampuses(nutritionRows, activeCampuses);
 
   const hasOperationalAccess = isDirector || frontDeskRows.length > 0;
+  const hasPlayerRosterAccess = hasOperationalAccess || officeRows.length > 0 || sportsRows.length > 0;
   const hasPlayerDataAccess = hasOperationalAccess || officeRows.length > 0;
   const hasSportsAccess = isDirector || sportsRows.length > 0;
   const hasNutritionAccess = isDirector || nutritionRows.length > 0;
@@ -109,6 +110,7 @@ function resolveUserAccess(rows: UserRoleRow[], activeCampuses: AccessCampus[]) 
     isSuperAdmin,
     isDirector,
     hasOperationalAccess,
+    hasPlayerRosterAccess,
     hasPlayerDataAccess,
     hasSportsAccess,
     hasNutritionAccess,
@@ -120,6 +122,7 @@ function resolveUserAccess(rows: UserRoleRow[], activeCampuses: AccessCampus[]) 
       caja: hasOperationalAccess && operationalCampuses.length > 0,
       sports: hasSportsAccess && operationalCampuses.length > 0,
       nutrition: hasNutritionAccess && nutritionCampuses.length > 0,
+      playerRoster: hasPlayerRosterAccess && operationalCampuses.length > 0,
       playerData: hasPlayerDataAccess,
       attendance: hasAttendanceAccess && attendanceCampuses.length > 0,
       director: isDirector,

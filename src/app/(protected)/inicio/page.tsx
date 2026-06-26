@@ -34,6 +34,15 @@ export default async function InicioPage() {
           },
         ]
       : []),
+    ...(context?.hasPlayerRosterAccess && !context.hasPlayerDataAccess && !context.hasOperationalAccess
+      ? [
+          {
+            href: "/players",
+            title: "Jugadores",
+            description: "Roster por grupos y movimientos de entrenamiento.",
+          },
+        ]
+      : []),
     ...(context?.hasSportsAccess
       ? [
           {

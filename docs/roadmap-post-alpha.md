@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.175`
-- Current preview line: `v1.16.176`
+- Current preview line: `v1.16.177`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -92,6 +92,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | `Jugadores` coach roster print sheet | Shipped in `v1.16.166`: coaches can print a group-by-group checklist directly from `Jugadores` without exporting Excel first. | User Feedback Intake 2026-06-23, Jugadores lane, `v1.16.166` devlog |
 | 🟢 | Recent attendance at-a-glance | Production `v1.16.167` adds the shared batch source and first chips in `Jugadores`; production `v1.16.168` reuses it in `Pendientes` detail rows. Preview `v1.16.171` adds the tiered confirmed-absence / inactive badge source, `v1.16.172` fixes large-roster RPC pagination, and `v1.16.176` fixes `Grupos` monthly record pagination. | User Feedback Intake 2026-06-23, Asistencia / Pendientes lanes, `v1.16.167`-`v1.16.176` devlog |
 | 🟢 | New enrollment B1 auto-assignment | Preview `v1.16.174` auto-assigns new players to the matching active Futbol Para Todos training group when campus + YOB + gender produce one unambiguous safe match, including the 2014/2015 Femenil combined-year group. | Jugadores lane, `v1.16.173`-`v1.16.174` devlog |
+| 🟢 | Director Deportivo Contry roster access | Preview `v1.16.177` adds narrow `Jugadores > Vista por grupos` access and training-group edit mode for assigned-campus sports directors, without broad player-data edit or finance access. | Roles / Jugadores lane, `v1.16.177` devlog |
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches. Next reuse it in Caja and relation reports so Front Desk can prioritize calls with attendance context. | Front Desk / Asistencia / Reports lanes |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
 
