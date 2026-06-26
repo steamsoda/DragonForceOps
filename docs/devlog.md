@@ -2,6 +2,13 @@
 
 ## 2026-06-25 (session 195)
 
+### Attendance Nomenclature Cross-Surface Cleanup (v1.16.175)
+
+- Standardized attendance labels across shared summaries, `Hoy` capture cards, recent-attendance chips, `Reportes`, and `Grupos` monthly views: `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`.
+- Renamed report/group `Ausencias` labels to `Faltas` so staff see the same language used in the capture workflow.
+- Added `npm run test:attendance-nomenclature` to guard against the old `Asistio` / `Lesion` / `Ausencias` copy returning.
+- No attendance write logic, roster source, permission, finance, or session-generation behavior changed.
+
 ### New Enrollment Female Combined-Year Auto-Assignment Fix (v1.16.174)
 
 - Fixed the new-enrollment default training group matcher so female players can be assigned to the single matching female Futbol Para Todos group for their campus/category even when the operational group code is not `B1`.

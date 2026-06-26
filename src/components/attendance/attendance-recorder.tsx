@@ -7,9 +7,9 @@ import { saveAttendanceSessionAction } from "@/server/actions/attendance";
 import type { AttendanceSaveResult } from "@/server/actions/attendance";
 
 const STATUS_META = {
-  present: { label: "Asistio", short: "A", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+  present: { label: "Asistió", short: "A", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
   absent: { label: "Falta", short: "F", className: "border-rose-300 bg-rose-50 text-rose-800" },
-  injury: { label: "Lesion", short: "🩹", className: "border-sky-300 bg-sky-50 text-sky-800" },
+  injury: { label: "Lesión", short: "🩹", className: "border-sky-300 bg-sky-50 text-sky-800" },
   justified: { label: "Justificada", short: "📝", className: "border-slate-300 bg-slate-50 text-slate-700" },
 } as const;
 
@@ -199,7 +199,7 @@ export function AttendanceRecorder({
           {presentCount}/{roster.length} cuentan como asistencia
         </p>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Toca cada jugador para alternar entre A Asistio y F Falta. Usa Lesion o Justificada cuando aplique.
+          Toca cada jugador para alternar entre A Asistió y F Falta. Usa 🩹 Lesión o 📝 Justificada cuando aplique.
         </p>
       </div>
 

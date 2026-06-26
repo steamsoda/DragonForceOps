@@ -48,10 +48,10 @@ function statusChip(status: string | null) {
 
 function matrixStatusCell(status: string | null) {
   const meta: Record<string, { label: string; text: string; className: string }> = {
-    present: { label: "A Asistio", text: "A", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    present: { label: "A Asistió", text: "A", className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
     absent: { label: "F Falta", text: "F", className: "border-rose-200 bg-rose-50 text-rose-800" },
-    injury: { label: "Lesion", text: "🩹", className: "border-sky-200 bg-sky-50 text-sky-800" },
-    justified: { label: "Justificada", text: "J", className: "border-slate-200 bg-slate-50 text-slate-700" },
+    injury: { label: "🩹 Lesión", text: "🩹", className: "border-sky-200 bg-sky-50 text-sky-800" },
+    justified: { label: "📝 Justificada", text: "📝", className: "border-slate-200 bg-slate-50 text-slate-700" },
   };
   const resolved = status ? meta[status] : null;
   return (
@@ -108,7 +108,7 @@ function GroupCard({
             <p className="text-base font-bold text-slate-900 dark:text-slate-100">{group.completedSessions}</p>
           </div>
           <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
-            <p className="text-slate-500">Aus.</p>
+            <p className="text-slate-500">Faltas</p>
             <p className="text-base font-bold text-slate-900 dark:text-slate-100">{group.absent}</p>
           </div>
           <div className="rounded-lg bg-slate-50 px-2 py-2 dark:bg-slate-800">
@@ -159,8 +159,8 @@ function SelectedGroupDetail({
                 </th>
               ))}
               <th className="px-3 py-2">Sesiones</th>
-              <th className="px-3 py-2">Ausencias</th>
-              <th className="px-3 py-2">Justificadas / lesion</th>
+              <th className="px-3 py-2">Faltas</th>
+              <th className="px-3 py-2">Justificadas / lesión</th>
               <th className="px-3 py-2">Tasa</th>
               <th className="px-3 py-2">Ultima</th>
             </tr>
@@ -198,10 +198,10 @@ function SelectedGroupDetail({
       </div>
       <div className="flex flex-wrap gap-2 text-xs text-slate-500">
         <span className="font-semibold text-slate-600">Leyenda:</span>
-        <span>A = asistio</span>
+        <span>A = asistió</span>
         <span>F = falta</span>
         <span>J = justificada</span>
-        <span>🩹 = lesion</span>
+        <span>🩹 = lesión</span>
         <span>- = sin registro</span>
       </div>
     </section>

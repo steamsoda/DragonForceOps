@@ -11,10 +11,10 @@ import {
 } from "@/lib/training-groups/shared";
 
 export const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
-  present: "A Asistio",
+  present: "A Asistió",
   absent: "F Falta",
-  injury: "Lesion",
-  justified: "Justificada",
+  injury: "🩹 Lesión",
+  justified: "📝 Justificada",
 };
 
 export const ATTENDANCE_SESSION_TYPE_LABELS: Record<string, string> = {

@@ -2,7 +2,7 @@ import type { RecentPlayerAttendanceItem } from "@/lib/queries/attendance";
 
 const ATTENDANCE_META: Record<RecentPlayerAttendanceItem["status"], { label: string; symbol: string; className: string }> = {
   present: {
-    label: "A Asistio",
+    label: "A Asistió",
     symbol: "A",
     className: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
   },
@@ -12,13 +12,13 @@ const ATTENDANCE_META: Record<RecentPlayerAttendanceItem["status"], { label: str
     className: "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200",
   },
   injury: {
-    label: "Lesion",
-    symbol: "+",
+    label: "🩹 Lesión",
+    symbol: "🩹",
     className: "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200",
   },
   justified: {
-    label: "Justificada",
-    symbol: "J",
+    label: "📝 Justificada",
+    symbol: "📝",
     className: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
   },
 };

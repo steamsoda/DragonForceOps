@@ -32,9 +32,9 @@ function statusPillClass(status: string) {
 }
 
 function statusLabel(status: string) {
-  if (status === "present") return "A Asistio";
+  if (status === "present") return "A Asistió";
   if (status === "absent") return "F Falta";
-  if (status === "injury") return "🩹 Lesion";
+  if (status === "injury") return "🩹 Lesión";
   if (status === "justified") return "📝 Justificada";
   return status;
 }
@@ -112,7 +112,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reporte diario</h2>
-            <p className="text-sm text-slate-500">Resumen operativo de sesiones, capturas, faltas, lesiones, justificaciones y notas del dia seleccionado.</p>
+            <p className="text-sm text-slate-500">Resumen operativo de sesiones, capturas, faltas, lesiones, justificaciones y notas del día seleccionado.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -127,7 +127,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{dailyCaptureRate} captura</p>
             </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-              <p className="text-xs uppercase">A Asistio</p>
+              <p className="text-xs uppercase">A Asistió</p>
               <p className="text-2xl font-bold">{daily.totals.present}</p>
             </div>
             <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
@@ -135,7 +135,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               <p className="text-2xl font-bold">{daily.totals.absent}</p>
             </div>
             <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
-              <p className="text-xs uppercase">🩹 Lesion</p>
+              <p className="text-xs uppercase">🩹 Lesión</p>
               <p className="text-2xl font-bold">{daily.totals.injury}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -150,20 +150,20 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Distribucion de asistencia</h3>
-                  <p className="text-xs text-slate-500">Porcentaje calculado sobre registros capturados del dia.</p>
+                  <p className="text-xs text-slate-500">Porcentaje calculado sobre registros capturados del día.</p>
                 </div>
                 <span className="rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold dark:border-slate-700">{dailyAttendanceRate}</span>
               </div>
               <div className="mt-4 flex h-4 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-label="Distribucion de asistencia diaria">
-                <div className="bg-emerald-500" style={{ width: `${presentWidth}%` }} title={`A Asistio: ${daily.totals.present}`} />
+                <div className="bg-emerald-500" style={{ width: `${presentWidth}%` }} title={`A Asistió: ${daily.totals.present}`} />
                 <div className="bg-rose-500" style={{ width: `${absentWidth}%` }} title={`F Falta: ${daily.totals.absent}`} />
-                <div className="bg-sky-500" style={{ width: `${injuryWidth}%` }} title={`Lesion: ${daily.totals.injury}`} />
+                <div className="bg-sky-500" style={{ width: `${injuryWidth}%` }} title={`Lesión: ${daily.totals.injury}`} />
                 <div className="bg-amber-400" style={{ width: `${justifiedWidth}%` }} title={`Justificada: ${daily.totals.justified}`} />
               </div>
               <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-4 dark:text-slate-300">
                 <span><span className="mr-1 inline-block size-2 rounded-full bg-emerald-500" />A {daily.totals.present}</span>
                 <span><span className="mr-1 inline-block size-2 rounded-full bg-rose-500" />F {daily.totals.absent}</span>
-                <span><span className="mr-1 inline-block size-2 rounded-full bg-sky-500" />Lesion {daily.totals.injury}</span>
+                <span><span className="mr-1 inline-block size-2 rounded-full bg-sky-500" />Lesión {daily.totals.injury}</span>
                 <span><span className="mr-1 inline-block size-2 rounded-full bg-amber-400" />Just. {daily.totals.justified}</span>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
 
           {daily.closures.length > 0 ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-              <p className="font-semibold">Cierres / avisos del dia</p>
+              <p className="font-semibold">Cierres / avisos del día</p>
               <ul className="mt-2 space-y-1">
                 {daily.closures.map((closure) => (
                   <li key={closure.id}>
@@ -215,7 +215,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                   <th className="px-3 py-2">Asistencia</th>
                   <th className="px-3 py-2">A</th>
                   <th className="px-3 py-2">F</th>
-                  <th className="px-3 py-2">Lesion</th>
+                  <th className="px-3 py-2">Lesión</th>
                   <th className="px-3 py-2">Just.</th>
                   <th className="px-3 py-2">Notas</th>
                 </tr>
@@ -246,7 +246,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                   </tr>
                 ))}
                 {daily.sessions.length === 0 ? (
-                  <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500">Sin sesiones para el dia seleccionado.</td></tr>
+                  <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500">Sin sesiones para el día seleccionado.</td></tr>
                 ) : null}
               </tbody>
             </table>
@@ -283,7 +283,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                   <th className="px-3 py-2">Campus</th>
                   <th className="px-3 py-2">Grupo / equipo</th>
                   <th className="px-3 py-2">Sesiones</th>
-                  <th className="px-3 py-2">Ausencias</th>
+                  <th className="px-3 py-2">Faltas</th>
                   <th className="px-3 py-2">Asistencia</th>
                 </tr>
               </thead>
@@ -318,7 +318,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
                 <p className="text-sm text-slate-500">{row.campusName} | Coach {row.coachName ?? "-"}</p>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
                   <div><p className="text-xs text-slate-500">Sesiones</p><p className="font-bold">{row.completedSessions}</p></div>
-                  <div><p className="text-xs text-slate-500">Ausencias</p><p className="font-bold">{row.absent}</p></div>
+                  <div><p className="text-xs text-slate-500">Faltas</p><p className="font-bold">{row.absent}</p></div>
                   <div><p className="text-xs text-slate-500">Tasa</p><p className="font-bold">{formatRate(row.rate)}</p></div>
                 </div>
               </article>

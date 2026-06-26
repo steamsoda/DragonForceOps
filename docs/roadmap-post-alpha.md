@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.172`
-- Current preview line: `v1.16.174`
+- Current production line: `v1.16.174`
+- Current preview line: `v1.16.175`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -144,7 +144,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | 5. Pendientes attendance summary | `v1.16.161` adds YOB-first ordering, category dividers, Excel export, and print list. `v1.16.162` adds primary tutor phone to the printed list. Production `v1.16.168` adds last-five attendance chips to detail rows; preview `v1.16.171` adds tiered attendance-risk badges. | Front Desk / Caja / Collections, `v1.16.168` and `v1.16.171` devlog |
 | 🔴 | 6. Collections + attendance relation report | Build a finance-visible report for `no paga y no asiste`, `no paga pero si asiste`, and related risk combinations. Keep attendance-only users out of money data. | Reports / Finance / Admin |
 | 🟡 | 7. Injury workflow + tuition omission rework | Needs a separate design because it can touch charge generation, current-month voiding, omissions, and possible approval rules. | Front Desk / Caja / Collections, Asistencia |
-| 🟢 | 8. Attendance nomenclature pass | Preview `v1.16.165` updates the live capture cards from `P/A` shorthand to `A Asistio`, `F Falta`, `🩹 Lesion`, and `📝 Justificada`. Remaining copy cleanup across reports/player surfaces can follow after the risk source ships. | Asistencia |
+| ✅ | 8. Attendance nomenclature pass | Preview `v1.16.175` standardizes capture, player summaries, recent chips, reports, and group views around `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; report `Ausencias` copy now reads as `Faltas`. | Asistencia, `v1.16.165` and `v1.16.175` devlog |
 | 🧊 | Baja confirmation before final dropout | Already captured under `Jugadores > Bajas confirmation workflow`; keep parked until higher-priority Front Desk/Admin changes are handled. | Jugadores lane |
 | 🧊 | Tournament, coach, and parent/mobile-adjacent feedback | Do not treat these as one feature. Split into specs before promotion: coach match posting, tournament redesign, and parent/mobile data contract. | Sports / Tournaments, Strategic Later Phases |
 | 🟡 | Finance/Caja edge cases from real use | Route through Caja product lane and validate with preview plus `/admin/finance-sanity`; avoid ad hoc production fixes. | Front Desk / Caja / Collections, Safety / Permissions / Data Integrity |
@@ -233,7 +233,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | Submit smoothing | Save path has been optimized; keep monitoring large roster latency. |
 | 🟢 | Confirmed-absence risk badge | Preview `v1.16.171` derives tiered badges for 3 confirmed absences, 4+ confirmed absences, and 30+/60+ days since last positive attendance. Missing attendance records are not absences. First surfaces: Jugadores and Pendientes; Caja and reports remain follow-up reuse. |
 | 🟢 | Shared recent attendance summary source | Production `v1.16.167` adds the batch/RPC-backed source for latest player attendance; `v1.16.168` reuses it in `Pendientes`; preview `v1.16.171` adds the companion attendance-risk RPC. Reuse both next for Caja/collections reports. |
-| 🟢 | Attendance nomenclature pass | Preview `v1.16.165` updates the attendance capture UI to `A Asistio`, `F Falta`, `🩹 Lesion`, and `📝 Justificada`; broader report/player copy cleanup can ride with the risk badge pass. |
+| ✅ | Attendance nomenclature pass | Preview `v1.16.175` standardizes the attendance capture UI, shared chips, player summaries, daily reports, and group monthly views to `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; report/group `Ausencias` copy now reads as `Faltas`. |
 | 🟡 | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
 | 🧊 | Parent-facing attendance | Out of scope for now. |
@@ -297,6 +297,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.175` — Attendance nomenclature is standardized across capture, player summaries, recent chips, reports, and group views: `A Asistió`, `F Falta`, `🩹 Lesión`, `📝 Justificada`, with report `Faltas` wording.
 - 🟢 `v1.16.174` — Female 2014/2015 new enrollments now resolve to the single matching Femenil combined-year Futbol Para Todos group even when its operational code is not B1.
 - 🟢 `v1.16.173` — New enrollments now auto-assign to the matching active B1 Futbol Para Todos training group when the campus/YOB/gender match is unambiguous.
 - 🟢 `v1.16.172` — Large player RPC batches are chunked so recent attendance chips and risk badges do not truncate big rosters.
@@ -307,7 +308,7 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 - 🟢 `v1.16.168` — `Pendientes` detail rows now show compact recent-attendance chips from the shared batch attendance source.
 - 🟢 `v1.16.167` — `Jugadores > Vista por grupos` now shows compact recent-attendance chips from a batch SQL source.
 - ✅ `v1.16.166` — `Jugadores > Vista por grupos` now has a direct-print coach roster sheet under `Herramientas`.
-- 🟢 `v1.16.165` — Asistencia now has a daily report in Reportes and clearer capture labels: `A Asistio`, `F Falta`, `🩹 Lesion`, `📝 Justificada`.
+- 🟢 `v1.16.165` — Asistencia now has a daily report in Reportes and clearer capture labels; `v1.16.175` completes the cross-surface nomenclature cleanup.
 - 🟢 `v1.16.164` — Datos Faltantes tutor form button moved to a footer so `Parentesco` keeps the same row alignment.
 - 🟢 `v1.16.163` — Datos Faltantes can now capture a principal tutor plus optional second tutor; additional tutors are linked as non-primary.
 - 🟢 `v1.16.159` — returning-enrollment `Solo inscripcion` pricing now uses `$700` and is covered by `npm run test:pricing`.
@@ -355,6 +356,7 @@ This is intentionally short. Full details live in `docs/devlog.md`.
 
 ## Active Preview Addendum
 
+- 🟢 `v1.16.175` Attendance nomenclature cleanup: capture, player summaries, recent chips, reports, and group monthly views now use `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; no attendance write or roster logic changed.
 - 🟢 `v1.16.174` Female combined-year auto-assignment fix: 2014/2015 female players resolve to the single matching Femenil Futbol Para Todos group; ambiguous/no-match players remain `Sin grupo`.
 - 🟢 `v1.16.173` New enrollment B1 auto-assignment: guarded default assignment for one-page intake and existing-player enrollment; ambiguous/no-match players remain `Sin grupo`.
 
