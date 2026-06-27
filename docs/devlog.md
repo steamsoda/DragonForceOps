@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-06-27 (session 197)
+
+### Priority Intake: Coach Packets, Enrollment Validation, Tryouts
+
+- Promoted three new operator/admin priorities above the previous attendance follow-ups.
+- First priority: plan a weekly coach attendance packet in `Asistencia > Reportes`, printable by full campus or individual coach, grouped by coach and training group, with full rosters, new players from the selected week, pending-payment signals, and 3+ absence risk.
+- Second priority: plan stricter new-enrollment data validation and a confirmation popup while preserving the current redirect-to-Caja payment staging workflow.
+- Third priority: placeholder for tryout-player tracking, pending workflow details before design.
+
 ## 2026-06-26 (session 196)
 
 ### Asistencia Collections Risk Relation Report (v1.16.179)
