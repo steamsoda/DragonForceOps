@@ -2,6 +2,14 @@
 
 ## 2026-06-25 (session 195)
 
+### Caja Attendance Risk Signal (v1.16.178)
+
+- Reused the existing attendance-risk RPC in Caja so Front Desk can see the same `3 faltas seguidas`, `4+ faltas seguidas`, and inactive-player badges while collecting or reviewing payments.
+- Added the signal to Caja enrollment/payment/add-charge panels beside the existing active injury/absence incident banner.
+- Kept the lookup non-blocking: if the attendance-risk helper fails, Caja still loads and simply omits the badge.
+- Extended `npm run test:attendance-risk` to guard the Caja payload field, non-blocking lookup, and shared badge rendering.
+- No payment, charge, ledger, attendance-save, or finance mutation behavior changed.
+
 ### Director Deportivo Contry Player Roster Access (v1.16.177)
 
 - Added a narrow `hasPlayerRosterAccess` permission so `director_deportivo` users can open `Jugadores > Vista por grupos` for their assigned campus and use the existing training-group edit mode.

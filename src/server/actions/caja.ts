@@ -33,6 +33,7 @@ import { createPerfTimer } from "@/lib/perf/timing";
 import type { AccountCreditSummary } from "@/lib/finance/account-credit";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
+import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -90,6 +91,7 @@ export type CajaEnrollmentData = {
   currency: string;
   accountCredit: AccountCreditSummary;
   activeIncident: ActiveIncident | null;
+  attendanceRisk: PlayerAttendanceRisk | null;
   pendingCharges: CajaPendingCharge[];
   recentPayments: CajaRecentPayment[];
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
@@ -124,6 +126,17 @@ export type CajaProductCategory = {
 export type CajaChargeResult =
   | { ok: true; updatedData?: CajaEnrollmentData; newChargeId?: string }
   | { ok: false; error: string };
+
+async function getCajaAttendanceRisk(playerId: string | null): Promise<PlayerAttendanceRisk | null> {
+  if (!playerId) return null;
+  try {
+    const riskByPlayer = await getPlayerAttendanceRiskByPlayerIds([playerId]);
+    return riskByPlayer.get(playerId) ?? null;
+  } catch (error) {
+    console.warn("Caja attendance risk lookup failed", error);
+    return null;
+  }
+}
 
 export type CajaAdvanceTuitionResult =
   | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string; mode: "created" | "repriced" }
@@ -889,6 +902,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     : [];
   const payableBalance = pendingCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
   const displayBalance = payableBalance > 0 ? payableBalance : ledger.totals.balance < 0 ? ledger.totals.balance : 0;
+  const attendanceRisk = await getCajaAttendanceRisk(ledger.enrollment.playerId);
 
   return {
     enrollmentId,
@@ -908,6 +922,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
         cancelledAt: incident.cancelledAt,
       })),
     ),
+    attendanceRisk,
     pendingCharges,
     recentPayments: ledger.payments
       .filter((payment) => payment.status === "posted")

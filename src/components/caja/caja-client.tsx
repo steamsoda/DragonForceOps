@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
+import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { PrintReceiptButton } from "./print-receipt-button";
 import { type ReceiptData } from "@/lib/printer";
 import type { AccessibleCampus } from "@/lib/auth/campuses";
@@ -132,6 +133,17 @@ function ActiveIncidentBanner({
       : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200";
 
   return <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>{message}</div>;
+}
+
+function CajaAttendanceSignals({ data }: { data: CajaEnrollmentData }) {
+  if (!data.attendanceRisk?.tier && !data.activeIncident) return null;
+
+  return (
+    <div className="space-y-2">
+      <ActiveIncidentBanner incident={data.activeIncident} />
+      <AttendanceRiskBadge risk={data.attendanceRisk} />
+    </div>
+  );
 }
 
 function AccountCreditPanel({
@@ -1393,7 +1405,7 @@ function PosEnrollmentPanel({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
-          <ActiveIncidentBanner incident={data.activeIncident} />
+          <CajaAttendanceSignals data={data} />
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cargos pendientes</p>
@@ -2131,7 +2143,7 @@ function EnrollmentPanel({
 
       <AccountCreditPanel summary={data.accountCredit} currency={data.currency} />
 
-      <ActiveIncidentBanner incident={data.activeIncident} />
+      <CajaAttendanceSignals data={data} />
 
       {/* Pending charges */}
       {data.pendingCharges.length > 0 ? (
@@ -2613,7 +2625,7 @@ function ProductGridPanel({
         <p className="text-xs text-slate-400">Nuevo cargo</p>
       </div>
 
-      <ActiveIncidentBanner incident={data.activeIncident} />
+      <CajaAttendanceSignals data={data} />
 
       {/* Product grid */}
       <div className="space-y-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
