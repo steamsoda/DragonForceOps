@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-26 (session 196)
+
+### Asistencia Collections Risk Relation Report (v1.16.179)
+
+- Added a read-only `Asistencia > Reportes` section for operational roles that relates attendance risk with pending-month status.
+- The report highlights four queues without exposing peso amounts: `Debe + riesgo`, `Debe + asiste`, `Al corriente + riesgo`, and `Al corriente sin registros`.
+- Reused the existing pending-tuition dashboard source for pending-month counts and the shared attendance risk/recent-attendance helpers for badges and chips.
+- Kept the section hidden from sports-only, attendance-only, nutrition, and office-admin users by gating it behind `hasOperationalAccess`.
+- Added regression assertions to keep the report operational-role gated, shared-source based, and amount-free.
+
 ## 2026-06-25 (session 195)
 
 ### Caja Attendance Risk Signal (v1.16.178)

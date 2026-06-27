@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
+import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
+import { getAttendanceCollectionsRiskReport } from "@/lib/queries/attendance-collections-risk";
 import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceDailyReport, getAttendanceReports } from "@/lib/queries/attendance";
 
 type SearchParams = Promise<{ campus?: string; period?: string; birthYear?: string; month?: string; date?: string }>;
@@ -40,11 +43,12 @@ function statusLabel(status: string) {
 }
 
 export default async function AttendanceReportsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceReadContext("/unauthorized");
+  const context = await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
   const periodDays = Number(params.period ?? 30);
   const birthYear = params.birthYear ? Number(params.birthYear) : undefined;
-  const [data, daily] = await Promise.all([
+  const canViewCollectionsRisk = context.hasOperationalAccess;
+  const [data, daily, collectionsRisk] = await Promise.all([
     getAttendanceReports({
       campusId: params.campus,
       periodDays,
@@ -55,6 +59,12 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
       campusId: params.campus,
       date: params.date,
     }),
+    canViewCollectionsRisk
+      ? getAttendanceCollectionsRiskReport({
+          campusId: params.campus,
+          birthYear: Number.isFinite(birthYear) ? birthYear : undefined,
+        })
+      : Promise.resolve(null),
   ]);
 
   const birthYears = Array.from(new Set(data.inactivePlayers.map((row) => row.birthYear).filter((value): value is number => Boolean(value)))).sort((a, b) => b - a);
@@ -272,6 +282,94 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
             </div>
           ) : null}
         </section>
+
+        {collectionsRisk ? (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Riesgo asistencia + cobranza</h2>
+              <p className="text-sm text-slate-500">
+                Visible solo para roles operativos. No muestra montos: combina meses pendientes, asistencia reciente y senales de riesgo.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
+                <p className="text-xs uppercase">Debe + riesgo</p>
+                <p className="text-2xl font-bold">{collectionsRisk.summary.pendingAtRisk}</p>
+                <p className="text-xs">Prioridad alta para llamada.</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                <p className="text-xs uppercase">Debe + asiste</p>
+                <p className="text-2xl font-bold">{collectionsRisk.summary.pendingAttending}</p>
+                <p className="text-xs">Pendiente, pero con asistencia reciente.</p>
+              </div>
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+                <p className="text-xs uppercase">Al corriente + riesgo</p>
+                <p className="text-2xl font-bold">{collectionsRisk.summary.currentAtRisk}</p>
+                <p className="text-xs">No esta en pendientes, pero requiere seguimiento.</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-xs uppercase text-slate-500">Al corriente sin registros</p>
+                <p className="text-2xl font-bold">{collectionsRisk.summary.currentNoRecent}</p>
+                <p className="text-xs text-slate-500">Activo sin ultimos registros visibles.</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
+                  <tr>
+                    <th className="px-3 py-2">Jugador</th>
+                    <th className="px-3 py-2">Campus / grupo</th>
+                    <th className="px-3 py-2">Pendientes</th>
+                    <th className="px-3 py-2">Asistencia reciente</th>
+                    <th className="px-3 py-2">Riesgo</th>
+                    <th className="px-3 py-2">Lectura</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {collectionsRisk.rows.slice(0, 120).map((row) => (
+                    <tr key={row.enrollmentId}>
+                      <td className="px-3 py-2">
+                        <Link href={`/players/${row.playerId}`} className="font-semibold text-portoBlue hover:underline">{row.playerName}</Link>
+                        <p className="text-xs text-slate-500">{row.publicPlayerId ?? "Sin ID"} | Cat. {row.birthYear ?? "-"}</p>
+                      </td>
+                      <td className="px-3 py-2">
+                        <p>{row.campusName}</p>
+                        <p className="text-xs text-slate-500">{row.trainingGroupName ?? "Sin grupo"}</p>
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.pendingMonthCount > 0 ? (
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                            {row.pendingMonthCount} mes{row.pendingMonthCount === 1 ? "" : "es"}
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+                            Al corriente
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2"><RecentAttendanceChips items={row.recentAttendance} align="start" /></td>
+                      <td className="px-3 py-2">
+                        <AttendanceRiskBadge risk={row.attendanceRisk} compact />
+                        {!row.attendanceRisk?.tier ? <span className="text-xs text-slate-400">Sin badge</span> : null}
+                      </td>
+                      <td className="px-3 py-2">
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">{row.relationLabel}</p>
+                        <p className="text-xs text-slate-500">{row.relationDetail}</p>
+                      </td>
+                    </tr>
+                  ))}
+                  {collectionsRisk.rows.length === 0 ? (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">Sin relaciones de riesgo para los filtros actuales.</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            {collectionsRisk.rows.length > 120 ? (
+              <p className="text-xs text-slate-500">Mostrando las primeras 120 filas por prioridad. Usa campus/categoria para acotar.</p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Jugadores con menor asistencia</h2>
