@@ -69,4 +69,4 @@
 - [x] `npm run typecheck`
 - [x] `npm run build`
 - [x] `git diff --check`
-- [ ] Commit and push `preview`.
+- [x] Commit and push `preview`.
