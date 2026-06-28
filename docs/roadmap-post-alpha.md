@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.179`
-- Current preview line: `v1.16.179`
+- Current preview line: `v1.16.180`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -94,7 +94,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🟢 | New enrollment B1 auto-assignment | Preview `v1.16.174` auto-assigns new players to the matching active Futbol Para Todos training group when campus + YOB + gender produce one unambiguous safe match, including the 2014/2015 Femenil combined-year group. | Jugadores lane, `v1.16.173`-`v1.16.174` devlog |
 | 🟢 | Director Deportivo Contry roster access | Preview `v1.16.177` adds narrow `Jugadores > Vista por grupos` access and training-group edit mode for assigned-campus sports directors, without broad player-data edit or finance access. | Roles / Jugadores lane, `v1.16.177` devlog |
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches, `v1.16.178` reuses the signal in Caja, and preview `v1.16.179` adds the operational-only attendance + collections relation report without peso amounts. | Front Desk / Asistencia / Reports lanes |
-| 🔴 | Weekly coach attendance packet | New priority-one request: generate a weekly coach report/print packet by campus or individual coach, grouped by coach and training group, with full rosters, new players from the selected week, pending-payment signals, and 3+ absence risk. | Asistencia / Reports, User Feedback Intake 2026-06-27 |
+| 🟢 | Weekly coach attendance packet | Preview `v1.16.180` adds the weekly report/print packet in `Asistencia > Reportes`: campus or single-coach view, grouped by coach/training group, full rosters, new-player tags, simple `Pendiente de pago` / `Al corriente` signal, and `3+ faltas` without finance amounts. | Asistencia / Reports, User Feedback Intake 2026-06-27, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | 🔴 | Tryout player tracking | New priority-one intake placeholder: track players who come in for tryouts. Awaiting workflow details before design. | User Feedback Intake 2026-06-27 |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
@@ -137,8 +137,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 
 | Status | Feedback | Routing / decision | Reference |
 |---|---|---|---|
-| 🔴 | 2026-06-27 priority wave | Promote above the previous attendance bundle: weekly coach packet first, enrollment data validation/confirmation second, tryout tracking third after workflow detail. | Operator/admin feedback |
-| 🔴 | Weekly coach attendance packet | Plan first. Default should support full campus packet and single-coach reprint, grouped by coach and training group, printable from app, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports |
+| 🟢 | 2026-06-27 priority wave: weekly coach packet | Preview `v1.16.180` implements the first priority item for validation: full campus packet and single-coach reprint, grouped by coach and training group, printable from app, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation popup | Plan after coach packet. Must preserve the current successful behavior where enrollment opens Caja with inscription/monthly charges staged for payment. | New Enrollments / Caja |
 | 🔴 | Tryout player tracking | Placeholder only until the workflow is described; do not mix with enrollment validation. | Future planning |
 | 🔴 | 2026-06-23 Front Desk print + attendance visibility wave | Promote the coach print sheet first if staff need paper immediately; build recent attendance through a shared source before surfacing it across queues. | Checkpoint 2026-06-23 |

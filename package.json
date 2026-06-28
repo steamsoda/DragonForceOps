@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.179",
+  "version": "1.16.180",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,6 +11,7 @@
     "test:attendance-risk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-attendance-risk.mjs",
     "test:attendance-groups-pagination": "node scripts/assert-attendance-groups-pagination.mjs",
     "test:attendance-nomenclature": "node scripts/assert-attendance-nomenclature.mjs",
+    "test:weekly-coach-packet": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-weekly-coach-packet.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
     "test:player-rpc-batching": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-player-rpc-batching.mjs",

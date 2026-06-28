@@ -2,12 +2,14 @@ import Link from "next/link";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
+import { WeeklyCoachPacketPrintButton } from "@/components/attendance/weekly-coach-packet-print-button";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { getAttendanceCollectionsRiskReport } from "@/lib/queries/attendance-collections-risk";
 import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceDailyReport, getAttendanceReports } from "@/lib/queries/attendance";
+import { getWeeklyCoachPacket } from "@/lib/queries/weekly-coach-packet";
 
-type SearchParams = Promise<{ campus?: string; period?: string; birthYear?: string; month?: string; date?: string }>;
+type SearchParams = Promise<{ campus?: string; period?: string; birthYear?: string; month?: string; date?: string; week?: string; coach?: string }>;
 
 function formatRate(rate: number | null) {
   return rate == null ? "Sin datos" : `${rate}%`;
@@ -16,6 +18,12 @@ function formatRate(rate: number | null) {
 function formatPercent(numerator: number, denominator: number) {
   if (denominator <= 0) return "Sin datos";
   return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
 function dailyAttendanceCount(counts: { present: number; absent: number; injury: number; justified: number; total: number }) {
@@ -48,7 +56,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   const periodDays = Number(params.period ?? 30);
   const birthYear = params.birthYear ? Number(params.birthYear) : undefined;
   const canViewCollectionsRisk = context.hasOperationalAccess;
-  const [data, daily, collectionsRisk] = await Promise.all([
+  const [data, daily, collectionsRisk, weeklyCoachPacket] = await Promise.all([
     getAttendanceReports({
       campusId: params.campus,
       periodDays,
@@ -65,6 +73,11 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           birthYear: Number.isFinite(birthYear) ? birthYear : undefined,
         })
       : Promise.resolve(null),
+    getWeeklyCoachPacket({
+      campusId: params.campus,
+      week: params.week,
+      coach: params.coach,
+    }),
   ]);
 
   const birthYears = Array.from(new Set(data.inactivePlayers.map((row) => row.birthYear).filter((value): value is number => Boolean(value)))).sort((a, b) => b - a);
@@ -80,12 +93,12 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   return (
     <PageShell title="Reportes de asistencia" subtitle="Lectura operativa para detectar inactividad y comparar equipos." wide>
       <div className="space-y-6">
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+        <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 print:hidden dark:border-slate-700 dark:bg-slate-900">
           <AttendanceCampusButtons
             pathname="/attendance/reports"
             campuses={data.campuses}
             selectedCampusId={data.selectedCampusId}
-            params={{ period: data.periodDays, birthYear, month: data.month, date: daily.selectedDate }}
+            params={{ period: data.periodDays, birthYear, month: data.month, date: daily.selectedDate, week: weeklyCoachPacket.week.value, coach: weeklyCoachPacket.selectedCoachKey }}
             allLabel="Todos"
           />
           <form className="grid gap-3 md:grid-cols-4">
@@ -119,7 +132,138 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           </form>
         </section>
 
-        <section className="space-y-3">
+        <section className="space-y-3 print:hidden">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reporte semanal para coaches</h2>
+            <p className="text-sm text-slate-500">Paquete imprimible por campus o coach. No muestra montos ni meses pendientes.</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
+              {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
+              <input type="hidden" name="period" value={data.periodDays} />
+              {birthYear ? <input type="hidden" name="birthYear" value={birthYear} /> : null}
+              <input type="hidden" name="month" value={data.month} />
+              <input type="hidden" name="date" value={daily.selectedDate} />
+              <label className="text-sm font-medium">
+                Semana
+                <input name="week" type="week" defaultValue={weeklyCoachPacket.week.value} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <label className="text-sm font-medium">
+                Coach
+                <select name="coach" defaultValue={weeklyCoachPacket.selectedCoachKey} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
+                  <option value="">Todos los coaches</option>
+                  {weeklyCoachPacket.coachOptions.map((coach) => <option key={coach.key} value={coach.key}>{coach.label}</option>)}
+                </select>
+              </label>
+              <div className="flex items-end">
+                <button className="w-full rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-portoBlue hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:hover:bg-slate-900">
+                  Ver reporte
+                </button>
+              </div>
+              <div className="flex items-end">
+                <WeeklyCoachPacketPrintButton />
+              </div>
+            </form>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-xs uppercase text-slate-500">Semana</p>
+                <p className="font-semibold">{weeklyCoachPacket.week.label}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-xs uppercase text-slate-500">Coaches</p>
+                <p className="font-semibold">{weeklyCoachPacket.totals.coaches}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-xs uppercase text-slate-500">Grupos</p>
+                <p className="font-semibold">{weeklyCoachPacket.totals.groups}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-xs uppercase text-slate-500">Nuevos</p>
+                <p className="font-semibold">{weeklyCoachPacket.totals.newPlayers}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-xs uppercase text-slate-500">Seguimiento</p>
+                <p className="font-semibold">{weeklyCoachPacket.totals.pendingPayment + weeklyCoachPacket.totals.absenceRisk}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 print:border-0 print:p-0 dark:border-slate-700 dark:bg-slate-900">
+          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3 print:pb-2 dark:border-slate-700">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Dragon Force Monterrey</p>
+              <h2 className="text-xl font-bold text-slate-900 print:text-lg dark:text-slate-100">Reporte semanal para coaches</h2>
+              <p className="text-sm text-slate-500">{weeklyCoachPacket.week.label}</p>
+            </div>
+            <div className="text-left text-sm sm:text-right">
+              <p>{weeklyCoachPacket.selectedCampusId ? weeklyCoachPacket.campuses.find((campus) => campus.id === weeklyCoachPacket.selectedCampusId)?.name : "Todos los campus"}</p>
+              <p>{weeklyCoachPacket.selectedCoachKey || "Todos los coaches"}</p>
+              <p>{weeklyCoachPacket.totals.players} jugadores</p>
+            </div>
+          </header>
+
+          {weeklyCoachPacket.sections.map((section) => (
+            <article key={section.coachKey} className="space-y-3 print:break-before-page first:print:break-before-auto">
+              <div className="rounded-md bg-slate-100 px-3 py-2 print:border print:border-slate-400 print:bg-white dark:bg-slate-800">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100">Coach {section.coachLabel}</h3>
+              </div>
+              {section.groups.map((group) => (
+                <div key={group.trainingGroupId} className="overflow-x-auto rounded-md border border-slate-200 print:break-inside-avoid print:overflow-visible dark:border-slate-700">
+                  <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{group.trainingGroupName}</p>
+                    <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.birthYearLabel} | {group.players.length} jugadores</p>
+                  </div>
+                  <table className="min-w-full border-collapse text-sm print:text-[10px]">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 print:bg-white print:text-[9px] dark:bg-slate-950">
+                      <tr>
+                        <th className="w-10 border-b border-slate-200 px-2 py-2">#</th>
+                        <th className="border-b border-slate-200 px-2 py-2">ID</th>
+                        <th className="border-b border-slate-200 px-2 py-2">Jugador</th>
+                        <th className="border-b border-slate-200 px-2 py-2">Cat.</th>
+                        <th className="border-b border-slate-200 px-2 py-2">Inscripcion</th>
+                        <th className="border-b border-slate-200 px-2 py-2">Semana</th>
+                        <th className="border-b border-slate-200 px-2 py-2">Tags</th>
+                        <th className="w-56 border-b border-slate-200 px-2 py-2">Notas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.players.map((player, index) => (
+                        <tr key={player.enrollmentId} className="border-b border-slate-100 print:border-slate-300 dark:border-slate-800">
+                          <td className="px-2 py-2 align-top">{index + 1}</td>
+                          <td className="px-2 py-2 align-top">{player.publicPlayerId ?? "-"}</td>
+                          <td className="px-2 py-2 align-top font-medium text-slate-900 dark:text-slate-100">{player.playerName}</td>
+                          <td className="px-2 py-2 align-top">{player.birthYear ?? "-"}</td>
+                          <td className="px-2 py-2 align-top">{formatDate(player.enrollmentStartDate)}</td>
+                          <td className="px-2 py-2 align-top">{player.attendedCount}/{player.sessionCount} asistencias</td>
+                          <td className="px-2 py-2 align-top">
+                            <div className="flex flex-wrap gap-1 print:block">
+                              <span>{player.hasPendingPayment ? "Pendiente de pago" : "Al corriente"}</span>
+                              {player.isNewThisWeek ? <span className="print:ml-1">Nuevo</span> : null}
+                              {player.hasAbsenceRisk ? <span className="print:ml-1">3+ faltas</span> : null}
+                            </div>
+                          </td>
+                          <td className="px-2 py-2 align-top print:h-10" />
+                        </tr>
+                      ))}
+                      {group.players.length === 0 ? (
+                        <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-500">Sin jugadores activos.</td></tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </article>
+          ))}
+
+          {weeklyCoachPacket.sections.length === 0 ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+              Sin grupos para los filtros seleccionados.
+            </div>
+          ) : null}
+        </section>
+
+        <section className="space-y-3 print:hidden">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reporte diario</h2>
             <p className="text-sm text-slate-500">Resumen operativo de sesiones, capturas, faltas, lesiones, justificaciones y notas del día seleccionado.</p>
@@ -284,7 +428,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
         </section>
 
         {collectionsRisk ? (
-          <section className="space-y-3">
+          <section className="space-y-3 print:hidden">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Riesgo asistencia + cobranza</h2>
               <p className="text-sm text-slate-500">
@@ -371,7 +515,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           </section>
         ) : null}
 
-        <section className="space-y-3">
+        <section className="space-y-3 print:hidden">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Jugadores con menor asistencia</h2>
           <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
             <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -407,7 +551,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           </div>
         </section>
 
-        <section className="space-y-3">
+        <section className="space-y-3 print:hidden">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Grupos / equipos y coach</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.teamReports.map((row) => (

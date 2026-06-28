@@ -9,6 +9,15 @@
 - Second priority: plan stricter new-enrollment data validation and a confirmation popup while preserving the current redirect-to-Caja payment staging workflow.
 - Third priority: placeholder for tryout-player tracking, pending workflow details before design.
 
+### Weekly Coach Attendance Packet (v1.16.180)
+
+- Added the first weekly coach packet in `Asistencia > Reportes`, with a Monterrey week picker and coach filter for full-campus packets or single-coach reprints.
+- The printable packet is grouped by coach and training group, with active roster rows sorted alphabetically and the agreed coach-facing columns: ID, player name, category, enrollment date, weekly attendance count, compact tags, and notes space.
+- Kept the coach-facing finance signal deliberately small: `Pendiente de pago` or `Al corriente` only. No amounts, balances, or pending-month counts are exposed in the packet.
+- Reused existing attendance-risk summary logic for the `3+ faltas` tag and marked players enrolled during the selected week as `Nuevo`.
+- Added `npm run test:weekly-coach-packet` to guard the print controls, simple finance tags, absence tag, and no-finance-detail contract.
+- No schema, attendance-save, charge, payment, roster assignment, or permission mutation behavior changed in this pass.
+
 ## 2026-06-26 (session 196)
 
 ### Asistencia Collections Risk Relation Report (v1.16.179)
