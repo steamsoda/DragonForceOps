@@ -210,40 +210,43 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
               </div>
               {section.groups.map((group) => (
                 <div key={group.trainingGroupId} className="overflow-x-auto rounded-md border border-slate-200 print:break-inside-avoid print:overflow-visible dark:border-slate-700">
-                  <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">{group.trainingGroupName}</p>
-                    <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.birthYearLabel} | {group.players.length} jugadores</p>
+                  <div className="border-b border-slate-200 px-3 py-2 print:px-1 print:py-1 dark:border-slate-700">
+                    <p className="font-semibold text-slate-900 print:text-[10px] dark:text-slate-100">{group.trainingGroupName}</p>
+                    <p className="text-xs text-slate-500 print:text-[8px]">{group.campusName} | Cat. {group.birthYearLabel} | {group.players.length} jugadores</p>
                   </div>
-                  <table className="min-w-full border-collapse text-sm print:text-[10px]">
-                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 print:bg-white print:text-[9px] dark:bg-slate-950">
+                  <table className="min-w-full table-fixed border-collapse text-sm print:text-[8px]">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 print:bg-white print:text-[7px] dark:bg-slate-950">
                       <tr>
-                        <th className="w-10 border-b border-slate-200 px-2 py-2">#</th>
-                        <th className="border-b border-slate-200 px-2 py-2">ID</th>
-                        <th className="border-b border-slate-200 px-2 py-2">Jugador</th>
-                        <th className="border-b border-slate-200 px-2 py-2">Cat.</th>
-                        <th className="border-b border-slate-200 px-2 py-2">Inscripcion</th>
-                        <th className="border-b border-slate-200 px-2 py-2">Semana</th>
-                        <th className="border-b border-slate-200 px-2 py-2">Tags</th>
-                        <th className="w-56 border-b border-slate-200 px-2 py-2">Notas</th>
+                        <th className="w-10 border-b border-slate-200 px-2 py-2 print:w-5 print:px-1 print:py-0.5">#</th>
+                        <th className="w-20 border-b border-slate-200 px-2 py-2 print:w-12 print:px-1 print:py-0.5">ID</th>
+                        <th className="border-b border-slate-200 px-2 py-2 print:w-44 print:px-1 print:py-0.5">Jugador</th>
+                        <th className="w-14 border-b border-slate-200 px-2 py-2 print:w-8 print:px-1 print:py-0.5">Cat.</th>
+                        <th className="w-24 border-b border-slate-200 px-2 py-2 print:w-14 print:px-1 print:py-0.5">Inscripcion</th>
+                        <th className="w-24 border-b border-slate-200 px-2 py-2 print:w-10 print:px-1 print:py-0.5">Semana</th>
+                        <th className="w-32 border-b border-slate-200 px-2 py-2 print:w-20 print:px-1 print:py-0.5">Tags</th>
+                        <th className="w-56 border-b border-slate-200 px-2 py-2 print:px-1 print:py-0.5">Notas</th>
                       </tr>
                     </thead>
                     <tbody>
                       {group.players.map((player, index) => (
                         <tr key={player.enrollmentId} className="border-b border-slate-100 print:border-slate-300 dark:border-slate-800">
-                          <td className="px-2 py-2 align-top">{index + 1}</td>
-                          <td className="px-2 py-2 align-top">{player.publicPlayerId ?? "-"}</td>
-                          <td className="px-2 py-2 align-top font-medium text-slate-900 dark:text-slate-100">{player.playerName}</td>
-                          <td className="px-2 py-2 align-top">{player.birthYear ?? "-"}</td>
-                          <td className="px-2 py-2 align-top">{formatDate(player.enrollmentStartDate)}</td>
-                          <td className="px-2 py-2 align-top">{player.attendedCount}/{player.sessionCount} asistencias</td>
-                          <td className="px-2 py-2 align-top">
-                            <div className="flex flex-wrap gap-1 print:block">
+                          <td className="px-2 py-2 align-top print:px-1 print:py-0.5">{index + 1}</td>
+                          <td className="px-2 py-2 align-top print:whitespace-nowrap print:px-1 print:py-0.5">{player.publicPlayerId ?? "-"}</td>
+                          <td className="px-2 py-2 align-top font-medium text-slate-900 print:truncate print:whitespace-nowrap print:px-1 print:py-0.5 dark:text-slate-100">{player.playerName}</td>
+                          <td className="px-2 py-2 align-top print:whitespace-nowrap print:px-1 print:py-0.5">{player.birthYear ?? "-"}</td>
+                          <td className="px-2 py-2 align-top print:whitespace-nowrap print:px-1 print:py-0.5">{formatDate(player.enrollmentStartDate)}</td>
+                          <td className="px-2 py-2 align-top print:whitespace-nowrap print:px-1 print:py-0.5">
+                            <span className="print:hidden">{player.attendedCount}/{player.sessionCount} asistencias</span>
+                            <span className="hidden print:inline">{player.attendedCount}/{player.sessionCount}</span>
+                          </td>
+                          <td className="px-2 py-2 align-top print:whitespace-nowrap print:px-1 print:py-0.5">
+                            <div className="flex flex-wrap gap-1 print:block print:whitespace-nowrap">
                               <span>{player.hasPendingPayment ? "Pendiente de pago" : "Al corriente"}</span>
                               {player.isNewThisWeek ? <span className="print:ml-1">Nuevo</span> : null}
                               {player.hasAbsenceRisk ? <span className="print:ml-1">3+ faltas</span> : null}
                             </div>
                           </td>
-                          <td className="px-2 py-2 align-top print:h-10" />
+                          <td className="px-2 py-2 align-top print:h-5 print:px-1 print:py-0.5" />
                         </tr>
                       ))}
                       {group.players.length === 0 ? (
