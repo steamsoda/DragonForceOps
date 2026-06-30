@@ -9,6 +9,7 @@ import { getCategorizedDropoutReasonLabel } from "@/lib/enrollments/dropout-reas
 import { GroupedRosterClient } from "@/components/players/grouped-roster-client";
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
 import { BajaReasonSummaryCopy } from "@/components/players/baja-reason-summary-copy";
+import { BajaPrintButton } from "@/components/players/baja-print-button";
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
@@ -318,6 +319,55 @@ function BajaReasonSummaryPanel({ summary, filterLabel }: { summary: BajaSummary
   );
 }
 
+function BajaPrintReport({ rows, filterLabel, total }: { rows: BajaRow[]; filterLabel: string; total: number }) {
+  return (
+    <section className="hidden print:block">
+      <header className="mb-3 border-b border-slate-300 pb-2">
+        <p className="text-[9px] uppercase tracking-wide text-slate-500">Dragon Force Monterrey</p>
+        <h2 className="text-sm font-bold text-slate-900">Jugadores dados de baja</h2>
+        <p className="text-[9px] text-slate-600">{filterLabel}</p>
+        <p className="text-[9px] font-semibold text-slate-800">{total} jugadores</p>
+      </header>
+
+      <table className="w-full table-fixed border-collapse text-[8px]">
+        <thead>
+          <tr className="border-b border-slate-400 text-left uppercase text-slate-600">
+            <th className="w-6 px-1 py-0.5">#</th>
+            <th className="w-20 px-1 py-0.5">Campus</th>
+            <th className="w-10 px-1 py-0.5">Cat.</th>
+            <th className="w-16 px-1 py-0.5">ID</th>
+            <th className="px-1 py-0.5">Jugador</th>
+            <th className="w-16 px-1 py-0.5">Fecha baja</th>
+            <th className="w-36 px-1 py-0.5">Motivo</th>
+            <th className="w-28 px-1 py-0.5">Notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${row.playerId}-${row.endDate ?? index}`} className="border-b border-slate-200">
+              <td className="px-1 py-0.5 align-top">{index + 1}</td>
+              <td className="px-1 py-0.5 align-top">{row.campusName}</td>
+              <td className="px-1 py-0.5 align-top">{row.birthYear ?? "-"}</td>
+              <td className="px-1 py-0.5 align-top">{row.publicPlayerId ?? "-"}</td>
+              <td className="truncate px-1 py-0.5 align-top font-medium">{row.fullName}</td>
+              <td className="px-1 py-0.5 align-top">{fmtDate(row.endDate)}</td>
+              <td className="truncate px-1 py-0.5 align-top">{getCategorizedDropoutReasonLabel(row.dropoutReason)}</td>
+              <td className="px-1 py-0.5 align-top" />
+            </tr>
+          ))}
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="px-1 py-3 text-center text-slate-500">
+                Sin bajas en el periodo seleccionado.
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function PlayerViewTabs({ view, canViewLists }: { view: "active" | "bajas" | "groups"; canViewLists: boolean }) {
   const items = [
     { href: "/players", key: "groups", label: "Vista por grupos" },
@@ -418,6 +468,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
   let result: { rows: unknown[]; total: number; page: number; pageSize: number };
   let activeRows: Awaited<ReturnType<typeof listPlayers>>["rows"] = [];
   let bajaRows: Awaited<ReturnType<typeof listBajas>>["rows"] = [];
+  let bajaPrintRows: Awaited<ReturnType<typeof listBajas>>["rows"] = [];
   let bajaSummary: BajaSummary | null = null;
 
   if (view === "bajas") {
@@ -431,6 +482,20 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
     });
     result = bajaResult;
     bajaRows = bajaResult.rows;
+    bajaPrintRows =
+      bajaResult.total > bajaResult.rows.length
+        ? (
+            await listBajas({
+              q,
+              campusId: campusId || undefined,
+              dropoutMonth: dropoutMonth || undefined,
+              dropoutFrom: dropoutFrom || undefined,
+              dropoutTo: dropoutTo || undefined,
+              page: 1,
+              includeAllRows: true,
+            })
+          ).rows
+        : bajaResult.rows;
     bajaSummary = bajaResult.summary ?? null;
   } else {
     const activeResult = await listPlayers({
@@ -477,12 +542,13 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
       subtitle={view === "bajas" ? "Jugadores sin inscripcion activa" : "Solo se muestran jugadores con inscripcion activa"}
       breadcrumbs={[{ label: "Jugadores" }]}
     >
-      <div className="space-y-4">
-        {params.ok === "nuked" ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
-            Jugador eliminado permanentemente.
-          </div>
-        ) : null}
+      <>
+        <div className="space-y-4 print:hidden">
+          {params.ok === "nuked" ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
+              Jugador eliminado permanentemente.
+            </div>
+          ) : null}
 
         <PlayerViewTabs view={view} canViewLists={permissionContext.hasPlayerDataAccess} />
 
@@ -614,6 +680,11 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <Link href="/players/new" prefetch={false} className="rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-medium text-white hover:bg-portoDark">
                   + Nuevo jugador
                 </Link>
+              </div>
+            ) : null}
+            {view === "bajas" ? (
+              <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-center">
+                <BajaPrintButton />
               </div>
             ) : null}
           </div>
@@ -763,7 +834,9 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
             )}
           </div>
         </div>
-      </div>
+        </div>
+        {view === "bajas" ? <BajaPrintReport rows={bajaPrintRows} filterLabel={bajaFilterLabel} total={bajaPrintRows.length} /> : null}
+      </>
     </PageShell>
   );
 }

@@ -121,7 +121,7 @@ type BajaEnrollmentRow = {
   campus_id: string;
   dropout_reason: string | null;
   campuses: { name: string | null; code: string | null } | null;
-  players: { first_name: string | null; last_name: string | null } | null;
+  players: { first_name: string | null; last_name: string | null; birth_date: string | null; public_player_id: string | null } | null;
 };
 
 type EnrollmentBalanceRow = {
@@ -506,6 +506,7 @@ export type BajaListFilters = {
   dropoutFrom?: string;
   dropoutTo?: string;
   page?: number;
+  includeAllRows?: boolean;
 };
 
 export type BajaReasonSummaryRow = {
@@ -612,7 +613,7 @@ export async function listBajas(filters: BajaListFilters) {
 
   let query = supabase
     .from("enrollments")
-    .select("id, player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name), campuses(name, code)")
+    .select("id, player_id, start_date, end_date, campus_id, dropout_reason, players(first_name, last_name, birth_date, public_player_id), campuses(name, code)")
     .in("status", ["ended", "cancelled"])
     .in("campus_id", campusAccess.campusIds)
     .order("end_date", { ascending: false });
@@ -656,17 +657,24 @@ export async function listBajas(filters: BajaListFilters) {
     }
     return true;
   }).sort((a, b) => {
-    const dateCompare = (b.end_date ?? "").localeCompare(a.end_date ?? "");
-    if (dateCompare !== 0) return dateCompare;
+    const campusCompare = (a.campuses?.name ?? "").localeCompare(b.campuses?.name ?? "", "es", { sensitivity: "base" });
+    if (campusCompare !== 0) return campusCompare;
+    const yearA = Number(a.players?.birth_date?.slice(0, 4) ?? 0);
+    const yearB = Number(b.players?.birth_date?.slice(0, 4) ?? 0);
+    const yearCompare = yearA - yearB;
+    if (yearCompare !== 0) return yearCompare;
     const nameA = `${a.players?.first_name ?? ""} ${a.players?.last_name ?? ""}`.trim();
     const nameB = `${b.players?.first_name ?? ""} ${b.players?.last_name ?? ""}`.trim();
-    return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+    const nameCompare = nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+    if (nameCompare !== 0) return nameCompare;
+    return (a.end_date ?? "").localeCompare(b.end_date ?? "");
   });
 
   const total = deduped.length;
   const summary = buildBajaReasonSummary(deduped);
   const from = (page - 1) * PAGE_SIZE;
-  const paged = deduped.slice(from, from + PAGE_SIZE);
+  const pageSize = filters.includeAllRows ? Math.max(total, PAGE_SIZE) : PAGE_SIZE;
+  const paged = filters.includeAllRows ? deduped : deduped.slice(from, from + PAGE_SIZE);
 
   const bajaRows = paged.map((row) => {
     const startDate = new Date(row.start_date);
@@ -675,6 +683,8 @@ export async function listBajas(filters: BajaListFilters) {
     return {
       playerId: row.player_id,
       fullName: `${row.players?.first_name ?? ""} ${row.players?.last_name ?? ""}`.trim(),
+      publicPlayerId: row.players?.public_player_id ?? null,
+      birthYear: row.players?.birth_date ? Number(row.players.birth_date.slice(0, 4)) : null,
       startDate: row.start_date,
       endDate: row.end_date,
       daysEnrolled,
@@ -685,7 +695,7 @@ export async function listBajas(filters: BajaListFilters) {
     };
   });
 
-  return { rows: bajaRows, total, page, pageSize: PAGE_SIZE, summary };
+  return { rows: bajaRows, total, page, pageSize, summary };
 }
 
 export async function listCampuses() {

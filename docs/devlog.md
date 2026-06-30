@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-06-29 (session 198)
+
+### Jugadores Bajas Printable Report (v1.16.181)
+
+- Added a direct print action to `Jugadores > Bajas` for the currently selected dropout filters.
+- The printable report uses all filtered rows, not just the current 20-row page.
+- Updated the Bajas ordering to match the requested report priority: campus first, category/YOB second, player name third, and effective baja date fourth.
+- Added player ID, campus, category, baja date, reason, and notes space to the compact print-only table.
+- Added `npm run test:bajas-print-report` to guard the print action, all-filtered-rows path, and ordering contract.
+- No dropout mutation, finance, balance, or permissions behavior changed.
+
 ## 2026-06-27 (session 197)
 
 ### Priority Intake: Coach Packets, Enrollment Validation, Tryouts

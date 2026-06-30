@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.179`
-- Current preview line: `v1.16.180`
+- Current preview line: `v1.16.181`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -208,7 +208,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Grouped roster performance | Main spreadsheet-style roster optimized through `v1.16.106`-`v1.16.109`. |
 | ✅ | Training group emergency edit mode | Dropdown edit, audited batch save, permission hiding, and `Quitar grupo` shipped in `v1.16.116`-`v1.16.117`. |
 | ✅ | Grouped roster Excel export | Export shipped in `v1.16.129`; category/YOB sheets and black-white print-friendly formatting shipped in `v1.16.130`. |
-| 🟡 | `Bajas` tab polish | Month/date filters, alphabetical archive, categorized reasons, reason KPIs, and copyable summary shipped in `v1.16.123`-`v1.16.126`. Keep open for later visual cleanup or deeper analytics. |
+| 🟢 | `Bajas` tab polish | Month/date filters, alphabetical archive, categorized reasons, reason KPIs, and copyable summary shipped in `v1.16.123`-`v1.16.126`. Preview `v1.16.181` adds a compact print-only dropout report using all filtered rows and campus/YOB/name/baja-date ordering. Keep open for later visual cleanup or deeper analytics. |
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |
 | 🟡 | Excel/list export tools | First grouped roster export is live; `v1.16.166` adds a direct-print coach roster sheet. Keep open for broader list/export needs. |
 | ✅ | Coach roster direct print sheet | Shipped in `v1.16.166`: print-only roster sheet from `Jugadores > Vista por grupos`, inside `Herramientas`, one training group per page, alphabetical roster, ID, enrollment date, coach familiarity checkboxes, and notes column. |
@@ -304,6 +304,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.181` — `Jugadores > Bajas` now has a compact direct-print dropout report using all filtered rows and campus/YOB/name/baja-date ordering.
 - 🟢 `v1.16.176` — `Asistencia > Grupos` detail matrices now paginate monthly attendance record loads so large campuses/months do not drop player-day cells.
 - 🟢 `v1.16.175` — Attendance nomenclature is standardized across capture, player summaries, recent chips, reports, and group views: `A Asistió`, `F Falta`, `🩹 Lesión`, `📝 Justificada`, with report `Faltas` wording.
 - 🟢 `v1.16.174` — Female 2014/2015 new enrollments now resolve to the single matching Femenil combined-year Futbol Para Todos group even when its operational code is not B1.
