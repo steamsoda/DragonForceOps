@@ -183,6 +183,7 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
             </div>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">Inscripcion: {fmtDate(row.startDate)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Categoria: {row.birthYear ?? "-"}</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">Baja: {fmtDate(row.endDate)}</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Dias inscrito: {row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}
@@ -766,6 +767,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                   <tr>
                     <th className="px-3 py-2">Jugador</th>
                     <th className="px-3 py-2">Campus</th>
+                    <th className="px-3 py-2">Cat.</th>
                     <th className="px-3 py-2">Fecha inscripcion</th>
                     <th className="px-3 py-2">Fecha baja</th>
                     <th className="px-3 py-2">Dias inscrito</th>
@@ -776,7 +778,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {bajaRows.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={7}>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={8}>
                         No se encontraron jugadores dados de baja con esos filtros.
                       </td>
                     </tr>
@@ -789,6 +791,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                           </Link>
                         </td>
                         <td className="px-3 py-2">{row.campusName}</td>
+                        <td className="px-3 py-2">{row.birthYear ?? "-"}</td>
                         <td className="px-3 py-2">{fmtDate(row.startDate)}</td>
                         <td className="px-3 py-2">{fmtDate(row.endDate)}</td>
                         <td className="px-3 py-2">{row.daysEnrolled != null ? `${row.daysEnrolled} dias` : "-"}</td>

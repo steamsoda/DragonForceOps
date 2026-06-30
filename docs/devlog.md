@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-06-29 (session 199)
+
+### Jugadores Bajas In-App Category Column (v1.16.182)
+
+- Added the category/YOB to the visible `Jugadores > Bajas` list and mobile cards, matching the printable dropout report ordering context.
+- Kept the existing dropout filters, print report, sorting, and finance/dropout behavior unchanged.
+- Extended `npm run test:bajas-print-report` to guard the in-app category display.
+
 ## 2026-06-29 (session 198)
 
 ### Jugadores Bajas Printable Report (v1.16.181)

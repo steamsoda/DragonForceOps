@@ -11,6 +11,7 @@ assert.match(page, /hidden print:block/, "Bajas print report should be print-onl
 assert.match(page, /print:hidden/, "Normal players UI should be hidden while printing.");
 assert.match(page, /Campus/, "Bajas print list should include campus.");
 assert.match(page, /Cat\./, "Bajas print list should include YOB/category.");
+assert.match(page, /Categoria: \{row\.birthYear \?\? "-"\}/, "Bajas mobile cards should display YOB/category.");
 assert.match(page, /Fecha baja/, "Bajas print list should include dropout date.");
 assert.match(page, /includeAllRows: true/, "Bajas print list should request all filtered rows.");
 assert.match(button, /Imprimir lista/, "Bajas print button should be clearly labeled.");
