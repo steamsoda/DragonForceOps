@@ -34,6 +34,11 @@ import type { AccountCreditSummary } from "@/lib/finance/account-credit";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
+import {
+  hasActiveProductPricingRules,
+  resolveProductPricingRuleAmount,
+  type ProductPricingRuleInput,
+} from "@/lib/products/pricing-rules";
 
 export type CajaPlayerResult = {
   playerId: string;
@@ -180,6 +185,22 @@ type ProductRestrictionRow = {
   training_group_id: string;
 };
 
+type ProductPricingRuleRow = {
+  product_id: string;
+  amount: number;
+  starts_on: string;
+  ends_on: string | null;
+  gender: string | null;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+  priority: number;
+};
+
+type ProductPricingContext = {
+  gender: string | null;
+  birthYear: number | null;
+};
+
 function parseOptionalMoney(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
   return Math.round(value * 100) / 100;
@@ -270,6 +291,82 @@ async function getProductRestrictionRows(
     .returns<ProductRestrictionRow[]>();
 
   return data ?? [];
+}
+
+async function getProductPricingRuleRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productIds: string[],
+) {
+  if (productIds.length === 0) return [] as ProductPricingRuleRow[];
+  const { data } = await supabase
+    .from("product_pricing_rules")
+    .select("product_id, amount, starts_on, ends_on, gender, birth_year_min, birth_year_max, priority")
+    .in("product_id", productIds)
+    .returns<ProductPricingRuleRow[]>();
+
+  return data ?? [];
+}
+
+function groupProductPricingRules(rows: ProductPricingRuleRow[]) {
+  const byProduct = new Map<string, ProductPricingRuleInput[]>();
+  for (const row of rows) {
+    const rules = byProduct.get(row.product_id) ?? [];
+    rules.push({
+      amount: Number(row.amount),
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      gender: row.gender,
+      birthYearMin: row.birth_year_min,
+      birthYearMax: row.birth_year_max,
+      priority: row.priority,
+    });
+    byProduct.set(row.product_id, rules);
+  }
+  return byProduct;
+}
+
+function birthYearFromDate(value: string | null | undefined) {
+  const match = /^(\d{4})-/.exec(value ?? "");
+  return match ? Number(match[1]) : null;
+}
+
+async function getProductPricingContext(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+): Promise<ProductPricingContext> {
+  const { data } = await supabase
+    .from("enrollments")
+    .select("players(birth_date, gender)")
+    .eq("id", enrollmentId)
+    .maybeSingle()
+    .returns<{ players: { birth_date: string | null; gender: string | null } | null } | null>();
+
+  return {
+    gender: data?.players?.gender ?? null,
+    birthYear: birthYearFromDate(data?.players?.birth_date),
+  };
+}
+
+function resolveCajaProductAmount({
+  rules,
+  businessDate,
+  context,
+  fallbackAmount,
+}: {
+  rules: ProductPricingRuleInput[];
+  businessDate: string;
+  context: ProductPricingContext;
+  fallbackAmount: number | null;
+}) {
+  if (rules.length === 0) return fallbackAmount;
+  if (!hasActiveProductPricingRules(rules, businessDate)) return null;
+  return resolveProductPricingRuleAmount({
+    rules,
+    businessDate,
+    gender: context.gender,
+    birthYear: context.birthYear,
+    fallbackAmount,
+  });
 }
 
 async function isProductAvailableForEnrollment(
@@ -476,7 +573,10 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
   if (!data) return [];
 
   const productIds = data.map((row) => row.id);
-  const restrictionRows = await getProductRestrictionRows(supabase, productIds);
+  const [restrictionRows, pricingRuleRows] = await Promise.all([
+    getProductRestrictionRows(supabase, productIds),
+    getProductPricingRuleRows(supabase, productIds),
+  ]);
   const restrictionsByProduct = new Map<string, string[]>();
   for (const row of restrictionRows) {
     const arr = restrictionsByProduct.get(row.product_id) ?? [];
@@ -487,6 +587,11 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
   const activeGroupIds = enrollmentId
     ? await getActiveTrainingGroupIdsForEnrollment(supabase, enrollmentId)
     : null;
+  const pricingContext = enrollmentId
+    ? await getProductPricingContext(supabase, enrollmentId)
+    : { gender: null, birthYear: null };
+  const pricingRulesByProduct = groupProductPricingRules(pricingRuleRows);
+  const businessDate = getMonterreyDateString();
 
   const result: CajaProductCategory[] = [];
   for (const [i, group] of PRODUCT_GROUPS.entries()) {
@@ -498,17 +603,30 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
         if (!activeGroupIds) return false;
         return allowedGroupIds.some((groupId) => activeGroupIds.has(groupId));
       })
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        categorySlug: group.key,
-        categoryName: group.label,
-        chargeTypeId: row.charge_type_id,
-        defaultAmount: row.default_amount,
-        hasSizes: row.has_sizes,
-        sortOrder: row.sort_order,
-        isRestricted: (restrictionsByProduct.get(row.id) ?? []).length > 0,
-      }));
+      .filter((row) => {
+        const rules = pricingRulesByProduct.get(row.id) ?? [];
+        return rules.length === 0 || hasActiveProductPricingRules(rules, businessDate);
+      })
+      .map((row) => {
+        const rules = pricingRulesByProduct.get(row.id) ?? [];
+        const defaultAmount = resolveCajaProductAmount({
+          rules,
+          businessDate,
+          context: pricingContext,
+          fallbackAmount: row.default_amount,
+        });
+        return {
+          id: row.id,
+          name: row.name,
+          categorySlug: group.key,
+          categoryName: group.label,
+          chargeTypeId: row.charge_type_id,
+          defaultAmount,
+          hasSizes: row.has_sizes,
+          sortOrder: row.sort_order,
+          isRestricted: (restrictionsByProduct.get(row.id) ?? []).length > 0,
+        };
+      });
 
     if (products.length > 0) {
       result.push({ id: group.key, name: group.label, slug: group.key, sortOrder: i, products });
@@ -603,17 +721,18 @@ export async function postCajaChargeAction(
     }
     createdChargeId = tuitionResult.newChargeId;
   } else {
-      const resolvedAmount = product.default_amount ?? amount;
-      if (!resolvedAmount || isNaN(resolvedAmount) || resolvedAmount <= 0) {
-        return { ok: false, error: "invalid_form" };
-      }
-
     const { data: enrollment } = await supabase
       .from("enrollments")
-      .select("id, status, campus_id, pricing_plans(currency)")
+      .select("id, status, campus_id, pricing_plans(currency), players(birth_date, gender)")
       .eq("id", enrollmentId)
       .maybeSingle()
-      .returns<{ id: string; status: string; campus_id: string; pricing_plans: { currency: string } | null } | null>();
+      .returns<{
+        id: string;
+        status: string;
+        campus_id: string;
+        pricing_plans: { currency: string } | null;
+        players: { birth_date: string | null; gender: string | null } | null;
+      } | null>();
 
     if (!enrollment) return { ok: false, error: "enrollment_not_found" };
     if (enrollment.status === "ended" || enrollment.status === "cancelled") {
@@ -621,6 +740,26 @@ export async function postCajaChargeAction(
     }
     if (requiredCampusId && enrollment.campus_id !== requiredCampusId) {
       return { ok: false, error: "enrollment_not_found" };
+    }
+
+    const productRules = groupProductPricingRules(await getProductPricingRuleRows(supabase, [product.id])).get(product.id) ?? [];
+    const businessDate = getMonterreyDateString();
+    if (productRules.length > 0 && !hasActiveProductPricingRules(productRules, businessDate)) {
+      return { ok: false, error: "product_not_available" };
+    }
+
+    const resolvedAmount =
+      resolveCajaProductAmount({
+        rules: productRules,
+        businessDate,
+        context: {
+          gender: enrollment.players?.gender ?? null,
+          birthYear: birthYearFromDate(enrollment.players?.birth_date),
+        },
+        fallbackAmount: product.default_amount,
+      }) ?? amount;
+    if (!resolvedAmount || isNaN(resolvedAmount) || resolvedAmount <= 0) {
+      return { ok: false, error: "invalid_form" };
     }
 
     const currency = enrollment.pricing_plans?.currency ?? "MXN";

@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.182`
-- Current preview line: `v1.16.182`
+- Current preview line: `v1.16.183`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -95,6 +95,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🟢 | Director Deportivo Contry roster access | Preview `v1.16.177` adds narrow `Jugadores > Vista por grupos` access and training-group edit mode for assigned-campus sports directors, without broad player-data edit or finance access. | Roles / Jugadores lane, `v1.16.177` devlog |
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches, `v1.16.178` reuses the signal in Caja, and preview `v1.16.179` adds the operational-only attendance + collections relation report without peso amounts. | Front Desk / Asistencia / Reports lanes |
 | 🟢 | Weekly coach attendance packet | Preview `v1.16.180` adds the weekly report/print packet in `Asistencia > Reportes`: campus or single-coach view, grouped by coach/training group, full rosters, new-player tags, simple `Pendiente de pago` / `Al corriente` signal, and `3+ faltas` without finance amounts. | Asistencia / Reports, User Feedback Intake 2026-06-27, `v1.16.180` devlog |
+| 🟢 | Tournament product pricing refresh | Preview `v1.16.183` adds the July 2026 tournament products and dynamic Caja pricing rules for Superliga/Rosa cutoff pricing, Copa YOB/gender tiers, Copa auto-hide after the buffer date, and flat Torneo de Leyendas pricing. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | 🔴 | Tryout player tracking | New priority-one intake placeholder: track players who come in for tryouts. Awaiting workflow details before design. | User Feedback Intake 2026-06-27 |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
@@ -137,6 +138,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 
 | Status | Feedback | Routing / decision | Reference |
 |---|---|---|---|
+| 🟢 | 2026-07-01 tournament product/pricing refresh | Preview `v1.16.183` implements the urgent July 2026 product refresh with additive pricing rules and keeps old products manually deactivatable for history safety. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | 🟢 | 2026-06-27 priority wave: weekly coach packet | Preview `v1.16.180` implements the first priority item for validation: full campus packet and single-coach reprint, grouped by coach and training group, printable from app, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation popup | Plan after coach packet. Must preserve the current successful behavior where enrollment opens Caja with inscription/monthly charges staged for payment. | New Enrollments / Caja |
 | 🔴 | Tryout player tracking | Placeholder only until the workflow is described; do not mix with enrollment validation. | Future planning |
@@ -192,6 +194,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Caja refunds and payment reassignment guardrails | Preview `v1.16.147` hardens the existing ledger actions; preview `v1.16.148` adds a Caja recent-payments panel with guarded `Cambiar concepto` / `Reembolsar` shortcuts and disabled reason chips; preview `v1.16.149`-`v1.16.151` widen/polish the bottom grid; preview `v1.16.152` lets staff move only eligible non-monthly source allocations from mixed payments while keeping tuition protected; preview `v1.16.153` also makes inscriptions non-refundable/non-reassignable. |
 | 🟢 | Caja account credit ledger / partial refund model | Planning spec in `docs/planning/caja-account-credit-ledger-plan.md`; preview `v1.16.154` adds the additive schema foundation, `v1.16.155` surfaces explicit/legacy credit in Caja, `v1.16.156` applies explicit credit to selected charges with a confirmation checkbox and service-role-only RPC, and `v1.16.157` turns eligible Caja reassignment remainders into explicit credit. Future passes: legacy implicit-credit review/conversion and deeper credit reporting. Legacy implicit credits stay warning-only until manually reviewed. |
 | 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, submit-loading feedback, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
+| 🟢 | Tournament product pricing rules | Preview `v1.16.183` adds additive product pricing rules for July 2026 tournaments. Caja resolves tournament prices server-side by Monterrey business date, gender, and YOB while old products stay manually deactivatable for historical safety. Future pass: product archive/pricing-rule admin UI and paid-player roster reports by product. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
@@ -304,6 +307,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.183` — Caja tournament products now support July 2026 dynamic pricing rules for Superliga/Rosa, Copa Polideportivo, and Torneo de Leyendas.
 - 🟢 `v1.16.182` — `Jugadores > Bajas` visible app list now includes category/YOB, matching the print report context.
 - 🟢 `v1.16.181` — `Jugadores > Bajas` now has a compact direct-print dropout report using all filtered rows and campus/YOB/name/baja-date ordering.
 - 🟢 `v1.16.176` — `Asistencia > Grupos` detail matrices now paginate monthly attendance record loads so large campuses/months do not drop player-day cells.

@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-01 (session 200)
+
+### Tournament Product Pricing Rules (v1.16.183)
+
+- Added a preview-safe product pricing rules layer for Caja tournament products.
+- Seeded the new competition products: `Superliga Regia 17 Edicion`, `Rosa Power Cup 13 Edicion`, `Copa Polideportivo`, and `Torneo de Leyendas`.
+- Kept old tournament products untouched so they can be manually deactivated from `Productos` without breaking historical charges/payments.
+- Caja now resolves dynamic product prices server-side using Monterrey business date, player gender, and player birth year:
+  - Superliga/Rosa are `$300` through 2026-07-25 and `$500` starting 2026-07-26.
+  - Copa Polideportivo uses the female override and YOB tiers through the July 18 buffer, then disappears from Caja on 2026-07-19.
+  - Torneo de Leyendas remains a flat `$150`.
+- If a product has active rules but the player is missing gender/YOB, Caja keeps the product visible as a manual-price fallback instead of hiding it from Front Desk.
+- Added `npm run test:product-pricing-rules` for the cutoff date, Copa tiering, female override, and inactive-after-buffer behavior.
+
 ## 2026-06-29 (session 199)
 
 ### Jugadores Bajas In-App Category Column (v1.16.182)
