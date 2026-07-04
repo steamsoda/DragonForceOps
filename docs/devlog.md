@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-03 (session 201)
+
+### Production Finance Ledger Repair: Michel Sotelo
+
+- Investigated Michel Sotelo Robledo's production Caja ledger after a Front Desk overtyped payment amount for two uniforms while only one uniform charge existed.
+- Found the `$1,200` payment had been split between one `$600` uniform charge and `$600` of July tuition, while a second `$600` uniform charge remained open.
+- Removed only the incorrect `$600` allocation from the `$1,200` payment to July tuition and voided the manual `- $100` balance adjustment labeled `error legacy`.
+- Added audit rows for the manual repair actions.
+- Immediate post-repair state left the `$1,200` payment with `$600` applied to the original uniform and `$600` unapplied for the second uniform while July tuition remained open for `$700`.
+- Follow-up verification after the remaining application/payment cleanup showed both uniforms and July tuition fully allocated; canonical and operational balances both read `$0`, so no drift remained.
+
 ## 2026-07-01 (session 200)
 
 ### Tournament Product Pricing Rules (v1.16.183)
