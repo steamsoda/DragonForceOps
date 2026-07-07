@@ -32,6 +32,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   missing_player: "No se pudo identificar al jugador.",
   empty_contact: "Captura al menos un dato del tutor antes de guardar.",
   unauthorized: "No tienes permiso para editar este contacto.",
+  debug_read_only: "Estas viendo otro usuario en modo debug. Para probar guardado, entra con ese usuario real; el modo debug no permite escribir.",
   update_failed: "No se pudo actualizar el tutor.",
   create_failed: "No se pudo crear el tutor.",
   link_failed: "El tutor se creo, pero no se pudo vincular al jugador.",

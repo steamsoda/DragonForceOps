@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.183`
-- Current preview line: `v1.16.184`
+- Current preview line: `v1.16.185`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -96,7 +96,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🟢 | Attendance risk + collections signal | Preview `v1.16.171` adds the first tiered badge source and surfaces it in `Jugadores` and `Pendientes`; `v1.16.172` adds safe chunking for large player batches, `v1.16.178` reuses the signal in Caja, and preview `v1.16.179` adds the operational-only attendance + collections relation report without peso amounts. | Front Desk / Asistencia / Reports lanes |
 | 🟢 | Weekly coach attendance packet | Preview `v1.16.180` adds the weekly report/print packet in `Asistencia > Reportes`: campus or single-coach view, grouped by coach/training group, full rosters, new-player tags, simple `Pendiente de pago` / `Al corriente` signal, and `3+ faltas` without finance amounts. | Asistencia / Reports, User Feedback Intake 2026-06-27, `v1.16.180` devlog |
 | 🟢 | Tournament product pricing refresh | Preview `v1.16.183` adds the July 2026 tournament products and dynamic Caja pricing rules for Superliga/Rosa cutoff pricing, Copa YOB/gender tiers, Copa auto-hide after the buffer date, and flat Torneo de Leyendas pricing. | Front Desk / Caja / Products, `v1.16.183` devlog |
-| 🟢 | Datos Faltantes Office Admin tutor creation | Preview `v1.16.184` fixes the Office Admin unified `Guardar datos` create path by allowing narrowly-scoped reads of freshly-created, unlinked tutor rows before they are linked to a player. | Roles / Datos Faltantes, `v1.16.184` devlog |
+| 🟢 | Datos Faltantes Office Admin tutor creation | Preview `v1.16.184` fixes the Office Admin unified `Guardar datos` create path by allowing narrowly-scoped reads of freshly-created, unlinked tutor rows before they are linked to a player. Preview `v1.16.185` adds a clear debug-read-only message for impersonation tests. | Roles / Datos Faltantes, `v1.16.184`-`v1.16.185` devlog |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | 🔴 | Tryout player tracking | New priority-one intake placeholder: track players who come in for tryouts. Awaiting workflow details before design. | User Feedback Intake 2026-06-27 |
 | 🟡 | Caja refund/reassignment/account-credit monitoring | The core workflow is live, but this remains finance-sensitive. Watch real Caja usage and run sanity checks after changes. | Front Desk / Caja / Collections below, `v1.16.147`-`v1.16.157` devlog |
