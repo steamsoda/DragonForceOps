@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-07-07 (session 202)
+
+### Datos Faltantes Office Admin Tutor Creation (v1.16.184)
+
+- Audited the unified `Datos Faltantes` save flow after Office Admin reported trouble creating new tutors.
+- Found the create path inserts a `guardians` row and requests the new `id` before linking it through `player_guardians`; with RLS, that `insert ... returning` needs a matching `SELECT` policy.
+- Added a narrow Office Admin read policy for unlinked guardian rows so freshly-created tutors can be returned and linked.
+- Kept existing linked tutor visibility governed by the player/tutor relationship policy; no finance tables or player lifecycle actions changed.
+
+## 2026-07-03 (session 201)
+
+### Production Finance Ledger Repair: Michel Sotelo
+
+- Investigated Michel Sotelo Robledo's production Caja ledger after a Front Desk overtyped payment amount for two uniforms while only one uniform charge existed.
+- Found the `$1,200` payment had been split between one `$600` uniform charge and `$600` of July tuition, while a second `$600` uniform charge remained open.
+- Removed only the incorrect `$600` allocation from the `$1,200` payment to July tuition and voided the manual `- $100` balance adjustment labeled `error legacy`.
+- Added audit rows for the manual repair actions.
+- Immediate post-repair state left the `$1,200` payment with `$600` applied to the original uniform and `$600` unapplied for the second uniform while July tuition remained open for `$700`.
+- Follow-up verification after the remaining application/payment cleanup showed both uniforms and July tuition fully allocated; canonical and operational balances both read `$0`, so no drift remained.
+
 ## 2026-07-01 (session 200)
 
 ### Tournament Product Pricing Rules (v1.16.183)
