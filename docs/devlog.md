@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-07-07 (session 202)
+
+### Datos Faltantes Debug Read-Only Message (v1.16.185)
+
+- Followed up after preview still showed the generic `No se pudo guardar el contacto` message.
+- Identified that testing through the preview debug-user selector can redirect with `err=debug_read_only`, because impersonation mode intentionally blocks writes.
+- Added a specific `Datos Faltantes` error message explaining that debug mode is read-only and real save testing must happen with the actual user session.
+- No permission, RLS, finance, or data mutation behavior changed in this follow-up.
+
+### Datos Faltantes Office Admin Tutor Creation (v1.16.184)
+
+- Audited the unified `Datos Faltantes` save flow after Office Admin reported trouble creating new tutors.
+- Found the create path inserts a `guardians` row and requests the new `id` before linking it through `player_guardians`; with RLS, that `insert ... returning` needs a matching `SELECT` policy.
+- Added a narrow Office Admin read policy for unlinked guardian rows so freshly-created tutors can be returned and linked.
+- Kept existing linked tutor visibility governed by the player/tutor relationship policy; no finance tables or player lifecycle actions changed.
+
 ## 2026-07-03 (session 201)
 
 ### Production Finance Ledger Repair: Michel Sotelo
