@@ -2,6 +2,22 @@
 
 ## 2026-07-07 (session 202)
 
+### Inscripciones Torneos Super Admin Controls (v1.16.187)
+
+- Tightened the quick tournament configuration panel so only Super Admins can see or submit it.
+- Collapsed the panel behind a `Configuracion de Torneos` button to keep the operational signup board clean.
+- Added an `Ambos campus` option that creates or updates one campus-scoped tournament metadata row per visible campus for the selected product.
+- Automatically hides ended tournaments from the `Inscripciones Torneos` operational board when their `end_date` is before the current Monterrey date.
+- Clarified the card copy to `Inscripcion cierra en X dias`; product/Caja availability remains controlled separately by product active state and pricing rules.
+
+### Inscripciones Torneos Visibility and Dates (v1.16.186)
+
+- Rewired `Inscripciones Torneos` to use active tournament metadata linked to active tournament/cup products instead of listing every historical paid tournament product.
+- Added a compact in-page configuration panel for sports/admin users to connect a product to a visible competition card, set event start/end dates, set registration close date, and archive finished competitions.
+- Kept paid-player confirmation unchanged: confirmed players are still counted from fully paid charges for the linked product.
+- Added compact tournament date and registration-close labels to the `Competencias` cards, sorted by event start date.
+- No Caja charge, payment, allocation, refund, or product pricing behavior changed.
+
 ### Datos Faltantes Debug Read-Only Message (v1.16.185)
 
 - Followed up after preview still showed the generic `No se pudo guardar el contacto` message.
