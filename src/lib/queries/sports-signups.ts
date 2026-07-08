@@ -249,6 +249,19 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getMonterreyDateString() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : new Date().toISOString().slice(0, 10);
+}
+
 function isCompetitionProduct(product: { charge_types: { code: string | null } | null } | null | undefined) {
   return COMPETITION_CHARGE_TYPE_CODES.has(product?.charge_types?.code ?? "");
 }
@@ -364,6 +377,7 @@ async function loadCompetitionProducts(admin: SupabaseQueryClient) {
 
 async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: string[]) {
   if (campusIds.length === 0) return [];
+  const today = getMonterreyDateString();
 
   const { data, error } = await admin
     .from("tournaments")
@@ -381,6 +395,7 @@ async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: stri
     (row) =>
       row.campus_id &&
       row.product_id &&
+      (row.end_date === null || row.end_date >= today) &&
       row.products?.is_active === true &&
       isCompetitionProduct(row.products),
   );

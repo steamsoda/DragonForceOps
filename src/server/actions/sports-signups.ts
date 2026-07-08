@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { writeAuditLog } from "@/lib/audit";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const ALL_CAMPUSES_VALUE = "__all__";
 
 function normalizeDateInput(raw: FormDataEntryValue | null) {
   const value = String(raw ?? "").trim();
@@ -37,7 +39,7 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
   const returnTo = normalizeRedirectTarget(formData.get("returnTo"));
   await assertDebugWritesAllowed(returnTo);
 
-  const context = await requireSportsDirectorContext("/unauthorized");
+  const context = await requireSuperAdminContext("/unauthorized");
   const admin = createAdminClient();
   const campusIds = context.campusAccess?.campusIds ?? [];
   const campusId = normalizeTextInput(formData.get("campusId"));
@@ -47,7 +49,9 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
   const endDate = normalizeDateInput(formData.get("endDate"));
   const signupDeadline = normalizeDateInput(formData.get("signupDeadline"));
 
-  if (!campusId || !productId || !campusIds.includes(campusId)) {
+  const targetCampusIds = campusId === ALL_CAMPUSES_VALUE ? campusIds : [campusId];
+
+  if (targetCampusIds.length === 0 || !productId || targetCampusIds.some((id) => !campusIds.includes(id))) {
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=invalid_tournament_settings`);
   }
 
@@ -60,47 +64,49 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=invalid_tournament_product`);
   }
 
-  const existing = await admin
-    .from("tournaments")
-    .select("id")
-    .eq("campus_id", campusId)
-    .eq("product_id", productId)
-    .eq("is_active", true)
-    .maybeSingle<{ id: string } | null>();
+  for (const targetCampusId of targetCampusIds) {
+    const existing = await admin
+      .from("tournaments")
+      .select("id")
+      .eq("campus_id", targetCampusId)
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .maybeSingle<{ id: string } | null>();
 
-  const payload = {
-    name: name || product.name,
-    campus_id: campusId,
-    product_id: productId,
-    gender: "mixed",
-    start_date: startDate,
-    end_date: endDate,
-    signup_deadline: signupDeadline,
-    is_active: true,
-    is_mandatory: false,
-    updated_at: new Date().toISOString(),
-  };
+    const payload = {
+      name: name || product.name,
+      campus_id: targetCampusId,
+      product_id: productId,
+      gender: "mixed",
+      start_date: startDate,
+      end_date: endDate,
+      signup_deadline: signupDeadline,
+      is_active: true,
+      is_mandatory: false,
+      updated_at: new Date().toISOString(),
+    };
 
-  const result = existing.data?.id
-    ? await admin.from("tournaments").update(payload).eq("id", existing.data.id).select("id").single<{ id: string }>()
-    : await admin
-        .from("tournaments")
-        .insert({ ...payload, created_by: context.user.id })
-        .select("id")
-        .single<{ id: string }>();
+    const result = existing.data?.id
+      ? await admin.from("tournaments").update(payload).eq("id", existing.data.id).select("id").single<{ id: string }>()
+      : await admin
+          .from("tournaments")
+          .insert({ ...payload, created_by: context.user.id })
+          .select("id")
+          .single<{ id: string }>();
 
-  if (result.error || !result.data) {
-    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_settings_failed`);
+    if (result.error || !result.data) {
+      redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_settings_failed`);
+    }
+
+    await writeAuditLog(admin, {
+      actorUserId: context.user.id,
+      actorEmail: context.user.email ?? null,
+      action: existing.data?.id ? "sports_signups.tournament_settings_updated" : "sports_signups.tournament_settings_created",
+      tableName: "tournaments",
+      recordId: result.data.id,
+      afterData: payload,
+    });
   }
-
-  await writeAuditLog(admin, {
-    actorUserId: context.user.id,
-    actorEmail: context.user.email ?? null,
-    action: existing.data?.id ? "sports_signups.tournament_settings_updated" : "sports_signups.tournament_settings_created",
-    tableName: "tournaments",
-    recordId: result.data.id,
-    afterData: payload,
-  });
 
   revalidatePath("/sports-signups");
   revalidatePath("/tournaments");
@@ -111,7 +117,7 @@ export async function archiveSportsSignupTournamentAction(formData: FormData) {
   const returnTo = normalizeRedirectTarget(formData.get("returnTo"));
   await assertDebugWritesAllowed(returnTo);
 
-  const context = await requireSportsDirectorContext("/unauthorized");
+  const context = await requireSuperAdminContext("/unauthorized");
   const admin = createAdminClient();
   const campusIds = context.campusAccess?.campusIds ?? [];
   const tournamentId = normalizeTextInput(formData.get("tournamentId"));

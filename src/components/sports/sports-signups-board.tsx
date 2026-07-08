@@ -48,10 +48,10 @@ function formatDeadlineStatus(deadline: string | null) {
   const diffDays = Math.ceil((parsed.getTime() - todayOnly.getTime()) / 86_400_000);
   const label = formatShortDate(deadline);
 
-  if (diffDays < 0) return `Registro cerrado (${label})`;
-  if (diffDays === 0) return "Cierra hoy";
-  if (diffDays === 1) return `Cierra manana (${label})`;
-  return `Cierra en ${diffDays} dias (${label})`;
+  if (diffDays < 0) return `Inscripcion cerrada (${label})`;
+  if (diffDays === 0) return "Inscripcion cierra hoy";
+  if (diffDays === 1) return `Inscripcion cierra manana (${label})`;
+  return `Inscripcion cierra en ${diffDays} dias (${label})`;
 }
 
 function getNameColumns(players: CompetitionSignupCategoryGroup["players"]) {

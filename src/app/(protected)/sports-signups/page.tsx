@@ -46,7 +46,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
     ? (params.competition as string)
     : (dashboard.competitionOptions[0]?.id ?? "");
   const returnTo = `/sports-signups?campus=${encodeURIComponent(dashboard.selectedCampusId)}${initialCompetitionId ? `&competition=${encodeURIComponent(initialCompetitionId)}` : ""}`;
-  const canManageTournamentSettings = permissionContext.hasSportsAccess;
+  const canManageTournamentSettings = permissionContext.isSuperAdmin;
 
   return (
     <PageShell
@@ -68,8 +68,12 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
         ) : null}
 
         {canManageTournamentSettings ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-4 flex flex-col gap-1">
+          <details className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <summary className="inline-flex cursor-pointer list-none rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+              Configuracion de Torneos
+            </summary>
+
+            <div className="mt-4 mb-4 flex flex-col gap-1">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-100">
                 Configuracion rapida de competencias
               </h2>
@@ -87,6 +91,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
                   defaultValue={dashboard.selectedCampusId}
                   className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
                 >
+                  <option value="__all__">Ambos campus</option>
                   {dashboard.campuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>
                       {campus.name}
@@ -164,7 +169,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
                 ))}
               </div>
             ) : null}
-          </section>
+          </details>
         ) : null}
       </div>
 
