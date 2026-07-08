@@ -19,6 +19,41 @@ type CategoryActionFeedback = "copied" | "copy-error" | "png-exported" | "png-er
 
 const CATEGORY_TWO_COLUMN_THRESHOLD = 14;
 
+function parseDateOnly(value: string | null | undefined) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, 10));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatShortDate(value: string | null | undefined) {
+  const parsed = parseDateOnly(value);
+  if (!parsed) return null;
+  return parsed.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", "");
+}
+
+function formatDateRange(startDate: string | null, endDate: string | null) {
+  const start = formatShortDate(startDate);
+  const end = formatShortDate(endDate);
+  if (start && end && start !== end) return `${start} - ${end}`;
+  return start ?? end ?? null;
+}
+
+function formatDeadlineStatus(deadline: string | null) {
+  const parsed = parseDateOnly(deadline);
+  if (!parsed) return null;
+
+  const today = new Date();
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.ceil((parsed.getTime() - todayOnly.getTime()) / 86_400_000);
+  const label = formatShortDate(deadline);
+
+  if (diffDays < 0) return `Registro cerrado (${label})`;
+  if (diffDays === 0) return "Cierra hoy";
+  if (diffDays === 1) return `Cierra manana (${label})`;
+  return `Cierra en ${diffDays} dias (${label})`;
+}
+
 function getNameColumns(players: CompetitionSignupCategoryGroup["players"]) {
   if (players.length <= CATEGORY_TWO_COLUMN_THRESHOLD) return [players];
 
@@ -318,6 +353,8 @@ export function SportsSignupsBoard({
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {(selectedBoard?.competitions ?? []).map((competition) => {
             const isSelected = competition.id === selectedCompetition?.id;
+            const dateRange = formatDateRange(competition.startDate, competition.endDate);
+            const deadlineStatus = formatDeadlineStatus(competition.signupDeadline);
             return (
               <button
                 key={competition.id}
@@ -331,6 +368,17 @@ export function SportsSignupsBoard({
                 ].join(" ")}
               >
                 <p className="text-sm font-semibold uppercase tracking-wide">{competition.label}</p>
+                {dateRange || deadlineStatus ? (
+                  <div
+                    className={[
+                      "mt-2 space-y-0.5 text-xs leading-tight",
+                      isSelected ? "text-white/80" : "text-slate-500 dark:text-slate-400",
+                    ].join(" ")}
+                  >
+                    {dateRange ? <p>Torneo: {dateRange}</p> : null}
+                    {deadlineStatus ? <p>{deadlineStatus}</p> : null}
+                  </div>
+                ) : null}
                 <p className="mt-3 text-4xl font-bold">{competition.totalConfirmed.toLocaleString("es-MX")}</p>
                 <p
                   className={[

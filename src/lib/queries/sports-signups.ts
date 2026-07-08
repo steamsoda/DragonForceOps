@@ -9,8 +9,28 @@ type SupabaseQueryClient = SupabaseClient;
 type CompetitionProductRow = {
   id: string;
   name: string;
+  is_active?: boolean;
   charge_types: {
     code: string | null;
+  } | null;
+};
+
+type SignupTournamentRow = {
+  id: string;
+  name: string;
+  campus_id: string;
+  product_id: string;
+  start_date: string | null;
+  end_date: string | null;
+  signup_deadline: string | null;
+  is_active: boolean;
+  products: {
+    id: string;
+    name: string | null;
+    is_active: boolean | null;
+    charge_types: {
+      code: string | null;
+    } | null;
   } | null;
 };
 
@@ -93,6 +113,11 @@ export type CompetitionSignupBucket = {
   label: string;
   productId: string | null;
   legacyKey: string | null;
+  tournamentId: string | null;
+  campusId: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  signupDeadline: string | null;
 };
 
 export type CompetitionSignupPlayerRow = {
@@ -118,6 +143,11 @@ export type CompetitionSignupCategoryGroup = {
 export type CompetitionSignupCompetitionGroup = {
   id: string;
   label: string;
+  tournamentId: string | null;
+  productId: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  signupDeadline: string | null;
   totalConfirmed: number;
   totalActive: number;
   categories: CompetitionSignupCategoryGroup[];
@@ -133,6 +163,16 @@ export type CompetitionSignupDashboardData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string;
   competitionOptions: CompetitionSignupBucket[];
+  configurableProducts: Array<{ id: string; name: string }>;
+  activeTournamentSettings: Array<{
+    id: string;
+    campusId: string;
+    productId: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    signupDeadline: string | null;
+  }>;
   campusBoards: CompetitionSignupCampusBoard[];
   loadError: string | null;
   perf?: {
@@ -307,7 +347,8 @@ async function loadCompetitionProducts(admin: SupabaseQueryClient) {
     const to = from + pageSize - 1;
     const { data, error } = await admin
       .from("products")
-      .select("id, name, charge_types(code)")
+      .select("id, name, is_active, charge_types(code)")
+      .eq("is_active", true)
       .order("name", { ascending: true })
       .range(from, to)
       .returns<CompetitionProductRow[]>();
@@ -319,6 +360,30 @@ async function loadCompetitionProducts(admin: SupabaseQueryClient) {
   }
 
   return rows;
+}
+
+async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: string[]) {
+  if (campusIds.length === 0) return [];
+
+  const { data, error } = await admin
+    .from("tournaments")
+    .select("id, name, campus_id, product_id, start_date, end_date, signup_deadline, is_active, products(id, name, is_active, charge_types(code))")
+    .in("campus_id", campusIds)
+    .eq("is_active", true)
+    .not("product_id", "is", null)
+    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("name", { ascending: true })
+    .returns<SignupTournamentRow[]>();
+
+  if (error) throw error;
+
+  return (data ?? []).filter(
+    (row) =>
+      row.campus_id &&
+      row.product_id &&
+      row.products?.is_active === true &&
+      isCompetitionProduct(row.products),
+  );
 }
 
 async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
@@ -550,45 +615,43 @@ async function loadPrimaryTeamAssignments(admin: SupabaseQueryClient, enrollment
 
 function buildCompetitionBuckets(
   products: CompetitionProductRow[],
-  charges: ChargeRow[],
+  tournaments: SignupTournamentRow[],
 ): CompetitionSignupBucket[] {
   const buckets = new Map<string, CompetitionSignupBucket>();
+  const productNameById = new Map(products.map((product) => [product.id, product.name]));
 
-  for (const product of products) {
-    buckets.set(`product:${product.id}`, {
-      id: `product:${product.id}`,
-      label: product.name,
-      productId: product.id,
+  for (const tournament of tournaments) {
+    const productName = productNameById.get(tournament.product_id) ?? tournament.products?.name ?? tournament.name;
+    buckets.set(`${tournament.campus_id}:product:${tournament.product_id}`, {
+      id: `product:${tournament.product_id}`,
+      label: tournament.name || productName,
+      productId: tournament.product_id,
       legacyKey: null,
+      tournamentId: tournament.id,
+      campusId: tournament.campus_id,
+      startDate: tournament.start_date,
+      endDate: tournament.end_date,
+      signupDeadline: tournament.signup_deadline,
     });
   }
 
-  const productBucketIds = new Set(products.map((product) => product.id));
-
-  for (const charge of charges) {
-    if (charge.product_id && productBucketIds.has(charge.product_id)) continue;
-
-    const legacyBucket = detectLegacyBucket(charge.products?.name ?? null, charge.description);
-    if (!legacyBucket) continue;
-
-    const bucketId = `legacy:${legacyBucket.key}`;
-    if (!buckets.has(bucketId)) {
-      buckets.set(bucketId, {
-        id: bucketId,
-        label: legacyBucket.label,
-        productId: null,
-        legacyKey: legacyBucket.key,
-      });
-    }
-  }
-
-  return [...buckets.values()].sort((a, b) => a.label.localeCompare(b.label, "es-MX"));
+  return [...buckets.values()].sort((a, b) => {
+    if (a.startDate && b.startDate && a.startDate !== b.startDate) return a.startDate.localeCompare(b.startDate);
+    if (a.startDate && !b.startDate) return -1;
+    if (!a.startDate && b.startDate) return 1;
+    return a.label.localeCompare(b.label, "es-MX");
+  });
 }
 
 function buildEmptyCompetitions(buckets: CompetitionSignupBucket[]): CompetitionSignupCompetitionGroup[] {
   return buckets.map((bucket) => ({
     id: bucket.id,
     label: bucket.label,
+    tournamentId: bucket.tournamentId,
+    productId: bucket.productId,
+    startDate: bucket.startDate,
+    endDate: bucket.endDate,
+    signupDeadline: bucket.signupDeadline,
     totalConfirmed: 0,
     totalActive: 0,
     categories: [],
@@ -604,7 +667,9 @@ function buildCampusBoard(
   buckets: CompetitionSignupBucket[],
   productBucketIds: Set<string>,
 ): CompetitionSignupCampusBoard {
-  const competitions = buckets.map<CompetitionSignupCompetitionGroup>((bucket) => {
+  const competitions = buckets
+    .filter((bucket) => !bucket.campusId || bucket.campusId === campusId)
+    .map<CompetitionSignupCompetitionGroup>((bucket) => {
     const confirmedPlayers = new Map<string, CompetitionSignupPlayerRow>();
 
     for (const charge of campusCharges) {
@@ -676,6 +741,11 @@ function buildCampusBoard(
     return {
       id: bucket.id,
       label: bucket.label,
+      tournamentId: bucket.tournamentId,
+      productId: bucket.productId,
+      startDate: bucket.startDate,
+      endDate: bucket.endDate,
+      signupDeadline: bucket.signupDeadline,
       totalConfirmed: confirmedPlayers.size,
       totalActive: campusActiveEnrollments.length,
       categories: sortCategoryGroups(
@@ -718,12 +788,15 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const admin = createAdminClient();
   const campusIds = campusAccess.campusIds;
   const productsStartedAt = Date.now();
-  const products = await loadCompetitionProducts(admin);
+  const [products, tournaments] = await Promise.all([
+    loadCompetitionProducts(admin),
+    loadSignupTournaments(admin, campusIds),
+  ]);
   if (perf) {
-    recordPerfStep(perf, "load products", productsStartedAt);
+    recordPerfStep(perf, "load products and tournaments", productsStartedAt);
   }
 
-  const competitionProductIds = products.map((product) => product.id);
+  const competitionProductIds = Array.from(new Set(tournaments.map((tournament) => tournament.product_id)));
   const chargesStartedAt = Date.now();
   const chargesPromise = loadBoardCompetitionChargeRows(admin, campusIds, competitionProductIds);
   const enrollmentsStartedAt = Date.now();
@@ -746,7 +819,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     recordPerfStep(perf, "load allocation totals", allocationsStartedAt);
   }
 
-  const competitionOptions = buildCompetitionBuckets(products, charges);
+  const competitionOptions = buildCompetitionBuckets(products, tournaments);
   const productBucketIds = new Set(
     competitionOptions.flatMap((option) => (option.productId ? [option.productId] : [])),
   );
@@ -759,6 +832,16 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     allocationTotals,
     competitionOptions,
     productBucketIds,
+    configurableProducts: products.map((product) => ({ id: product.id, name: product.name })),
+    activeTournamentSettings: tournaments.map((tournament) => ({
+      id: tournament.id,
+      campusId: tournament.campus_id,
+      productId: tournament.product_id,
+      name: tournament.name,
+      startDate: tournament.start_date,
+      endDate: tournament.end_date,
+      signupDeadline: tournament.signup_deadline,
+    })),
   };
 }
 
@@ -862,6 +945,8 @@ export async function getCompetitionSignupDashboardData(filters?: {
     allocationTotals,
     competitionOptions,
     productBucketIds,
+    configurableProducts,
+    activeTournamentSettings,
   } = baseData;
 
   const selectedCampusId =
@@ -875,10 +960,12 @@ export async function getCompetitionSignupDashboardData(filters?: {
     campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     selectedCampusId,
     competitionOptions,
+    configurableProducts,
+    activeTournamentSettings,
     campusBoards: campusAccess.campuses.map((campus) => ({
       campusId: campus.id,
       campusName: campus.name,
-      competitions: buildEmptyCompetitions(competitionOptions),
+      competitions: buildEmptyCompetitions(competitionOptions.filter((bucket) => !bucket.campusId || bucket.campusId === campus.id)),
     })),
     loadError: null,
     perf: perf.enabled
