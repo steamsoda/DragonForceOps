@@ -65,6 +65,16 @@ type ChargeRow = {
 type AllocationRow = {
   charge_id: string;
   amount: number;
+  created_at: string;
+  payments: {
+    paid_at: string | null;
+    created_at: string | null;
+  } | null;
+};
+
+type AllocationSummary = {
+  total: number;
+  paidAt: string | null;
 };
 
 type ActiveEnrollmentRow = {
@@ -162,6 +172,7 @@ export type CompetitionSignupCampusBoard = {
 export type CompetitionSignupDashboardData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string;
+  paidDateFilter: CompetitionSignupPaidDateFilter;
   competitionOptions: CompetitionSignupBucket[];
   configurableProducts: Array<{ id: string; name: string }>;
   activeTournamentSettings: Array<{
@@ -200,6 +211,7 @@ export type CompetitionSignupCategoryDetailData = {
   competitionLabel: string;
   campusId: string;
   campusName: string;
+  paidDateFilter: CompetitionSignupPaidDateFilter;
   birthYear: number | null;
   categoryLabel: string;
   totalConfirmed: number;
@@ -226,6 +238,11 @@ export type CompetitionSignupExportData = {
   campusId: string;
   campusName: string;
   rows: CompetitionSignupExportRow[];
+};
+
+export type CompetitionSignupPaidDateFilter = {
+  from: string | null;
+  to: string | null;
 };
 
 function normalizeText(value: string | null | undefined) {
@@ -260,6 +277,54 @@ function getMonterreyDateString() {
   const month = parts.find((part) => part.type === "month")?.value;
   const day = parts.find((part) => part.type === "day")?.value;
   return year && month && day ? `${year}-${month}-${day}` : new Date().toISOString().slice(0, 10);
+}
+
+function isDateOnly(value: string | null | undefined) {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function normalizePaidDateFilter(filters?: {
+  paidFrom?: string | null;
+  paidTo?: string | null;
+}): CompetitionSignupPaidDateFilter {
+  const from = isDateOnly(filters?.paidFrom) ? filters?.paidFrom ?? null : null;
+  const to = isDateOnly(filters?.paidTo) ? filters?.paidTo ?? null : null;
+
+  if (from && to && from > to) {
+    return { from: to, to: from };
+  }
+
+  return { from, to };
+}
+
+function hasPaidDateFilter(filter: CompetitionSignupPaidDateFilter) {
+  return Boolean(filter.from || filter.to);
+}
+
+function getMonterreyDateKey(value: string | null | undefined) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(parsed);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+function isPaidDateInFilter(paidAt: string | null, filter: CompetitionSignupPaidDateFilter) {
+  if (!hasPaidDateFilter(filter)) return true;
+  const paidDate = getMonterreyDateKey(paidAt);
+  if (!paidDate) return false;
+  if (filter.from && paidDate < filter.from) return false;
+  if (filter.to && paidDate > filter.to) return false;
+  return true;
 }
 
 function isCompetitionProduct(product: { charge_types: { code: string | null } | null } | null | undefined) {
@@ -577,29 +642,31 @@ async function loadActiveEnrollmentsForCampus(admin: SupabaseQueryClient, campus
   return rows;
 }
 
-async function loadAllocationTotals(admin: SupabaseQueryClient, chargeIds: string[]) {
+async function loadAllocationSummaries(admin: SupabaseQueryClient, chargeIds: string[]) {
   const chunkSize = 500;
-  const allocationTotals = new Map<string, number>();
+  const allocationSummaries = new Map<string, AllocationSummary>();
 
   for (let index = 0; index < chargeIds.length; index += chunkSize) {
     const chunk = chargeIds.slice(index, index + chunkSize);
     const { data, error } = await admin
       .from("payment_allocations")
-      .select("charge_id, amount")
+      .select("charge_id, amount, created_at, payments(paid_at, created_at)")
       .in("charge_id", chunk)
       .returns<AllocationRow[]>();
 
     if (error) throw error;
 
     for (const allocation of data ?? []) {
-      allocationTotals.set(
-        allocation.charge_id,
-        roundMoney((allocationTotals.get(allocation.charge_id) ?? 0) + allocation.amount),
-      );
+      const current = allocationSummaries.get(allocation.charge_id) ?? { total: 0, paidAt: null };
+      const paidAt = allocation.payments?.paid_at ?? allocation.payments?.created_at ?? allocation.created_at;
+      allocationSummaries.set(allocation.charge_id, {
+        total: roundMoney(current.total + allocation.amount),
+        paidAt: !current.paidAt || paidAt > current.paidAt ? paidAt : current.paidAt,
+      });
     }
   }
 
-  return allocationTotals;
+  return allocationSummaries;
 }
 
 async function loadPrimaryTeamAssignments(admin: SupabaseQueryClient, enrollmentIds: string[]) {
@@ -678,7 +745,8 @@ function buildCampusBoard(
   campusName: string,
   campusCharges: ChargeRow[],
   campusActiveEnrollments: ActiveEnrollmentRow[],
-  allocationTotals: Map<string, number>,
+  allocationSummaries: Map<string, AllocationSummary>,
+  paidDateFilter: CompetitionSignupPaidDateFilter,
   buckets: CompetitionSignupBucket[],
   productBucketIds: Set<string>,
 ): CompetitionSignupCampusBoard {
@@ -688,8 +756,9 @@ function buildCampusBoard(
     const confirmedPlayers = new Map<string, CompetitionSignupPlayerRow>();
 
     for (const charge of campusCharges) {
-      const totalAllocated = allocationTotals.get(charge.id) ?? 0;
-      if (totalAllocated + 0.009 < charge.amount) continue;
+      const allocation = allocationSummaries.get(charge.id);
+      if (!allocation || allocation.total + 0.009 < charge.amount) continue;
+      if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) continue;
 
       const bucketId = getCompetitionBucketId(charge, productBucketIds);
       if (bucketId !== bucket.id) continue;
@@ -826,12 +895,12 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   }
 
   const allocationsStartedAt = Date.now();
-  const allocationTotals = await loadAllocationTotals(
+  const allocationSummaries = await loadAllocationSummaries(
     admin,
     charges.map((charge) => charge.id),
   );
   if (perf) {
-    recordPerfStep(perf, "load allocation totals", allocationsStartedAt);
+    recordPerfStep(perf, "load allocation summaries", allocationsStartedAt);
   }
 
   const competitionOptions = buildCompetitionBuckets(products, tournaments);
@@ -844,7 +913,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     campusAccess,
     charges,
     activeEnrollments,
-    allocationTotals,
+    allocationSummaries,
     competitionOptions,
     productBucketIds,
     configurableProducts: products.map((product) => ({ id: product.id, name: product.name })),
@@ -874,6 +943,8 @@ async function loadCompetitionProductById(admin: SupabaseQueryClient, productId:
 async function getCompetitionSignupDetailBaseData(filters: {
   campusId?: string | null;
   competitionId?: string | null;
+  paidFrom?: string | null;
+  paidTo?: string | null;
   perf?: boolean;
 }) {
   const perf = startPerf(Boolean(filters.perf));
@@ -923,11 +994,11 @@ async function getCompetitionSignupDetailBaseData(filters: {
   recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
 
   const allocationsStartedAt = Date.now();
-  const allocationTotals = await loadAllocationTotals(
+  const allocationSummaries = await loadAllocationSummaries(
     admin,
     charges.map((charge) => charge.id),
   );
-  recordPerfStep(perf, "load allocation totals", allocationsStartedAt);
+  recordPerfStep(perf, "load allocation summaries", allocationsStartedAt);
 
   return {
     admin,
@@ -938,7 +1009,8 @@ async function getCompetitionSignupDetailBaseData(filters: {
     parsedBucket,
     charges,
     activeEnrollments,
-    allocationTotals,
+    allocationSummaries,
+    paidDateFilter: normalizePaidDateFilter(filters),
     productBucketIds,
     perf,
   };
@@ -947,9 +1019,12 @@ async function getCompetitionSignupDetailBaseData(filters: {
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
+  paidFrom?: string | null;
+  paidTo?: string | null;
   perf?: boolean;
 }): Promise<CompetitionSignupDashboardData | null> {
   const perf = startPerf(Boolean(filters?.perf));
+  const paidDateFilter = normalizePaidDateFilter(filters);
   const baseData = await getCompetitionSignupBaseData({ perf });
   if (!baseData) return null;
 
@@ -957,7 +1032,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
     campusAccess,
     charges,
     activeEnrollments,
-    allocationTotals,
+    allocationSummaries,
     competitionOptions,
     productBucketIds,
     configurableProducts,
@@ -974,6 +1049,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
   const emptyDashboard: CompetitionSignupDashboardData = {
     campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     selectedCampusId,
+    paidDateFilter,
     competitionOptions,
     configurableProducts,
     activeTournamentSettings,
@@ -1019,7 +1095,8 @@ export async function getCompetitionSignupDashboardData(filters?: {
         campus.name,
         chargesByCampus.get(campus.id) ?? [],
         activeEnrollmentsByCampus.get(campus.id) ?? [],
-        allocationTotals,
+        allocationSummaries,
+        paidDateFilter,
         competitionOptions,
         productBucketIds,
       ),
@@ -1056,11 +1133,15 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   campusId?: string | null;
   competitionId?: string | null;
   birthYear?: string | null;
+  paidFrom?: string | null;
+  paidTo?: string | null;
   perf?: boolean;
 }): Promise<CompetitionSignupCategoryDetailData | null> {
   const baseData = await getCompetitionSignupDetailBaseData({
     campusId: filters.campusId,
     competitionId: filters.competitionId,
+    paidFrom: filters.paidFrom,
+    paidTo: filters.paidTo,
     perf: filters.perf,
   });
   if (!baseData) return null;
@@ -1073,7 +1154,8 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     competitionLabel,
     charges,
     activeEnrollments,
-    allocationTotals,
+    allocationSummaries,
+    paidDateFilter,
     productBucketIds,
     perf,
   } = baseData;
@@ -1087,11 +1169,15 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
         : null;
   const categoryLabel = birthYear === null ? "Sin categoria" : `CAT ${birthYear}`;
 
-  const matchingCharges = charges.filter((charge) => {
+  const matchingChargesAllDates = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
-    if ((allocationTotals.get(charge.id) ?? 0) + 0.009 < charge.amount) return false;
+    const allocation = allocationSummaries.get(charge.id);
+    if (!allocation || allocation.total + 0.009 < charge.amount) return false;
     return getCompetitionBucketId(charge, productBucketIds) === competitionId;
   });
+  const matchingCharges = matchingChargesAllDates.filter((charge) =>
+    isPaidDateInFilter(allocationSummaries.get(charge.id)?.paidAt ?? null, paidDateFilter),
+  );
 
   const confirmedChargeByEnrollment = new Map<string, ChargeRow>();
   for (const charge of matchingCharges) {
@@ -1153,11 +1239,15 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     paidLevelMap.set(level, group);
   }
 
-  const paidEnrollmentIds = new Set(filteredEntries.map((charge) => charge.enrollment_id));
+  const paidEnrollmentIdsAllDates = new Set(
+    matchingChargesAllDates
+      .filter((charge) => getBirthYear(charge.enrollments?.players?.birth_date) === birthYear)
+      .map((charge) => charge.enrollment_id),
+  );
   const unpaidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
 
   for (const enrollment of categoryActiveEnrollments) {
-    if (paidEnrollmentIds.has(enrollment.id)) continue;
+    if (paidEnrollmentIdsAllDates.has(enrollment.id)) continue;
 
     const team = teamByEnrollment.get(enrollment.id) ?? null;
     const level = normalizeLevel(team?.level ?? enrollment.players?.level);
@@ -1193,10 +1283,11 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     competitionLabel,
     campusId,
     campusName,
+    paidDateFilter,
     birthYear,
     categoryLabel,
     totalConfirmed: filteredEntries.length,
-    totalUnpaid: categoryActiveEnrollments.length - filteredEntries.length,
+    totalUnpaid: categoryActiveEnrollments.length - paidEnrollmentIdsAllDates.size,
     paidLevelGroups: sortLevelGroups(
       Array.from(paidLevelMap.values()).map((group) => ({
         ...group,
@@ -1221,20 +1312,26 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
 export async function getCompetitionSignupExportData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
+  paidFrom?: string | null;
+  paidTo?: string | null;
 }): Promise<CompetitionSignupExportData | null> {
   const baseData = await getCompetitionSignupDetailBaseData({
     campusId: filters?.campusId,
     competitionId: filters?.competitionId,
+    paidFrom: filters?.paidFrom,
+    paidTo: filters?.paidTo,
   });
   if (!baseData) return null;
 
-  const { admin, campusAccess, campusId, competitionId, competitionLabel, charges, allocationTotals, productBucketIds } = baseData;
+  const { admin, campusAccess, campusId, competitionId, competitionLabel, charges, allocationSummaries, paidDateFilter, productBucketIds } = baseData;
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
 
   const matchingCharges = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
-    if ((allocationTotals.get(charge.id) ?? 0) + 0.009 < charge.amount) return false;
+    const allocation = allocationSummaries.get(charge.id);
+    if (!allocation || allocation.total + 0.009 < charge.amount) return false;
+    if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) return false;
     return getCompetitionBucketId(charge, productBucketIds) === competitionId;
   });
 

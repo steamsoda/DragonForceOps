@@ -13,6 +13,8 @@ import {
 type SearchParams = Promise<{
   campus?: string;
   competition?: string;
+  paidFrom?: string;
+  paidTo?: string;
   perf?: string;
   ok?: string;
   err?: string;
@@ -37,6 +39,8 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   const dashboard = await getCompetitionSignupDashboardData({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",
+    paidFrom: params.paidFrom ?? "",
+    paidTo: params.paidTo ?? "",
     perf: permissionContext?.isSuperAdmin === true && params.perf === "1",
   });
 
@@ -45,7 +49,8 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   const initialCompetitionId = dashboard.competitionOptions.some((option) => option.id === params.competition)
     ? (params.competition as string)
     : (dashboard.competitionOptions[0]?.id ?? "");
-  const returnTo = `/sports-signups?campus=${encodeURIComponent(dashboard.selectedCampusId)}${initialCompetitionId ? `&competition=${encodeURIComponent(initialCompetitionId)}` : ""}`;
+  const paidDateParams = `${dashboard.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(dashboard.paidDateFilter.from)}` : ""}${dashboard.paidDateFilter.to ? `&paidTo=${encodeURIComponent(dashboard.paidDateFilter.to)}` : ""}`;
+  const returnTo = `/sports-signups?campus=${encodeURIComponent(dashboard.selectedCampusId)}${initialCompetitionId ? `&competition=${encodeURIComponent(initialCompetitionId)}` : ""}${paidDateParams}`;
   const canManageTournamentSettings = permissionContext.isSuperAdmin;
 
   return (

@@ -2,6 +2,16 @@
 
 ## 2026-07-08 (session 203)
 
+### Inscripciones Torneos Paid-Date Filter (v1.16.189)
+
+- Added a paid-date range filter to `Inscripciones Torneos` so Front Desk can review tournament signups paid between selected Monterrey dates.
+- Kept the source of truth unchanged: tournament signups still come from positive, non-void product charges that are fully covered by payment allocations.
+- Based the date filter on `payments.paid_at` from the allocations that confirm a charge, not on charge creation date.
+- Preserved range filters across the main board, category detail links, return links, and CSV export.
+- Clarified detail behavior: `Pagados` follows the selected paid-date range, while `No pagados` means active players who have not paid that competition in any period.
+- No schema migration and no payment/charge/allocation mutation.
+- Verification: `npm run typecheck` and `npm run build`.
+
 ### Asistencia Grupos Detail KPIs (v1.16.188)
 
 - Added selected-group summary cards to `Asistencia > Grupos`: active roster, players with at least one `A Asistio` in the previous full calendar week, players with no `A Asistio` in the selected month, and the existing monthly attendance rate.
