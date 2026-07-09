@@ -8,8 +8,17 @@ type SearchParams = Promise<{
   campus?: string;
   competition?: string;
   birthYear?: string;
+  paidFrom?: string;
+  paidTo?: string;
   perf?: string;
 }>;
+
+function formatPaidFilterLabel(from: string | null, to: string | null) {
+  if (from && to) return `Pagos del ${from} al ${to}`;
+  if (from) return `Pagos desde ${from}`;
+  if (to) return `Pagos hasta ${to}`;
+  return null;
+}
 
 export default async function SportsSignupsDetailPage({
   searchParams,
@@ -22,10 +31,15 @@ export default async function SportsSignupsDetailPage({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",
     birthYear: params.birthYear ?? "",
+    paidFrom: params.paidFrom ?? "",
+    paidTo: params.paidTo ?? "",
     perf: permissionContext?.isSuperAdmin === true && params.perf === "1",
   });
 
   if (!detail || !permissionContext) redirect("/unauthorized");
+
+  const paidDateQuery = `${detail.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(detail.paidDateFilter.from)}` : ""}${detail.paidDateFilter.to ? `&paidTo=${encodeURIComponent(detail.paidDateFilter.to)}` : ""}`;
+  const paidFilterLabel = formatPaidFilterLabel(detail.paidDateFilter.from, detail.paidDateFilter.to);
 
   return (
     <PageShell
@@ -50,9 +64,12 @@ export default async function SportsSignupsDetailPage({
             <p className="text-sm text-slate-600 dark:text-slate-300">
               {detail.totalUnpaid} jugadores no pagados
             </p>
+            {paidFilterLabel ? (
+              <p className="text-sm font-medium text-portoBlue">{paidFilterLabel}</p>
+            ) : null}
           </div>
           <Link
-            href={`/sports-signups?campus=${encodeURIComponent(detail.campusId)}&competition=${encodeURIComponent(detail.competitionId)}`}
+            href={`/sports-signups?campus=${encodeURIComponent(detail.campusId)}&competition=${encodeURIComponent(detail.competitionId)}${paidDateQuery}`}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Volver al tablero
@@ -84,7 +101,9 @@ export default async function SportsSignupsDetailPage({
             <div>
               <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">Pagados</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Jugadores confirmados para esta competencia.
+                {paidFilterLabel
+                  ? "Jugadores confirmados para esta competencia dentro del rango de pago seleccionado."
+                  : "Jugadores confirmados para esta competencia."}
               </p>
             </div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -139,7 +158,7 @@ export default async function SportsSignupsDetailPage({
             <div>
               <h2 className="text-xl font-semibold text-slate-950 dark:text-slate-50">No pagados</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Jugadores activos de la categoria que todavia no han pagado esta competencia.
+                Jugadores activos de la categoria que todavia no han pagado esta competencia en ningun periodo.
               </p>
             </div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">

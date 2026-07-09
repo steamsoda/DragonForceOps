@@ -39,6 +39,13 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
   return start ?? end ?? null;
 }
 
+function formatPaidFilterLabel(from: string | null, to: string | null) {
+  if (from && to) return `Mostrando pagos del ${from} al ${to}`;
+  if (from) return `Mostrando pagos desde ${from}`;
+  if (to) return `Mostrando pagos hasta ${to}`;
+  return null;
+}
+
 function formatDeadlineStatus(deadline: string | null) {
   const parsed = parseDateOnly(deadline);
   if (!parsed) return null;
@@ -216,6 +223,8 @@ export function SportsSignupsBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const perfEnabled = canUsePerfDebug && searchParams.get("perf") === "1";
+  const paidFilterLabel = formatPaidFilterLabel(dashboard.paidDateFilter.from, dashboard.paidDateFilter.to);
+  const paidFilterQuery = `${dashboard.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(dashboard.paidDateFilter.from)}` : ""}${dashboard.paidDateFilter.to ? `&paidTo=${encodeURIComponent(dashboard.paidDateFilter.to)}` : ""}`;
 
   const selectedBoard = useMemo(
     () =>
@@ -317,7 +326,7 @@ export function SportsSignupsBoard({
           </p>
           {canExportCsv && selectedCompetition ? (
             <a
-              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}`}
+              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${paidFilterQuery}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Exportar CSV
@@ -344,6 +353,51 @@ export function SportsSignupsBoard({
             );
           })}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <form action="/sports-signups" className="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
+          <input type="hidden" name="campus" value={selectedCampusId} />
+          {selectedCompetition ? <input type="hidden" name="competition" value={selectedCompetition.id} /> : null}
+          {perfEnabled ? <input type="hidden" name="perf" value="1" /> : null}
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">Pagado desde</span>
+            <input
+              name="paidFrom"
+              type="date"
+              defaultValue={dashboard.paidDateFilter.from ?? ""}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-slate-700 dark:text-slate-200">Pagado hasta</span>
+            <input
+              name="paidTo"
+              type="date"
+              defaultValue={dashboard.paidDateFilter.to ?? ""}
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
+          >
+            Aplicar fechas
+          </button>
+          <Link
+            href={`/sports-signups?campus=${encodeURIComponent(selectedCampusId)}${selectedCompetition ? `&competition=${encodeURIComponent(selectedCompetition.id)}` : ""}${perfEnabled ? "&perf=1" : ""}`}
+            className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Limpiar
+          </Link>
+        </form>
+        {paidFilterLabel ? (
+          <p className="mt-3 text-sm font-medium text-portoBlue">{paidFilterLabel}</p>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+            Sin filtro de fecha: se muestran todos los pagos confirmados.
+          </p>
+        )}
       </section>
 
       <section className="space-y-3">
@@ -418,7 +472,7 @@ export function SportsSignupsBoard({
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
               {selectedCompetition.categories.map((category) => {
-                const detailHref = `/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${perfEnabled ? "&perf=1" : ""}`;
+                const detailHref = `/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`;
                 const nameColumns = getNameColumns(category.players);
                 const feedback = feedbackByCategoryKey[category.key];
 
