@@ -236,6 +236,15 @@ export type AttendanceGroupMonthlyPlayerRow = {
   statusesBySession: Record<string, string | null>;
 };
 
+export type AttendanceSelectedGroupSummary = {
+  totalRoster: number;
+  attendedLastCalendarWeek: number;
+  noAttendanceThisMonth: number;
+  monthlyAttendanceRate: number | null;
+  previousWeekStartDate: string;
+  previousWeekEndDate: string;
+};
+
 export type AttendanceGroupsMonthlyData = {
   campuses: AttendanceCampusOption[];
   selectedCampusId: string | null;
@@ -243,6 +252,7 @@ export type AttendanceGroupsMonthlyData = {
   selectedGroupId: string | null;
   groups: AttendanceGroupMonthlyCard[];
   selectedGroup: AttendanceGroupMonthlyCard | null;
+  selectedGroupSummary: AttendanceSelectedGroupSummary | null;
   selectedGroupSessions: Array<{ sessionId: string; sessionDate: string }>;
   players: AttendanceGroupMonthlyPlayerRow[];
 };
@@ -462,6 +472,13 @@ function listDatesBetween(startDate: string, endDateExclusive: string) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return dates;
+}
+
+function addDaysToDateOnly(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const cursor = new Date(Date.UTC(year, month - 1, day, 12));
+  cursor.setUTCDate(cursor.getUTCDate() + days);
+  return `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(2, "0")}`;
 }
 
 function weekdayLabel(date: string) {
@@ -1036,6 +1053,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
+      selectedGroupSummary: null,
       selectedGroupSessions: [],
       players: [],
     };
@@ -1071,6 +1089,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
+      selectedGroupSummary: null,
       selectedGroupSessions: [],
       players: [],
     };
@@ -1216,6 +1235,48 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     }
   }
 
+  const selectedGroupActivePlayerIds = new Set(
+    selectedGroupId
+      ? (assignments ?? [])
+          .filter((assignment) => assignment.training_group_id === selectedGroupId && assignment.enrollments?.players)
+          .map((assignment) => assignment.player_id)
+      : [],
+  );
+  const currentMonthPresentPlayerIds = new Set<string>();
+  if (selectedGroupId) {
+    for (const record of records) {
+      const session = sessionById.get(record.session_id);
+      if (!session || session.status !== "completed" || session.training_group_id !== selectedGroupId) continue;
+      if (record.status === "present" && selectedGroupActivePlayerIds.has(record.player_id)) {
+        currentMonthPresentPlayerIds.add(record.player_id);
+      }
+    }
+  }
+  const currentWeek = getMonterreyWeekBounds();
+  const previousWeekStartDate = addDaysToDateOnly(currentWeek.startDate, -7);
+  const previousWeekEndDate = currentWeek.startDate;
+  let attendedLastCalendarWeek = 0;
+  if (selectedGroupId && selectedGroupActivePlayerIds.size > 0) {
+    const { data: previousWeekSessions } = await admin
+      .from("attendance_sessions")
+      .select("id")
+      .eq("training_group_id", selectedGroupId)
+      .eq("status", "completed")
+      .gte("session_date", previousWeekStartDate)
+      .lt("session_date", previousWeekEndDate)
+      .returns<Array<{ id: string }>>();
+
+    const previousWeekSessionIds = (previousWeekSessions ?? []).map((session) => session.id);
+    const previousWeekRecords = await fetchAttendanceRecordsBySessionIds(admin, previousWeekSessionIds);
+    const previousWeekPresentPlayerIds = new Set<string>();
+    for (const record of previousWeekRecords) {
+      if (record.status === "present" && selectedGroupActivePlayerIds.has(record.player_id)) {
+        previousWeekPresentPlayerIds.add(record.player_id);
+      }
+    }
+    attendedLastCalendarWeek = previousWeekPresentPlayerIds.size;
+  }
+
   const players = selectedGroupId
     ? (assignments ?? [])
         .filter((assignment) => assignment.training_group_id === selectedGroupId && assignment.enrollments?.players)
@@ -1248,6 +1309,17 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
         .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))
     : [];
 
+  const selectedGroupSummary = selectedGroup
+    ? {
+        totalRoster: selectedGroupActivePlayerIds.size,
+        attendedLastCalendarWeek,
+        noAttendanceThisMonth: Math.max(0, selectedGroupActivePlayerIds.size - currentMonthPresentPlayerIds.size),
+        monthlyAttendanceRate: selectedGroup.rate,
+        previousWeekStartDate,
+        previousWeekEndDate: addDaysToDateOnly(previousWeekEndDate, -1),
+      }
+    : null;
+
   return {
     campuses: access.campuses,
     selectedCampusId,
@@ -1255,6 +1327,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     selectedGroupId,
     groups: cards,
     selectedGroup,
+    selectedGroupSummary,
     selectedGroupSessions,
     players,
   };

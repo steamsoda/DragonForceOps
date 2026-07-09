@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-08 (session 203)
+
+### Asistencia Grupos Detail KPIs (v1.16.188)
+
+- Added selected-group summary cards to `Asistencia > Grupos`: active roster, players with at least one `A Asistio` in the previous full calendar week, players with no `A Asistio` in the selected month, and the existing monthly attendance rate.
+- Preserved the selected group when applying a different month, so admins stay in the detail view instead of being returned to the group grid.
+- Kept this pass read-only and non-financial: no attendance writes, no roster mutation, no charge/payment behavior, and no schema migration.
+- Verification: `npm run typecheck` and `npm run build`.
+
+### Roadmap Reprioritization: Attendance and Player Context Feedback
+
+- Captured the new operator feedback wave after the tournament signup cleanup shipped to production.
+- Promoted `Asistencia > Grupos` detail polish as the next priority: selected-group KPIs, last calendar week attendance signal, current-month no-attendance count, attendance rate, and keeping the selected group open when changing month.
+- Logged the next related items without losing older unfinished work: tournament paid-date filtering, player notes/history, injury/absence workflow v2, attendance special-day/cancellation operations, a larger attendance analytics panel, and future WhatsApp-group communication planning.
+- Confirmed "last week" for the group polish means the previous full calendar week, Monday through Sunday, using Monterrey dates.
+- No app behavior changed in this documentation checkpoint.
+
 ## 2026-07-07 (session 202)
 
 ### Inscripciones Torneos Super Admin Controls (v1.16.187)

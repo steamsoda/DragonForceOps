@@ -31,6 +31,32 @@ function rateClass(rate: number | null) {
   return "text-emerald-700 dark:text-emerald-300";
 }
 
+function SummaryCard({
+  label,
+  value,
+  detail,
+  tone = "default",
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  tone?: "default" | "good" | "warn";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : tone === "warn"
+        ? "text-amber-700 dark:text-amber-300"
+        : "text-slate-900 dark:text-slate-100";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-bold ${toneClass}`}>{value}</p>
+      {detail ? <p className="mt-1 text-xs text-slate-500">{detail}</p> : null}
+    </div>
+  );
+}
+
 function statusChip(status: string | null) {
   if (!status) return <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-500">Sin sesiones</span>;
   const tones: Record<string, string> = {
@@ -130,6 +156,7 @@ function SelectedGroupDetail({
   data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
 }) {
   if (!data.selectedGroup) return null;
+  const summary = data.selectedGroupSummary;
 
   return (
     <section id="detalle" className="scroll-mt-6 space-y-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/60 dark:bg-slate-900">
@@ -147,6 +174,29 @@ function SelectedGroupDetail({
           Cerrar detalle
         </Link>
       </div>
+      {summary ? (
+        <div className="grid gap-3 md:grid-cols-4">
+          <SummaryCard label="Roster actual" value={summary.totalRoster} detail="Jugadores activos en este grupo" />
+          <SummaryCard
+            label="Asistieron semana pasada"
+            value={summary.attendedLastCalendarWeek}
+            detail={`${summary.previousWeekStartDate} a ${summary.previousWeekEndDate}`}
+            tone="good"
+          />
+          <SummaryCard
+            label="Sin asistencia este mes"
+            value={summary.noAttendanceThisMonth}
+            detail="Sin registros A Asistio"
+            tone={summary.noAttendanceThisMonth > 0 ? "warn" : "good"}
+          />
+          <SummaryCard
+            label="Tasa del mes"
+            value={formatRate(summary.monthlyAttendanceRate)}
+            detail="Sesiones registradas del mes"
+            tone={summary.monthlyAttendanceRate != null && summary.monthlyAttendanceRate >= 85 ? "good" : summary.monthlyAttendanceRate != null ? "warn" : "default"}
+          />
+        </div>
+      ) : null}
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
         <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
@@ -227,6 +277,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
               <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
             </label>
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
+            {data.selectedGroupId ? <input type="hidden" name="group" value={data.selectedGroupId} /> : null}
             <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar mes</button>
           </form>
           <AttendanceCampusButtons
