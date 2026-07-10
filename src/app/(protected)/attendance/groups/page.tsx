@@ -8,18 +8,36 @@ import {
   type AttendanceGroupMonthlyCard,
 } from "@/lib/queries/attendance";
 
-type SearchParams = Promise<{ campus?: string; month?: string; group?: string; playerFilter?: string }>;
+type PlayerSort = "player" | "category" | "sessions" | "absences" | "justified" | "rate" | "latest";
+type SortDirection = "asc" | "desc";
+type SearchParams = Promise<{
+  campus?: string;
+  month?: string;
+  group?: string;
+  playerFilter?: string;
+  sort?: string;
+  direction?: string;
+}>;
 
 function formatRate(rate: number | null) {
   return rate == null ? "Sin datos" : `${rate}%`;
 }
 
-function groupHref(params: { campus?: string | null; month: string; group?: string | null; playerFilter?: string | null }) {
+function groupHref(params: {
+  campus?: string | null;
+  month: string;
+  group?: string | null;
+  playerFilter?: string | null;
+  sort?: PlayerSort | null;
+  direction?: SortDirection | null;
+}) {
   const search = new URLSearchParams();
   if (params.campus) search.set("campus", params.campus);
   if (params.month) search.set("month", params.month);
   if (params.group) search.set("group", params.group);
   if (params.playerFilter) search.set("playerFilter", params.playerFilter);
+  if (params.sort) search.set("sort", params.sort);
+  if (params.sort && params.direction) search.set("direction", params.direction);
   const query = search.toString();
   const path = query ? `/attendance/groups?${query}` : "/attendance/groups";
   return params.group ? `${path}#detalle` : path;
@@ -159,14 +177,48 @@ function GroupCard({
 function SelectedGroupDetail({
   data,
   playerFilter,
+  sort,
+  direction,
 }: {
   data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
   playerFilter: string | null;
+  sort: PlayerSort | null;
+  direction: SortDirection;
 }) {
   if (!data.selectedGroup) return null;
   const summary = data.selectedGroupSummary;
   const noAttendanceOnly = playerFilter === "no-attendance";
-  const visiblePlayers = noAttendanceOnly ? data.players.filter((player) => !player.hasPresentThisMonth) : data.players;
+  const filteredPlayers = noAttendanceOnly ? data.players.filter((player) => !player.hasPresentThisMonth) : data.players;
+  const visiblePlayers = sort
+    ? [...filteredPlayers].sort((a, b) => {
+        let comparison = 0;
+        if (sort === "player") comparison = a.playerName.localeCompare(b.playerName, "es-MX");
+        if (sort === "category") comparison = (a.birthYear ?? -1) - (b.birthYear ?? -1);
+        if (sort === "sessions") comparison = a.total - b.total;
+        if (sort === "absences") comparison = a.absent - b.absent;
+        if (sort === "justified") comparison = (a.justified + a.injury) - (b.justified + b.injury);
+        if (sort === "rate") comparison = (a.rate ?? -1) - (b.rate ?? -1);
+        if (sort === "latest") comparison = (a.lastSessionDate ?? "").localeCompare(b.lastSessionDate ?? "");
+        if (comparison === 0) comparison = a.playerName.localeCompare(b.playerName, "es-MX");
+        return direction === "desc" ? -comparison : comparison;
+      })
+    : filteredPlayers;
+  const sortHref = (column: PlayerSort) => groupHref({
+    campus: data.selectedCampusId,
+    month: data.selectedMonth,
+    group: data.selectedGroupId,
+    playerFilter,
+    sort: column,
+    direction: sort === column && direction === "asc" ? "desc" : "asc",
+  });
+  const sortLabel = (column: PlayerSort, label: string) => (
+    <Link href={sortHref(column)} className="inline-flex items-center gap-1 hover:text-portoBlue" title={`Ordenar por ${label}`}>
+      <span>{label}</span>
+      <span aria-hidden="true" className={sort === column ? "text-portoBlue" : "text-slate-300"}>
+        {sort === column ? (direction === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </Link>
+  );
 
   return (
     <section id="detalle" className="scroll-mt-6 space-y-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/60 dark:bg-slate-900">
@@ -204,6 +256,8 @@ function SelectedGroupDetail({
               month: data.selectedMonth,
               group: data.selectedGroupId,
               playerFilter: noAttendanceOnly ? null : "no-attendance",
+              sort,
+              direction,
             })}
           />
           <SummaryCard
@@ -217,25 +271,25 @@ function SelectedGroupDetail({
       {noAttendanceOnly ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
           <span>Mostrando {visiblePlayers.length} jugador(es) sin asistencia en el mes.</span>
-          <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth, group: data.selectedGroupId })} className="font-semibold underline underline-offset-2">Mostrar todos</Link>
+          <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth, group: data.selectedGroupId, sort, direction })} className="font-semibold underline underline-offset-2">Mostrar todos</Link>
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
         <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
             <tr>
-              <th className="px-3 py-2">Jugador</th>
-              <th className="px-3 py-2">Categoria</th>
+              <th className="px-3 py-2">{sortLabel("player", "Jugador")}</th>
+              <th className="px-3 py-2">{sortLabel("category", "Categoria")}</th>
               {data.selectedGroupSessions.map((session) => (
                 <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
                   {session.sessionDate.slice(8, 10)}
                 </th>
               ))}
-              <th className="px-3 py-2">Sesiones</th>
-              <th className="px-3 py-2">Faltas</th>
-              <th className="px-3 py-2">Justificadas / lesión</th>
-              <th className="px-3 py-2">Tasa</th>
-              <th className="px-3 py-2">Ultima</th>
+              <th className="px-3 py-2">{sortLabel("sessions", "Sesiones")}</th>
+              <th className="px-3 py-2">{sortLabel("absences", "Faltas")}</th>
+              <th className="px-3 py-2">{sortLabel("justified", "Justificadas / lesión")}</th>
+              <th className="px-3 py-2">{sortLabel("rate", "Tasa")}</th>
+              <th className="px-3 py-2">{sortLabel("latest", "Ultima")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -285,6 +339,9 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
   await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
   const playerFilter = params.playerFilter === "no-attendance" ? params.playerFilter : null;
+  const allowedSorts: PlayerSort[] = ["player", "category", "sessions", "absences", "justified", "rate", "latest"];
+  const sort = allowedSorts.includes(params.sort as PlayerSort) ? params.sort as PlayerSort : null;
+  const direction: SortDirection = params.direction === "desc" ? "desc" : "asc";
   const data = await getAttendanceGroupsMonthlyData({
     campusId: params.campus,
     month: params.month,
@@ -303,6 +360,8 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
             {data.selectedGroupId ? <input type="hidden" name="group" value={data.selectedGroupId} /> : null}
             {playerFilter ? <input type="hidden" name="playerFilter" value={playerFilter} /> : null}
+            {sort ? <input type="hidden" name="sort" value={sort} /> : null}
+            {sort ? <input type="hidden" name="direction" value={direction} /> : null}
             <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar mes</button>
           </form>
           <AttendanceCampusButtons
@@ -333,7 +392,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           </div>
         </section>
 
-        <SelectedGroupDetail data={data} playerFilter={playerFilter} />
+        <SelectedGroupDetail data={data} playerFilter={playerFilter} sort={sort} direction={direction} />
 
         <section className="space-y-3">
           <div>

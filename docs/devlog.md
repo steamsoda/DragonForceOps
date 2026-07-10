@@ -2,6 +2,14 @@
 
 ## 2026-07-10 (session 205)
 
+### Asistencia Group Detail Sortable Columns (v1.16.195)
+
+- Made the selected-group roster columns sortable by player, category, recorded sessions, faltas, justified/injury count, attendance rate, and latest attendance date.
+- Kept the existing category/YOB-then-name ordering as the untouched default; the first header click sorts ascending and the second sorts descending with a visible direction indicator.
+- Preserved the selected sort through the `Sin asistencia este mes` filter and month changes; attendance date matrix columns remain unchanged.
+- No attendance records, group assignments, permissions, finance data, or schema behavior changed.
+- Verification: `npm run typecheck` and `npm run build`.
+
 ### Asistencia Group No-Attendance Filter (v1.16.194)
 
 - Made the `Sin asistencia este mes` KPI card in `Asistencia > Grupos` interactive so staff can filter the selected group to players without an `A Asistio` record in the selected month.
