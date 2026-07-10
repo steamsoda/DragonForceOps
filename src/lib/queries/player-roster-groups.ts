@@ -267,7 +267,7 @@ function buildTuitionCellsFromRpc(months: RosterTuitionMonth[], row: RosterRpcRo
 
 export async function getPlayerRosterGroupsData(
   filters: { campusId?: string; gender?: string; birthYear?: string | number } = {},
-  options: { campusAccess?: OperationalCampusAccess | null; supabase?: RosterSupabaseClient } = {},
+  options: { campusAccess?: OperationalCampusAccess | null; supabase?: RosterSupabaseClient; recentAttendanceLimit?: number } = {},
 ): Promise<PlayerRosterGroupsData | null> {
   const campusAccess = options.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
@@ -350,7 +350,7 @@ export async function getPlayerRosterGroupsData(
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const rosterPlayerIds = rosterRows.map((row) => row.player_id);
   const [recentAttendanceByPlayer, attendanceRiskByPlayer] = await Promise.all([
-    getRecentPlayerAttendanceByPlayerIds(rosterPlayerIds, { supabase }),
+    getRecentPlayerAttendanceByPlayerIds(rosterPlayerIds, { supabase, limit: options.recentAttendanceLimit ?? 15 }),
     getPlayerAttendanceRiskByPlayerIds(rosterPlayerIds, { supabase }),
   ]);
 
