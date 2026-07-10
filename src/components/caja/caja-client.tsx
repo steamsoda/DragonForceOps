@@ -27,6 +27,8 @@ import {
   type CajaAdvanceTuitionResult,
   type CajaCartItemInput
 } from "@/server/actions/caja";
+import { createPlayerNoteAction } from "@/server/actions/player-notes";
+import type { PlayerNote } from "@/lib/queries/player-notes";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +67,16 @@ function formatDateTimeShort(value: string) {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Monterrey",
+  });
+}
+
+function formatNoteDateShort(value: string) {
+  return new Date(value).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "America/Monterrey",
@@ -333,6 +345,96 @@ function RecentPaymentsPanel({
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function CajaOperationalNotesPanel({
+  data,
+  onDataUpdate,
+}: {
+  data: CajaEnrollmentData;
+  onDataUpdate: (updatedData: CajaEnrollmentData) => void;
+}) {
+  const [noteBody, setNoteBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const notes = data.recentNotes ?? [];
+
+  function submitNote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = noteBody.trim();
+    if (!body || !data.playerId) return;
+
+    setError(null);
+    startTransition(async () => {
+      const result = await createPlayerNoteAction({
+        playerId: data.playerId!,
+        enrollmentId: data.enrollmentId,
+        sourceSurface: "caja",
+        body,
+      });
+
+      if (!result.ok) {
+        const messages: Record<string, string> = {
+          debug_read_only: "La vista debug es de solo lectura.",
+          unauthorized: "No tienes permiso para guardar notas de este jugador.",
+          invalid_form: "Escribe una nota antes de guardar.",
+          insert_failed: "No se pudo guardar la nota.",
+        };
+        setError(messages[result.error] ?? "No se pudo guardar la nota.");
+        return;
+      }
+
+      setNoteBody("");
+      onDataUpdate({ ...data, recentNotes: result.notes.slice(0, 5) });
+    });
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Notas operativas</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Contexto rapido del jugador. No modifica pagos ni asistencia.</p>
+      </div>
+      <div className="space-y-3 p-4">
+        <form onSubmit={submitNote} className="space-y-2">
+          <textarea
+            value={noteBody}
+            onChange={(event) => setNoteBody(event.target.value)}
+            rows={3}
+            maxLength={2000}
+            placeholder="Agregar nota para el equipo..."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none dark:border-slate-600 dark:bg-slate-900"
+          />
+          {error ? <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p> : null}
+          <button
+            type="submit"
+            disabled={isPending || !noteBody.trim() || !data.playerId}
+            className="rounded-md bg-portoBlue px-4 py-2 text-xs font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? "Guardando..." : "Guardar nota"}
+          </button>
+        </form>
+
+        {notes.length === 0 ? (
+          <p className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-xs text-slate-500 dark:border-slate-700">
+            Sin notas recientes.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {notes.map((note: PlayerNote) => (
+              <article key={note.id} className="rounded-md border border-slate-200 px-3 py-2 dark:border-slate-700">
+                <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>{formatNoteDateShort(note.createdAt)}</span>
+                  {note.createdByEmail ? <span>{note.createdByEmail}</span> : null}
+                </div>
+                <p className="whitespace-pre-wrap text-xs text-slate-700 dark:text-slate-300">{note.body}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1988,6 +2090,8 @@ function PosEnrollmentPanel({
           </form>
         </div>
       </div>
+
+      <CajaOperationalNotesPanel data={data} onDataUpdate={onDataUpdate} />
 
       <RecentPaymentsPanel enrollmentId={data.enrollmentId} payments={data.recentPayments} />
     </div>

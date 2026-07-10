@@ -34,6 +34,8 @@ import type { AccountCreditSummary } from "@/lib/finance/account-credit";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { getPlayerNotesForCaja, type PlayerNote } from "@/lib/queries/player-notes";
 import {
   hasActiveProductPricingRules,
   resolveProductPricingRuleAmount,
@@ -97,6 +99,7 @@ export type CajaEnrollmentData = {
   accountCredit: AccountCreditSummary;
   activeIncident: ActiveIncident | null;
   attendanceRisk: PlayerAttendanceRisk | null;
+  recentNotes: PlayerNote[];
   pendingCharges: CajaPendingCharge[];
   recentPayments: CajaRecentPayment[];
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
@@ -1041,7 +1044,11 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     : [];
   const payableBalance = pendingCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
   const displayBalance = payableBalance > 0 ? payableBalance : ledger.totals.balance < 0 ? ledger.totals.balance : 0;
-  const attendanceRisk = await getCajaAttendanceRisk(ledger.enrollment.playerId);
+  const [attendanceRisk, permissionContext] = await Promise.all([
+    getCajaAttendanceRisk(ledger.enrollment.playerId),
+    getPermissionContext(),
+  ]);
+  const recentNotes = await getPlayerNotesForCaja(ledger.enrollment.playerId, enrollmentId, permissionContext);
 
   return {
     enrollmentId,
@@ -1062,6 +1069,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
       })),
     ),
     attendanceRisk,
+    recentNotes,
     pendingCharges,
     recentPayments: ledger.payments
       .filter((payment) => payment.status === "posted")

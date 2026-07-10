@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-09 (session 204)
+
+### Player Notes V1 (v1.16.190)
+
+- Added a general operational notes model for player context that does not mutate finance, attendance, baja, or injury workflows.
+- Added the additive `player_notes` table with campus-scoped RLS, author metadata, source surface, soft-delete columns for future moderation, and indexes for player/enrollment lookups.
+- Added server-side note permission checks using existing player/attendance campus access so Front Desk, Office Admin, Director Deportivo, Field Admin, Director/Admin, and Super Admin can use notes within their scoped campuses.
+- Added a full notes panel to the player profile and a compact recent-notes panel in Caja with quick note creation.
+- Kept note typing intentionally simple: users only write the note body; player, enrollment, campus, author, date, and source are filled automatically.
+- Verification: `npm run typecheck` and `npm run build`.
+
 ## 2026-07-08 (session 203)
 
 ### Inscripciones Torneos Paid-Date Filter (v1.16.189)
