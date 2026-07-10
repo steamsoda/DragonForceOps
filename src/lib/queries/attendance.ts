@@ -234,6 +234,7 @@ export type AttendanceGroupMonthlyPlayerRow = {
   lastStatus: string | null;
   lastSessionDate: string | null;
   statusesBySession: Record<string, string | null>;
+  hasPresentThisMonth: boolean;
 };
 
 export type AttendanceSelectedGroupSummary = {
@@ -1304,6 +1305,7 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
             lastStatus: playerRecords[0]?.status ?? null,
             lastSessionDate: playerRecords[0]?.sessionDate ?? null,
             statusesBySession: Object.fromEntries(selectedGroupSessions.map((session) => [session.sessionId, statusMap.get(session.sessionId) ?? null])),
+            hasPresentThisMonth: currentMonthPresentPlayerIds.has(assignment.player_id),
           };
         })
         .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))

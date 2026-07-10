@@ -8,17 +8,18 @@ import {
   type AttendanceGroupMonthlyCard,
 } from "@/lib/queries/attendance";
 
-type SearchParams = Promise<{ campus?: string; month?: string; group?: string }>;
+type SearchParams = Promise<{ campus?: string; month?: string; group?: string; playerFilter?: string }>;
 
 function formatRate(rate: number | null) {
   return rate == null ? "Sin datos" : `${rate}%`;
 }
 
-function groupHref(params: { campus?: string | null; month: string; group?: string | null }) {
+function groupHref(params: { campus?: string | null; month: string; group?: string | null; playerFilter?: string | null }) {
   const search = new URLSearchParams();
   if (params.campus) search.set("campus", params.campus);
   if (params.month) search.set("month", params.month);
   if (params.group) search.set("group", params.group);
+  if (params.playerFilter) search.set("playerFilter", params.playerFilter);
   const query = search.toString();
   const path = query ? `/attendance/groups?${query}` : "/attendance/groups";
   return params.group ? `${path}#detalle` : path;
@@ -36,11 +37,15 @@ function SummaryCard({
   value,
   detail,
   tone = "default",
+  href,
+  active = false,
 }: {
   label: string;
   value: string | number;
   detail?: string;
   tone?: "default" | "good" | "warn";
+  href?: string;
+  active?: boolean;
 }) {
   const toneClass =
     tone === "good"
@@ -48,13 +53,14 @@ function SummaryCard({
       : tone === "warn"
         ? "text-amber-700 dark:text-amber-300"
         : "text-slate-900 dark:text-slate-100";
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
+  const content = (
+    <div className={`rounded-lg border px-4 py-3 transition ${active ? "border-portoBlue bg-blue-50 ring-2 ring-blue-100 dark:border-blue-400 dark:bg-blue-950/40 dark:ring-blue-950" : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"}`}>
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${toneClass}`}>{value}</p>
       {detail ? <p className="mt-1 text-xs text-slate-500">{detail}</p> : null}
     </div>
   );
+  return href ? <Link href={href} aria-pressed={active} className="rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-portoBlue focus:ring-offset-2">{content}</Link> : content;
 }
 
 function statusChip(status: string | null) {
@@ -152,11 +158,15 @@ function GroupCard({
 
 function SelectedGroupDetail({
   data,
+  playerFilter,
 }: {
   data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
+  playerFilter: string | null;
 }) {
   if (!data.selectedGroup) return null;
   const summary = data.selectedGroupSummary;
+  const noAttendanceOnly = playerFilter === "no-attendance";
+  const visiblePlayers = noAttendanceOnly ? data.players.filter((player) => !player.hasPresentThisMonth) : data.players;
 
   return (
     <section id="detalle" className="scroll-mt-6 space-y-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900/60 dark:bg-slate-900">
@@ -186,8 +196,15 @@ function SelectedGroupDetail({
           <SummaryCard
             label="Sin asistencia este mes"
             value={summary.noAttendanceThisMonth}
-            detail="Sin registros A Asistio"
+            detail={noAttendanceOnly ? "Filtro activo - clic para mostrar todos" : "Clic para filtrar jugadores"}
             tone={summary.noAttendanceThisMonth > 0 ? "warn" : "good"}
+            active={noAttendanceOnly}
+            href={groupHref({
+              campus: data.selectedCampusId,
+              month: data.selectedMonth,
+              group: data.selectedGroupId,
+              playerFilter: noAttendanceOnly ? null : "no-attendance",
+            })}
           />
           <SummaryCard
             label="Tasa del mes"
@@ -195,6 +212,12 @@ function SelectedGroupDetail({
             detail="Sesiones registradas del mes"
             tone={summary.monthlyAttendanceRate != null && summary.monthlyAttendanceRate >= 85 ? "good" : summary.monthlyAttendanceRate != null ? "warn" : "default"}
           />
+        </div>
+      ) : null}
+      {noAttendanceOnly ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+          <span>Mostrando {visiblePlayers.length} jugador(es) sin asistencia en el mes.</span>
+          <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth, group: data.selectedGroupId })} className="font-semibold underline underline-offset-2">Mostrar todos</Link>
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
@@ -216,7 +239,7 @@ function SelectedGroupDetail({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {data.players.map((player) => (
+            {visiblePlayers.map((player) => (
               <tr key={player.enrollmentId}>
                 <td className="px-3 py-2">
                   <Link href={`/players/${player.playerId}`} className="font-medium text-portoBlue hover:underline">{player.playerName}</Link>
@@ -240,8 +263,8 @@ function SelectedGroupDetail({
                 </td>
               </tr>
             ))}
-            {data.players.length === 0 ? (
-              <tr><td colSpan={7 + data.selectedGroupSessions.length} className="px-3 py-8 text-center text-slate-500">Este grupo no tiene jugadores activos asignados.</td></tr>
+            {visiblePlayers.length === 0 ? (
+              <tr><td colSpan={7 + data.selectedGroupSessions.length} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? "Todos los jugadores tienen al menos una asistencia este mes." : "Este grupo no tiene jugadores activos asignados."}</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -261,6 +284,7 @@ function SelectedGroupDetail({
 export default async function AttendanceGroupsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
+  const playerFilter = params.playerFilter === "no-attendance" ? params.playerFilter : null;
   const data = await getAttendanceGroupsMonthlyData({
     campusId: params.campus,
     month: params.month,
@@ -278,6 +302,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
             </label>
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
             {data.selectedGroupId ? <input type="hidden" name="group" value={data.selectedGroupId} /> : null}
+            {playerFilter ? <input type="hidden" name="playerFilter" value={playerFilter} /> : null}
             <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar mes</button>
           </form>
           <AttendanceCampusButtons
@@ -308,7 +333,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           </div>
         </section>
 
-        <SelectedGroupDetail data={data} />
+        <SelectedGroupDetail data={data} playerFilter={playerFilter} />
 
         <section className="space-y-3">
           <div>

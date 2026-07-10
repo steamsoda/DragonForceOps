@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.192`
-- Current preview line: `v1.16.193`
+- Current production line: `v1.16.193`
+- Current preview line: `v1.16.194`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -114,6 +114,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | `Inscripciones Torneos` paid-date filter | Shipped in `v1.16.189`: date-range filtering for confirmed tournament payments based on `payments.paid_at`, without changing how paid status is derived. | Checkpoint 2026-07-08, `v1.16.189` devlog |
 | ✅ | Player notes workflow foundation | Shipped in `v1.16.190`: dated general notes visible from player profile and Caja, without mixing them into finance-only or attendance-only records. | Checkpoint 2026-07-08, `v1.16.190` devlog |
 | 🟢 | `Jugadores` roster export/print attendance history | Preview `v1.16.193` adds the last 15 recorded attendance entries to the grouped roster Excel export and a direct compact roster print action, with the print blank-page and Excel Mexican-date follow-up included. | Jugadores, `v1.16.191`-`v1.16.193` devlog |
+| 🟢 | `Asistencia > Grupos` no-attendance roster filter | Preview `v1.16.194` makes the `Sin asistencia este mes` KPI card toggle a roster filter based on the same monthly `A Asistio` signal used by the KPI. | Asistencia, `v1.16.194` devlog |
 | 🟡 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-08, Asistencia lane |
 | 🟡 | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
@@ -273,7 +274,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Confirmed-absence risk badge | Preview `v1.16.171` derives tiered badges for 3 confirmed absences, 4+ confirmed absences, and 30+/60+ days since last positive attendance. Missing attendance records are not absences. First surfaces: Jugadores and Pendientes; `v1.16.178` reuses the signal in Caja, with relation reports still pending. |
 | 🟢 | Shared recent attendance summary source | Production `v1.16.167` adds the batch/RPC-backed source for latest player attendance; `v1.16.168` reuses it in `Pendientes`; preview `v1.16.171` adds the companion attendance-risk RPC; `v1.16.176` fixes paginated monthly record loading in `Grupos`. Reuse the sources next for Caja/collections reports. |
 | ✅ | Attendance nomenclature pass | Preview `v1.16.175` standardizes the attendance capture UI, shared chips, player summaries, daily reports, and group monthly views to `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; report/group `Ausencias` copy now reads as `Faltas`. |
-| 🟢 | `Grupos` selected-detail KPI polish | Preview `v1.16.188` adds compact selected-group KPIs for total roster, previous full calendar week attendance, current-month no-attendance count, and monthly attendance rate; selected group is preserved when changing month. |
+| 🟢 | `Grupos` selected-detail KPI polish | `v1.16.188` adds compact selected-group KPIs for total roster, previous full calendar week attendance, current-month no-attendance count, and monthly attendance rate; selected group is preserved when changing month. Preview `v1.16.194` makes the no-attendance KPI an interactive roster filter. |
 | 🟡 | Special-day and cancellation workflow | Simplify special session creation and rain/cancellation handling. Permission target: Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin. |
 | 🟡 | Attendance analytics panel | Larger reporting surface with date filters, charts, KPIs, best/worst groups, and trends. Use shared summary sources so it does not recalculate every screen ad hoc. |
 | 🟡 | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
