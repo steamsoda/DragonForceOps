@@ -12,8 +12,10 @@ import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
 import { EnrollmentFinanceDiagnosticPanel } from "@/components/billing/enrollment-finance-diagnostic-panel";
 import { PlayerAttendanceSummary } from "@/components/attendance/player-attendance-summary";
+import { PlayerNotesPanel } from "@/components/player-notes/player-notes-panel";
 import { getPlayerAttendanceSummary } from "@/lib/queries/attendance";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
+import { getPlayerNotesForPlayer } from "@/lib/queries/player-notes";
 import {
   createBalanceAdjustmentAction,
   createCorrectiveChargeAction,
@@ -299,6 +301,7 @@ export default async function PlayerDetailPage({
   const activeEnrollment = player.activeEnrollment;
   const archiveEnrollment = player.latestEndedEnrollment;
   const activeEnrollmentId = activeEnrollment?.id ?? null;
+  const noteEnrollmentId = activeEnrollmentId ?? archiveEnrollment?.id ?? null;
   const activeLedger = player.activeEnrollmentLedger;
   const uniformOrders = activeEnrollmentId ? await getUniformOrdersAction(activeEnrollmentId) : [];
   const activeIncident = player.activeIncident as ActiveIncident | null;
@@ -311,6 +314,13 @@ export default async function PlayerDetailPage({
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
       : null;
   const attendanceSummary = await getPlayerAttendanceSummary(player.id);
+  const operationalNotes = noteEnrollmentId
+    ? await getPlayerNotesForPlayer(player.id, {
+        enrollmentId: noteEnrollmentId,
+        limit: 20,
+        context: permissionContext,
+      })
+    : [];
   const balanceTone =
     profileBalance > 0
       ? "amber"
@@ -682,6 +692,10 @@ export default async function PlayerDetailPage({
         </div>
 
         <PlayerAttendanceSummary summary={attendanceSummary} />
+
+        {noteEnrollmentId ? (
+          <PlayerNotesPanel playerId={player.id} enrollmentId={noteEnrollmentId} notes={operationalNotes} />
+        ) : null}
 
         {canViewFinanceDetails && activeLedger ? (
           <section id="cuenta-actual" className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
