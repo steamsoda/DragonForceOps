@@ -38,7 +38,7 @@ export function PlayerNotesPanel({
   return (
     <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
       <div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Notas operativas</h3>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Notas</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Contexto general visible para el equipo operativo. No reemplaza flujos de lesion, asistencia, pagos o baja.
         </p>

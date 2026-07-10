@@ -395,7 +395,7 @@ function CajaOperationalNotesPanel({
   return (
     <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Notas operativas</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Notas</p>
         <p className="text-xs text-slate-500 dark:text-slate-400">Contexto rapido del jugador. No modifica pagos ni asistencia.</p>
       </div>
       <div className="space-y-3 p-4">
