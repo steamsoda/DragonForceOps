@@ -7,8 +7,10 @@ import type {
 
 const BLACK = "FF000000";
 const GRAY_BORDER = "FFB8C0CC";
+const ATTENDANCE_EXPORT_LIMIT = 15;
 
 const BASE_COLUMNS = ["#", "ID", "Nombre", "Cat", "Nivel/Grupo", "Insc"];
+const ATTENDANCE_COLUMNS = Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, (_, index) => `Asist. ${index + 1}`);
 
 function sanitizeSheetName(value: string) {
   return value.replace(/[\\/*?:[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Roster";
@@ -71,6 +73,24 @@ function configureWorksheet(worksheet: ExcelJS.Worksheet) {
     { width: 20 },
     { width: 12 },
   ];
+}
+
+function formatAttendanceDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}` : value;
+}
+
+function attendanceSymbol(status: PlayerRosterGroupRow["recentAttendance"][number]["status"]) {
+  if (status === "present") return "A";
+  if (status === "absent") return "F";
+  if (status === "justified") return "J";
+  if (status === "injury") return "L";
+  return "-";
+}
+
+function formatAttendanceSlot(item: PlayerRosterGroupRow["recentAttendance"][number] | undefined) {
+  if (!item) return "-";
+  return `${formatAttendanceDate(item.sessionDate)} ${attendanceSymbol(item.status)}`;
 }
 
 function addTitleRows({
@@ -153,6 +173,7 @@ function addSection({
       player.levelGroup,
       player.inscriptionDate,
       ...player.tuition.map((cell) => cell.value),
+      ...ATTENDANCE_COLUMNS.map((_, attendanceIndex) => formatAttendanceSlot(player.recentAttendance[attendanceIndex])),
     ]);
 
     row.getCell(1).alignment = { horizontal: "center" };
@@ -164,6 +185,12 @@ function addSection({
       const excelCell = row.getCell(BASE_COLUMNS.length + tuitionIndex + 1);
       excelCell.alignment = { horizontal: "center" };
       excelCell.font = { bold: cell.state !== "empty", color: { argb: BLACK } };
+    });
+
+    ATTENDANCE_COLUMNS.forEach((_, attendanceIndex) => {
+      const excelCell = row.getCell(BASE_COLUMNS.length + player.tuition.length + attendanceIndex + 1);
+      excelCell.alignment = { horizontal: "center" };
+      excelCell.font = { color: { argb: BLACK }, size: 9 };
     });
 
     applyGridBorder(row, totalColumns);
@@ -182,7 +209,7 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
     return workbook;
   }
 
-  const headers = [...BASE_COLUMNS, ...data.months.map((month) => month.label)];
+  const headers = [...BASE_COLUMNS, ...data.months.map((month) => month.label), ...ATTENDANCE_COLUMNS];
   const totalColumns = headers.length;
   const birthYears = getExportBirthYears(data);
 
@@ -202,6 +229,7 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
       { width: 20 },
       { width: 12 },
       ...data.months.map(() => ({ width: 14 })),
+      ...ATTENDANCE_COLUMNS.map(() => ({ width: 9 })),
     ];
 
     const sections = data.sections

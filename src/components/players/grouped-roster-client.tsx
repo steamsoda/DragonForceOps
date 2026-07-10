@@ -18,6 +18,8 @@ type LoadState =
   | { status: "ready"; data: PlayerRosterGroupsData | null; message: null }
   | { status: "error"; data: null; message: string };
 
+const ATTENDANCE_PRINT_LIMIT = 15;
+
 function tuitionCellClass(state: RosterTuitionCell["state"]) {
   if (state === "pending") return "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200";
   if (state === "platform") return "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200";
@@ -58,6 +60,24 @@ function todayLabel() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+function formatAttendanceDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}` : value;
+}
+
+function attendanceSymbol(status: PlayerRosterGroupsData["sections"][number]["rows"][number]["recentAttendance"][number]["status"]) {
+  if (status === "present") return "A";
+  if (status === "absent") return "F";
+  if (status === "justified") return "J";
+  if (status === "injury") return "L";
+  return "-";
+}
+
+function formatAttendanceSlot(item: PlayerRosterGroupsData["sections"][number]["rows"][number]["recentAttendance"][number] | undefined) {
+  if (!item) return "-";
+  return `${formatAttendanceDate(item.sessionDate)} ${attendanceSymbol(item.status)}`;
 }
 
 function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
@@ -130,6 +150,84 @@ function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
   );
 }
 
+function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) {
+  const printedAt = todayLabel();
+  const genderLabel = data.selectedGender === "male" ? "Varonil" : data.selectedGender === "female" ? "Femenil" : "Todos los generos";
+  const categoryLabel = data.selectedBirthYear ? `Cat. ${data.selectedBirthYear}` : "Todas las categorias";
+  const attendanceHeaders = Array.from({ length: ATTENDANCE_PRINT_LIMIT }, (_, index) => `A${index + 1}`);
+
+  return (
+    <div className="roster-attendance-print-root" aria-hidden="true">
+      {data.sections.map((section) => {
+        const rows = [...section.rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "es-MX"));
+        return (
+          <section key={section.id} className="roster-attendance-print-section">
+            <header className="roster-attendance-print-header">
+              <div>
+                <p className="roster-attendance-print-kicker">Dragon Force Monterrey</p>
+                <h1>{section.name}</h1>
+                <p>{section.subtitle}</p>
+              </div>
+              <div className="roster-attendance-print-meta">
+                <p>{data.selectedCampusName}</p>
+                <p>{genderLabel}</p>
+                <p>{categoryLabel}</p>
+                <p>{printedAt}</p>
+              </div>
+            </header>
+
+            <table className="roster-attendance-print-table">
+              <thead>
+                <tr>
+                  <th className="roster-print-col-number">#</th>
+                  <th className="roster-print-col-id">ID</th>
+                  <th className="roster-print-col-name">Nombre</th>
+                  <th className="roster-print-col-cat">Cat</th>
+                  <th className="roster-print-col-level">Nivel</th>
+                  <th className="roster-print-col-date">Insc</th>
+                  {data.months.map((month) => (
+                    <th key={month.periodMonth} className="roster-print-col-money">{month.label.slice(0, 3)}</th>
+                  ))}
+                  {attendanceHeaders.map((header) => (
+                    <th key={header} className="roster-print-col-attendance">{header}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6 + data.months.length + attendanceHeaders.length}>Sin jugadores activos en este grupo.</td>
+                  </tr>
+                ) : (
+                  rows.map((row, index) => (
+                    <tr key={row.enrollmentId}>
+                      <td className="roster-print-col-number">{index + 1}</td>
+                      <td className="roster-print-col-id">{row.publicPlayerId}</td>
+                      <td className="roster-print-col-name">{row.fullName}</td>
+                      <td className="roster-print-col-cat">{row.birthYear ?? "-"}</td>
+                      <td className="roster-print-col-level">{row.levelGroup}</td>
+                      <td className="roster-print-col-date">{row.inscriptionDate}</td>
+                      {row.tuition.map((cell) => (
+                        <td key={cell.periodMonth} className="roster-print-col-money">{cell.value}</td>
+                      ))}
+                      {attendanceHeaders.map((header, attendanceIndex) => (
+                        <td key={`${header}-${row.enrollmentId}`} className="roster-print-col-attendance">
+                          {formatAttendanceSlot(row.recentAttendance[attendanceIndex])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        );
+      })}
+      <p className="roster-attendance-print-legend">Asistencia: A = Asistio, F = Falta, J = Justificada, L = Lesion. A1 es el registro mas reciente.</p>
+    </div>
+  );
+}
+
 function LoadingRoster() {
   return (
     <div className="rounded-md border border-slate-200 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
@@ -175,6 +273,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
   const [assignments, setAssignments] = useState<Record<string, string>>(initialAssignments);
   const [assignmentStart, setAssignmentStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [printMode, setPrintMode] = useState<"coach" | "roster" | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -213,6 +312,11 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
     });
   }
 
+  function printSheet(mode: "coach" | "roster") {
+    setPrintMode(mode);
+    window.setTimeout(() => window.print(), 0);
+  }
+
   const genderOptions = [
     { value: "", label: "Todos" },
     { value: "male", label: "Varonil" },
@@ -220,7 +324,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="grouped-roster-view space-y-4" data-roster-print-mode={printMode ?? ""}>
       <div className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -261,10 +365,17 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
               <div className="absolute right-0 z-20 mt-2 w-64 rounded-md border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-950">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => printSheet("coach")}
                   className="block w-full rounded-md px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-portoBlue dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Imprimir lista coaches
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printSheet("roster")}
+                  className="block w-full rounded-md px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-portoBlue dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Imprimir listas
                 </button>
                 <a
                   href={groupedRosterExportHref({
@@ -484,7 +595,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.inscriptionDate}</td>
                         <td className="px-2 py-2 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <RecentAttendanceChips items={row.recentAttendance} />
+                            <RecentAttendanceChips items={row.recentAttendance.slice(0, 5)} />
                             <AttendanceRiskBadge risk={row.attendanceRisk} compact />
                           </div>
                         </td>
@@ -506,8 +617,13 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
       </div>
 
       <CoachRosterPrintSheet data={data} />
+      <RosterAttendancePrintSheet data={data} />
       <style jsx global>{`
         .coach-roster-print-root {
+          display: none;
+        }
+
+        .roster-attendance-print-root {
           display: none;
         }
 
@@ -521,12 +637,15 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
             visibility: hidden !important;
           }
 
-          .coach-roster-print-root,
-          .coach-roster-print-root * {
+          .grouped-roster-view[data-roster-print-mode="coach"] .coach-roster-print-root,
+          .grouped-roster-view[data-roster-print-mode="coach"] .coach-roster-print-root *,
+          .grouped-roster-view[data-roster-print-mode="roster"] .roster-attendance-print-root,
+          .grouped-roster-view[data-roster-print-mode="roster"] .roster-attendance-print-root * {
             visibility: visible !important;
           }
 
-          .coach-roster-print-root {
+          .grouped-roster-view[data-roster-print-mode="coach"] .coach-roster-print-root,
+          .grouped-roster-view[data-roster-print-mode="roster"] .roster-attendance-print-root {
             display: block !important;
             position: absolute;
             inset: 0 auto auto 0;
@@ -647,6 +766,118 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
 
           .coach-print-checkbox-gap {
             margin-left: 18px;
+          }
+
+          .roster-attendance-print-section {
+            break-after: page;
+            page-break-after: always;
+          }
+
+          .roster-attendance-print-section:last-of-type {
+            break-after: auto;
+            page-break-after: auto;
+          }
+
+          .roster-attendance-print-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+          }
+
+          .roster-attendance-print-kicker {
+            margin: 0 0 2px;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+
+          .roster-attendance-print-header h1 {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.1;
+          }
+
+          .roster-attendance-print-header p {
+            margin: 2px 0 0;
+            font-size: 8px;
+          }
+
+          .roster-attendance-print-meta {
+            min-width: 150px;
+            text-align: right;
+            font-size: 8px;
+            line-height: 1.2;
+          }
+
+          .roster-attendance-print-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 7px;
+          }
+
+          .roster-attendance-print-table th,
+          .roster-attendance-print-table td {
+            border: 1px solid #000;
+            padding: 2px 3px;
+            vertical-align: middle;
+            height: 14px;
+            overflow: hidden;
+            text-overflow: clip;
+          }
+
+          .roster-attendance-print-table th {
+            background: #f1f1f1;
+            font-size: 6px;
+            text-transform: uppercase;
+          }
+
+          .roster-print-col-number {
+            width: 20px;
+            text-align: center;
+          }
+
+          .roster-print-col-id {
+            width: 46px;
+            text-align: center;
+          }
+
+          .roster-print-col-name {
+            width: 130px;
+          }
+
+          .roster-print-col-cat {
+            width: 26px;
+            text-align: center;
+          }
+
+          .roster-print-col-level {
+            width: 52px;
+          }
+
+          .roster-print-col-date {
+            width: 48px;
+            text-align: center;
+          }
+
+          .roster-print-col-money {
+            width: 45px;
+            text-align: center;
+          }
+
+          .roster-print-col-attendance {
+            width: 39px;
+            text-align: center;
+            white-space: nowrap;
+          }
+
+          .roster-attendance-print-legend {
+            margin-top: 6px;
+            font-size: 8px;
           }
         }
       `}</style>

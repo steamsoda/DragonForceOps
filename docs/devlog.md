@@ -2,6 +2,14 @@
 
 ## 2026-07-09 (session 204)
 
+### Jugadores Roster Export Attendance History (v1.16.191)
+
+- Added the last 15 recorded attendance entries to the `Jugadores > Vista por grupos` Excel export using compact plain-text slots like `24/06 A`, `23/06 F`, `J`, or `L`.
+- Added a separate `Imprimir listas` action under `Herramientas` so Front Desk can directly print the compact grouped roster/tuition/attendance list without replacing the existing coach checklist printout.
+- Kept the on-screen `Jugadores` roster compact by still showing only the first five recent attendance chips, while the loaded export/print data carries the longer 15-record history.
+- No finance, roster assignment, attendance mutation, or schema behavior changed.
+- Verification: `npm run typecheck`.
+
 ### Player Notes V1 (v1.16.190)
 
 - Added a general operational notes model for player context that does not mutate finance, attendance, baja, or injury workflows.
