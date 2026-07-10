@@ -10,7 +10,6 @@ const GRAY_BORDER = "FFB8C0CC";
 const ATTENDANCE_EXPORT_LIMIT = 15;
 
 const BASE_COLUMNS = ["#", "ID", "Nombre", "Cat", "Nivel/Grupo", "Insc"];
-const ATTENDANCE_COLUMNS = Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, (_, index) => `Asist. ${index + 1}`);
 
 function sanitizeSheetName(value: string) {
   return value.replace(/[\\/*?:[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Roster";
@@ -88,9 +87,21 @@ function attendanceSymbol(status: PlayerRosterGroupRow["recentAttendance"][numbe
   return "-";
 }
 
-function formatAttendanceSlot(item: PlayerRosterGroupRow["recentAttendance"][number] | undefined) {
-  if (!item) return "-";
-  return `${formatAttendanceDate(item.sessionDate)} ${attendanceSymbol(item.status)}`;
+function getSectionAttendanceDates(rows: PlayerRosterGroupRow[]) {
+  const dates = new Set<string>();
+  for (const row of rows) {
+    for (const item of row.recentAttendance) {
+      dates.add(item.sessionDate);
+    }
+  }
+
+  return [...dates].sort((a, b) => b.localeCompare(a)).slice(0, ATTENDANCE_EXPORT_LIMIT);
+}
+
+function getAttendanceSymbolForDate(player: PlayerRosterGroupRow, sessionDate: string | undefined) {
+  if (!sessionDate) return "-";
+  const item = player.recentAttendance.find((entry) => entry.sessionDate === sessionDate);
+  return item ? attendanceSymbol(item.status) : "-";
 }
 
 function addTitleRows({
@@ -129,13 +140,13 @@ function addSection({
   worksheet,
   section,
   rows,
-  headers,
+  tuitionHeaders,
   totalColumns,
 }: {
   worksheet: ExcelJS.Worksheet;
   section: PlayerRosterGroupSection;
   rows: PlayerRosterGroupRow[];
-  headers: string[];
+  tuitionHeaders: string[];
   totalColumns: number;
 }) {
   worksheet.addRow([]);
@@ -151,7 +162,12 @@ function addSection({
   sectionSubtitle.font = { italic: true, color: { argb: BLACK } };
   applyGridBorder(sectionSubtitle, totalColumns);
 
-  const header = worksheet.addRow(headers);
+  const attendanceDates = getSectionAttendanceDates(rows);
+  const attendanceHeaders = Array.from(
+    { length: ATTENDANCE_EXPORT_LIMIT },
+    (_, index) => attendanceDates[index] ? formatAttendanceDate(attendanceDates[index]) : "",
+  );
+  const header = worksheet.addRow([...BASE_COLUMNS, ...tuitionHeaders, ...attendanceHeaders]);
   header.font = { bold: true, color: { argb: BLACK } };
   header.alignment = { vertical: "middle", horizontal: "center" };
   applyGridBorder(header, totalColumns);
@@ -173,7 +189,7 @@ function addSection({
       player.levelGroup,
       player.inscriptionDate,
       ...player.tuition.map((cell) => cell.value),
-      ...ATTENDANCE_COLUMNS.map((_, attendanceIndex) => formatAttendanceSlot(player.recentAttendance[attendanceIndex])),
+      ...Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, (_, attendanceIndex) => getAttendanceSymbolForDate(player, attendanceDates[attendanceIndex])),
     ]);
 
     row.getCell(1).alignment = { horizontal: "center" };
@@ -187,7 +203,7 @@ function addSection({
       excelCell.font = { bold: cell.state !== "empty", color: { argb: BLACK } };
     });
 
-    ATTENDANCE_COLUMNS.forEach((_, attendanceIndex) => {
+    Array.from({ length: ATTENDANCE_EXPORT_LIMIT }).forEach((_, attendanceIndex) => {
       const excelCell = row.getCell(BASE_COLUMNS.length + player.tuition.length + attendanceIndex + 1);
       excelCell.alignment = { horizontal: "center" };
       excelCell.font = { color: { argb: BLACK }, size: 9 };
@@ -209,8 +225,8 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
     return workbook;
   }
 
-  const headers = [...BASE_COLUMNS, ...data.months.map((month) => month.label), ...ATTENDANCE_COLUMNS];
-  const totalColumns = headers.length;
+  const tuitionHeaders = data.months.map((month) => month.label);
+  const totalColumns = BASE_COLUMNS.length + tuitionHeaders.length + ATTENDANCE_EXPORT_LIMIT;
   const birthYears = getExportBirthYears(data);
 
   if (birthYears.length === 0) {
@@ -229,7 +245,7 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
       { width: 20 },
       { width: 12 },
       ...data.months.map(() => ({ width: 14 })),
-      ...ATTENDANCE_COLUMNS.map(() => ({ width: 9 })),
+      ...Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, () => ({ width: 5 })),
     ];
 
     const sections = data.sections
@@ -251,7 +267,7 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
     }
 
     for (const { section, rows } of sections) {
-      addSection({ worksheet, section, rows, headers, totalColumns });
+      addSection({ worksheet, section, rows, tuitionHeaders, totalColumns });
     }
   }
 

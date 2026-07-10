@@ -2,6 +2,13 @@
 
 ## 2026-07-09 (session 204)
 
+### Jugadores Roster Attendance Export Compaction (v1.16.192)
+
+- Compacted the `Jugadores` roster attendance export/print layout so attendance columns use date headers and player cells contain only `A`, `F`, `J`, `L`, or `-`.
+- Applied the same date-header pattern to both `Exportar Excel` and the direct `Imprimir listas` roster printout.
+- No finance, roster assignment, attendance mutation, or schema behavior changed.
+- Verification: `npm run typecheck` and `npm run build`.
+
 ### Jugadores Roster Export Attendance History (v1.16.191)
 
 - Added the last 15 recorded attendance entries to the `Jugadores > Vista por grupos` Excel export using compact plain-text slots like `24/06 A`, `23/06 F`, `J`, or `L`.

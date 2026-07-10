@@ -75,9 +75,23 @@ function attendanceSymbol(status: PlayerRosterGroupsData["sections"][number]["ro
   return "-";
 }
 
-function formatAttendanceSlot(item: PlayerRosterGroupsData["sections"][number]["rows"][number]["recentAttendance"][number] | undefined) {
-  if (!item) return "-";
-  return `${formatAttendanceDate(item.sessionDate)} ${attendanceSymbol(item.status)}`;
+type RosterPrintRow = PlayerRosterGroupsData["sections"][number]["rows"][number];
+
+function getSectionAttendanceDates(rows: RosterPrintRow[]) {
+  const dates = new Set<string>();
+  for (const row of rows) {
+    for (const item of row.recentAttendance) {
+      dates.add(item.sessionDate);
+    }
+  }
+
+  return [...dates].sort((a, b) => b.localeCompare(a)).slice(0, ATTENDANCE_PRINT_LIMIT);
+}
+
+function getAttendanceSymbolForDate(row: RosterPrintRow, sessionDate: string | undefined) {
+  if (!sessionDate) return "-";
+  const item = row.recentAttendance.find((entry) => entry.sessionDate === sessionDate);
+  return item ? attendanceSymbol(item.status) : "-";
 }
 
 function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
@@ -154,12 +168,16 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
   const printedAt = todayLabel();
   const genderLabel = data.selectedGender === "male" ? "Varonil" : data.selectedGender === "female" ? "Femenil" : "Todos los generos";
   const categoryLabel = data.selectedBirthYear ? `Cat. ${data.selectedBirthYear}` : "Todas las categorias";
-  const attendanceHeaders = Array.from({ length: ATTENDANCE_PRINT_LIMIT }, (_, index) => `A${index + 1}`);
 
   return (
     <div className="roster-attendance-print-root" aria-hidden="true">
       {data.sections.map((section) => {
         const rows = [...section.rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "es-MX"));
+        const attendanceDates = getSectionAttendanceDates(rows);
+        const attendanceHeaders = Array.from(
+          { length: ATTENDANCE_PRINT_LIMIT },
+          (_, index) => attendanceDates[index] ? formatAttendanceDate(attendanceDates[index]) : "",
+        );
         return (
           <section key={section.id} className="roster-attendance-print-section">
             <header className="roster-attendance-print-header">
@@ -212,7 +230,7 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
                       ))}
                       {attendanceHeaders.map((header, attendanceIndex) => (
                         <td key={`${header}-${row.enrollmentId}`} className="roster-print-col-attendance">
-                          {formatAttendanceSlot(row.recentAttendance[attendanceIndex])}
+                          {getAttendanceSymbolForDate(row, attendanceDates[attendanceIndex])}
                         </td>
                       ))}
                     </tr>
@@ -223,7 +241,7 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
           </section>
         );
       })}
-      <p className="roster-attendance-print-legend">Asistencia: A = Asistio, F = Falta, J = Justificada, L = Lesion. A1 es el registro mas reciente.</p>
+      <p className="roster-attendance-print-legend">Asistencia: A = Asistio, F = Falta, J = Justificada, L = Lesion.</p>
     </div>
   );
 }
@@ -870,7 +888,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
           }
 
           .roster-print-col-attendance {
-            width: 39px;
+            width: 24px;
             text-align: center;
             white-space: nowrap;
           }
