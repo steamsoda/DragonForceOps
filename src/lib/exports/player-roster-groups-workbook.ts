@@ -76,7 +76,7 @@ function configureWorksheet(worksheet: ExcelJS.Worksheet) {
 
 function formatAttendanceDate(value: string) {
   const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}/${month}` : value;
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
 
 function attendanceSymbol(status: PlayerRosterGroupRow["recentAttendance"][number]["status"]) {
@@ -170,6 +170,9 @@ function addSection({
   const header = worksheet.addRow([...BASE_COLUMNS, ...tuitionHeaders, ...attendanceHeaders]);
   header.font = { bold: true, color: { argb: BLACK } };
   header.alignment = { vertical: "middle", horizontal: "center" };
+  Array.from({ length: ATTENDANCE_EXPORT_LIMIT }).forEach((_, attendanceIndex) => {
+    header.getCell(BASE_COLUMNS.length + tuitionHeaders.length + attendanceIndex + 1).numFmt = "@";
+  });
   applyGridBorder(header, totalColumns);
 
   if (rows.length === 0) {
@@ -196,6 +199,7 @@ function addSection({
     row.getCell(2).font = { name: "Consolas", size: 10 };
     row.getCell(4).alignment = { horizontal: "center" };
     row.getCell(6).alignment = { horizontal: "center" };
+    row.getCell(6).numFmt = "@";
 
     player.tuition.forEach((cell, tuitionIndex) => {
       const excelCell = row.getCell(BASE_COLUMNS.length + tuitionIndex + 1);
@@ -245,7 +249,7 @@ export async function buildPlayerRosterGroupsWorkbook(data: PlayerRosterGroupsDa
       { width: 20 },
       { width: 12 },
       ...data.months.map(() => ({ width: 14 })),
-      ...Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, () => ({ width: 5 })),
+      ...Array.from({ length: ATTENDANCE_EXPORT_LIMIT }, () => ({ width: 11 })),
     ];
 
     const sections = data.sections

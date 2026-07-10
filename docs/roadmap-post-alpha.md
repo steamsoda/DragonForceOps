@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.190`
-- Current preview line: `v1.16.192`
+- Current production line: `v1.16.192`
+- Current preview line: `v1.16.193`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -92,7 +92,7 @@ The academy feedback cycle pushed attendance operations and player-context visib
 - ✅ `Asistencia > Grupos` selected-group polish: shipped in `v1.16.188`; adds compact group KPIs, uses the previous full calendar week for the "attended last week" signal, shows current-month no-attendance counts, keeps the selected group open when changing month, and preserves the existing non-finance attendance scope.
 - ✅ `Inscripciones Torneos` paid-date filter: shipped in `v1.16.189`; lets Front Desk filter confirmed paid players by `payments.paid_at` range without changing tournament/product/payment logic.
 - ✅ Player notes workflow foundation: shipped in `v1.16.190`; adds a dated, cross-surface general note history for operational notes that do not belong in finance, attendance, or baja-only flows.
-- 🟢 `Jugadores` roster export/print attendance history: preview `v1.16.192` adds the last 15 recorded attendance entries to the Excel export and direct `Imprimir listas` roster printout, with compact date headers and letter-only attendance cells.
+- 🟢 `Jugadores` roster export/print attendance history: preview `v1.16.193` adds the last 15 recorded attendance entries to the Excel export and direct `Imprimir listas` roster printout, with compact attendance cells plus the print/date-format follow-up.
 - 🟡 Attendance operations workflow: simplify special training days and cancellation/rain flows, with Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions.
 - 🟡 Injury/absence workflow v2: plan carefully because it touches attendance state, current-month tuition omission, multi-month omission, and return-to-normal behavior.
 - 🟡 Attendance analytics panel: larger dashboard/reporting pass after the group-detail polish proves the summary data shape.
@@ -113,7 +113,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | `Asistencia > Grupos` detail KPIs and month persistence | Shipped in `v1.16.188`: selected-group summary cards for total roster, attended last calendar week, no attendance in current month, and attendance rate; changing month now keeps the group detail open. | Checkpoint 2026-07-08, `v1.16.188` devlog |
 | ✅ | `Inscripciones Torneos` paid-date filter | Shipped in `v1.16.189`: date-range filtering for confirmed tournament payments based on `payments.paid_at`, without changing how paid status is derived. | Checkpoint 2026-07-08, `v1.16.189` devlog |
 | ✅ | Player notes workflow foundation | Shipped in `v1.16.190`: dated general notes visible from player profile and Caja, without mixing them into finance-only or attendance-only records. | Checkpoint 2026-07-08, `v1.16.190` devlog |
-| 🟢 | `Jugadores` roster export/print attendance history | Preview `v1.16.192` adds the last 15 recorded attendance entries to the grouped roster Excel export and a direct compact roster print action, using date headers and letter-only attendance cells. | Jugadores, `v1.16.191`-`v1.16.192` devlog |
+| 🟢 | `Jugadores` roster export/print attendance history | Preview `v1.16.193` adds the last 15 recorded attendance entries to the grouped roster Excel export and a direct compact roster print action, with the print blank-page and Excel Mexican-date follow-up included. | Jugadores, `v1.16.191`-`v1.16.193` devlog |
 | 🟡 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-08, Asistencia lane |
 | 🟡 | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |

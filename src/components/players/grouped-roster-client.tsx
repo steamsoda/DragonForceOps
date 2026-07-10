@@ -651,8 +651,18 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
             margin: 10mm;
           }
 
+          .grouped-roster-view[data-roster-print-mode="coach"] > :not(.coach-roster-print-root),
+          .grouped-roster-view[data-roster-print-mode="roster"] > :not(.roster-attendance-print-root) {
+            display: none !important;
+          }
+
           body * {
             visibility: hidden !important;
+          }
+
+          .coach-roster-print-root,
+          .roster-attendance-print-root {
+            display: none !important;
           }
 
           .grouped-roster-view[data-roster-print-mode="coach"] .coach-roster-print-root,
@@ -665,8 +675,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
           .grouped-roster-view[data-roster-print-mode="coach"] .coach-roster-print-root,
           .grouped-roster-view[data-roster-print-mode="roster"] .roster-attendance-print-root {
             display: block !important;
-            position: absolute;
-            inset: 0 auto auto 0;
+            position: static;
             width: 100%;
             background: white;
             color: black;
