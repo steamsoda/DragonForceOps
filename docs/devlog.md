@@ -2,6 +2,13 @@
 
 ## 2026-07-09 (session 204)
 
+### Jugadores Roster Print/Excel Follow-Up (v1.16.193)
+
+- Fixed the direct `Imprimir listas` print stylesheet so the hidden on-screen roster no longer contributes extra blank pages after the printed group pages.
+- Updated `Exportar Excel` attendance date headers to use full Mexican day/month/year format and kept those header cells as text to avoid day/month ambiguity in Excel.
+- No finance, roster assignment, attendance mutation, or schema behavior changed.
+- Verification: `npm run typecheck` and `npm run build`.
+
 ### Jugadores Roster Attendance Export Compaction (v1.16.192)
 
 - Compacted the `Jugadores` roster attendance export/print layout so attendance columns use date headers and player cells contain only `A`, `F`, `J`, `L`, or `-`.
