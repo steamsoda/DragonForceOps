@@ -1,5 +1,6 @@
 import { canAccessAttendanceCampus, canWriteAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { resolveAttendanceMonthRange } from "@/lib/attendance/month-range";
 import { getAttendanceRiskTier, type AttendanceRiskTier } from "@/lib/attendance/risk";
 import { fetchPlayerRpcInChunks } from "@/lib/queries/player-rpc-batching";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -234,14 +235,15 @@ export type AttendanceGroupMonthlyPlayerRow = {
   lastStatus: string | null;
   lastSessionDate: string | null;
   statusesBySession: Record<string, string | null>;
-  hasPresentThisMonth: boolean;
+  hasPresentInPeriod: boolean;
+  pendingBalance?: number;
 };
 
 export type AttendanceSelectedGroupSummary = {
   totalRoster: number;
   attendedLastCalendarWeek: number;
-  noAttendanceThisMonth: number;
-  monthlyAttendanceRate: number | null;
+  noAttendanceInPeriod: number;
+  periodAttendanceRate: number | null;
   previousWeekStartDate: string;
   previousWeekEndDate: string;
 };
@@ -250,6 +252,9 @@ export type AttendanceGroupsMonthlyData = {
   campuses: AttendanceCampusOption[];
   selectedCampusId: string | null;
   selectedMonth: string;
+  selectedMonthFrom: string;
+  selectedMonthTo: string;
+  periodError: string | null;
   selectedGroupId: string | null;
   groups: AttendanceGroupMonthlyCard[];
   selectedGroup: AttendanceGroupMonthlyCard | null;
@@ -1043,14 +1048,27 @@ async function fetchAttendanceRecordsBySessionIds(
   return rows;
 }
 
-export async function getAttendanceGroupsMonthlyData(filters: { campusId?: string; month?: string; groupId?: string }): Promise<AttendanceGroupsMonthlyData> {
+export async function getAttendanceGroupsMonthlyData(filters: {
+  campusId?: string;
+  month?: string;
+  monthFrom?: string;
+  monthTo?: string;
+  groupId?: string;
+  includePendingBalances?: boolean;
+}): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
-  const selectedMonth = filters.month && /^\d{4}-\d{2}$/.test(filters.month) ? filters.month : getMonterreyMonthString();
+  const financeContext = filters.includePendingBalances ? await getPermissionContext() : null;
+  const includePendingBalances = Boolean(financeContext && (financeContext.isDirector || financeContext.isFrontDesk));
+  const range = resolveAttendanceMonthRange({ ...filters, currentMonth: getMonterreyMonthString() });
+  const selectedMonth = range.monthFrom;
   if (!access) {
     return {
       campuses: [],
       selectedCampusId: null,
       selectedMonth,
+      selectedMonthFrom: range.monthFrom,
+      selectedMonthTo: range.monthTo,
+      periodError: range.error,
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
@@ -1065,8 +1083,8 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     : access.campusIds;
   const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
   const admin = createAdminClient();
-  const monthBounds = getMonterreyMonthBounds(selectedMonth);
-  const monthEndDate = monthBounds.end.slice(0, 10);
+  const periodStart = getMonterreyMonthBounds(range.monthFrom).periodMonth;
+  const periodEnd = getMonterreyMonthBounds(range.monthTo).end.slice(0, 10);
 
   const { data: groups } = await admin
     .from("training_groups")
@@ -1087,6 +1105,9 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       campuses: access.campuses,
       selectedCampusId,
       selectedMonth,
+      selectedMonthFrom: range.monthFrom,
+      selectedMonthTo: range.monthTo,
+      periodError: range.error,
       selectedGroupId: null,
       groups: [],
       selectedGroup: null,
@@ -1124,8 +1145,8 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
       .from("attendance_sessions")
       .select("id, training_group_id, status, session_date")
       .in("training_group_id", groupIds)
-      .gte("session_date", monthBounds.periodMonth)
-      .lt("session_date", monthEndDate)
+      .gte("session_date", periodStart)
+      .lt("session_date", periodEnd)
       .returns<Array<{ id: string; training_group_id: string; status: string; session_date: string }>>(),
     admin
       .from("training_group_coaches")
@@ -1243,13 +1264,33 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
           .map((assignment) => assignment.player_id)
       : [],
   );
-  const currentMonthPresentPlayerIds = new Set<string>();
+  const pendingBalanceByEnrollment = new Map<string, number>();
+  if (includePendingBalances && selectedGroupId) {
+    const selectedEnrollmentIds = (assignments ?? [])
+      .filter((assignment) => assignment.training_group_id === selectedGroupId && assignment.enrollments?.players)
+      .map((assignment) => assignment.enrollment_id);
+    const { data: balanceRows, error: balanceError } = selectedEnrollmentIds.length > 0
+      ? await admin
+          .from("v_enrollment_balances")
+          .select("enrollment_id, balance")
+          .in("enrollment_id", selectedEnrollmentIds)
+          .returns<Array<{ enrollment_id: string; balance: number | string | null }>>()
+      : { data: [], error: null };
+
+    if (balanceError) {
+      console.error("Failed to fetch canonical balances for attendance group detail", balanceError);
+    }
+    for (const row of balanceRows ?? []) {
+      pendingBalanceByEnrollment.set(row.enrollment_id, Math.max(0, Number(row.balance ?? 0)));
+    }
+  }
+  const periodPresentPlayerIds = new Set<string>();
   if (selectedGroupId) {
     for (const record of records) {
       const session = sessionById.get(record.session_id);
       if (!session || session.status !== "completed" || session.training_group_id !== selectedGroupId) continue;
       if (record.status === "present" && selectedGroupActivePlayerIds.has(record.player_id)) {
-        currentMonthPresentPlayerIds.add(record.player_id);
+        periodPresentPlayerIds.add(record.player_id);
       }
     }
   }
@@ -1305,7 +1346,10 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
             lastStatus: playerRecords[0]?.status ?? null,
             lastSessionDate: playerRecords[0]?.sessionDate ?? null,
             statusesBySession: Object.fromEntries(selectedGroupSessions.map((session) => [session.sessionId, statusMap.get(session.sessionId) ?? null])),
-            hasPresentThisMonth: currentMonthPresentPlayerIds.has(assignment.player_id),
+            hasPresentInPeriod: periodPresentPlayerIds.has(assignment.player_id),
+            ...(includePendingBalances
+              ? { pendingBalance: pendingBalanceByEnrollment.get(assignment.enrollment_id) ?? 0 }
+              : {}),
           };
         })
         .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))
@@ -1315,8 +1359,8 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     ? {
         totalRoster: selectedGroupActivePlayerIds.size,
         attendedLastCalendarWeek,
-        noAttendanceThisMonth: Math.max(0, selectedGroupActivePlayerIds.size - currentMonthPresentPlayerIds.size),
-        monthlyAttendanceRate: selectedGroup.rate,
+        noAttendanceInPeriod: Math.max(0, selectedGroupActivePlayerIds.size - periodPresentPlayerIds.size),
+        periodAttendanceRate: selectedGroup.rate,
         previousWeekStartDate,
         previousWeekEndDate: addDaysToDateOnly(previousWeekEndDate, -1),
       }
@@ -1326,6 +1370,9 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
     campuses: access.campuses,
     selectedCampusId,
     selectedMonth,
+    selectedMonthFrom: range.monthFrom,
+    selectedMonthTo: range.monthTo,
+    periodError: range.error,
     selectedGroupId,
     groups: cards,
     selectedGroup,

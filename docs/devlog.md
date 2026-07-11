@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-07-11 (session 206)
+
+### Attendance Groups Three-Month Range (v1.16.197)
+
+- Replaced the single-month control in `Asistencia > Grupos` with `Desde` and `Hasta` month selectors while keeping the current month as the default and legacy `month` links compatible.
+- Allows one to three consecutive months, including year boundaries; reversed or four-plus-month ranges fall back safely to the starting month with a clear validation message.
+- Loads the entire bounded period in one session query plus the existing paginated attendance-record fetch, then recalculates group cards, selected-group sessions, player totals, faltas, justified/injury counts, rates, latest status, and no-attendance filtering over that period.
+- Preserves the selected group, role-gated canonical balance column, player filter, and column sorting across period changes. Multi-month matrix headers use `dd/mm` to avoid duplicate day ambiguity.
+- No attendance records, balances, charges, payments, permissions, group assignments, or schema behavior changed.
+- Verification: `npm run test:attendance-month-range`, `npm run test:attendance-groups-pagination`, `npm run test:attendance-group-finance-visibility`, `npm run typecheck`, and `npm run build`.
+
+### Attendance Group Canonical Pending Balances (v1.16.196)
+
+- Added a sortable `Saldo pendiente` column to the selected-group roster in `Asistencia > Grupos` for Super Admin, Director Admin, and Front Desk only.
+- Reused `v_enrollment_balances` as the canonical source and batches the selected active enrollment IDs in one query; displayed debt is clamped at zero so account credit is not presented as negative debt.
+- Enforced privacy before data loading: other attendance roles do not execute the balance query, do not receive `pendingBalance` in the player payload, and do not receive the column or balance sort option.
+- No charges, payments, attendance records, group assignments, permissions, or schema behavior changed.
+- Verification: `npm run test:attendance-group-finance-visibility`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-10 (session 205)
 
 ### Asistencia Group Detail Sortable Columns (v1.16.195)
