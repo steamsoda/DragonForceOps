@@ -194,12 +194,14 @@ function SelectedGroupDetail({
   sort,
   direction,
   showPendingBalances,
+  showGuardianPhones,
 }: {
   data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
   playerFilter: string | null;
   sort: PlayerSort | null;
   direction: SortDirection;
   showPendingBalances: boolean;
+  showGuardianPhones: boolean;
 }) {
   if (!data.selectedGroup) return null;
   const summary = data.selectedGroupSummary;
@@ -301,6 +303,8 @@ function SelectedGroupDetail({
             <tr>
               <th className="px-3 py-2">{sortLabel("player", "Jugador")}</th>
               <th className="px-3 py-2">{sortLabel("category", "Categoria")}</th>
+              {showGuardianPhones ? <th className="px-3 py-2">Teléfono 1</th> : null}
+              {showGuardianPhones ? <th className="px-3 py-2">Teléfono 2</th> : null}
               {showPendingBalances ? <th className="px-3 py-2">{sortLabel("balance", "Saldo pendiente")}</th> : null}
               {data.selectedGroupSessions.map((session) => (
                 <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
@@ -322,6 +326,16 @@ function SelectedGroupDetail({
                   <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
                 </td>
                 <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
+                {showGuardianPhones ? (
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {player.guardianPhone1 ? <a href={`tel:${player.guardianPhone1}`} className="text-portoBlue hover:underline">{player.guardianPhone1}</a> : "-"}
+                  </td>
+                ) : null}
+                {showGuardianPhones ? (
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {player.guardianPhone2 ? <a href={`tel:${player.guardianPhone2}`} className="text-portoBlue hover:underline">{player.guardianPhone2}</a> : "-"}
+                  </td>
+                ) : null}
                 {showPendingBalances ? (
                   <td className={`px-3 py-2 font-semibold ${(player.pendingBalance ?? 0) > 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300"}`}>
                     {formatCurrency(player.pendingBalance ?? 0)}
@@ -345,7 +359,7 @@ function SelectedGroupDetail({
               </tr>
             ))}
             {visiblePlayers.length === 0 ? (
-              <tr><td colSpan={7 + data.selectedGroupSessions.length + (showPendingBalances ? 1 : 0)} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? `Todos los jugadores tienen al menos una asistencia ${periodPhrase}.` : "Este grupo no tiene jugadores activos asignados."}</td></tr>
+              <tr><td colSpan={7 + data.selectedGroupSessions.length + (showPendingBalances ? 1 : 0) + (showGuardianPhones ? 2 : 0)} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? `Todos los jugadores tienen al menos una asistencia ${periodPhrase}.` : "Este grupo no tiene jugadores activos asignados."}</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -365,6 +379,7 @@ function SelectedGroupDetail({
 export default async function AttendanceGroupsPage({ searchParams }: { searchParams: SearchParams }) {
   const permissionContext = await requireAttendanceReadContext("/unauthorized");
   const showPendingBalances = permissionContext.isDirector || permissionContext.isFrontDesk;
+  const showGuardianPhones = permissionContext.isDirector || permissionContext.isFrontDesk;
   const params = await searchParams;
   const playerFilter = params.playerFilter === "no-attendance" ? params.playerFilter : null;
   const allowedSorts: PlayerSort[] = ["player", "category", "sessions", "absences", "justified", "rate", "latest"];
@@ -378,10 +393,11 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
     monthTo: params.monthTo,
     groupId: params.group,
     includePendingBalances: showPendingBalances,
+    includeGuardianPhones: showGuardianPhones,
   });
 
   return (
-    <PageShell title="Grupos de asistencia" subtitle="Vista por periodo y grupo de entrenamiento. Contacto oculto; saldos solo para roles autorizados." wide>
+    <PageShell title="Grupos de asistencia" subtitle="Vista por periodo y grupo de entrenamiento. Contacto y saldos solo para roles autorizados." wide>
       <div className="space-y-6">
         <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
           <form className="flex flex-wrap items-end gap-3">
@@ -439,6 +455,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           sort={sort}
           direction={direction}
           showPendingBalances={showPendingBalances}
+          showGuardianPhones={showGuardianPhones}
         />
 
         <section className="space-y-3">
