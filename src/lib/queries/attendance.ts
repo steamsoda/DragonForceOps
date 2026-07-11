@@ -2073,3 +2073,85 @@ export async function getWeeklyAttendanceRate(filters: { campusId?: string }) {
     total: rows.length,
   };
 }
+
+export async function getMonthlyAttendanceParticipation(filters: { campusId?: string; month?: string }) {
+  const access = await getAttendanceScope();
+  if (!access) return null;
+  const selectedCampusIds = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+    ? [filters.campusId]
+    : access.campusIds;
+  if (selectedCampusIds.length === 0) return null;
+
+  const selectedMonth = isMonthOnly(filters.month) ? filters.month! : getMonterreyMonthString();
+  const monthBounds = getMonterreyMonthBounds(selectedMonth);
+  const monthEndDate = monthBounds.end.slice(0, 10);
+  const admin = createAdminClient();
+  const activePlayerIds = new Set<string>();
+
+  for (let from = 0; ; from += ATTENDANCE_RECORD_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("enrollments")
+      .select("id, player_id")
+      .in("campus_id", selectedCampusIds)
+      .eq("status", "active")
+      .order("player_id", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + ATTENDANCE_RECORD_PAGE_SIZE - 1)
+      .returns<Array<{ id: string; player_id: string }>>();
+    if (error) {
+      console.error("Failed to fetch active players for dashboard attendance participation", error);
+      return null;
+    }
+    for (const row of data ?? []) activePlayerIds.add(row.player_id);
+    if ((data ?? []).length < ATTENDANCE_RECORD_PAGE_SIZE) break;
+  }
+
+  const sessionIds: string[] = [];
+  for (let from = 0; ; from += ATTENDANCE_RECORD_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("attendance_sessions")
+      .select("id")
+      .in("campus_id", selectedCampusIds)
+      .eq("status", "completed")
+      .gte("session_date", monthBounds.periodMonth)
+      .lt("session_date", monthEndDate)
+      .order("id", { ascending: true })
+      .range(from, from + ATTENDANCE_RECORD_PAGE_SIZE - 1)
+      .returns<Array<{ id: string }>>();
+    if (error) {
+      console.error("Failed to fetch sessions for dashboard attendance participation", error);
+      return null;
+    }
+    sessionIds.push(...(data ?? []).map((row) => row.id));
+    if ((data ?? []).length < ATTENDANCE_RECORD_PAGE_SIZE) break;
+  }
+
+  const attendedPlayerIds = new Set<string>();
+  for (const chunk of chunkValues(sessionIds, ATTENDANCE_SESSION_ID_CHUNK_SIZE)) {
+    for (let from = 0; ; from += ATTENDANCE_RECORD_PAGE_SIZE) {
+      const { data, error } = await admin
+        .from("attendance_records")
+        .select("id, player_id, session_id")
+        .in("session_id", chunk)
+        .eq("status", "present")
+        .order("session_id", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + ATTENDANCE_RECORD_PAGE_SIZE - 1)
+        .returns<Array<{ id: string; player_id: string; session_id: string }>>();
+      if (error) {
+        console.error("Failed to fetch present players for dashboard attendance participation", error);
+        return null;
+      }
+      for (const row of data ?? []) {
+        if (activePlayerIds.has(row.player_id)) attendedPlayerIds.add(row.player_id);
+      }
+      if ((data ?? []).length < ATTENDANCE_RECORD_PAGE_SIZE) break;
+    }
+  }
+
+  return {
+    attended: attendedPlayerIds.size,
+    notAttended: Math.max(0, activePlayerIds.size - attendedPlayerIds.size),
+    total: activePlayerIds.size,
+  };
+}

@@ -4,7 +4,7 @@ import { getDashboardData } from "@/lib/queries/dashboard";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendCard } from "@/components/dashboard/trend-card";
-import { PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
+import { AttendanceParticipationPie, PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 
 function buildNewEnrollmentsHref(campusId: string, month: string) {
@@ -93,8 +93,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <PaymentStatusPie upToDate={upToDate} withBalance={dashboard.enrollmentsWithBalance} />
+          <AttendanceParticipationPie
+            attended={dashboard.attendedPlayersThisMonth}
+            notAttended={dashboard.playersWithoutAttendanceThisMonth}
+            selectedMonth={dashboard.selectedMonth}
+          />
           <PaymentsByMethodBar data={dashboard.paymentsByMethod} />
         </div>
 
