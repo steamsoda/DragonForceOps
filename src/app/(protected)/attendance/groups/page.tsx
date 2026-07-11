@@ -13,6 +13,8 @@ type SortDirection = "asc" | "desc";
 type SearchParams = Promise<{
   campus?: string;
   month?: string;
+  monthFrom?: string;
+  monthTo?: string;
   group?: string;
   playerFilter?: string;
   sort?: string;
@@ -33,7 +35,8 @@ function formatCurrency(value: number) {
 
 function groupHref(params: {
   campus?: string | null;
-  month: string;
+  monthFrom: string;
+  monthTo: string;
   group?: string | null;
   playerFilter?: string | null;
   sort?: PlayerSort | null;
@@ -41,7 +44,8 @@ function groupHref(params: {
 }) {
   const search = new URLSearchParams();
   if (params.campus) search.set("campus", params.campus);
-  if (params.month) search.set("month", params.month);
+  search.set("monthFrom", params.monthFrom);
+  search.set("monthTo", params.monthTo);
   if (params.group) search.set("group", params.group);
   if (params.playerFilter) search.set("playerFilter", params.playerFilter);
   if (params.sort) search.set("sort", params.sort);
@@ -127,17 +131,19 @@ function matrixStatusCell(status: string | null) {
 function GroupCard({
   group,
   selectedCampusId,
-  selectedMonth,
+  selectedMonthFrom,
+  selectedMonthTo,
   isSelected,
 }: {
   group: AttendanceGroupMonthlyCard;
   selectedCampusId: string | null;
-  selectedMonth: string;
+  selectedMonthFrom: string;
+  selectedMonthTo: string;
   isSelected: boolean;
 }) {
   return (
     <Link
-      href={groupHref({ campus: selectedCampusId, month: selectedMonth, group: group.groupId })}
+      href={groupHref({ campus: selectedCampusId, monthFrom: selectedMonthFrom, monthTo: selectedMonthTo, group: group.groupId })}
       className={`rounded-xl border bg-white p-4 shadow-sm transition hover:border-portoBlue dark:bg-slate-900 ${
         isSelected
           ? "border-portoBlue ring-2 ring-blue-100 dark:border-blue-500 dark:ring-blue-950"
@@ -197,8 +203,10 @@ function SelectedGroupDetail({
 }) {
   if (!data.selectedGroup) return null;
   const summary = data.selectedGroupSummary;
+  const isMultiMonth = data.selectedMonthFrom !== data.selectedMonthTo;
+  const periodPhrase = isMultiMonth ? "en el periodo" : "este mes";
   const noAttendanceOnly = playerFilter === "no-attendance";
-  const filteredPlayers = noAttendanceOnly ? data.players.filter((player) => !player.hasPresentThisMonth) : data.players;
+  const filteredPlayers = noAttendanceOnly ? data.players.filter((player) => !player.hasPresentInPeriod) : data.players;
   const visiblePlayers = sort
     ? [...filteredPlayers].sort((a, b) => {
         let comparison = 0;
@@ -216,7 +224,8 @@ function SelectedGroupDetail({
     : filteredPlayers;
   const sortHref = (column: PlayerSort) => groupHref({
     campus: data.selectedCampusId,
-    month: data.selectedMonth,
+    monthFrom: data.selectedMonthFrom,
+    monthTo: data.selectedMonthTo,
     group: data.selectedGroupId,
     playerFilter,
     sort: column,
@@ -243,7 +252,7 @@ function SelectedGroupDetail({
             {data.selectedGroup.campusName} | {data.selectedGroup.programLabel} | {data.selectedGroup.genderLabel} | Coach {data.selectedGroup.coachName ?? "-"}
           </p>
         </div>
-        <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth })} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+        <Link href={groupHref({ campus: data.selectedCampusId, monthFrom: data.selectedMonthFrom, monthTo: data.selectedMonthTo })} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
           Cerrar detalle
         </Link>
       </div>
@@ -257,14 +266,15 @@ function SelectedGroupDetail({
             tone="good"
           />
           <SummaryCard
-            label="Sin asistencia este mes"
-            value={summary.noAttendanceThisMonth}
+            label={`Sin asistencia ${periodPhrase}`}
+            value={summary.noAttendanceInPeriod}
             detail={noAttendanceOnly ? "Filtro activo - clic para mostrar todos" : "Clic para filtrar jugadores"}
-            tone={summary.noAttendanceThisMonth > 0 ? "warn" : "good"}
+            tone={summary.noAttendanceInPeriod > 0 ? "warn" : "good"}
             active={noAttendanceOnly}
             href={groupHref({
               campus: data.selectedCampusId,
-              month: data.selectedMonth,
+              monthFrom: data.selectedMonthFrom,
+              monthTo: data.selectedMonthTo,
               group: data.selectedGroupId,
               playerFilter: noAttendanceOnly ? null : "no-attendance",
               sort,
@@ -272,17 +282,17 @@ function SelectedGroupDetail({
             })}
           />
           <SummaryCard
-            label="Tasa del mes"
-            value={formatRate(summary.monthlyAttendanceRate)}
-            detail="Sesiones registradas del mes"
-            tone={summary.monthlyAttendanceRate != null && summary.monthlyAttendanceRate >= 85 ? "good" : summary.monthlyAttendanceRate != null ? "warn" : "default"}
+            label={isMultiMonth ? "Tasa del periodo" : "Tasa del mes"}
+            value={formatRate(summary.periodAttendanceRate)}
+            detail={isMultiMonth ? "Sesiones registradas del periodo" : "Sesiones registradas del mes"}
+            tone={summary.periodAttendanceRate != null && summary.periodAttendanceRate >= 85 ? "good" : summary.periodAttendanceRate != null ? "warn" : "default"}
           />
         </div>
       ) : null}
       {noAttendanceOnly ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
-          <span>Mostrando {visiblePlayers.length} jugador(es) sin asistencia en el mes.</span>
-          <Link href={groupHref({ campus: data.selectedCampusId, month: data.selectedMonth, group: data.selectedGroupId, sort, direction })} className="font-semibold underline underline-offset-2">Mostrar todos</Link>
+          <span>Mostrando {visiblePlayers.length} jugador(es) sin asistencia {periodPhrase}.</span>
+          <Link href={groupHref({ campus: data.selectedCampusId, monthFrom: data.selectedMonthFrom, monthTo: data.selectedMonthTo, group: data.selectedGroupId, sort, direction })} className="font-semibold underline underline-offset-2">Mostrar todos</Link>
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
@@ -294,7 +304,7 @@ function SelectedGroupDetail({
               {showPendingBalances ? <th className="px-3 py-2">{sortLabel("balance", "Saldo pendiente")}</th> : null}
               {data.selectedGroupSessions.map((session) => (
                 <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
-                  {session.sessionDate.slice(8, 10)}
+                  {isMultiMonth ? `${session.sessionDate.slice(8, 10)}/${session.sessionDate.slice(5, 7)}` : session.sessionDate.slice(8, 10)}
                 </th>
               ))}
               <th className="px-3 py-2">{sortLabel("sessions", "Sesiones")}</th>
@@ -335,7 +345,7 @@ function SelectedGroupDetail({
               </tr>
             ))}
             {visiblePlayers.length === 0 ? (
-              <tr><td colSpan={7 + data.selectedGroupSessions.length + (showPendingBalances ? 1 : 0)} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? "Todos los jugadores tienen al menos una asistencia este mes." : "Este grupo no tiene jugadores activos asignados."}</td></tr>
+              <tr><td colSpan={7 + data.selectedGroupSessions.length + (showPendingBalances ? 1 : 0)} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? `Todos los jugadores tienen al menos una asistencia ${periodPhrase}.` : "Este grupo no tiene jugadores activos asignados."}</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -364,31 +374,42 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
   const data = await getAttendanceGroupsMonthlyData({
     campusId: params.campus,
     month: params.month,
+    monthFrom: params.monthFrom,
+    monthTo: params.monthTo,
     groupId: params.group,
     includePendingBalances: showPendingBalances,
   });
 
   return (
-    <PageShell title="Grupos de asistencia" subtitle="Vista mensual por grupo de entrenamiento. Sin datos financieros ni contacto." wide>
+    <PageShell title="Grupos de asistencia" subtitle="Vista por periodo y grupo de entrenamiento. Contacto oculto; saldos solo para roles autorizados." wide>
       <div className="space-y-6">
         <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
           <form className="flex flex-wrap items-end gap-3">
             <label className="text-sm font-medium">
-              Mes
-              <input name="month" type="month" defaultValue={data.selectedMonth} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+              Desde
+              <input name="monthFrom" type="month" defaultValue={data.selectedMonthFrom} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
+            </label>
+            <label className="text-sm font-medium">
+              Hasta
+              <input name="monthTo" type="month" defaultValue={data.selectedMonthTo} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
             </label>
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
             {data.selectedGroupId ? <input type="hidden" name="group" value={data.selectedGroupId} /> : null}
             {playerFilter ? <input type="hidden" name="playerFilter" value={playerFilter} /> : null}
             {sort ? <input type="hidden" name="sort" value={sort} /> : null}
             {sort ? <input type="hidden" name="direction" value={direction} /> : null}
-            <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar mes</button>
+            <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Aplicar periodo</button>
           </form>
+          {data.periodError ? (
+            <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">{data.periodError}</p>
+          ) : (
+            <p className="text-xs text-slate-500">Puedes consultar hasta 3 meses consecutivos.</p>
+          )}
           <AttendanceCampusButtons
             pathname="/attendance/groups"
             campuses={data.campuses}
             selectedCampusId={data.selectedCampusId}
-            params={{ month: data.selectedMonth }}
+            params={{ monthFrom: data.selectedMonthFrom, monthTo: data.selectedMonthTo }}
             allLabel="Todos"
           />
         </section>
@@ -423,7 +444,7 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Grupos</h2>
-            <p className="text-sm text-slate-500">Abre un grupo para ver asistencia mensual por jugador.</p>
+            <p className="text-sm text-slate-500">Abre un grupo para ver la asistencia del periodo por jugador.</p>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.groups.map((group) => (
@@ -431,7 +452,8 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
                 key={group.groupId}
                 group={group}
                 selectedCampusId={data.selectedCampusId}
-                selectedMonth={data.selectedMonth}
+                selectedMonthFrom={data.selectedMonthFrom}
+                selectedMonthTo={data.selectedMonthTo}
                 isSelected={data.selectedGroupId === group.groupId}
               />
             ))}
