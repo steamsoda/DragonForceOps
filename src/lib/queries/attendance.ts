@@ -235,6 +235,7 @@ export type AttendanceGroupMonthlyPlayerRow = {
   lastSessionDate: string | null;
   statusesBySession: Record<string, string | null>;
   hasPresentThisMonth: boolean;
+  pendingBalance?: number;
 };
 
 export type AttendanceSelectedGroupSummary = {
@@ -1043,8 +1044,15 @@ async function fetchAttendanceRecordsBySessionIds(
   return rows;
 }
 
-export async function getAttendanceGroupsMonthlyData(filters: { campusId?: string; month?: string; groupId?: string }): Promise<AttendanceGroupsMonthlyData> {
+export async function getAttendanceGroupsMonthlyData(filters: {
+  campusId?: string;
+  month?: string;
+  groupId?: string;
+  includePendingBalances?: boolean;
+}): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
+  const financeContext = filters.includePendingBalances ? await getPermissionContext() : null;
+  const includePendingBalances = Boolean(financeContext && (financeContext.isDirector || financeContext.isFrontDesk));
   const selectedMonth = filters.month && /^\d{4}-\d{2}$/.test(filters.month) ? filters.month : getMonterreyMonthString();
   if (!access) {
     return {
@@ -1243,6 +1251,26 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
           .map((assignment) => assignment.player_id)
       : [],
   );
+  const pendingBalanceByEnrollment = new Map<string, number>();
+  if (includePendingBalances && selectedGroupId) {
+    const selectedEnrollmentIds = (assignments ?? [])
+      .filter((assignment) => assignment.training_group_id === selectedGroupId && assignment.enrollments?.players)
+      .map((assignment) => assignment.enrollment_id);
+    const { data: balanceRows, error: balanceError } = selectedEnrollmentIds.length > 0
+      ? await admin
+          .from("v_enrollment_balances")
+          .select("enrollment_id, balance")
+          .in("enrollment_id", selectedEnrollmentIds)
+          .returns<Array<{ enrollment_id: string; balance: number | string | null }>>()
+      : { data: [], error: null };
+
+    if (balanceError) {
+      console.error("Failed to fetch canonical balances for attendance group detail", balanceError);
+    }
+    for (const row of balanceRows ?? []) {
+      pendingBalanceByEnrollment.set(row.enrollment_id, Math.max(0, Number(row.balance ?? 0)));
+    }
+  }
   const currentMonthPresentPlayerIds = new Set<string>();
   if (selectedGroupId) {
     for (const record of records) {
@@ -1306,6 +1334,9 @@ export async function getAttendanceGroupsMonthlyData(filters: { campusId?: strin
             lastSessionDate: playerRecords[0]?.sessionDate ?? null,
             statusesBySession: Object.fromEntries(selectedGroupSessions.map((session) => [session.sessionId, statusMap.get(session.sessionId) ?? null])),
             hasPresentThisMonth: currentMonthPresentPlayerIds.has(assignment.player_id),
+            ...(includePendingBalances
+              ? { pendingBalance: pendingBalanceByEnrollment.get(assignment.enrollment_id) ?? 0 }
+              : {}),
           };
         })
         .sort((a, b) => (b.birthYear ?? 0) - (a.birthYear ?? 0) || a.playerName.localeCompare(b.playerName, "es-MX"))

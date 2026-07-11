@@ -8,7 +8,7 @@ import {
   type AttendanceGroupMonthlyCard,
 } from "@/lib/queries/attendance";
 
-type PlayerSort = "player" | "category" | "sessions" | "absences" | "justified" | "rate" | "latest";
+type PlayerSort = "player" | "category" | "sessions" | "absences" | "justified" | "rate" | "latest" | "balance";
 type SortDirection = "asc" | "desc";
 type SearchParams = Promise<{
   campus?: string;
@@ -21,6 +21,14 @@ type SearchParams = Promise<{
 
 function formatRate(rate: number | null) {
   return rate == null ? "Sin datos" : `${rate}%`;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function groupHref(params: {
@@ -179,11 +187,13 @@ function SelectedGroupDetail({
   playerFilter,
   sort,
   direction,
+  showPendingBalances,
 }: {
   data: Awaited<ReturnType<typeof getAttendanceGroupsMonthlyData>>;
   playerFilter: string | null;
   sort: PlayerSort | null;
   direction: SortDirection;
+  showPendingBalances: boolean;
 }) {
   if (!data.selectedGroup) return null;
   const summary = data.selectedGroupSummary;
@@ -199,6 +209,7 @@ function SelectedGroupDetail({
         if (sort === "justified") comparison = (a.justified + a.injury) - (b.justified + b.injury);
         if (sort === "rate") comparison = (a.rate ?? -1) - (b.rate ?? -1);
         if (sort === "latest") comparison = (a.lastSessionDate ?? "").localeCompare(b.lastSessionDate ?? "");
+        if (sort === "balance") comparison = (a.pendingBalance ?? 0) - (b.pendingBalance ?? 0);
         if (comparison === 0) comparison = a.playerName.localeCompare(b.playerName, "es-MX");
         return direction === "desc" ? -comparison : comparison;
       })
@@ -280,6 +291,7 @@ function SelectedGroupDetail({
             <tr>
               <th className="px-3 py-2">{sortLabel("player", "Jugador")}</th>
               <th className="px-3 py-2">{sortLabel("category", "Categoria")}</th>
+              {showPendingBalances ? <th className="px-3 py-2">{sortLabel("balance", "Saldo pendiente")}</th> : null}
               {data.selectedGroupSessions.map((session) => (
                 <th key={session.sessionId} className="px-1 py-2 text-center" title={session.sessionDate}>
                   {session.sessionDate.slice(8, 10)}
@@ -300,6 +312,11 @@ function SelectedGroupDetail({
                   <p className="text-xs text-slate-500">{player.publicPlayerId ?? "Sin ID"}</p>
                 </td>
                 <td className="px-3 py-2">{player.birthYear ?? "-"}</td>
+                {showPendingBalances ? (
+                  <td className={`px-3 py-2 font-semibold ${(player.pendingBalance ?? 0) > 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300"}`}>
+                    {formatCurrency(player.pendingBalance ?? 0)}
+                  </td>
+                ) : null}
                 {data.selectedGroupSessions.map((session) => (
                   <td key={`${player.enrollmentId}-${session.sessionId}`} className="px-1 py-2 text-center">
                     {matrixStatusCell(player.statusesBySession[session.sessionId] ?? null)}
@@ -318,7 +335,7 @@ function SelectedGroupDetail({
               </tr>
             ))}
             {visiblePlayers.length === 0 ? (
-              <tr><td colSpan={7 + data.selectedGroupSessions.length} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? "Todos los jugadores tienen al menos una asistencia este mes." : "Este grupo no tiene jugadores activos asignados."}</td></tr>
+              <tr><td colSpan={7 + data.selectedGroupSessions.length + (showPendingBalances ? 1 : 0)} className="px-3 py-8 text-center text-slate-500">{noAttendanceOnly ? "Todos los jugadores tienen al menos una asistencia este mes." : "Este grupo no tiene jugadores activos asignados."}</td></tr>
             ) : null}
           </tbody>
         </table>
@@ -336,16 +353,19 @@ function SelectedGroupDetail({
 }
 
 export default async function AttendanceGroupsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceReadContext("/unauthorized");
+  const permissionContext = await requireAttendanceReadContext("/unauthorized");
+  const showPendingBalances = permissionContext.isDirector || permissionContext.isFrontDesk;
   const params = await searchParams;
   const playerFilter = params.playerFilter === "no-attendance" ? params.playerFilter : null;
   const allowedSorts: PlayerSort[] = ["player", "category", "sessions", "absences", "justified", "rate", "latest"];
+  if (showPendingBalances) allowedSorts.push("balance");
   const sort = allowedSorts.includes(params.sort as PlayerSort) ? params.sort as PlayerSort : null;
   const direction: SortDirection = params.direction === "desc" ? "desc" : "asc";
   const data = await getAttendanceGroupsMonthlyData({
     campusId: params.campus,
     month: params.month,
     groupId: params.group,
+    includePendingBalances: showPendingBalances,
   });
 
   return (
@@ -392,7 +412,13 @@ export default async function AttendanceGroupsPage({ searchParams }: { searchPar
           </div>
         </section>
 
-        <SelectedGroupDetail data={data} playerFilter={playerFilter} sort={sort} direction={direction} />
+        <SelectedGroupDetail
+          data={data}
+          playerFilter={playerFilter}
+          sort={sort}
+          direction={direction}
+          showPendingBalances={showPendingBalances}
+        />
 
         <section className="space-y-3">
           <div>
