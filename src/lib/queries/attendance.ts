@@ -1,6 +1,7 @@
 import { canAccessAttendanceCampus, canWriteAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { resolveAttendanceMonthRange } from "@/lib/attendance/month-range";
+import { resolveGuardianPhones } from "@/lib/contacts/guardian-phones";
 import { getAttendanceRiskTier, type AttendanceRiskTier } from "@/lib/attendance/risk";
 import { fetchPlayerRpcInChunks } from "@/lib/queries/player-rpc-batching";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -237,6 +238,8 @@ export type AttendanceGroupMonthlyPlayerRow = {
   statusesBySession: Record<string, string | null>;
   hasPresentInPeriod: boolean;
   pendingBalance?: number;
+  guardianPhone1?: string | null;
+  guardianPhone2?: string | null;
 };
 
 export type AttendanceSelectedGroupSummary = {
@@ -1055,10 +1058,13 @@ export async function getAttendanceGroupsMonthlyData(filters: {
   monthTo?: string;
   groupId?: string;
   includePendingBalances?: boolean;
+  includeGuardianPhones?: boolean;
 }): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
-  const financeContext = filters.includePendingBalances ? await getPermissionContext() : null;
-  const includePendingBalances = Boolean(financeContext && (financeContext.isDirector || financeContext.isFrontDesk));
+  const privateContext = filters.includePendingBalances || filters.includeGuardianPhones ? await getPermissionContext() : null;
+  const canViewPrivateDetails = Boolean(privateContext && (privateContext.isDirector || privateContext.isFrontDesk));
+  const includePendingBalances = Boolean(filters.includePendingBalances && canViewPrivateDetails);
+  const includeGuardianPhones = Boolean(filters.includeGuardianPhones && canViewPrivateDetails);
   const range = resolveAttendanceMonthRange({ ...filters, currentMonth: getMonterreyMonthString() });
   const selectedMonth = range.monthFrom;
   if (!access) {
@@ -1284,6 +1290,44 @@ export async function getAttendanceGroupsMonthlyData(filters: {
       pendingBalanceByEnrollment.set(row.enrollment_id, Math.max(0, Number(row.balance ?? 0)));
     }
   }
+  const guardianPhonesByPlayer = new Map<string, { phone1: string | null; phone2: string | null }>();
+  if (includeGuardianPhones && selectedGroupId) {
+    const selectedPlayerIds = [...selectedGroupActivePlayerIds];
+    const { data: guardianLinks, error: guardianError } = selectedPlayerIds.length > 0
+      ? await admin
+          .from("player_guardians")
+          .select("player_id, is_primary, created_at, guardians(phone_primary, phone_secondary)")
+          .in("player_id", selectedPlayerIds)
+          .order("is_primary", { ascending: false })
+          .order("created_at", { ascending: true })
+          .returns<Array<{
+            player_id: string;
+            is_primary: boolean;
+            created_at: string;
+            guardians: { phone_primary: string | null; phone_secondary: string | null } | null;
+          }>>()
+      : { data: [], error: null };
+
+    if (guardianError) {
+      console.error("Failed to fetch guardian phones for attendance group detail", guardianError);
+    }
+    const linksByPlayer = new Map<string, NonNullable<typeof guardianLinks>>();
+    for (const link of guardianLinks ?? []) {
+      linksByPlayer.set(link.player_id, [...(linksByPlayer.get(link.player_id) ?? []), link]);
+    }
+    for (const playerId of selectedPlayerIds) {
+      const links = linksByPlayer.get(playerId) ?? [];
+      guardianPhonesByPlayer.set(
+        playerId,
+        resolveGuardianPhones(links.map((link) => ({
+          isPrimary: link.is_primary,
+          createdAt: link.created_at,
+          phonePrimary: link.guardians?.phone_primary ?? null,
+          phoneSecondary: link.guardians?.phone_secondary ?? null,
+        }))),
+      );
+    }
+  }
   const periodPresentPlayerIds = new Set<string>();
   if (selectedGroupId) {
     for (const record of records) {
@@ -1349,6 +1393,12 @@ export async function getAttendanceGroupsMonthlyData(filters: {
             hasPresentInPeriod: periodPresentPlayerIds.has(assignment.player_id),
             ...(includePendingBalances
               ? { pendingBalance: pendingBalanceByEnrollment.get(assignment.enrollment_id) ?? 0 }
+              : {}),
+            ...(includeGuardianPhones
+              ? {
+                  guardianPhone1: guardianPhonesByPlayer.get(assignment.player_id)?.phone1 ?? null,
+                  guardianPhone2: guardianPhonesByPlayer.get(assignment.player_id)?.phone2 ?? null,
+                }
               : {}),
           };
         })

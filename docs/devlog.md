@@ -2,6 +2,15 @@
 
 ## 2026-07-11 (session 206)
 
+### Attendance Group Guardian Phones (v1.16.198)
+
+- Added `Teléfono 1` and `Teléfono 2` columns to the selected-group attendance roster for Super Admin, Director Admin, and Front Desk only.
+- Phone 1 prefers the primary tutor's principal number; Phone 2 prefers that tutor's secondary number and otherwise falls back to a different linked tutor's principal number without duplicating Phone 1.
+- Fetches guardian links once for the selected roster and applies the same independent server-side private-data role check used by canonical balances. Other attendance roles do not query, receive, or render phone values.
+- Phone values are read-only and clickable through `tel:` links. Multi-month selection, no-attendance filtering, sorting, and balance visibility remain unchanged.
+- No guardian, attendance, finance, permission, group-assignment, or schema records changed.
+- Verification: `npm run test:guardian-phone-resolution`, `npm run test:attendance-group-finance-visibility`, `npm run typecheck`, and `npm run build`.
+
 ### Attendance Groups Three-Month Range (v1.16.197)
 
 - Replaced the single-month control in `Asistencia > Grupos` with `Desde` and `Hasta` month selectors while keeping the current month as the default and legacy `month` links compatible.

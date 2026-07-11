@@ -20,9 +20,29 @@ assert.match(
   "The balance column must remain conditional.",
 );
 assert.match(
+  page,
+  /const showGuardianPhones = permissionContext\.isDirector \|\| permissionContext\.isFrontDesk;/,
+  "Attendance group guardian phones must be limited to directors and Front Desk.",
+);
+assert.match(
+  page,
+  /includeGuardianPhones: showGuardianPhones/,
+  "The guardian phone query flag must come from the role gate.",
+);
+assert.match(
+  page,
+  /showGuardianPhones \? <th[^>]*>Teléfono 1<\/th> : null/,
+  "The first guardian phone column must remain conditional.",
+);
+assert.match(
+  page,
+  /showGuardianPhones \? <th[^>]*>Teléfono 2<\/th> : null/,
+  "The second guardian phone column must remain conditional.",
+);
+assert.match(
   query,
-  /const includePendingBalances = Boolean\(financeContext && \(financeContext\.isDirector \|\| financeContext\.isFrontDesk\)\);/,
-  "The query must independently revalidate the authorized finance roles.",
+  /const canViewPrivateDetails = Boolean\(privateContext && \(privateContext\.isDirector \|\| privateContext\.isFrontDesk\)\);/,
+  "The query must independently revalidate the authorized private-data roles.",
 );
 assert.match(
   query,
@@ -31,8 +51,18 @@ assert.match(
 );
 assert.match(
   query,
+  /if \(includeGuardianPhones && selectedGroupId\) \{[\s\S]*?\.from\("player_guardians"\)/,
+  "Guardian phones must only be queried after the internal role check.",
+);
+assert.match(
+  query,
   /\.\.\.\(includePendingBalances[\s\S]*?\? \{ pendingBalance:/,
   "Unauthorized attendance payloads must omit the pending balance property.",
 );
+assert.match(
+  query,
+  /\.\.\.\(includeGuardianPhones[\s\S]*?guardianPhone1:[\s\S]*?guardianPhone2:/,
+  "Unauthorized attendance payloads must omit both guardian phone properties.",
+);
 
-console.log("Attendance group finance visibility assertions passed.");
+console.log("Attendance group private-data visibility assertions passed.");
