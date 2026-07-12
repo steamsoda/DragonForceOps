@@ -1,6 +1,6 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
-import { getWeeklyAttendanceRate } from "@/lib/queries/attendance";
+import { getMonthlyAttendanceParticipation, getWeeklyAttendanceRate } from "@/lib/queries/attendance";
 import { getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -60,6 +60,8 @@ export type DashboardData = {
   historicalCatchupCount: number;
   attendanceRateThisWeek: number | null;
   attendanceRecordsThisWeek: number;
+  attendedPlayersThisMonth: number | null;
+  playersWithoutAttendanceThisMonth: number | null;
   selectedMonth: string;
 };
 
@@ -123,11 +125,16 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
       historicalCatchupCount: 0,
       attendanceRateThisWeek: null,
       attendanceRecordsThisWeek: 0,
+      attendedPlayersThisMonth: null,
+      playersWithoutAttendanceThisMonth: null,
       selectedMonth: filters.month ?? "",
     };
   }
 
-  const attendance = await getWeeklyAttendanceRate({ campusId: filters.campusId });
+  const [attendance, attendanceParticipation] = await Promise.all([
+    getWeeklyAttendanceRate({ campusId: filters.campusId }),
+    getMonthlyAttendanceParticipation({ campusId: filters.campusId, month: data.selected_month }),
+  ]);
 
   const paymentsByMethod = parseJsonArray<{
     method: string;
@@ -158,6 +165,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<Dashb
     historicalCatchupCount: Number(data.historical_catchup_count ?? 0),
     attendanceRateThisWeek: attendance?.rate ?? null,
     attendanceRecordsThisWeek: attendance?.total ?? 0,
+    attendedPlayersThisMonth: attendanceParticipation?.attended ?? null,
+    playersWithoutAttendanceThisMonth: attendanceParticipation?.notAttended ?? null,
     selectedMonth: data.selected_month,
   };
 }

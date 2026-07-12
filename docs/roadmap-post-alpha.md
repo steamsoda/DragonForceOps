@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.197`
-- Current preview line: `v1.16.198`
+- Current production line: `v1.16.198`
+- Current preview line: `v1.16.199`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -119,6 +119,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🟢 | Role-gated pending balances in attendance groups | Preview `v1.16.196` adds canonical pending amounts only for Super Admin, Director Admin, and Front Desk; all other attendance roles receive no finance values. | Asistencia / Finance guardrails, `v1.16.196` devlog |
 | 🟢 | Three-month attendance group range | Preview `v1.16.197` adds a validated one-to-three-month consecutive range and recalculates the selected group matrix, KPIs, filters, and sorting over the full period. | Asistencia, `v1.16.197` devlog |
 | 🟢 | Role-gated tutor phones in attendance groups | Preview `v1.16.198` adds two read-only tutor-phone columns for Super Admin, Director Admin, and Front Desk only; all other attendance roles receive no contact values. | Asistencia / Contact privacy, `v1.16.198` devlog |
+| 🟢 | Panel monthly attendance participation | Preview `v1.16.199` adds a campus/month-scoped pie chart for active players with at least one confirmed attendance versus no confirmed attendance. | Panel / Asistencia, `v1.16.199` devlog |
 | 🟡 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-08, Asistencia lane |
 | 🟡 | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
@@ -312,6 +313,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|
 | 🔴 | Dashboard KPI verification | Verify pending-balance totals against canonical sources before adding drilldowns/trends. |
 | 🔴 | Panel KPI drilldowns + trends | Add pending-tuition breakdowns and trend charts only after canonical checks. |
+| 🟢 | Monthly attendance participation chart | Preview `v1.16.199` counts unique active players with at least one `A Asistió` versus no confirmed attendance for the selected campus/month, with paginated reads and no finance-RPC changes. |
 | 🔴 | Folio → payment lookup in Actividad | Surface payment ID in audit/activity so staff can trace transactions by folio. |
 | 🔴 | Caja pending charge detail | Expandable rows showing period month and charge type before payment. |
 | 🟢 | Collections + attendance relation report | Preview `v1.16.179` adds the first operational-only relation report under `Asistencia > Reportes`, using pending-month counts plus attendance risk/recent chips and no peso amounts. Validate with Front Desk/Admin before marking solved. |

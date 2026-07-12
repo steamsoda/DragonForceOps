@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-11 (session 207)
+
+### Panel Monthly Attendance Participation Chart (v1.16.199)
+
+- Added a two-value attendance participation pie chart to `Gestión > Panel`: active players with at least one confirmed `A Asistió` record and active players without any confirmed attendance in the selected month.
+- The chart follows the existing campus and month filters, counts unique active players rather than raw records, and displays both player counts and percentages.
+- Added stable pagination for active enrollments, completed sessions, and present attendance records so the summary is not truncated by Supabase's 1,000-row response boundary.
+- Kept attendance calculation separate from the canonical finance-summary RPC. Attendance query failures show an unavailable state rather than falsely classifying players as absent.
+- No finance, attendance, enrollment, permission, or schema records changed.
+- Verification: `npm run test:dashboard-attendance-participation`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-11 (session 206)
 
 ### Attendance Group Guardian Phones (v1.16.198)
