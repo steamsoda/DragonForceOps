@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-11 (session 208)
+
+### Roadmap Checkpoint Cleanup Through v1.16.199
+
+- Reconciled both production and preview release lines at `v1.16.199`.
+- Added the 2026-07-11 checkpoint covering the grouped-roster export work, `Asistencia > Grupos` passes through role-gated balances/phones and three-month ranges, and the first Panel attendance participation chart.
+- Reset `Now` from a mixed shipped/backlog list to five active decisions: attendance special-day/cancellation workflow, injury/absence v2, enrollment validation/confirmation, tryout tracking, and attendance analytics expansion.
+- Removed already-shipped releases from `Next` while preserving their durable history in product-area lanes, checkpoints, the recently shipped shortlist, and this devlog.
+- Closed stale June/July feedback-wave statuses where the underlying work is already in production; unresolved injury, attendance operations, analytics, enrollment validation, and tryout items remain visible.
+- Documentation-only checkpoint: no app version bump, runtime code, schema, permissions, finance, or attendance behavior changed.
+
 ## 2026-07-11 (session 207)
 
 ### Panel Monthly Attendance Participation Chart (v1.16.199)
