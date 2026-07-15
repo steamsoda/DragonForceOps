@@ -6,6 +6,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { backfillCompetitionSignupsForTournament } from "@/server/tournament-signup-backfill";
 
 const ALL_CAMPUSES_VALUE = "__all__";
 
@@ -64,6 +65,7 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=invalid_tournament_product`);
   }
 
+  const savedTournamentIds: string[] = [];
   for (const targetCampusId of targetCampusIds) {
     const existing = await admin
       .from("tournaments")
@@ -97,6 +99,7 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
     if (result.error || !result.data) {
       redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_settings_failed`);
     }
+    savedTournamentIds.push(result.data.id);
 
     await writeAuditLog(admin, {
       actorUserId: context.user.id,
@@ -106,6 +109,15 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
       recordId: result.data.id,
       afterData: payload,
     });
+  }
+
+  try {
+    for (const tournamentId of savedTournamentIds) {
+      await backfillCompetitionSignupsForTournament(admin, tournamentId);
+    }
+  } catch (error) {
+    console.error("sports signup tournament backfill failed", error);
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_signup_backfill_failed`);
   }
 
   revalidatePath("/sports-signups");

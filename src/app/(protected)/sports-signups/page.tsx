@@ -30,6 +30,7 @@ const ERR_MESSAGES: Record<string, string> = {
   invalid_tournament_dates: "La fecha final no puede ser anterior al inicio.",
   invalid_tournament_product: "Selecciona un producto activo de torneo o copa.",
   tournament_settings_failed: "No se pudo guardar la competencia.",
+  tournament_signup_backfill_failed: "La competencia se guardo, pero no se pudieron sincronizar las inscripciones existentes.",
   tournament_archive_failed: "No se pudo archivar la competencia.",
 };
 

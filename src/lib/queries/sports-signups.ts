@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import {
+  resolveEntitledProductIds,
+  type ProductBundleEntitlementInput,
+} from "@/lib/products/bundle-entitlements";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BASE_TEAM_LEVELS } from "@/lib/teams/shared";
 
@@ -13,6 +17,13 @@ type CompetitionProductRow = {
   charge_types: {
     code: string | null;
   } | null;
+};
+
+type ProductBundleEntitlementRow = {
+  source_product_id: string;
+  target_product_id: string;
+  gender: string | null;
+  is_active: boolean;
 };
 
 type SignupTournamentRow = {
@@ -139,6 +150,7 @@ export type CompetitionSignupPlayerRow = {
   campusName: string;
   competitionId: string;
   competitionLabel: string;
+  registrationSource: "direct" | "bundle";
 };
 
 export type CompetitionSignupCategoryGroup = {
@@ -159,6 +171,8 @@ export type CompetitionSignupCompetitionGroup = {
   endDate: string | null;
   signupDeadline: string | null;
   totalConfirmed: number;
+  directConfirmedCount: number;
+  bundleConfirmedCount: number;
   totalActive: number;
   categories: CompetitionSignupCategoryGroup[];
 };
@@ -354,16 +368,25 @@ function parseCompetitionBucketId(competitionId: string): ParsedCompetitionBucke
   return null;
 }
 
-function getCompetitionBucketId(
-  charge: Pick<ChargeRow, "product_id" | "products" | "description">,
+function getCompetitionBucketIds(
+  charge: Pick<ChargeRow, "product_id" | "products" | "description" | "enrollments">,
   productBucketIds: Set<string>,
+  bundleEntitlements: ProductBundleEntitlementInput[],
 ) {
-  if (charge.product_id && productBucketIds.has(charge.product_id)) {
-    return `product:${charge.product_id}`;
+  if (charge.product_id) {
+    const productIds = resolveEntitledProductIds({
+      sourceProductId: charge.product_id,
+      gender: charge.enrollments?.players?.gender ?? null,
+      entitlements: bundleEntitlements,
+    }).filter((productId) => productBucketIds.has(productId));
+
+    if (productIds.length > 0) {
+      return productIds.map((productId) => `product:${productId}`);
+    }
   }
 
   const legacyBucket = detectLegacyBucket(charge.products?.name ?? null, charge.description);
-  return legacyBucket ? `legacy:${legacyBucket.key}` : null;
+  return legacyBucket ? [`legacy:${legacyBucket.key}`] : [];
 }
 
 function sortPlayerRows<T extends { playerName: string }>(players: T[]) {
@@ -440,6 +463,22 @@ async function loadCompetitionProducts(admin: SupabaseQueryClient) {
   return rows;
 }
 
+async function loadProductBundleEntitlements(admin: SupabaseQueryClient) {
+  const { data, error } = await admin
+    .from("product_bundle_entitlements")
+    .select("source_product_id, target_product_id, gender, is_active")
+    .eq("is_active", true)
+    .returns<ProductBundleEntitlementRow[]>();
+
+  if (error) throw error;
+  return (data ?? []).map<ProductBundleEntitlementInput>((row) => ({
+    sourceProductId: row.source_product_id,
+    targetProductId: row.target_product_id,
+    gender: row.gender,
+    isActive: row.is_active,
+  }));
+}
+
 async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: string[]) {
   if (campusIds.length === 0) return [];
   const today = getMonterreyDateString();
@@ -496,12 +535,12 @@ async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
 async function loadBoardCompetitionChargeRows(
   admin: SupabaseQueryClient,
   campusIds: string[],
-  competitionProductIds: string[],
+  relevantProductIds: string[],
 ) {
   const pageSize = 1000;
   const rowsById = new Map<string, ChargeRow>();
 
-  if (competitionProductIds.length > 0) {
+  if (relevantProductIds.length > 0) {
     for (let from = 0; ; from += pageSize) {
       const to = from + pageSize - 1;
       const { data, error } = await admin
@@ -512,7 +551,7 @@ async function loadBoardCompetitionChargeRows(
         .neq("status", "void")
         .gt("amount", 0)
         .in("enrollments.campus_id", campusIds)
-        .in("product_id", competitionProductIds)
+        .in("product_id", relevantProductIds)
         .order("created_at", { ascending: true })
         .range(from, to)
         .returns<ChargeRow[]>();
@@ -562,6 +601,7 @@ async function loadChargeRowsForCampus(
   admin: SupabaseQueryClient,
   campusId: string,
   filter?: ParsedCompetitionBucket | null,
+  relatedSourceProductIds: string[] = [],
 ) {
   const pageSize = 1000;
   const rows: ChargeRow[] = [];
@@ -580,7 +620,8 @@ async function loadChargeRowsForCampus(
       .range(from, to);
 
     if (filter?.type === "product") {
-      query = query.eq("product_id", filter.productId);
+      const productIds = Array.from(new Set([filter.productId, ...relatedSourceProductIds]));
+      query = query.in("product_id", productIds);
     }
 
     const { data, error } = await query.returns<ChargeRow[]>();
@@ -735,6 +776,8 @@ function buildEmptyCompetitions(buckets: CompetitionSignupBucket[]): Competition
     endDate: bucket.endDate,
     signupDeadline: bucket.signupDeadline,
     totalConfirmed: 0,
+    directConfirmedCount: 0,
+    bundleConfirmedCount: 0,
     totalActive: 0,
     categories: [],
   }));
@@ -749,6 +792,7 @@ function buildCampusBoard(
   paidDateFilter: CompetitionSignupPaidDateFilter,
   buckets: CompetitionSignupBucket[],
   productBucketIds: Set<string>,
+  bundleEntitlements: ProductBundleEntitlementInput[],
 ): CompetitionSignupCampusBoard {
   const competitions = buckets
     .filter((bucket) => !bucket.campusId || bucket.campusId === campusId)
@@ -760,11 +804,19 @@ function buildCampusBoard(
       if (!allocation || allocation.total + 0.009 < charge.amount) continue;
       if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) continue;
 
-      const bucketId = getCompetitionBucketId(charge, productBucketIds);
-      if (bucketId !== bucket.id) continue;
+      const bucketIds = getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements);
+      if (!bucketIds.includes(bucket.id)) continue;
 
       const enrollment = charge.enrollments;
-      if (!enrollment || confirmedPlayers.has(enrollment.id)) continue;
+      if (!enrollment) continue;
+      const registrationSource = charge.product_id === bucket.productId ? "direct" : "bundle";
+      const existingPlayer = confirmedPlayers.get(enrollment.id);
+      if (existingPlayer) {
+        if (existingPlayer.registrationSource === "bundle" && registrationSource === "direct") {
+          confirmedPlayers.set(enrollment.id, { ...existingPlayer, registrationSource: "direct" });
+        }
+        continue;
+      }
 
       const playerName = enrollment.players
         ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
@@ -779,6 +831,7 @@ function buildCampusBoard(
         campusName,
         competitionId: bucket.id,
         competitionLabel: bucket.label,
+        registrationSource,
       });
     }
 
@@ -831,6 +884,8 @@ function buildCampusBoard(
       endDate: bucket.endDate,
       signupDeadline: bucket.signupDeadline,
       totalConfirmed: confirmedPlayers.size,
+      directConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "direct").length,
+      bundleConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "bundle").length,
       totalActive: campusActiveEnrollments.length,
       categories: sortCategoryGroups(
         Array.from(categoryMap.values()).map((category) => ({
@@ -872,17 +927,24 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const admin = createAdminClient();
   const campusIds = campusAccess.campusIds;
   const productsStartedAt = Date.now();
-  const [products, tournaments] = await Promise.all([
+  const [products, tournaments, bundleEntitlements] = await Promise.all([
     loadCompetitionProducts(admin),
     loadSignupTournaments(admin, campusIds),
+    loadProductBundleEntitlements(admin),
   ]);
   if (perf) {
     recordPerfStep(perf, "load products and tournaments", productsStartedAt);
   }
 
   const competitionProductIds = Array.from(new Set(tournaments.map((tournament) => tournament.product_id)));
+  const competitionProductIdSet = new Set(competitionProductIds);
+  const allBundleSourceProductIds = Array.from(new Set(bundleEntitlements.map((row) => row.sourceProductId)));
+  const bundleSourceProductIds = bundleEntitlements
+    .filter((row) => competitionProductIdSet.has(row.targetProductId))
+    .map((row) => row.sourceProductId);
+  const relevantProductIds = Array.from(new Set([...competitionProductIds, ...bundleSourceProductIds]));
   const chargesStartedAt = Date.now();
-  const chargesPromise = loadBoardCompetitionChargeRows(admin, campusIds, competitionProductIds);
+  const chargesPromise = loadBoardCompetitionChargeRows(admin, campusIds, relevantProductIds);
   const enrollmentsStartedAt = Date.now();
   const activeEnrollmentsPromise = loadActiveEnrollments(admin, campusIds);
   const [charges, activeEnrollments] = await Promise.all([
@@ -916,7 +978,10 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     allocationSummaries,
     competitionOptions,
     productBucketIds,
-    configurableProducts: products.map((product) => ({ id: product.id, name: product.name })),
+    bundleEntitlements,
+    configurableProducts: products
+      .filter((product) => !allBundleSourceProductIds.includes(product.id))
+      .map((product) => ({ id: product.id, name: product.name })),
     activeTournamentSettings: tournaments.map((tournament) => ({
       id: tournament.id,
       campusId: tournament.campus_id,
@@ -968,14 +1033,23 @@ async function getCompetitionSignupDetailBaseData(filters: {
   const admin = createAdminClient();
   let competitionLabel = "Competencia";
   const productBucketIds = new Set<string>();
+  let bundleEntitlements: ProductBundleEntitlementInput[] = [];
+  let relatedSourceProductIds: string[] = [];
 
   if (parsedBucket.type === "product") {
     const productStartedAt = Date.now();
-    const product = await loadCompetitionProductById(admin, parsedBucket.productId);
+    const [product, entitlementRows] = await Promise.all([
+      loadCompetitionProductById(admin, parsedBucket.productId),
+      loadProductBundleEntitlements(admin),
+    ]);
     recordPerfStep(perf, "load product", productStartedAt);
     if (!product || !isCompetitionProduct(product)) return null;
     competitionLabel = product.name;
     productBucketIds.add(product.id);
+    bundleEntitlements = entitlementRows;
+    relatedSourceProductIds = entitlementRows
+      .filter((row) => row.targetProductId === product.id)
+      .map((row) => row.sourceProductId);
   } else {
     const legacyBucket = getLegacyBucketByKey(parsedBucket.legacyKey);
     if (!legacyBucket) return null;
@@ -983,7 +1057,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
   }
 
   const chargesStartedAt = Date.now();
-  const chargesPromise = loadChargeRowsForCampus(admin, campusId, parsedBucket);
+  const chargesPromise = loadChargeRowsForCampus(admin, campusId, parsedBucket, relatedSourceProductIds);
   const enrollmentsStartedAt = Date.now();
   const enrollmentsPromise = loadActiveEnrollmentsForCampus(admin, campusId);
   const [charges, activeEnrollments] = await Promise.all([
@@ -1012,6 +1086,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
     allocationSummaries,
     paidDateFilter: normalizePaidDateFilter(filters),
     productBucketIds,
+    bundleEntitlements,
     perf,
   };
 }
@@ -1035,6 +1110,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
     allocationSummaries,
     competitionOptions,
     productBucketIds,
+    bundleEntitlements,
     configurableProducts,
     activeTournamentSettings,
   } = baseData;
@@ -1099,6 +1175,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
         paidDateFilter,
         competitionOptions,
         productBucketIds,
+        bundleEntitlements,
       ),
     );
     recordPerfStep(perf, "build campus boards", campusBoardsStartedAt);
@@ -1157,6 +1234,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     allocationSummaries,
     paidDateFilter,
     productBucketIds,
+    bundleEntitlements,
     perf,
   } = baseData;
 
@@ -1173,7 +1251,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     if (charge.enrollments?.campus_id !== campusId) return false;
     const allocation = allocationSummaries.get(charge.id);
     if (!allocation || allocation.total + 0.009 < charge.amount) return false;
-    return getCompetitionBucketId(charge, productBucketIds) === competitionId;
+    return getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId);
   });
   const matchingCharges = matchingChargesAllDates.filter((charge) =>
     isPaidDateInFilter(allocationSummaries.get(charge.id)?.paidAt ?? null, paidDateFilter),
@@ -1323,7 +1401,18 @@ export async function getCompetitionSignupExportData(filters?: {
   });
   if (!baseData) return null;
 
-  const { admin, campusAccess, campusId, competitionId, competitionLabel, charges, allocationSummaries, paidDateFilter, productBucketIds } = baseData;
+  const {
+    admin,
+    campusAccess,
+    campusId,
+    competitionId,
+    competitionLabel,
+    charges,
+    allocationSummaries,
+    paidDateFilter,
+    productBucketIds,
+    bundleEntitlements,
+  } = baseData;
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
 
@@ -1332,7 +1421,7 @@ export async function getCompetitionSignupExportData(filters?: {
     const allocation = allocationSummaries.get(charge.id);
     if (!allocation || allocation.total + 0.009 < charge.amount) return false;
     if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) return false;
-    return getCompetitionBucketId(charge, productBucketIds) === competitionId;
+    return getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId);
   });
 
   const confirmedChargeByEnrollment = new Map<string, ChargeRow>();

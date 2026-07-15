@@ -440,7 +440,15 @@ export function SportsSignupsBoard({
                     isSelected ? "text-white/80" : "text-slate-500 dark:text-slate-400",
                   ].join(" ")}
                 >
-                  Jugadores con inscripcion pagada
+                  Inscripciones confirmadas
+                </p>
+                <p
+                  className={[
+                    "mt-2 text-[11px] leading-tight",
+                    isSelected ? "text-white/75" : "text-slate-500 dark:text-slate-400",
+                  ].join(" ")}
+                >
+                  Pago directo {competition.directConfirmedCount} · Via Combo {competition.bundleConfirmedCount}
                 </p>
               </button>
             );
@@ -461,7 +469,8 @@ export function SportsSignupsBoard({
               <span className="font-semibold text-slate-950 dark:text-slate-100">
                 {selectedCompetition.totalConfirmed.toLocaleString("es-MX")}
               </span>{" "}
-              pagados confirmados
+              inscripciones confirmadas · Pago directo {selectedCompetition.directConfirmedCount} · Via Combo{" "}
+              {selectedCompetition.bundleConfirmedCount}
             </div>
           </div>
 

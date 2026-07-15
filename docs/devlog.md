@@ -1,5 +1,38 @@
 # Devlog
 
+## 2026-07-14 (session 210)
+
+### Tournament Combo Registration Hardening (v1.16.201)
+
+- Confirmed the first Combo test exposed a configuration gap rather than finance drift: only the Linda Vista Superliga tournament had an active campus configuration, so Leyendas and Contry registrations had no destination tournament row.
+- Added idempotent active tournament configurations for Leyendas, Superliga Regia 17 Edicion, and Rosa Power Cup 13 Edicion across Linda Vista and Contry. Existing configured dates are copied to the missing campus; products without known event dates remain editable with blank dates instead of inventing operational dates.
+- Added a persistent-entry backfill for existing fully paid direct and Combo charges, plus automatic backfill whenever Super Admin saves tournament configuration. This keeps `Inscripciones Torneos` and future tournament roster/team workflows aligned.
+- Clarified the tournament cards with `Pago directo` and `Via Combo` registration counts. Product pages remain direct financial sales so the same `$400` Combo is never counted as revenue for multiple products.
+- Kept finance unchanged: no charges, payments, allocations, balances, refunds, or canonical finance views are inserted or modified by this pass.
+- Verification: `npm run test:product-bundle-entitlements`, `npm run test:tournament-combo-registration`, `npm run typecheck`, `npm run build`, preview migration/data audit, and finance reconciliation check.
+
+## 2026-07-14 (session 209)
+
+### Tournament Combo Entitlements (v1.16.200)
+
+- Added the `Combo Torneos Julio 2026` Caja product at a gender-resolved flat price of `$400 MXN`.
+- Added non-financial product bundle entitlements so one fully paid Combo charge grants `Torneo de Leyendas` plus `Superliga Regia 17 Edicion` for male players or `Rosa Power Cup 13 Edicion` for female players.
+- Updated both `Inscripciones Torneos` paid-roster queries and persistent tournament-entry synchronization to resolve the same entitlement rules, including paid-date filtering, exports, refunds, voids, and payment reassignment resync behavior.
+- Added a server-side Combo safeguard: players without gender cannot receive the Combo charge, and Caja displays a clear instruction to complete gender first.
+- Kept finance unchanged: one `$400` charge, one payment/allocation path, no synthetic child charges, no duplicated revenue, and no changes to canonical balances or finance reports.
+- Verification: `npm run test:product-bundle-entitlements`, `npm run test:product-pricing-rules`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-11 (session 208)
+
+### Roadmap Checkpoint Cleanup Through v1.16.199
+
+- Reconciled both production and preview release lines at `v1.16.199`.
+- Added the 2026-07-11 checkpoint covering the grouped-roster export work, `Asistencia > Grupos` passes through role-gated balances/phones and three-month ranges, and the first Panel attendance participation chart.
+- Reset `Now` from a mixed shipped/backlog list to five active decisions: attendance special-day/cancellation workflow, injury/absence v2, enrollment validation/confirmation, tryout tracking, and attendance analytics expansion.
+- Removed already-shipped releases from `Next` while preserving their durable history in product-area lanes, checkpoints, the recently shipped shortlist, and this devlog.
+- Closed stale June/July feedback-wave statuses where the underlying work is already in production; unresolved injury, attendance operations, analytics, enrollment validation, and tryout items remain visible.
+- Documentation-only checkpoint: no app version bump, runtime code, schema, permissions, finance, or attendance behavior changed.
+
 ## 2026-07-11 (session 207)
 
 ### Panel Monthly Attendance Participation Chart (v1.16.199)
