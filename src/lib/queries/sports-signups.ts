@@ -150,6 +150,7 @@ export type CompetitionSignupPlayerRow = {
   campusName: string;
   competitionId: string;
   competitionLabel: string;
+  registrationSource: "direct" | "bundle";
 };
 
 export type CompetitionSignupCategoryGroup = {
@@ -170,6 +171,8 @@ export type CompetitionSignupCompetitionGroup = {
   endDate: string | null;
   signupDeadline: string | null;
   totalConfirmed: number;
+  directConfirmedCount: number;
+  bundleConfirmedCount: number;
   totalActive: number;
   categories: CompetitionSignupCategoryGroup[];
 };
@@ -773,6 +776,8 @@ function buildEmptyCompetitions(buckets: CompetitionSignupBucket[]): Competition
     endDate: bucket.endDate,
     signupDeadline: bucket.signupDeadline,
     totalConfirmed: 0,
+    directConfirmedCount: 0,
+    bundleConfirmedCount: 0,
     totalActive: 0,
     categories: [],
   }));
@@ -803,7 +808,15 @@ function buildCampusBoard(
       if (!bucketIds.includes(bucket.id)) continue;
 
       const enrollment = charge.enrollments;
-      if (!enrollment || confirmedPlayers.has(enrollment.id)) continue;
+      if (!enrollment) continue;
+      const registrationSource = charge.product_id === bucket.productId ? "direct" : "bundle";
+      const existingPlayer = confirmedPlayers.get(enrollment.id);
+      if (existingPlayer) {
+        if (existingPlayer.registrationSource === "bundle" && registrationSource === "direct") {
+          confirmedPlayers.set(enrollment.id, { ...existingPlayer, registrationSource: "direct" });
+        }
+        continue;
+      }
 
       const playerName = enrollment.players
         ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
@@ -818,6 +831,7 @@ function buildCampusBoard(
         campusName,
         competitionId: bucket.id,
         competitionLabel: bucket.label,
+        registrationSource,
       });
     }
 
@@ -870,6 +884,8 @@ function buildCampusBoard(
       endDate: bucket.endDate,
       signupDeadline: bucket.signupDeadline,
       totalConfirmed: confirmedPlayers.size,
+      directConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "direct").length,
+      bundleConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "bundle").length,
       totalActive: campusActiveEnrollments.length,
       categories: sortCategoryGroups(
         Array.from(categoryMap.values()).map((category) => ({
