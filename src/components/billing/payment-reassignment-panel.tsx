@@ -74,6 +74,7 @@ function getActionErrorMessage(code: string) {
     enrollment_not_found: "La cuenta ya no está disponible.",
     enrollment_inactive: "La inscripción ya no está activa.",
     product_not_found: "Producto no encontrado o inactivo.",
+    product_requires_gender: "Completa el genero del jugador antes de registrar este combo.",
     charge_insert_failed: "No se pudo crear el cargo destino.",
     tuition_rate_not_found: "No se pudo calcular la mensualidad adelantada.",
     prior_month_arrears: "Hay mensualidades anteriores pendientes.",

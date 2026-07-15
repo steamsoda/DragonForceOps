@@ -1,6 +1,10 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  resolveEntitledProductIds,
+  type ProductBundleEntitlementInput,
+} from "@/lib/products/bundle-entitlements";
 
 type ChargeRow = {
   id: string;
@@ -35,17 +39,24 @@ type SquadTeamRow = {
   team_id: string;
 };
 
+type BundleEntitlementRow = {
+  source_product_id: string;
+  target_product_id: string;
+  gender: string | null;
+  is_active: boolean;
+};
+
 export async function syncCompetitionSignupsForEnrollment(enrollmentId: string): Promise<string[]> {
   const admin = createAdminClient();
   const { data: enrollment } = await admin
     .from("enrollments")
-    .select("id, campus_id")
+    .select("id, campus_id, players(gender)")
     .eq("id", enrollmentId)
-    .maybeSingle<{ id: string; campus_id: string } | null>();
+    .maybeSingle<{ id: string; campus_id: string; players: { gender: string | null } | null } | null>();
 
   if (!enrollment?.campus_id) return [];
 
-  const [{ data: tournaments }, { data: charges }, { data: existingEntries }] = await Promise.all([
+  const [{ data: tournaments }, { data: charges }, { data: existingEntries }, { data: entitlementRows }] = await Promise.all([
     admin
       .from("tournaments")
       .select("id, campus_id, product_id, is_active")
@@ -65,7 +76,19 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
       .select("id, tournament_id, enrollment_id, charge_id, entry_status")
       .eq("enrollment_id", enrollmentId)
       .returns<EntryRow[]>(),
+    admin
+      .from("product_bundle_entitlements")
+      .select("source_product_id, target_product_id, gender, is_active")
+      .eq("is_active", true)
+      .returns<BundleEntitlementRow[]>(),
   ]);
+
+  const bundleEntitlements = (entitlementRows ?? []).map<ProductBundleEntitlementInput>((row) => ({
+    sourceProductId: row.source_product_id,
+    targetProductId: row.target_product_id,
+    gender: row.gender,
+    isActive: row.is_active,
+  }));
 
   const activeTournaments = (tournaments ?? []).filter((row): row is TournamentRow & { product_id: string } => Boolean(row.product_id));
   if (activeTournaments.length === 0) return [];
@@ -93,7 +116,14 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
   const fullyPaidChargeByTournament = new Map<string, ChargeRow>();
   for (const tournament of activeTournaments) {
     const paidCharges = (charges ?? [])
-      .filter((charge) => charge.product_id === tournament.product_id)
+      .filter((charge) => {
+        if (!charge.product_id) return false;
+        return resolveEntitledProductIds({
+          sourceProductId: charge.product_id,
+          gender: enrollment.players?.gender ?? null,
+          entitlements: bundleEntitlements,
+        }).includes(tournament.product_id);
+      })
       .filter((charge) => (allocationTotals.get(charge.id) ?? 0) + 0.009 >= charge.amount)
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (paidCharges[0]) fullyPaidChargeByTournament.set(tournament.id, paidCharges[0]);

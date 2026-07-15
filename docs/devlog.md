@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-14 (session 209)
+
+### Tournament Combo Entitlements (v1.16.200)
+
+- Added the `Combo Torneos Julio 2026` Caja product at a gender-resolved flat price of `$400 MXN`.
+- Added non-financial product bundle entitlements so one fully paid Combo charge grants `Torneo de Leyendas` plus `Superliga Regia 17 Edicion` for male players or `Rosa Power Cup 13 Edicion` for female players.
+- Updated both `Inscripciones Torneos` paid-roster queries and persistent tournament-entry synchronization to resolve the same entitlement rules, including paid-date filtering, exports, refunds, voids, and payment reassignment resync behavior.
+- Added a server-side Combo safeguard: players without gender cannot receive the Combo charge, and Caja displays a clear instruction to complete gender first.
+- Kept finance unchanged: one `$400` charge, one payment/allocation path, no synthetic child charges, no duplicated revenue, and no changes to canonical balances or finance reports.
+- Verification: `npm run test:product-bundle-entitlements`, `npm run test:product-pricing-rules`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-11 (session 208)
 
 ### Roadmap Checkpoint Cleanup Through v1.16.199

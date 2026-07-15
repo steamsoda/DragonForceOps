@@ -75,6 +75,7 @@ function getActionErrorMessage(code: string) {
     allocation_insert_failed: "No se pudieron guardar las asignaciones del pago.",
     paid_at_required: "Debes capturar la fecha y hora real del pago.",
     product_not_found: "Producto no encontrado o inactivo.",
+    product_requires_gender: "Completa el genero del jugador antes de registrar este combo.",
     charge_insert_failed: "No se pudo crear el cargo.",
     tuition_rate_not_found: "No se pudo calcular la mensualidad adelantada.",
     prior_month_arrears: "Hay mensualidades anteriores pendientes.",

@@ -37,6 +37,10 @@ import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getPlayerNotesForCaja, type PlayerNote } from "@/lib/queries/player-notes";
 import {
+  hasGenderConditionalBundleEntitlements,
+  type ProductBundleEntitlementInput,
+} from "@/lib/products/bundle-entitlements";
+import {
   hasActiveProductPricingRules,
   resolveProductPricingRuleAmount,
   type ProductPricingRuleInput,
@@ -199,6 +203,13 @@ type ProductPricingRuleRow = {
   priority: number;
 };
 
+type ProductBundleEntitlementRow = {
+  source_product_id: string;
+  target_product_id: string;
+  gender: string | null;
+  is_active: boolean;
+};
+
 type ProductPricingContext = {
   gender: string | null;
   birthYear: number | null;
@@ -308,6 +319,26 @@ async function getProductPricingRuleRows(
     .returns<ProductPricingRuleRow[]>();
 
   return data ?? [];
+}
+
+async function getProductBundleEntitlementRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sourceProductIds: string[],
+) {
+  if (sourceProductIds.length === 0) return [] as ProductBundleEntitlementInput[];
+  const { data } = await supabase
+    .from("product_bundle_entitlements")
+    .select("source_product_id, target_product_id, gender, is_active")
+    .in("source_product_id", sourceProductIds)
+    .eq("is_active", true)
+    .returns<ProductBundleEntitlementRow[]>();
+
+  return (data ?? []).map<ProductBundleEntitlementInput>((row) => ({
+    sourceProductId: row.source_product_id,
+    targetProductId: row.target_product_id,
+    gender: row.gender,
+    isActive: row.is_active,
+  }));
 }
 
 function groupProductPricingRules(rows: ProductPricingRuleRow[]) {
@@ -576,9 +607,10 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
   if (!data) return [];
 
   const productIds = data.map((row) => row.id);
-  const [restrictionRows, pricingRuleRows] = await Promise.all([
+  const [restrictionRows, pricingRuleRows, bundleEntitlements] = await Promise.all([
     getProductRestrictionRows(supabase, productIds),
     getProductPricingRuleRows(supabase, productIds),
+    getProductBundleEntitlementRows(supabase, productIds),
   ]);
   const restrictionsByProduct = new Map<string, string[]>();
   for (const row of restrictionRows) {
@@ -610,6 +642,11 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
         const rules = pricingRulesByProduct.get(row.id) ?? [];
         return rules.length === 0 || hasActiveProductPricingRules(rules, businessDate);
       })
+      .filter((row) =>
+        !enrollmentId ||
+        Boolean(pricingContext.gender) ||
+        !hasGenderConditionalBundleEntitlements(row.id, bundleEntitlements),
+      )
       .map((row) => {
         const rules = pricingRulesByProduct.get(row.id) ?? [];
         const defaultAmount = resolveCajaProductAmount({
@@ -745,7 +782,17 @@ export async function postCajaChargeAction(
       return { ok: false, error: "enrollment_not_found" };
     }
 
-    const productRules = groupProductPricingRules(await getProductPricingRuleRows(supabase, [product.id])).get(product.id) ?? [];
+    const [productPricingRows, bundleEntitlements] = await Promise.all([
+      getProductPricingRuleRows(supabase, [product.id]),
+      getProductBundleEntitlementRows(supabase, [product.id]),
+    ]);
+    if (
+      !enrollment.players?.gender &&
+      hasGenderConditionalBundleEntitlements(product.id, bundleEntitlements)
+    ) {
+      return { ok: false, error: "product_requires_gender" };
+    }
+    const productRules = groupProductPricingRules(productPricingRows).get(product.id) ?? [];
     const businessDate = getMonterreyDateString();
     if (productRules.length > 0 && !hasActiveProductPricingRules(productRules, businessDate)) {
       return { ok: false, error: "product_not_available" };

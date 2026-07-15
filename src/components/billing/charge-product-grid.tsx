@@ -23,6 +23,16 @@ const DEFAULT_STYLE = {
 
 const MONTH_NAMES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+function getChargeErrorMessage(code: string) {
+  if (code === "product_requires_gender") {
+    return "Completa el genero del jugador antes de registrar este combo.";
+  }
+  if (code === "product_not_available") {
+    return "Este producto no esta disponible para este jugador.";
+  }
+  return "No se pudo crear el cargo. Revisa los datos e intenta de nuevo.";
+}
+
 function getDefaultNextMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -83,7 +93,7 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
     startTransition(async () => {
       const result = await postCajaChargeAction(enrollmentId, fd);
       if (!result.ok) {
-        setError(result.error);
+        setError(getChargeErrorMessage(result.error));
         return;
       }
       router.push(`/enrollments/${enrollmentId}/charges`);
