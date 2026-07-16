@@ -200,6 +200,7 @@ type ProductPricingRuleRow = {
   gender: string | null;
   birth_year_min: number | null;
   birth_year_max: number | null;
+  required_paid_product_id: string | null;
   priority: number;
 };
 
@@ -314,7 +315,7 @@ async function getProductPricingRuleRows(
   if (productIds.length === 0) return [] as ProductPricingRuleRow[];
   const { data } = await supabase
     .from("product_pricing_rules")
-    .select("product_id, amount, starts_on, ends_on, gender, birth_year_min, birth_year_max, priority")
+    .select("product_id, amount, starts_on, ends_on, gender, birth_year_min, birth_year_max, required_paid_product_id, priority")
     .in("product_id", productIds)
     .returns<ProductPricingRuleRow[]>();
 
@@ -352,6 +353,7 @@ function groupProductPricingRules(rows: ProductPricingRuleRow[]) {
       gender: row.gender,
       birthYearMin: row.birth_year_min,
       birthYearMax: row.birth_year_max,
+      requiredPaidProductId: row.required_paid_product_id,
       priority: row.priority,
     });
     byProduct.set(row.product_id, rules);
@@ -381,15 +383,54 @@ async function getProductPricingContext(
   };
 }
 
+async function getFullyPaidProductIdsForEnrollment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  enrollmentId: string,
+) {
+  const { data: charges } = await supabase
+    .from("charges")
+    .select("id, product_id, amount")
+    .eq("enrollment_id", enrollmentId)
+    .neq("status", "void")
+    .not("product_id", "is", null)
+    .gt("amount", 0)
+    .returns<Array<{ id: string; product_id: string; amount: number }>>();
+
+  const chargeRows = charges ?? [];
+  if (chargeRows.length === 0) return new Set<string>();
+
+  const { data: allocations } = await supabase
+    .from("payment_allocations")
+    .select("charge_id, amount")
+    .in("charge_id", chargeRows.map((charge) => charge.id))
+    .returns<Array<{ charge_id: string; amount: number }>>();
+
+  const allocatedByCharge = new Map<string, number>();
+  for (const allocation of allocations ?? []) {
+    allocatedByCharge.set(
+      allocation.charge_id,
+      Math.round(((allocatedByCharge.get(allocation.charge_id) ?? 0) + Number(allocation.amount)) * 100) / 100,
+    );
+  }
+
+  return new Set(
+    chargeRows
+      .filter((charge) => (allocatedByCharge.get(charge.id) ?? 0) + 0.009 >= Number(charge.amount))
+      .map((charge) => charge.product_id),
+  );
+}
+
 function resolveCajaProductAmount({
   rules,
   businessDate,
   context,
+  paidProductIds,
   fallbackAmount,
 }: {
   rules: ProductPricingRuleInput[];
   businessDate: string;
   context: ProductPricingContext;
+  paidProductIds: ReadonlySet<string>;
   fallbackAmount: number | null;
 }) {
   if (rules.length === 0) return fallbackAmount;
@@ -399,6 +440,7 @@ function resolveCajaProductAmount({
     businessDate,
     gender: context.gender,
     birthYear: context.birthYear,
+    paidProductIds,
     fallbackAmount,
   });
 }
@@ -626,6 +668,10 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
     ? await getProductPricingContext(supabase, enrollmentId)
     : { gender: null, birthYear: null };
   const pricingRulesByProduct = groupProductPricingRules(pricingRuleRows);
+  const hasPaidProductPricingConditions = pricingRuleRows.some((row) => row.required_paid_product_id);
+  const paidProductIds = enrollmentId && hasPaidProductPricingConditions
+    ? await getFullyPaidProductIdsForEnrollment(supabase, enrollmentId)
+    : new Set<string>();
   const businessDate = getMonterreyDateString();
 
   const result: CajaProductCategory[] = [];
@@ -653,6 +699,7 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
           rules,
           businessDate,
           context: pricingContext,
+          paidProductIds,
           fallbackAmount: row.default_amount,
         });
         return {
@@ -793,6 +840,9 @@ export async function postCajaChargeAction(
       return { ok: false, error: "product_requires_gender" };
     }
     const productRules = groupProductPricingRules(productPricingRows).get(product.id) ?? [];
+    const paidProductIds = productRules.some((rule) => rule.requiredPaidProductId)
+      ? await getFullyPaidProductIdsForEnrollment(supabase, enrollmentId)
+      : new Set<string>();
     const businessDate = getMonterreyDateString();
     if (productRules.length > 0 && !hasActiveProductPricingRules(productRules, businessDate)) {
       return { ok: false, error: "product_not_available" };
@@ -806,6 +856,7 @@ export async function postCajaChargeAction(
           gender: enrollment.players?.gender ?? null,
           birthYear: birthYearFromDate(enrollment.players?.birth_date),
         },
+        paidProductIds,
         fallbackAmount: product.default_amount,
       }) ?? amount;
     if (!resolvedAmount || isNaN(resolvedAmount) || resolvedAmount <= 0) {

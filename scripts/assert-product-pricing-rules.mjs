@@ -48,6 +48,53 @@ assert.equal(
   500,
 );
 
+const comboRules = [
+  {
+    amount: 300,
+    startsOn: "2026-07-15",
+    endsOn: null,
+    gender: "male",
+    birthYearMin: null,
+    birthYearMax: null,
+    requiredPaidProductId: null,
+    priority: 100,
+  },
+  {
+    amount: 150,
+    startsOn: "2026-07-15",
+    endsOn: null,
+    gender: "male",
+    birthYearMin: null,
+    birthYearMax: null,
+    requiredPaidProductId: "leyendas",
+    priority: 200,
+  },
+];
+
+assert.equal(
+  resolveProductPricingRuleAmount({
+    rules: comboRules,
+    businessDate: "2026-07-15",
+    gender: "male",
+    birthYear: 2014,
+    paidProductIds: new Set(),
+    fallbackAmount: null,
+  }),
+  300,
+);
+
+assert.equal(
+  resolveProductPricingRuleAmount({
+    rules: comboRules,
+    businessDate: "2026-07-15",
+    gender: "male",
+    birthYear: 2014,
+    paidProductIds: new Set(["leyendas"]),
+    fallbackAmount: null,
+  }),
+  150,
+);
+
 const copaRules = [
   {
     amount: 500,

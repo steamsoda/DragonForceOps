@@ -8,6 +8,11 @@ const migration = await readFile(
 const settingsAction = await readFile("src/server/actions/sports-signups.ts", "utf8");
 const backfill = await readFile("src/server/tournament-signup-backfill.ts", "utf8");
 const boardQuery = await readFile("src/lib/queries/sports-signups.ts", "utf8");
+const pricingMigration = await readFile(
+  "supabase/migrations/20260715090000_combo_leyendas_paid_discount.sql",
+  "utf8",
+);
+const signupSync = await readFile("src/server/actions/tournament-signup-sync.ts", "utf8");
 
 for (const productName of [
   "Torneo de Leyendas",
@@ -28,5 +33,15 @@ assert.match(settingsAction, /backfillCompetitionSignupsForTournament\(admin, to
 assert.match(backfill, /\.from\("tournament_player_entries"\)[\s\S]*?\.upsert/);
 assert.match(boardQuery, /directConfirmedCount/);
 assert.match(boardQuery, /bundleConfirmedCount/);
+assert.match(pricingMigration, /required_paid_product_id/);
+assert.match(pricingMigration, /300::numeric/);
+assert.match(pricingMigration, /150::numeric/);
+assert.match(pricingMigration, /Torneo de Leyendas/);
+assert.doesNotMatch(pricingMigration, /insert into public\.(charges|payments|payment_allocations)/i);
+assert.match(
+  signupSync,
+  /upsert\([\s\S]*?onConflict: "tournament_id,enrollment_id"/,
+  "Tournament entry synchronization must remain idempotent for direct plus Combo qualification.",
+);
 
 console.log("Tournament Combo registration hardening assertions passed.");

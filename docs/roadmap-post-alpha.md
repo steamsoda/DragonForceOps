@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.199`
-- Current preview line: `v1.16.201`
+- Current preview line: `v1.16.202`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -229,7 +229,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Caja refunds and payment reassignment guardrails | Preview `v1.16.147` hardens the existing ledger actions; preview `v1.16.148` adds a Caja recent-payments panel with guarded `Cambiar concepto` / `Reembolsar` shortcuts and disabled reason chips; preview `v1.16.149`-`v1.16.151` widen/polish the bottom grid; preview `v1.16.152` lets staff move only eligible non-monthly source allocations from mixed payments while keeping tuition protected; preview `v1.16.153` also makes inscriptions non-refundable/non-reassignable. |
 | 🟢 | Caja account credit ledger / partial refund model | Planning spec in `docs/planning/caja-account-credit-ledger-plan.md`; preview `v1.16.154` adds the additive schema foundation, `v1.16.155` surfaces explicit/legacy credit in Caja, `v1.16.156` applies explicit credit to selected charges with a confirmation checkbox and service-role-only RPC, and `v1.16.157` turns eligible Caja reassignment remainders into explicit credit. Future passes: legacy implicit-credit review/conversion and deeper credit reporting. Legacy implicit credits stay warning-only until manually reviewed. |
 | 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, submit-loading feedback, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
-| 🟢 | Tournament product pricing rules and bundles | Preview `v1.16.183` adds additive July pricing rules. Preview `v1.16.200` adds the `$400` Combo as one financial charge; `v1.16.201` hardens both-campus tournament destinations, persistent-entry backfill, and direct-vs-Combo registration visibility. Future pass: product archive/pricing-rule/bundle admin UI. |
+| 🟢 | Tournament product pricing rules and bundles | Preview `v1.16.183` adds additive July pricing rules. Preview `v1.16.200` adds the Combo as one financial charge; `v1.16.201` hardens both-campus tournament destinations and registration visibility; `v1.16.202` changes the standard price to `$300` and resolves `$150` only after a fully paid direct Leyendas charge. Future pass: product archive/pricing-rule/bundle admin UI. |
 | 🟡 | Uniform quantity/payment mismatch guardrail | Production repair on 2026-07-03 showed Front Desk can overtype one product payment to cover multiple physical items while only one charge exists. Future UX should make quantity/add-another-item obvious and prevent payments from being partially misapplied to tuition by accident. |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds a dated, operational notes history for player context that can be viewed/added from Caja and the player profile. Keep separate from finance ledger/audit notes and attendance records unless a workflow intentionally links them. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
@@ -306,7 +306,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | Team-building workflow | Roster-final workflow exists; keep open for manual override polish. |
 | 🟡 | Torneos workflow redesign | Larger planned pass covering signup, payment, team assignment, roster approval, and parent/mobile-facing needs. |
 | ✅ | Tournament signup paid-date filter | Shipped in `v1.16.189`: start/end paid-date filters to `Inscripciones Torneos` so Front Desk can see players who paid for a selected tournament in a specific date window. |
-| 🟢 | Tournament Combo entitlements | Preview `v1.16.200` adds one-charge entitlements; `v1.16.201` adds missing both-campus tournament configurations, idempotent persistent-entry backfill, and direct-vs-Combo counts without duplicating financial sales. Validate both gender/campus paths plus refund/void removal before main. |
+| 🟢 | Tournament Combo entitlements | Preview `v1.16.200` adds one-charge entitlements; `v1.16.201` adds missing both-campus tournament configurations and idempotent registration backfill; `v1.16.202` adds backend-enforced `$300`/`$150` pricing without duplicating Leyendas registration or financial sales. Validate both gender/campus paths plus refund/void removal before main. |
 | 🔴 | Autopopulate base teams from current `Nivel` | Important but needs careful guided/backfill planning. Only assign when campus + birth year + gender + level match is unambiguous. |
 | 🔴 | Sports lane rethink | Use live signup-board success as planning anchor before adding heavier sports complexity. |
 
@@ -350,6 +350,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.202` — preview changes the July Combo to `$300`, or `$150` after a fully paid direct Leyendas registration, with backend enforcement and unchanged idempotent roster semantics.
 - 🟢 `v1.16.201` — preview hardens Combo registrations with both-campus tournament destinations, persistent roster-entry backfill, and direct-vs-Combo counts while preserving one-charge finance semantics.
 - 🟢 `v1.16.200` — preview adds one-charge tournament Combo entitlements for Leyendas plus gender-resolved Superliga/Rosa registration, with a missing-gender Caja guard and no finance-model changes.
 - ✅ `v1.16.199` — `Gestión > Panel` now shows selected-campus/month attendance participation for active players, with counts, percentages, and paginated confirmed-attendance reads.
