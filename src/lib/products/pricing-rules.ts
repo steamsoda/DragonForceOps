@@ -5,6 +5,7 @@ export type ProductPricingRuleInput = {
   gender: string | null;
   birthYearMin: number | null;
   birthYearMax: number | null;
+  requiredPaidProductId?: string | null;
   priority: number;
 };
 
@@ -26,12 +27,14 @@ function ruleMatchesPlayer(
   rule: ProductPricingRuleInput,
   gender: string | null,
   birthYear: number | null,
+  paidProductIds: ReadonlySet<string>,
 ) {
   const ruleGender = normalizeGender(rule.gender);
   const playerGender = normalizeGender(gender);
   if (ruleGender && ruleGender !== playerGender) return false;
   if (rule.birthYearMin !== null && (birthYear === null || birthYear < rule.birthYearMin)) return false;
   if (rule.birthYearMax !== null && (birthYear === null || birthYear > rule.birthYearMax)) return false;
+  if (rule.requiredPaidProductId && !paidProductIds.has(rule.requiredPaidProductId)) return false;
   return true;
 }
 
@@ -40,17 +43,19 @@ export function resolveProductPricingRuleAmount({
   businessDate,
   gender,
   birthYear,
+  paidProductIds = new Set<string>(),
   fallbackAmount,
 }: {
   rules: ProductPricingRuleInput[];
   businessDate: string;
   gender: string | null;
   birthYear: number | null;
+  paidProductIds?: ReadonlySet<string>;
   fallbackAmount: number | null;
 }) {
   const matchingRule = rules
     .filter((rule) => isRuleActiveOnDate(rule, businessDate))
-    .filter((rule) => ruleMatchesPlayer(rule, gender, birthYear))
+    .filter((rule) => ruleMatchesPlayer(rule, gender, birthYear, paidProductIds))
     .sort((a, b) => b.priority - a.priority || a.amount - b.amount)[0];
 
   return matchingRule ? Math.round(Number(matchingRule.amount) * 100) / 100 : fallbackAmount;

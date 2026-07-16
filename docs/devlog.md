@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-15 (session 211)
+
+### Tournament Combo Conditional Price (v1.16.202)
+
+- Changed `Combo Torneos Julio 2026` to a `$300 MXN` standard price for male and female players.
+- Added a server-resolved `$150 MXN` price when the same enrollment already has a fully paid direct `Torneo de Leyendas` charge. Merely having a pending Leyendas charge does not qualify.
+- Added the paid-product prerequisite to the shared Caja pricing rules so both the displayed tile and charge creation resolve the condition on the backend.
+- Preserved one-charge finance semantics and idempotent tournament registrations: buying the Combo does not create or modify a second Leyendas charge, payment, allocation, or roster row.
+- Added regression checks for `$300`/`$150` resolution, no finance writes in the migration, and unique tournament-entry synchronization.
+
 ## 2026-07-14 (session 210)
 
 ### Tournament Combo Registration Hardening (v1.16.201)
