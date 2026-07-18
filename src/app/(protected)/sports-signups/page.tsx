@@ -182,7 +182,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
       <SportsSignupsBoard
         dashboard={dashboard}
         initialCompetitionId={initialCompetitionId}
-        canExportCsv={permissionContext.isSuperAdmin}
+        canExportExcel={permissionContext.hasOperationalAccess || permissionContext.hasSportsAccess}
         canUsePerfDebug={permissionContext.isSuperAdmin && params.perf === "1"}
       />
     </PageShell>

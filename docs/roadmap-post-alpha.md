@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.199`
-- Current preview line: `v1.16.202`
+- Current production line: `v1.16.202`
+- Current preview line: `v1.16.204`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -159,6 +159,7 @@ Important, but not necessarily the next edit.
 | 🟡 | Uniformes follow-up | Compact menu feedback and auto-sync captured uniform size into player technical data. Keep stock/supplier management separate. |
 | 🟡 | Player profile consolidation polish | Continue making `/players/[id]` the single-player hub; remaining polish includes local date formatting and account navigation. |
 | 🧊 | Drag-and-drop group editing | Later UI layer over the existing audited batch group assignment flow. Current dropdown edit mode is usable. |
+| 🔴 | Baja re-enrollment / reactivation workflow | Dedicated next-pass design: create a new enrollment while preserving the prior baja/history; default to preserving old charges, optionally void only eligible fully-unpaid prior charges, never erase payments/allocations/refunds, and keep an auditable Caja handoff. |
 
 ## User Feedback Intake
 
@@ -169,6 +170,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | 2026-07-08 attendance/player-context feedback wave | Group-detail work is closed through production `v1.16.198` and the first Panel chart through `v1.16.199`. Remaining work is attendance operations, injury/absence v2, and larger attendance analytics. | Checkpoints 2026-07-08 and 2026-07-11 |
 | ✅ | `Asistencia > Grupos` selected-detail polish | Shipped in `v1.16.188`: selected-group summary cards for total roster, players with at least one `A Asistio` in the previous full calendar week, active players without current-month attendance, and month attendance rate. Month changes keep the selected group open. | Asistencia lane, `v1.16.188` devlog |
 | ✅ | `Inscripciones Torneos` paid-date filter | Shipped in `v1.16.189`: start/end paid-date filters for confirmed tournament signups; paid confirmation remains based on fully paid product charges. | Competencias / Products, `v1.16.189` devlog |
+| 🟢 | `Inscripciones Torneos` Excel export | Preview `v1.16.203` exports the selected campus/tournament using the existing fully-paid, Combo-aware, date-filtered, deduplicated roster truth; `v1.16.204` groups the workbook by campus and YOB with alphabetical players. | Competencias / Products, `v1.16.203`-`v1.16.204` devlog |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds the dated notes model and quick entry/view points from Caja/player context. Keep separate from finance ledger notes and attendance records unless intentionally linked. | Front Desk / Caja / Player profile |
 | 🟡 | Attendance special-day/cancellation workflow | Improve special training day and rain/cancellation workflows with Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Asistencia |
 | 🟡 | Attendance analytics panel | Larger dashboard: filters, charts, date ranges, best/worst attendance groups, and trend views. Build after the group-detail summary source is stable. | Reports / Asistencia |
@@ -237,6 +239,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | `v1.16.147` adds stronger source-charge guardrails; `v1.16.148`-`v1.16.149` add and polish Caja shortcuts; `v1.16.153` protects inscriptions like tuition. Future scope includes receipt printing for refunds, possible policy windows, and a deliberate account-credit model for mixed payments. |
 | ✅ | Re-enrollment pricing tier fix | Preview `v1.16.159` updates returning-enrollment `Solo inscripcion` to `$700` and adds a regression assertion. |
+| 🔴 | Baja re-enrollment / reactivation | Plan separately after the emergency tournament export. The flow should create a new enrollment, preserve the old enrollment and finance history, offer only explicit safe handling for fully unpaid prior charges, and log the actor/decision before handing off to Caja. |
 | 🟢 | Pendientes attendance context | Production `v1.16.168` adds recent last-five attendance chips to pending detail rows. Preview `v1.16.171` adds tiered confirmed-absence / inactive badges beside those chips. |
 | ✅ | Recent attendance at-a-glance | Production `v1.16.168` adds a compact last-5-sessions summary to pending detail rows using the shared batch attendance source. Money fields remain finance-only; attendance-only roles do not get debt amounts through this feature. |
 | ✅ | Corte Diario revamp | Automatic checkpoints, detailed reports, 360Player visibility, historical browsing, and receipt/corte print improvements are shipped. |
@@ -350,7 +353,9 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.204` — preview groups the tournament signup workbook by campus and YOB, with players alphabetical inside each category.
 - 🟢 `v1.16.202` — preview changes the July Combo to `$300`, or `$150` after a fully paid direct Leyendas registration, with backend enforcement and unchanged idempotent roster semantics.
+- 🟢 `v1.16.203` — preview adds an operational Excel export for confirmed tournament signups, preserving campus, tournament, paid-date filters, Combo entitlements, and enrollment-level deduplication.
 - 🟢 `v1.16.201` — preview hardens Combo registrations with both-campus tournament destinations, persistent roster-entry backfill, and direct-vs-Combo counts while preserving one-charge finance semantics.
 - 🟢 `v1.16.200` — preview adds one-charge tournament Combo entitlements for Leyendas plus gender-resolved Superliga/Rosa registration, with a missing-gender Caja guard and no finance-model changes.
 - ✅ `v1.16.199` — `Gestión > Panel` now shows selected-campus/month attendance participation for active players, with counts, percentages, and paginated confirmed-attendance reads.

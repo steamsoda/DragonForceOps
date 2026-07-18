@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import {
-  getCompetitionSignupExportData,
-  type CompetitionSignupExportRow,
-} from "@/lib/queries/sports-signups";
+import { buildSportsSignupsWorkbook } from "@/lib/exports/sports-signups-workbook";
+import { getCompetitionSignupExportData } from "@/lib/queries/sports-signups";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
-
-function escapeCsv(value: string) {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, "\"\"")}"`;
-  }
-  return value;
-}
+export const dynamic = "force-dynamic";
 
 function slugify(value: string) {
   return value
@@ -25,34 +17,9 @@ function slugify(value: string) {
     .slice(0, 64);
 }
 
-function toCsv(rows: CompetitionSignupExportRow[]) {
-  const headers = [
-    "Jugador",
-    "Ano nacimiento",
-    "Campus",
-    "Nivel",
-    "Equipo base",
-  ];
-
-  const lines = [headers.join(",")];
-  for (const row of rows ?? []) {
-    lines.push(
-      [
-        escapeCsv(row.playerName),
-        row.birthYear?.toString() ?? "",
-        escapeCsv(row.campusName),
-        escapeCsv(row.level),
-        escapeCsv(row.teamName),
-      ].join(","),
-    );
-  }
-
-  return lines.join("\n");
-}
-
 function formatDateForFilename(date: Date) {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Mexico_City",
+    timeZone: "America/Monterrey",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -71,7 +38,7 @@ export async function GET(request: Request) {
   }
 
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isSuperAdmin) {
+  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }
 
@@ -89,13 +56,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }
 
-  const csv = toCsv(exportData.rows);
-  const filename = `inscripciones-${slugify(exportData.competitionLabel)}-${slugify(exportData.campusName)}-${formatDateForFilename(new Date())}.csv`;
+  const workbook = await buildSportsSignupsWorkbook(exportData);
+  const workbookBuffer = await workbook.xlsx.writeBuffer();
+  const bytes = workbookBuffer instanceof Uint8Array ? workbookBuffer : new Uint8Array(workbookBuffer);
+  const filename = `inscripciones-${slugify(exportData.competitionLabel)}-${slugify(exportData.campusName)}-${formatDateForFilename(new Date())}.xlsx`;
 
-  return new NextResponse(csv, {
+  return new NextResponse(bytes, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
     },
