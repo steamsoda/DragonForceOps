@@ -251,6 +251,7 @@ export type CompetitionSignupExportData = {
   competitionLabel: string;
   campusId: string;
   campusName: string;
+  paidDateFilter: CompetitionSignupPaidDateFilter;
   rows: CompetitionSignupExportRow[];
 };
 
@@ -1464,6 +1465,7 @@ export async function getCompetitionSignupExportData(filters?: {
     competitionLabel,
     campusId,
     campusName,
+    paidDateFilter,
     rows,
   };
 }

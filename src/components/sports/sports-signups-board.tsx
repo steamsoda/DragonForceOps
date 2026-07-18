@@ -11,7 +11,7 @@ import type {
 type Props = {
   dashboard: CompetitionSignupDashboardData;
   initialCompetitionId: string;
-  canExportCsv: boolean;
+  canExportExcel: boolean;
   canUsePerfDebug: boolean;
 };
 
@@ -214,7 +214,7 @@ async function downloadCategoryPng({
 export function SportsSignupsBoard({
   dashboard,
   initialCompetitionId,
-  canExportCsv,
+  canExportExcel,
   canUsePerfDebug,
 }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
@@ -324,12 +324,12 @@ export function SportsSignupsBoard({
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
             Campus
           </p>
-          {canExportCsv && selectedCompetition ? (
+          {canExportExcel && selectedCompetition ? (
             <a
               href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${paidFilterQuery}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
-              Exportar CSV
+              Exportar Excel
             </a>
           ) : null}
         </div>

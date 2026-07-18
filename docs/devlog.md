@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-18 (session 212)
+
+### Tournament Signup Excel Export (v1.16.203)
+
+- Replaced the Super-Admin-only CSV action in `Inscripciones Torneos` with a compact, print-friendly Excel workbook for Front Desk, operational directors/admins, and sports directors who already have access to the tournament signup page.
+- The workbook exports the selected campus and competition, all confirmed paid players, category/YOB, level, and base team. It preserves the current payment-date filters and displays their scope in the workbook header.
+- Reused the existing fully-paid registration source, Combo entitlement resolution, and enrollment-level deduplication. Direct plus Combo qualification still produces one player row and no finance, payment, allocation, or tournament-registration records are changed.
+- Deferred the requested baja re-enrollment/reactivation workflow to a dedicated later pass so its choices around prior unpaid charges, history preservation, audit trail, and Caja handoff are designed safely rather than mixed into this emergency export.
+- Verification target: `npm run test:sports-signups-excel`, `npm run test:tournament-combo-registration`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-15 (session 211)
 
 ### Tournament Combo Conditional Price (v1.16.202)
