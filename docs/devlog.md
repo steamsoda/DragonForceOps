@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-18 (session 213)
+
+### Tournament Signup Excel Campus/YOB Grouping (v1.16.204)
+
+- Reorganized the `Inscripciones Torneos` workbook into visible campus sections followed by category/YOB subsections, matching the grouped structure used by the academy's roster exports.
+- Players are alphabetical inside each YOB subsection; category and campus remain visible in each row for clarity when staff filter or copy workbook data.
+- Kept the same confirmed-payment source, paid-date filters, Combo entitlement resolution, role access, and enrollment-level deduplication from `v1.16.203`. No registration or finance data changed.
+
 ## 2026-07-18 (session 212)
 
 ### Tournament Signup Excel Export (v1.16.203)

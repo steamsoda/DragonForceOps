@@ -41,6 +41,36 @@ function paidDateLabel(data: CompetitionSignupExportData) {
   return "Todos los pagos confirmados";
 }
 
+function groupRowsByCampusAndBirthYear(data: CompetitionSignupExportData) {
+  const campusGroups = new Map<string, Map<string, typeof data.rows>>();
+
+  for (const player of data.rows) {
+    const campusRows = campusGroups.get(player.campusName) ?? new Map<string, typeof data.rows>();
+    const birthYearKey = player.birthYear == null ? "sin-categoria" : String(player.birthYear);
+    campusRows.set(birthYearKey, [...(campusRows.get(birthYearKey) ?? []), player]);
+    campusGroups.set(player.campusName, campusRows);
+  }
+
+  return [...campusGroups.entries()]
+    .sort(([campusA], [campusB]) => campusA.localeCompare(campusB, "es-MX"))
+    .map(([campusName, birthYearGroups]) => ({
+      campusName,
+      birthYearGroups: [...birthYearGroups.entries()]
+        .sort(([yearA], [yearB]) => {
+          if (yearA === "sin-categoria") return 1;
+          if (yearB === "sin-categoria") return -1;
+          return Number(yearB) - Number(yearA);
+        })
+        .map(([birthYearKey, players]) => ({
+          birthYearKey,
+          label: birthYearKey === "sin-categoria" ? "Sin categoria" : `Categoria ${birthYearKey}`,
+          players: [...players].sort((playerA, playerB) =>
+            playerA.playerName.localeCompare(playerB.playerName, "es-MX"),
+          ),
+        })),
+    }));
+}
+
 export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportData) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Dragon Force Monterrey";
@@ -49,7 +79,7 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
   workbook.modified = new Date();
 
   const worksheet = workbook.addWorksheet("Inscritos");
-  worksheet.views = [{ state: "frozen", ySplit: 4 }];
+  worksheet.views = [{ state: "frozen", ySplit: 2 }];
   worksheet.pageSetup = {
     orientation: "landscape",
     fitToPage: true,
@@ -72,18 +102,8 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
   scope.alignment = { horizontal: "center", vertical: "middle" };
   applyGridBorder(scope);
 
-  worksheet.addRow([]);
-  const header = worksheet.addRow(COLUMNS.map((column) => column.header));
-  header.font = { bold: true, color: { argb: BLACK } };
-  header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GRAY } };
-  header.alignment = { horizontal: "center", vertical: "middle" };
-  applyGridBorder(header);
-  worksheet.autoFilter = {
-    from: { row: header.number, column: 1 },
-    to: { row: header.number, column: COLUMNS.length },
-  };
-
   if (data.rows.length === 0) {
+    worksheet.addRow([]);
     const empty = worksheet.addRow(["No hay jugadores confirmados con estos filtros."]);
     worksheet.mergeCells(empty.number, 1, empty.number, COLUMNS.length);
     empty.font = { italic: true, color: { argb: BLACK } };
@@ -92,19 +112,45 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
     return workbook;
   }
 
-  data.rows.forEach((player, index) => {
-    const row = worksheet.addRow([
-      index + 1,
-      player.playerName,
-      player.birthYear ?? "-",
-      player.campusName,
-      player.level || "-",
-      player.teamName || "-",
+  for (const campusGroup of groupRowsByCampusAndBirthYear(data)) {
+    worksheet.addRow([]);
+    const campusTitle = worksheet.addRow([
+      `${campusGroup.campusName} (${campusGroup.birthYearGroups.reduce((total, group) => total + group.players.length, 0)} jugadores)`,
     ]);
-    row.getCell(1).alignment = { horizontal: "center" };
-    row.getCell(3).alignment = { horizontal: "center" };
-    applyGridBorder(row);
-  });
+    worksheet.mergeCells(campusTitle.number, 1, campusTitle.number, COLUMNS.length);
+    campusTitle.font = { bold: true, size: 12, color: { argb: BLACK } };
+    campusTitle.alignment = { vertical: "middle" };
+    applyGridBorder(campusTitle);
+
+    for (const birthYearGroup of campusGroup.birthYearGroups) {
+      const categoryTitle = worksheet.addRow([
+        `${birthYearGroup.label} (${birthYearGroup.players.length} jugadores)`,
+      ]);
+      worksheet.mergeCells(categoryTitle.number, 1, categoryTitle.number, COLUMNS.length);
+      categoryTitle.font = { bold: true, color: { argb: BLACK } };
+      categoryTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GRAY } };
+      applyGridBorder(categoryTitle);
+
+      const header = worksheet.addRow(COLUMNS.map((column) => column.header));
+      header.font = { bold: true, color: { argb: BLACK } };
+      header.alignment = { horizontal: "center", vertical: "middle" };
+      applyGridBorder(header);
+
+      birthYearGroup.players.forEach((player, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          player.playerName,
+          player.birthYear ?? "-",
+          player.campusName,
+          player.level || "-",
+          player.teamName || "-",
+        ]);
+        row.getCell(1).alignment = { horizontal: "center" };
+        row.getCell(3).alignment = { horizontal: "center" };
+        applyGridBorder(row);
+      });
+    }
+  }
 
   return workbook;
 }

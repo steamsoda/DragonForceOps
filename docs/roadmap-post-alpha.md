@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.202`
-- Current preview line: `v1.16.203`
+- Current preview line: `v1.16.204`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -170,7 +170,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | 2026-07-08 attendance/player-context feedback wave | Group-detail work is closed through production `v1.16.198` and the first Panel chart through `v1.16.199`. Remaining work is attendance operations, injury/absence v2, and larger attendance analytics. | Checkpoints 2026-07-08 and 2026-07-11 |
 | ✅ | `Asistencia > Grupos` selected-detail polish | Shipped in `v1.16.188`: selected-group summary cards for total roster, players with at least one `A Asistio` in the previous full calendar week, active players without current-month attendance, and month attendance rate. Month changes keep the selected group open. | Asistencia lane, `v1.16.188` devlog |
 | ✅ | `Inscripciones Torneos` paid-date filter | Shipped in `v1.16.189`: start/end paid-date filters for confirmed tournament signups; paid confirmation remains based on fully paid product charges. | Competencias / Products, `v1.16.189` devlog |
-| 🟢 | `Inscripciones Torneos` Excel export | Preview `v1.16.203` exports the selected campus/tournament using the existing fully-paid, Combo-aware, date-filtered, deduplicated roster truth. | Competencias / Products, `v1.16.203` devlog |
+| 🟢 | `Inscripciones Torneos` Excel export | Preview `v1.16.203` exports the selected campus/tournament using the existing fully-paid, Combo-aware, date-filtered, deduplicated roster truth; `v1.16.204` groups the workbook by campus and YOB with alphabetical players. | Competencias / Products, `v1.16.203`-`v1.16.204` devlog |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds the dated notes model and quick entry/view points from Caja/player context. Keep separate from finance ledger notes and attendance records unless intentionally linked. | Front Desk / Caja / Player profile |
 | 🟡 | Attendance special-day/cancellation workflow | Improve special training day and rain/cancellation workflows with Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Asistencia |
 | 🟡 | Attendance analytics panel | Larger dashboard: filters, charts, date ranges, best/worst attendance groups, and trend views. Build after the group-detail summary source is stable. | Reports / Asistencia |
@@ -353,6 +353,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
+- 🟢 `v1.16.204` — preview groups the tournament signup workbook by campus and YOB, with players alphabetical inside each category.
 - 🟢 `v1.16.202` — preview changes the July Combo to `$300`, or `$150` after a fully paid direct Leyendas registration, with backend enforcement and unchanged idempotent roster semantics.
 - 🟢 `v1.16.203` — preview adds an operational Excel export for confirmed tournament signups, preserving campus, tournament, paid-date filters, Combo entitlements, and enrollment-level deduplication.
 - 🟢 `v1.16.201` — preview hardens Combo registrations with both-campus tournament destinations, persistent roster-entry backfill, and direct-vs-Combo counts while preserving one-charge finance semantics.
