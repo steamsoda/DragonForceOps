@@ -61,6 +61,7 @@ const ATTENDANCE_BASE_SECTION: NavSection = {
 const FRONT_DESK_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
+    { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
     { href: "/reports/corte-diario", label: "Corte Diario" },
     { href: "/receipts", label: "Recibos" },
   ],
@@ -69,12 +70,18 @@ const FRONT_DESK_REPORTES_SECTION: NavSection = {
 const DIRECTOR_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
+    { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
     { href: "/reports/corte-diario", label: "Corte Diario" },
     { href: "/reports/corte-semanal", label: "Corte Semanal" },
     { href: "/reports/resumen-mensual", label: "Res. Mensual" },
     { href: "/reports/porto-mensual", label: "Reporte Porto" },
     { href: "/receipts", label: "Recibos" },
   ],
+};
+
+const ATTENDANCE_REPORTES_SECTION: NavSection = {
+  label: "Reportes",
+  items: [{ href: "/reports/asistencia-coaches", label: "Asistencia por coach" }],
 };
 
 const ADMIN_SECTION: NavSection = {
@@ -187,7 +194,13 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
     ...(hasAttendanceReadAccess ? [attendanceSection] : []),
-    ...(isDirectorOrAbove ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION] : isFrontDesk ? [FRONT_DESK_REPORTES_SECTION] : []),
+    ...(isDirectorOrAbove
+      ? [DIRECTOR_REPORTES_SECTION, ADMIN_SECTION]
+      : isFrontDesk
+        ? [FRONT_DESK_REPORTES_SECTION]
+        : hasAttendanceReadAccess
+          ? [ATTENDANCE_REPORTES_SECTION]
+          : []),
     ...(isSuperAdmin ? [{ label: "Super Admin", items: superAdminItems }] : []),
   ];
   const debugQuickLinks = [
@@ -201,6 +214,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           { href: "/attendance", label: "Asistencia" },
           { href: "/attendance/groups", label: "Grupos" },
           { href: "/attendance/reports", label: "Reportes asistencia" },
+          { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
         ]
       : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/reports/corte-diario", label: "Corte Diario" }, { href: "/receipts", label: "Recibos" }] : []),

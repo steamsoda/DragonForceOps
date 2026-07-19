@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-19 (session 214)
+
+### Coach Monthly Attendance Report (v1.16.205)
+
+- Added a dedicated read-only `Reportes > Asistencia por coach` dashboard, grouped by campus, actual player birth year, coach, and active training group.
+- Defined monthly coach participation precisely: a current active player counts as attended only with at least one confirmed `present` (`A Asistio`) record in a completed session during the selected Monterrey month. Missing records, justified absences, and injury records do not count as attendance for this report.
+- Excluded groups with no completed sessions from participation denominators and labels them `Sin sesiones registradas`, avoiding misleading zero-percent coach results.
+- Supports shared groups by attributing the group to each currently linked coach and displaying `Principal` or `Auxiliar`; coach totals use unique players so a player is not double-counted across a coach's groups.
+- Added campus/month/coach filters, KPI cards, participation donuts, coach ranking, compact detail, and direct browser printing for either the full visible scope or one selected coach.
+- Access follows the existing attendance-read and campus scope. The query is paginated and read-only; it does not load or mutate finance, attendance, enrollment, group assignment, or coach assignment records.
+- Verification target: `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-18 (session 213)
 
 ### Tournament Signup Excel Campus/YOB Grouping (v1.16.204)
