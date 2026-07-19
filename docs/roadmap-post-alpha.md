@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.202`
-- Current preview line: `v1.16.204`
+- Current production line: `v1.16.204`
+- Current preview line: `v1.16.205`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -133,7 +133,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | ⚠️ | Tryout player tracking | New priority-one intake placeholder: track players who come in for tryouts. Awaiting workflow details before design. | User Feedback Intake 2026-06-27 |
-| 🟡 | Attendance analytics expansion | The first Panel participation chart shipped in `v1.16.199`; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
+| 🟡 | Attendance analytics expansion | Preview `v1.16.205` adds the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
 
@@ -173,7 +173,8 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | `Inscripciones Torneos` Excel export | Preview `v1.16.203` exports the selected campus/tournament using the existing fully-paid, Combo-aware, date-filtered, deduplicated roster truth; `v1.16.204` groups the workbook by campus and YOB with alphabetical players. | Competencias / Products, `v1.16.203`-`v1.16.204` devlog |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds the dated notes model and quick entry/view points from Caja/player context. Keep separate from finance ledger notes and attendance records unless intentionally linked. | Front Desk / Caja / Player profile |
 | 🟡 | Attendance special-day/cancellation workflow | Improve special training day and rain/cancellation workflows with Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Asistencia |
-| 🟡 | Attendance analytics panel | Larger dashboard: filters, charts, date ranges, best/worst attendance groups, and trend views. Build after the group-detail summary source is stable. | Reports / Asistencia |
+| 🟢 | Coach monthly attendance report | Preview `v1.16.205` adds campus/month/coach filters, weighted unique-player participation, zero-session safeguards, charts, grouped detail, and direct printing. | Reports / Asistencia, `v1.16.205` devlog |
+| 🟡 | Attendance analytics panel | Coach monthly participation ships first in preview `v1.16.205`; broader date ranges, best/worst attendance groups, operational drilldowns, and trend views remain. | Reports / Asistencia |
 | 🧊 | WhatsApp group communication planning | Keep visible as long-term communication planning now that the academy is returning to WhatsApp groups. Do not mix into attendance implementation. | Strategic later phases |
 | ✅ | 2026-07-01 tournament product/pricing refresh | Production `v1.16.183` implements the urgent July 2026 product refresh with additive pricing rules and keeps old products manually deactivatable for history safety. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | ✅ | 2026-06-27 priority wave: weekly coach packet | Production `v1.16.180` provides the full campus packet and single-coach reprint, grouped by coach and training group, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
@@ -286,7 +287,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Attendance nomenclature pass | Preview `v1.16.175` standardizes the attendance capture UI, shared chips, player summaries, daily reports, and group monthly views to `A Asistió`, `F Falta`, `🩹 Lesión`, and `📝 Justificada`; report/group `Ausencias` copy now reads as `Faltas`. |
 | ✅ | `Grupos` selected-detail KPI polish | Production `v1.16.188` and `v1.16.194`-`v1.16.198` provide KPIs, interactive no-attendance filtering, sortable columns, role-gated balances/phones, and one-to-three-month ranges. |
 | 🟡 | Special-day and cancellation workflow | Simplify special session creation and rain/cancellation handling. Permission target: Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin. |
-| 🟡 | Attendance analytics panel | Larger reporting surface with date filters, charts, KPIs, best/worst groups, and trends. Use shared summary sources so it does not recalculate every screen ad hoc. |
+| 🟡 | Attendance analytics panel | Preview `v1.16.205` adds the coach monthly participation dashboard/print pass. Broader date filters, best/worst groups, drilldowns, and trends remain; continue using shared summary sources rather than recalculating per player. |
 | ⚠️ | Injury workflow + tuition omission rework | Redesign how injuries interact with omitted monthly tuition, current/future charges, and return-to-normal behavior. Requires a separate finance-sensitive design. |
 | 🧊 | Closure workflow expansion | Planned closures/rain/vacation workflows remain later; current cancellation model already excludes cancelled sessions from attendance rates. |
 | 🧊 | Parent-facing attendance | Out of scope for now. |
@@ -350,6 +351,8 @@ Keep these visible, but do not mix them into urgent operational fixes.
 | 🧊 | Expenses / Nomina expansion | Larger finance-control phase after the near-term Front Desk/attendance feedback wave. Start with a dedicated planning spec before adding tables or UI. |
 
 ## Recently Shipped Shortlist
+
+- 🟢 `v1.16.205` — preview adds a read-only monthly attendance dashboard and printable report by campus, YOB, coach, and group, with zero-session safeguards and no finance data.
 
 This is intentionally short. Full details live in `docs/devlog.md`.
 
