@@ -39,6 +39,7 @@ export type PermissionContext = {
   hasNutritionAccess: boolean;
   hasAttendanceReadAccess: boolean;
   hasAttendanceWriteAccess: boolean;
+  hasTuitionStatusReportAccess: boolean;
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
@@ -81,6 +82,7 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     hasNutritionAccess: isDirector || isNutritionist,
     hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
     hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin || isOfficeAdmin,
+    hasTuitionStatusReportAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
   };
 }
 
@@ -129,6 +131,12 @@ export async function requireAttendanceReadContext(redirectTo = "/unauthorized")
 export async function requireAttendanceWriteContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireTuitionStatusReportContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasTuitionStatusReportAccess) redirect(redirectTo);
   return context;
 }
 

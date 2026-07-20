@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-20 (session 218)
+
+### Coach Monthly Tuition Status Report (v1.16.209)
+
+- Added a dedicated read-only `Reportes > Mensualidades por coach` dashboard grouped by campus, player birth year, current coach, and current active training group.
+- Added month, campus, and coach filters; status KPIs and charts; a deduplicated coach summary; compact player detail; and direct browser printing for the full visible scope or one selected coach.
+- Defined status rules without exposing money amounts: `Pagada`, `Pendiente`, `Becado`, `Omitida`, `Sin cargo`, and `Revisar`. Full scholarships are `Becado`; half/custom scholarships remain expected to pay and count as paid only when their reduced monthly charge is fully allocated.
+- Added prior unpaid monthly-tuition signals as `1 mes anterior`, `2 meses anteriores`, or `3+ meses anteriores`, without displaying balances or charge amounts.
+- Uses current group and coach ownership by design. A coach or group reassignment immediately changes report ownership, including when viewing a prior month; shared groups appear for each linked coach while general totals deduplicate players.
+- Access is server-gated to Super Admin, Director Admin, Front Desk, Director Deportivo, Field Admin, and Office Admin, with existing campus scope enforced. The query fully paginates large result sets and is read-only: it does not create, edit, reprice, allocate, or otherwise mutate charges, payments, scholarships, omissions, enrollments, assignments, or attendance.
+- Read-only reconciliation: preview July 2026 returned 530 eligible active players; production returned 667 eligible active players with 481 paid, 171 pending, 8 scholarship, and 7 missing-charge statuses. No database writes or migrations were used.
+- Verification target: `npm run test:coach-tuition-report`, `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-20 (session 217)
 
 ### Coach Attendance Detail Visual Hierarchy (v1.16.208)

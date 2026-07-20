@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.208",
+  "version": "1.16.209",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:attendance-risk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-attendance-risk.mjs",
+    "test:coach-tuition-report": "node scripts/assert-coach-tuition-report.mjs",
     "test:attendance-groups-pagination": "node scripts/assert-attendance-groups-pagination.mjs",
     "test:attendance-group-finance-visibility": "node scripts/assert-attendance-group-finance-visibility.mjs",
     "test:attendance-month-range": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-attendance-month-range.mjs",
