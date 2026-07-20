@@ -150,13 +150,13 @@ export default async function CoachAttendanceReportPage({ searchParams }: { sear
             <section key={campus.campusId} className="space-y-4 print:space-y-2">
               <h2 className="border-b-2 border-portoBlue pb-1 text-lg font-semibold print:border-black print:text-sm">{campus.campusName}</h2>
               {campus.birthYears.map((year) => (
-                <section key={year.label} className="space-y-3 print:space-y-1">
-                  <h3 className="text-base font-semibold print:text-xs">{year.label}</h3>
+                <section key={year.label} className="space-y-3 rounded-md border border-sky-200 p-3 print:space-y-1 print:rounded-none print:border-black print:p-1 dark:border-sky-800">
+                  <h3 className="border-b border-sky-200 pb-2 text-[17px] font-bold text-slate-900 print:border-black print:pb-1 print:text-xs dark:border-sky-800 dark:text-slate-100">{year.label}</h3>
                   {year.coaches.map((coach) => (
                     <section key={coach.coachId} className="space-y-2 print:space-y-1">
                       <h4 className="text-sm font-semibold print:text-[10px]">Coach {coach.coachName}</h4>
-                      {coach.groups.map((group) => (
-                        <article key={`${group.trainingGroupId}:${group.coachId}`} className="border-t border-slate-200 py-2 print:border-black print:py-1 dark:border-slate-700">
+                      {coach.groups.map((group, groupIndex) => (
+                        <article key={`${group.trainingGroupId}:${group.coachId}`} className={`border-t border-slate-200 px-2 py-2 print:border-black print:bg-white print:px-0 print:py-1 dark:border-slate-700 ${groupIndex % 2 === 0 ? "bg-sky-50/70 dark:bg-sky-950/30" : "bg-white dark:bg-slate-950"}`}>
                           <div className="grid gap-1 text-sm sm:grid-cols-[minmax(12rem,1fr)_repeat(5,auto)] sm:items-center sm:gap-4 print:grid-cols-[1fr_repeat(5,auto)] print:text-[8px]">
                             <strong>{group.trainingGroupName} <span className="font-normal text-slate-500 print:text-black">({group.coachRole})</span></strong>
                             <span>Sesiones: {group.completedSessions}</span><span>Plantel: {group.rosterCount}</span><span>A: {group.attendedCount}</span><span>Sin A: {group.notAttendedCount}</span><strong className={rateClass(group.participationRate)}>{formatRate(group.participationRate)}</strong>

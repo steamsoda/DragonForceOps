@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-20 (session 217)
+
+### Coach Attendance Detail Visual Hierarchy (v1.16.208)
+
+- Strengthened category headings in `Asistencia por coach > Detalle del reporte` with slightly larger, bolder text and a subtle category boundary.
+- Added alternating near-white blue and white group backgrounds inside each category so adjacent coach/group rosters are easier to distinguish on screen.
+- Kept direct-print output compact and background-neutral. No report data, attendance calculations, ordering, permissions, finance data, or database behavior changed.
+- Verification target: `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-20 (session 216)
 
 ### Coach Attendance Unique Totals And Scope Audit (v1.16.207)
