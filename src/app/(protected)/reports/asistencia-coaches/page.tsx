@@ -111,16 +111,16 @@ export default async function CoachAttendanceReportPage({ searchParams }: { sear
           <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900">
-                <tr><th className="px-3 py-2">Coach</th><th className="px-3 py-2 text-center">Grupos</th><th className="px-3 py-2 text-center">Plantel</th><th className="px-3 py-2 text-center">Evaluados</th><th className="px-3 py-2 text-center">Con asistencia</th><th className="px-3 py-2 text-center">Sin asistencia</th><th className="px-3 py-2 text-center">Participacion</th></tr>
+                <tr><th className="px-3 py-2">Coach</th><th className="px-3 py-2 text-center">Grupos</th><th className="px-3 py-2 text-center">Plantel</th><th className="px-3 py-2 text-center">Con asistencia</th><th className="px-3 py-2 text-center">Sin asistencia</th><th className="px-3 py-2 text-center">Participacion</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {data.coachSummaries.map((coach) => (
                   <tr key={coach.coachId}>
                     <td className="px-3 py-2 font-medium">{coach.coachName}{coach.groupsWithoutSessions > 0 ? <span className="ml-2 text-xs text-amber-700">{coach.groupsWithoutSessions} sin sesiones</span> : null}</td>
-                    <td className="px-3 py-2 text-center">{coach.groups}</td><td className="px-3 py-2 text-center">{coach.rosterCount}</td><td className="px-3 py-2 text-center">{coach.evaluatedCount}</td><td className="px-3 py-2 text-center text-emerald-700">{coach.attendedCount}</td><td className="px-3 py-2 text-center text-rose-700">{coach.notAttendedCount}</td><td className={`px-3 py-2 text-center font-semibold ${rateClass(coach.participationRate)}`}>{formatRate(coach.participationRate)}</td>
+                    <td className="px-3 py-2 text-center">{coach.groups}</td><td className="px-3 py-2 text-center">{coach.rosterCount}</td><td className="px-3 py-2 text-center text-emerald-700">{coach.attendedCount}</td><td className="px-3 py-2 text-center text-rose-700">{coach.notAttendedCount}</td><td className={`px-3 py-2 text-center font-semibold ${rateClass(coach.participationRate)}`}>{formatRate(coach.participationRate)}</td>
                   </tr>
                 ))}
-                {data.coachSummaries.length === 0 ? <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Sin datos para este alcance.</td></tr> : null}
+                {data.coachSummaries.length === 0 ? <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">Sin datos para este alcance.</td></tr> : null}
               </tbody>
             </table>
           </div>
