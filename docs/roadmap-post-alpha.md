@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.206`
-- Current preview line: `v1.16.208`
+- Current production line: `v1.16.208`
+- Current preview line: `v1.16.209`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -133,7 +133,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | ⚠️ | Tryout player tracking | New priority-one intake placeholder: track players who come in for tryouts. Awaiting workflow details before design. | User Feedback Intake 2026-06-27 |
-| 🟡 | Attendance analytics expansion | Preview `v1.16.205` adds the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
+| 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
 
@@ -352,6 +352,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 ## Recently Shipped Shortlist
 
+- 🟢 `v1.16.209` — preview adds a read-only `Reportes > Mensualidades por coach` dashboard with campus/month/coach filters, status-only collection reporting, prior-month backlog signals, current coach/group ownership, deduplicated totals, charts, and direct printing. No amounts are exposed and no finance records are mutated.
 - 🟢 `v1.16.208` — preview improves category and group visual hierarchy in the coach attendance detail while preserving compact, background-neutral printing.
 - 🟢 `v1.16.207` — preview adds deduplicated coach-report totals and clarifies assigned-roster scope after a production read-only audit reconciled its four-player difference from the academy-wide Panel.
 - 🟢 `v1.16.206` — preview adds fully labeled blue/red coach participation bars and simplifies the coach summary table without changing its protected denominator logic.
