@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.205`
-- Current preview line: `v1.16.206`
+- Current production line: `v1.16.206`
+- Current preview line: `v1.16.208`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -352,6 +352,8 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 ## Recently Shipped Shortlist
 
+- 🟢 `v1.16.208` — preview improves category and group visual hierarchy in the coach attendance detail while preserving compact, background-neutral printing.
+- 🟢 `v1.16.207` — preview adds deduplicated coach-report totals and clarifies assigned-roster scope after a production read-only audit reconciled its four-player difference from the academy-wide Panel.
 - 🟢 `v1.16.206` — preview adds fully labeled blue/red coach participation bars and simplifies the coach summary table without changing its protected denominator logic.
 - 🟢 `v1.16.205` — preview adds a read-only monthly attendance dashboard and printable report by campus, YOB, coach, and group, with zero-session safeguards and no finance data.
 

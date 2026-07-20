@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-07-20 (session 217)
+
+### Coach Attendance Detail Visual Hierarchy (v1.16.208)
+
+- Strengthened category headings in `Asistencia por coach > Detalle del reporte` with slightly larger, bolder text and a subtle category boundary.
+- Added alternating near-white blue and white group backgrounds inside each category so adjacent coach/group rosters are easier to distinguish on screen.
+- Kept direct-print output compact and background-neutral. No report data, attendance calculations, ordering, permissions, finance data, or database behavior changed.
+- Verification target: `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-20 (session 216)
+
+### Coach Attendance Unique Totals And Scope Audit (v1.16.207)
+
+- Added a `Total general` footer to `Resumen por coach` for unique groups, unique assigned players, players with attendance, players without attendance, and weighted participation.
+- The footer deliberately does not add visible coach rows: production currently has shared principal/auxiliary coach assignments, so an arithmetic sum would duplicate players. Totals reuse the report's existing unique-player sets.
+- Renamed the report KPI from `Plantel activo` to `Plantel asignado` and added a scope explanation distinguishing the coach report from the academy-wide Panel.
+- Production read-only reconciliation for July 2026 found no attendance drift: 667 unique active players, 546 with attendance, and 121 without in the Panel; 663 assigned players, the same 546 with attendance, and 117 without in the coach report. The four-player difference is exactly four active players without a current training-group assignment. No July groups were excluded for lacking completed sessions.
+- No attendance records, group assignments, permissions, finance data, or schema behavior changed.
+- Verification target: `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-19 (session 215)
 
 ### Coach Attendance Comparison Polish (v1.16.206)
