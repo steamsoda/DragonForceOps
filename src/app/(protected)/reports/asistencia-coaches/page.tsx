@@ -71,6 +71,9 @@ export default async function CoachAttendanceReportPage({ searchParams }: { sear
           <p className="text-xs text-slate-500">
             Cuenta como asistencia solo un registro confirmado A Asistio. Los grupos sin sesiones completadas quedan fuera del porcentaje.
           </p>
+          <p className="text-xs text-slate-500">
+            El Panel general cuenta a todos los jugadores activos. Este reporte cuenta solo el plantel asignado a grupos; el total general evita duplicar jugadores en grupos con coach principal y auxiliar.
+          </p>
         </section>
 
         <div className="hidden border-b border-black pb-2 text-xs print:block">
@@ -79,7 +82,7 @@ export default async function CoachAttendanceReportPage({ searchParams }: { sear
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6 print:grid-cols-6 print:gap-1">
           {[
-            ["Plantel activo", data.totals.rosterCount],
+            ["Plantel asignado", data.totals.rosterCount],
             ["Evaluados", data.totals.evaluatedCount],
             ["Con asistencia", data.totals.attendedCount],
             ["Sin asistencia", data.totals.notAttendedCount],
@@ -122,6 +125,18 @@ export default async function CoachAttendanceReportPage({ searchParams }: { sear
                 ))}
                 {data.coachSummaries.length === 0 ? <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">Sin datos para este alcance.</td></tr> : null}
               </tbody>
+              {data.coachSummaries.length > 0 ? (
+                <tfoot className="border-t-2 border-slate-300 bg-slate-100 font-semibold dark:border-slate-600 dark:bg-slate-950">
+                  <tr>
+                    <td className="px-3 py-2">Total general <span className="block text-[11px] font-normal text-slate-500">Jugadores unicos, sin duplicar coaches compartidos</span></td>
+                    <td className="px-3 py-2 text-center">{data.totals.groups}</td>
+                    <td className="px-3 py-2 text-center">{data.totals.rosterCount}</td>
+                    <td className="px-3 py-2 text-center text-emerald-700">{data.totals.attendedCount}</td>
+                    <td className="px-3 py-2 text-center text-rose-700">{data.totals.notAttendedCount}</td>
+                    <td className={`px-3 py-2 text-center ${rateClass(data.totals.participationRate)}`}>{formatRate(data.totals.participationRate)}</td>
+                  </tr>
+                </tfoot>
+              ) : null}
             </table>
           </div>
         </section>
