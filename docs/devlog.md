@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-19 (session 215)
+
+### Coach Attendance Comparison Polish (v1.16.206)
+
+- Replaced the single-value coach comparison bars with labeled 100% stacked bars: blue shows players with at least one confirmed attendance and red shows players without attendance in the selected month.
+- Displays both percentages on every coach row, including 0% and 100% edge cases, so the chart does not require hovering to interpret.
+- Removed the visible `Evaluados` column from `Resumen por coach` while retaining the evaluated-player denominator internally. Groups without completed sessions remain excluded from participation percentages.
+- No attendance calculations, records, permissions, finance data, or schema behavior changed.
+- Verification target: `npm run test:coach-attendance-report`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-19 (session 214)
 
 ### Coach Monthly Attendance Report (v1.16.205)
