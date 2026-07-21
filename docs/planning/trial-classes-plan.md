@@ -1,0 +1,58 @@
+# Clases de Prueba
+
+## Objective
+
+Track pre-enrollment children who attend up to three tryout classes, give Front Desk a fast arrival/ticket workflow, and preserve a clean path into the existing enrollment flow without contaminating academy attendance or finance data.
+
+## Non-Negotiable Boundaries
+
+- A prospect is not a `player` or an `enrollment` until conversion.
+- A trial visit is not an `attendance_record` and never enters roster counts, attendance rates, absence streaks, coach participation denominators, tuition status, charges, or payments.
+- The visit may reference the real generated `attendance_session` and stores a coach snapshot for historical attribution.
+- Check-in commits before printing. Printer failure cannot erase the visit, and the ticket can be reprinted.
+- Duplicate clicks for the same prospect/session return the existing visit instead of creating another one.
+- Monterrey time is canonical for visit dates and printed timestamps.
+
+## Passes
+
+### Pass 1 - Intake, Visits, And Ticket
+
+- Add isolated `trial_prospects` and `trial_visits` tables.
+- Front Desk and directors can search by child name or tutor phone within their campus scope.
+- Intake requires child first/last name, birth date, gender, campus, tutor phone, and preferred active training group. Tutor name and notes are optional.
+- Show progress as `0/3`, `1/3`, `2/3`, or `3/3` and a dated visit history.
+- Register arrival against today's generated training session, automatically counting the trial visit as attended in the trial ledger.
+- Print and reprint a compact thermal ticket with child, campus, group, date/time, visit number, and reference.
+- Stop normal check-in at three visits. A fourth visit is reserved for the later override pass.
+
+### Pass 2 - Attendance Awareness Without Metric Drift
+
+- Show trial visitors separately on the daily attendance surface, for example `+1 clase de prueba`.
+- Give Field Admin/attendance staff visibility that a prospect is expected/present.
+- Keep all existing player roster totals, attendance records, percentages, absence streaks, coach reports, and dashboards unchanged.
+
+### Pass 3 - Convert To Enrollment
+
+- Convert the prospect into the existing player/enrollment intake flow with fields prefilled.
+- Preserve the existing confirmation, guarded B1 auto-assignment, and Caja handoff.
+- Link the prospect to the created player/enrollment without rewriting trial history.
+
+### Pass 4 - Reporting
+
+- Report tryout volume, visit count, conversion count/rate, campus, group, and coach attribution.
+- Keep trial statistics separate from academy attendance statistics.
+
+### Pass 5 - Hardening
+
+- Add director/admin approval and audit detail for a fourth class.
+- Improve duplicate review/merge handling and abandoned/declined prospect closure.
+- Add operational alerts only after real usage establishes useful thresholds.
+
+## Pass 1 Acceptance
+
+- A Front Desk user can register and find a prospect only in an allowed campus.
+- A saved arrival remains saved if printing fails.
+- Reprinting never creates another visit.
+- Repeated check-in for one session is idempotent.
+- The fourth ordinary visit is blocked.
+- No player, enrollment, attendance record, charge, payment, or finance report changes are produced by this pass.

@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.209",
+  "version": "1.16.210",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,6 +22,7 @@
     "test:product-pricing-rules": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-product-pricing-rules.mjs",
     "test:product-bundle-entitlements": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-product-bundle-entitlements.mjs",
     "test:tournament-combo-registration": "node scripts/assert-tournament-combo-registration.mjs",
+    "test:trial-classes": "node scripts/assert-trial-classes-v1.mjs",
     "test:sports-signups-excel": "node scripts/assert-sports-signups-excel-export.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",

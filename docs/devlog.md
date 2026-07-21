@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-20 (session 219)
+
+### Clases de Prueba Pass 1 (v1.16.210)
+
+- Replaced the old tryout placeholder with a durable five-pass plan in `docs/planning/trial-classes-plan.md`: isolated intake/visits, separate attendance awareness, conversion through existing enrollment/Caja, reporting, and override/duplicate hardening.
+- Added service-role-only `trial_prospects`, `trial_prospect_notes`, and `trial_visits` tables. Prospects remain separate from `players`/`enrollments`; visits reference today's real generated training session but never create `attendance_records` or enter roster, attendance, absence-risk, coach-report, tuition, charge, payment, or finance truth.
+- Added `Gestion > Clases de prueba` for Front Desk and directors with campus-scoped intake/search, required child/contact/group fields, duplicate warnings, `0/3` through `3/3` progress, dated notes and visit history, and today's generated-session selector.
+- Added transactional `record_trial_visit(...)`: serializes concurrent check-ins, returns an existing visit for duplicate prospect/session clicks, blocks ordinary visits after three, rejects cancelled/non-current/wrong-campus sessions, and snapshots linked coaches for historical attribution.
+- Added automatic QZ thermal ticket printing after the visit commit plus a reprint action. Printer failure does not roll back the visit, and reprinting never creates another visit.
+- Applied and verified migrations `20260720120000_trial_classes_v1.sql` and `20260720121000_trial_classes_idempotency_hardening.sql` only against linked preview project `eqefgwdsqabnmpnbpqbq`: all three tables are readable by service role and the RPC validation/post-lock duplicate protection are active. No verification rows were created.
+- Added `npm run test:trial-classes`; verification passed with `npm run typecheck` and `npm run build`.
+
 ## 2026-07-20 (session 218)
 
 ### Coach Monthly Tuition Status Report (v1.16.209)
