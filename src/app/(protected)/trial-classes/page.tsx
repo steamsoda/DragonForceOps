@@ -1,11 +1,12 @@
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
+import { TrialProspectForm } from "@/components/trial-classes/trial-prospect-form";
 import { TrialCheckInControl, TrialTicketReprintButton } from "@/components/trial-classes/trial-visit-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getPrinterName } from "@/lib/queries/settings";
 import { getTrialClassesData } from "@/lib/queries/trial-classes";
-import { formatDateOnlyDdMmYyyy, formatTimeMonterrey } from "@/lib/time";
-import { addTrialProspectNoteAction, createTrialProspectAction } from "@/server/actions/trial-classes";
+import { formatDateOnlyDdMmYyyy, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
+import { addTrialProspectNoteAction } from "@/server/actions/trial-classes";
 
 type SearchParams = Promise<{
   campus?: string;
@@ -27,14 +28,6 @@ const ERROR_LABELS: Record<string, string> = {
 
 function genderLabel(value: string) {
   return value === "female" ? "Femenino" : "Masculino";
-}
-
-function groupContext(group: { gender: string; birthYearMin: number | null; birthYearMax: number | null }) {
-  const years = group.birthYearMin && group.birthYearMax
-    ? group.birthYearMin === group.birthYearMax ? String(group.birthYearMin) : `${group.birthYearMin}/${group.birthYearMax}`
-    : "Sin categoria";
-  const gender = group.gender === "female" ? "Femenil" : group.gender === "male" ? "Varonil" : "Mixto";
-  return `${years} | ${gender}`;
 }
 
 export default async function TrialClassesPage({ searchParams }: { searchParams: SearchParams }) {
@@ -87,19 +80,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
 
         <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900" open={data.prospects.length === 0}>
           <summary className="cursor-pointer text-base font-semibold text-portoBlue">Registrar nuevo prospecto</summary>
-          <form action={createTrialProspectAction} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <input type="hidden" name="campusId" value={data.selectedCampusId ?? ""} />
-            <input type="hidden" name="returnTo" value={returnTo} />
-            <label className="text-sm font-medium">Nombre<input required name="firstName" maxLength={100} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <label className="text-sm font-medium">Apellido<input required name="lastName" maxLength={140} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <label className="text-sm font-medium">Fecha de nacimiento<input required name="birthDate" type="date" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <label className="text-sm font-medium">Genero<select required name="gender" defaultValue="" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"><option value="" disabled>Selecciona</option><option value="male">Masculino</option><option value="female">Femenino</option></select></label>
-            <label className="text-sm font-medium">Nombre del tutor (opcional)<input name="guardianName" maxLength={180} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <label className="text-sm font-medium">Telefono del tutor<input required name="guardianPhone" type="tel" maxLength={40} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <label className="text-sm font-medium md:col-span-2">Grupo de prueba<select required name="trainingGroupId" defaultValue="" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"><option value="" disabled>Selecciona grupo</option>{data.groups.map((group) => <option key={group.id} value={group.id}>{group.name} | {groupContext(group)}</option>)}</select></label>
-            <label className="text-sm font-medium md:col-span-2 xl:col-span-4">Nota inicial (opcional)<textarea name="note" rows={2} maxLength={2000} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
-            <div className="md:col-span-2 xl:col-span-4"><button disabled={!data.selectedCampusId || data.groups.length === 0} className="rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">Guardar prospecto</button></div>
-          </form>
+          <TrialProspectForm campusId={data.selectedCampusId} groups={data.groups} maxBirthDate={getMonterreyDateString()} />
         </details>
 
         <section className="space-y-3">

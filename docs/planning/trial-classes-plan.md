@@ -19,7 +19,8 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 
 - Add isolated `trial_prospects` and `trial_visits` tables.
 - Front Desk and directors can search by child name or tutor phone within their campus scope.
-- Intake requires child first/last name, birth date, gender, campus, tutor phone, and preferred active training group. Tutor name and notes are optional.
+- Intake requires child first/last name, a non-future birth date, gender, campus, a 10-digit tutor phone, and preferred active training group. Tutor name and notes are optional.
+- Invalid input is blocked before submission; server validation remains authoritative, and rejected saves keep the operator's entered values visible for correction.
 - Show progress as `0/3`, `1/3`, `2/3`, or `3/3` and a dated visit history.
 - Register arrival against today's generated training session, automatically counting the trial visit as attended in the trial ledger.
 - Print and reprint a compact thermal ticket with child, campus, group, date/time, visit number, and reference.
@@ -51,6 +52,7 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 ## Pass 1 Acceptance
 
 - A Front Desk user can register and find a prospect only in an allowed campus.
+- Invalid phone or birth-date input cannot clear the intake form or create a prospect.
 - A saved arrival remains saved if printing fails.
 - Reprinting never creates another visit.
 - Repeated check-in for one session is idempotent.

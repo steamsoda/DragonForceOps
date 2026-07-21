@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-21 (session 220)
+
+### Clases de Prueba Intake Validation Follow-up (v1.16.211)
+
+- Hardened prospect intake with matching browser and server validation: tutor phone must contain exactly 10 digits, and birth date must be valid and no later than the current Monterrey date.
+- Replaced redirect-based prospect creation with an inline client submission state. A rejected save now keeps every entered field visible, explains the specific problem beside the form, and resets fields only after the database confirms creation.
+- Added a visible `Guardando...` state and a clear success message so Front Desk can distinguish an active save from a failed or completed one.
+- Enrollment remains intentionally outside this follow-up: Pass 2 is separate daily-attendance awareness, and Pass 3 will convert the prospect through the existing enrollment confirmation, guarded B1 assignment, and Caja handoff.
+- No migrations or changes to players, enrollments, attendance records, charges, payments, finance truth, or existing trial visit behavior. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-20 (session 219)
 
 ### Clases de Prueba Pass 1 (v1.16.210)

@@ -7,7 +7,7 @@ import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
+import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
 
 export type TrialTicketPayload = {
   visitId: string;
@@ -23,6 +23,10 @@ export type TrialTicketPayload = {
 export type TrialCheckInResult =
   | { ok: true; ticket: TrialTicketPayload; duplicate: boolean }
   | { ok: false; error: "debug_read_only" | "unauthorized" | "invalid_session" | "limit_reached" | "save_failed" };
+
+export type TrialProspectCreateResult =
+  | { ok: true; prospectId: string }
+  | { ok: false; error: "debug_read_only" | "unauthorized" | "invalid_form" | "invalid_phone" | "invalid_birth_date" | "invalid_group" | "possible_duplicate" | "create_failed"; duplicateId?: string };
 
 function clean(value: FormDataEntryValue | null, max = 2000) {
   return String(value ?? "").trim().slice(0, max);
@@ -45,8 +49,7 @@ async function requireTrialWriter(campusId?: string | null) {
   return context;
 }
 
-export async function createTrialProspectAction(formData: FormData) {
-  const back = returnPath(formData);
+export async function createTrialProspectAction(formData: FormData): Promise<TrialProspectCreateResult> {
   const campusId = clean(formData.get("campusId"), 80);
   const groupId = clean(formData.get("trainingGroupId"), 80);
   const firstName = clean(formData.get("firstName"), 100);
@@ -58,11 +61,12 @@ export async function createTrialProspectAction(formData: FormData) {
   const phone = normalizedPhone(guardianPhone);
   const note = clean(formData.get("note"));
 
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const context = await requireTrialWriter(campusId);
-  if (!context) redirect(`${back}${back.includes("?") ? "&" : "?"}err=unauthorized`);
-  if (!firstName || !lastName || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || !["male", "female"].includes(gender) || phone.length < 7 || !groupId) {
-    redirect(`${back}${back.includes("?") ? "&" : "?"}err=invalid_form`);
-  }
+  if (!context) return { ok: false, error: "unauthorized" };
+  if (!firstName || !lastName || !["male", "female"].includes(gender) || !groupId) return { ok: false, error: "invalid_form" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || birthDate > getMonterreyDateString()) return { ok: false, error: "invalid_birth_date" };
+  if (phone.length !== 10) return { ok: false, error: "invalid_phone" };
 
   const admin = createAdminClient();
   const { data: group } = await admin
@@ -71,7 +75,7 @@ export async function createTrialProspectAction(formData: FormData) {
     .eq("id", groupId)
     .maybeSingle<{ id: string; campus_id: string; status: string }>();
   if (!group || group.campus_id !== campusId || group.status !== "active") {
-    redirect(`${back}${back.includes("?") ? "&" : "?"}err=invalid_group`);
+    return { ok: false, error: "invalid_group" };
   }
 
   const { data: candidates } = await admin
@@ -88,7 +92,7 @@ export async function createTrialProspectAction(formData: FormData) {
       candidate.last_name.toLocaleLowerCase("es-MX") === lastName.toLocaleLowerCase("es-MX"))
   );
   if (duplicate) {
-    redirect(`${back}${back.includes("?") ? "&" : "?"}err=possible_duplicate&duplicate=${duplicate.id}`);
+    return { ok: false, error: "possible_duplicate", duplicateId: duplicate.id };
   }
 
   const { data: prospect, error } = await admin
@@ -110,7 +114,7 @@ export async function createTrialProspectAction(formData: FormData) {
     .single<{ id: string }>();
   if (error || !prospect) {
     console.error("[trial-classes] prospect insert failed", error);
-    redirect(`${back}${back.includes("?") ? "&" : "?"}err=create_failed`);
+    return { ok: false, error: "create_failed" };
   }
 
   if (note) {
@@ -131,7 +135,7 @@ export async function createTrialProspectAction(formData: FormData) {
     afterData: { campus_id: campusId, preferred_training_group_id: groupId },
   });
   revalidatePath("/trial-classes");
-  redirect(`${back}${back.includes("?") ? "&" : "?"}ok=created&focus=${prospect.id}`);
+  return { ok: true, prospectId: prospect.id };
 }
 
 export async function addTrialProspectNoteAction(formData: FormData) {
