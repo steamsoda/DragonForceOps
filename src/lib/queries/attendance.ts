@@ -46,7 +46,17 @@ export type AttendanceSessionListItem = {
   endTime: string;
   rosterCount: number;
   recordedCount: number;
+  trialVisitors?: AttendanceTrialVisitor[];
   sourceType: "team" | "training_group";
+};
+
+export type AttendanceTrialVisitor = {
+  visitId: string;
+  prospectId: string;
+  prospectName: string;
+  birthYear: number | null;
+  visitNumber: number;
+  checkedInAt: string;
 };
 
 export type AttendanceScheduleTemplate = {
@@ -83,6 +93,7 @@ export type AttendanceTrainingGroupOption = {
 };
 
 export type AttendanceSessionDetail = AttendanceSessionListItem & {
+  trialVisitors: AttendanceTrialVisitor[];
   notes: string | null;
   opponentName: string | null;
   cancelledReasonCode: string | null;
@@ -559,6 +570,46 @@ function getSessionSource(row: { team_id: string | null; training_group_id: stri
   };
 }
 
+async function getTrialVisitorsBySessionIds(sessionIds: string[]) {
+  const visitorsBySession = new Map<string, AttendanceTrialVisitor[]>();
+  if (sessionIds.length === 0) return visitorsBySession;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("trial_visits")
+    .select("id, prospect_id, attendance_session_id, visit_number, checked_in_at, trial_prospects!inner(first_name, last_name, birth_date)")
+    .in("attendance_session_id", sessionIds)
+    .order("checked_in_at", { ascending: true })
+    .returns<Array<{
+      id: string;
+      prospect_id: string;
+      attendance_session_id: string;
+      visit_number: number;
+      checked_in_at: string;
+      trial_prospects: { first_name: string; last_name: string; birth_date: string } | null;
+    }>>();
+
+  if (error) {
+    console.error("[attendance] trial visitor lookup failed", error);
+    return visitorsBySession;
+  }
+
+  for (const row of data ?? []) {
+    if (!row.trial_prospects) continue;
+    const visitor: AttendanceTrialVisitor = {
+      visitId: row.id,
+      prospectId: row.prospect_id,
+      prospectName: `${row.trial_prospects.first_name} ${row.trial_prospects.last_name}`.replace(/\s+/g, " ").trim(),
+      birthYear: birthYear(row.trial_prospects.birth_date),
+      visitNumber: row.visit_number,
+      checkedInAt: row.checked_in_at,
+    };
+    visitorsBySession.set(row.attendance_session_id, [...(visitorsBySession.get(row.attendance_session_id) ?? []), visitor]);
+  }
+
+  return visitorsBySession;
+}
+
 export async function listAttendanceCampuses(): Promise<AttendanceCampusOption[]> {
   const access = await getAttendanceScope();
   return access?.campuses ?? [];
@@ -602,7 +653,10 @@ export async function listAttendanceSessions(filters: { date?: string; campusId?
   ]);
 
   const trainingGroupIds = [...new Set((sessions ?? []).map((row) => row.training_group_id).filter((value): value is string => Boolean(value)))];
-  const trainingGroupCoachMap = await getTrainingGroupCoachMap(trainingGroupIds);
+  const [trainingGroupCoachMap, trialVisitorsBySession] = await Promise.all([
+    getTrainingGroupCoachMap(trainingGroupIds),
+    getTrialVisitorsBySessionIds((sessions ?? []).map((row) => row.id)),
+  ]);
 
   const teamRosterCountMap = new Map<string, number>();
   for (const row of teamRosterRows ?? []) teamRosterCountMap.set(row.team_id, (teamRosterCountMap.get(row.team_id) ?? 0) + 1);
@@ -630,6 +684,7 @@ export async function listAttendanceSessions(filters: { date?: string; campusId?
         ? (groupRosterCountMap.get(row.training_group_id) ?? 0)
         : (row.team_id ? (teamRosterCountMap.get(row.team_id) ?? 0) : 0),
       recordedCount: recordCountMap.get(row.id) ?? 0,
+      trialVisitors: trialVisitorsBySession.get(row.id) ?? [],
       sourceType: source.sourceType,
     };
   });
@@ -855,6 +910,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
     .sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
 
   const source = getSessionSource(session, trainingGroupCoachMap);
+  const trialVisitors = (await getTrialVisitorsBySessionIds([session.id])).get(session.id) ?? [];
 
   return {
     id: session.id,
@@ -875,6 +931,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
     cancelledReason: session.cancelled_reason,
     rosterCount: roster.length,
     recordedCount: records?.length ?? 0,
+    trialVisitors,
     canWrite,
     canCorrect,
     roster,

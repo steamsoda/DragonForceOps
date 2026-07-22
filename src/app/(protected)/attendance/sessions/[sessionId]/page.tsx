@@ -3,6 +3,7 @@ import { AttendanceRecorder } from "@/components/attendance/attendance-recorder"
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceSessionDetail } from "@/lib/queries/attendance";
+import { formatTimeMonterrey } from "@/lib/time";
 import { cancelAttendanceSessionAction } from "@/server/actions/attendance";
 
 type Params = Promise<{ sessionId: string }>;
@@ -40,11 +41,11 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
 
         <div className="grid gap-3 md:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs uppercase text-slate-500">Jugadores</p>
+            <p className="text-xs uppercase text-slate-500">Jugadores inscritos</p>
             <p className="text-2xl font-bold">{session.rosterCount}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-            <p className="text-xs uppercase text-slate-500">Registros</p>
+            <p className="text-xs uppercase text-slate-500">Registros oficiales</p>
             <p className="text-2xl font-bold">{session.recordedCount}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
@@ -62,6 +63,28 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
             {session.opponentName ? <p><strong>Rival:</strong> {session.opponentName}</p> : null}
             {session.notes ? <p><strong>Notas de sesion:</strong> {session.notes}</p> : null}
           </div>
+        ) : null}
+
+        {session.trialVisitors.length > 0 ? (
+          <section className="rounded-lg border border-blue-200 bg-blue-50/70 p-4 text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-semibold">Clases de prueba</h2>
+                <p className="text-xs text-blue-800 dark:text-blue-200">Visitantes registrados por Front Desk. No cuentan en el plantel ni en la asistencia oficial.</p>
+              </div>
+              <span className="rounded-full border border-blue-300 bg-white px-3 py-1 text-sm font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+                +{session.trialVisitors.length}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {session.trialVisitors.map((visitor) => (
+                <div key={visitor.visitId} className="rounded-md border border-blue-200 bg-white px-3 py-2 dark:border-blue-900 dark:bg-slate-950">
+                  <p className="font-semibold">{visitor.prospectName}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">Cat. {visitor.birthYear ?? "-"} | Clase {visitor.visitNumber}/3 | Llegada {formatTimeMonterrey(visitor.checkedInAt)}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         {session.status === "cancelled" ? (

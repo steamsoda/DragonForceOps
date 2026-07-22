@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-22 (session 221)
+
+### Clases de Prueba Pass 2 Attendance Awareness (v1.16.212)
+
+- Added a separate trial-visitor count to matching sessions in `Asistencia > Hoy`, shown as `+N clase(s) de prueba` without changing enrolled roster or official record counts.
+- Added a read-only `Clases de prueba` section to attendance session detail with prospect name, birth year, visit number, and Monterrey check-in time so Field Admin/coaches can see who arrived.
+- Kept the official recorder payload unchanged: only `session.roster` is passed to attendance capture. Trial visitors are never added to `attendance_records`, attendance percentages, absence streaks, coach reports, dashboards, enrollment, or finance.
+- Reused the isolated `trial_visits` ledger through a session-keyed batch read. No migration or database write was added.
+- Read-only preview verification against project `eqefgwdsqabnmpnbpqbq` confirmed the visit-to-prospect/session relationship resolves correctly. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-21 (session 220)
 
 ### Clases de Prueba Intake Validation Follow-up (v1.16.211)

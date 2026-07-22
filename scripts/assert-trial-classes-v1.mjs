@@ -5,6 +5,9 @@ const action = fs.readFileSync("src/server/actions/trial-classes.ts", "utf8");
 const query = fs.readFileSync("src/lib/queries/trial-classes.ts", "utf8");
 const page = fs.readFileSync("src/app/(protected)/trial-classes/page.tsx", "utf8");
 const prospectForm = fs.readFileSync("src/components/trial-classes/trial-prospect-form.tsx", "utf8");
+const attendanceQuery = fs.readFileSync("src/lib/queries/attendance.ts", "utf8");
+const attendanceTodayPage = fs.readFileSync("src/app/(protected)/attendance/page.tsx", "utf8");
+const attendanceSessionPage = fs.readFileSync("src/app/(protected)/attendance/sessions/[sessionId]/page.tsx", "utf8");
 const printer = fs.readFileSync("src/lib/printer.ts", "utf8");
 
 function assert(condition, message) {
@@ -27,6 +30,11 @@ assert(page.includes("Las visitas de prueba no alteran planteles, asistencia ofi
 assert(prospectForm.includes('pattern="[0-9]{10}"'), "Prospect intake must validate ten-digit phones before submission");
 assert(prospectForm.includes("event.preventDefault()"), "Prospect intake must preserve form state on server errors");
 assert(prospectForm.includes("formRef.current?.reset()"), "Prospect intake should reset only after a successful save");
+assert(attendanceQuery.includes('.from("trial_visits")'), "Attendance awareness must read the isolated trial visit ledger");
+assert(attendanceQuery.includes("trialVisitors: trialVisitorsBySession.get(row.id) ?? []"), "Today's sessions must receive trial visitors separately");
+assert(attendanceTodayPage.includes("clase de prueba"), "Today's attendance cards must show the separate trial count");
+assert(attendanceSessionPage.includes("No cuentan en el plantel ni en la asistencia oficial"), "Session detail must explain the official-metric boundary");
+assert(attendanceSessionPage.includes("roster={session.roster}"), "The official recorder must continue receiving only the enrolled roster");
 assert(printer.includes("printTrialClassTicket"), "Thermal ticket printer is missing");
 
 console.log("Trial classes v1 assertions passed.");
