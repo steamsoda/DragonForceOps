@@ -43,6 +43,12 @@ function rateLabel(rate: number | null) {
   return rate == null ? "Sin base" : `${rate}%`;
 }
 
+function prospectStatusLabel(status: string) {
+  if (status === "converted") return "Inscrito";
+  if (status === "closed") return "Cerrado";
+  return "En seguimiento";
+}
+
 export default async function TrialClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const context = await requireOperationalContext();
@@ -173,10 +179,10 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Grupo</th><th className="px-3 py-2 text-center">Registrados</th><th className="px-3 py-2 text-center">Visitas</th><th className="px-3 py-2 text-center">Convertidos</th><th className="px-3 py-2 text-center">Conversion</th></tr></thead>
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Grupo</th><th className="px-3 py-2">Campus / categoria</th><th className="px-3 py-2 text-center">Registrados</th><th className="px-3 py-2 text-center">Visitas</th><th className="px-3 py-2 text-center">Convertidos</th><th className="px-3 py-2 text-center">Conversion</th></tr></thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                  {report.groups.map((group) => <tr key={group.trainingGroupId}><td className="px-3 py-2 font-medium">{group.trainingGroupName}</td><td className="px-3 py-2 text-center">{group.registeredProspects}</td><td className="px-3 py-2 text-center">{group.visits}</td><td className="px-3 py-2 text-center">{group.convertedProspects}</td><td className="px-3 py-2 text-center font-semibold">{rateLabel(group.conversionRate)}</td></tr>)}
-                  {report.groups.length === 0 ? <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">Sin actividad en este mes.</td></tr> : null}
+                  {report.groups.map((group) => <tr key={group.trainingGroupId}><td className="px-3 py-2 font-medium">{group.trainingGroupName}</td><td className="px-3 py-2 text-slate-600 dark:text-slate-300">{group.campusName}<br /><span className="text-xs">{group.birthYearLabel}</span></td><td className="px-3 py-2 text-center">{group.registeredProspects}</td><td className="px-3 py-2 text-center">{group.visits}</td><td className="px-3 py-2 text-center">{group.convertedProspects}</td><td className="px-3 py-2 text-center font-semibold">{rateLabel(group.conversionRate)}</td></tr>)}
+                  {report.groups.length === 0 ? <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-500">Sin actividad en este mes.</td></tr> : null}
                 </tbody>
               </table>
             </div>
@@ -192,6 +198,18 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div><h3 className="font-semibold">Prospectos que asistieron</h3><p className="text-xs text-slate-500">Una fila por prospecto con al menos una visita durante el mes seleccionado.</p></div>
+            <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Prospecto</th><th className="px-3 py-2 text-center">Categoria</th><th className="px-3 py-2">Grupo(s)</th><th className="px-3 py-2">Coach(es)</th><th className="px-3 py-2 text-center">Visitas</th><th className="px-3 py-2 text-center">Ultima visita</th><th className="px-3 py-2">Estado</th></tr></thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {report.visitors.map((visitor) => <tr key={visitor.prospectId}><td className="px-3 py-2 font-medium">{visitor.prospectName}</td><td className="px-3 py-2 text-center">{visitor.birthYear ?? "-"}</td><td className="px-3 py-2">{visitor.groupNames.join(", ")}</td><td className="px-3 py-2">{visitor.coachNames.join(", ") || "Sin coach"}</td><td className="px-3 py-2 text-center">{visitor.visits}</td><td className="px-3 py-2 text-center">{formatDateOnlyDdMmYyyy(visitor.lastVisitDate)}</td><td className="px-3 py-2">{prospectStatusLabel(visitor.status)}</td></tr>)}
+                  {report.visitors.length === 0 ? <tr><td colSpan={7} className="px-3 py-8 text-center text-slate-500">Sin prospectos con visitas en este mes.</td></tr> : null}
+                </tbody>
+              </table>
             </div>
           </div>
           <p className="text-xs text-slate-500">La conversion general usa como cohorte los prospectos registrados durante el mes seleccionado. Las visitas se cuentan por su fecha real dentro del mes.</p>

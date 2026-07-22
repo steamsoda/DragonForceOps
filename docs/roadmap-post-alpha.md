@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.209`
-- Current preview line: `v1.16.215`
+- Current preview line: `v1.16.216`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -101,7 +101,7 @@ The academy feedback cycle pushed attendance operations and player-context visib
 **Still Active / Not Dropped**
 
 - 🟡 Enrollment data validation + confirmation popup remains priority, but moves behind the attendance group polish unless staff escalate intake errors again.
-- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 are in preview through `v1.16.215`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate monthly conversion reporting. Override/duplicate hardening remains open.
+- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 and reporting detail are in preview through `v1.16.216`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate monthly group/coach/visitor reporting. Closure, override, and duplicate hardening remain open.
 - 🟡 Caja refund/reassignment/account-credit monitoring remains active after finance-sensitive work; keep using `/admin/finance-sanity` after finance edits.
 
 ## Checkpoint: 2026-07-11
@@ -132,7 +132,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
-| 🟢 | Tryout classes Pass 1-4 | Preview `v1.16.210`-`v1.16.215` adds isolated intake/check-in/tickets, separate attendance awareness, guarded conversion through normal enrollment/Caja, and monthly group/coach conversion reporting. Trial visitors remain outside official rosters, attendance metrics, charges, and payments. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.215` devlog |
+| 🟢 | Tryout classes Pass 1-4 | Preview `v1.16.210`-`v1.16.216` adds isolated intake/check-in/tickets, separate attendance awareness, guarded conversion through normal enrollment/Caja, and monthly group/coach/visitor reporting. Trial visitors remain outside official rosters, attendance metrics, charges, and payments. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.216` devlog |
 | 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
@@ -179,7 +179,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | 2026-07-01 tournament product/pricing refresh | Production `v1.16.183` implements the urgent July 2026 product refresh with additive pricing rules and keeps old products manually deactivatable for history safety. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | ✅ | 2026-06-27 priority wave: weekly coach packet | Production `v1.16.180` provides the full campus packet and single-coach reprint, grouped by coach and training group, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation popup | Plan after coach packet. Must preserve the current successful behavior where enrollment opens Caja with inscription/monthly charges staged for payment. | New Enrollments / Caja |
-| 🟢 | Tryout classes workflow | Preview `v1.16.210`-`v1.16.215` implements Passes 1-4: intake/check-in/tickets, separate attendance awareness, guarded conversion through existing enrollment/B1/Caja, and monthly conversion reporting. Pass 5 adds override and duplicate hardening. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.215` devlog |
+| 🟢 | Tryout classes workflow | Preview `v1.16.210`-`v1.16.216` implements Passes 1-4 plus visitor reporting detail. Pass 5 adds explicit abandoned/declined closure, fourth-class override, and duplicate hardening without deleting trial history. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.216` devlog |
 | 🔴 | 2026-06-23 Front Desk print + attendance visibility wave | Promote the coach print sheet first if staff need paper immediately; build recent attendance through a shared source before surfacing it across queues. | Checkpoint 2026-06-23 |
 | ✅ | Coach roster print sheet from `Jugadores` | Shipped in `v1.16.166`: direct-print action under `Herramientas`, separate from `Exportar Excel`. One group per printed page; players alphabetical; columns: count, full name, ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes. | Jugadores, `v1.16.166` devlog |
 | ✅ | Recent attendance visible beside players | Production `v1.16.167`-`v1.16.179` establishes the shared summary/risk sources and reuses them in Jugadores, Pendientes, Caja, and the collections-attendance relation report. | Asistencia, Jugadores, Front Desk / Caja / Collections |

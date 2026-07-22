@@ -50,7 +50,7 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 ### Pass 5 - Hardening
 
 - Add director/admin approval and audit detail for a fourth class.
-- Improve duplicate review/merge handling and abandoned/declined prospect closure.
+- Improve duplicate review/merge handling and add an explicit abandoned/declined prospect closure workflow with reason, audit history, inactive queue, and stale-follow-up suggestions. Do not delete or silently auto-close prospect history.
 - Add operational alerts only after real usage establishes useful thresholds.
 
 ## Pass 1 Acceptance

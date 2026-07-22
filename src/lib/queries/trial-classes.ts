@@ -104,17 +104,41 @@ type TrialReportVisitRow = {
   id: string;
   prospect_id: string;
   training_group_id: string;
+  visit_date: string;
   coach_snapshot: Array<{ name?: string }> | null;
-  trial_prospects: { status: string } | Array<{ status: string }> | null;
+  trial_prospects: {
+    first_name: string;
+    last_name: string;
+    birth_date: string;
+    status: string;
+  } | Array<{
+    first_name: string;
+    last_name: string;
+    birth_date: string;
+    status: string;
+  }> | null;
 };
 
 export type TrialReportGroupRow = {
   trainingGroupId: string;
   trainingGroupName: string;
+  campusName: string;
+  birthYearLabel: string;
   registeredProspects: number;
   visits: number;
   convertedProspects: number;
   conversionRate: number | null;
+};
+
+export type TrialReportVisitorRow = {
+  prospectId: string;
+  prospectName: string;
+  birthYear: number | null;
+  groupNames: string[];
+  coachNames: string[];
+  visits: number;
+  lastVisitDate: string;
+  status: string;
 };
 
 export type TrialReportCoachRow = {
@@ -135,6 +159,7 @@ export type TrialClassesReport = {
   visitingProspects: number;
   groups: TrialReportGroupRow[];
   coaches: TrialReportCoachRow[];
+  visitors: TrialReportVisitorRow[];
 };
 
 function searchable(value: string) {
@@ -184,7 +209,7 @@ async function loadReportVisits(campusId: string, startDate: string, endDate: st
   for (let from = 0; ; from += REPORT_PAGE_SIZE) {
     const { data, error } = await admin
       .from("trial_visits")
-      .select("id, prospect_id, training_group_id, coach_snapshot, trial_prospects!inner(status)")
+      .select("id, prospect_id, training_group_id, visit_date, coach_snapshot, trial_prospects!inner(first_name, last_name, birth_date, status)")
       .eq("campus_id", campusId)
       .gte("visit_date", startDate)
       .lt("visit_date", endDate)
@@ -221,6 +246,7 @@ export async function getTrialClassesReport({
     visitingProspects: 0,
     groups: [],
     coaches: [],
+    visitors: [],
   };
   if (!selectedCampusId) return empty;
 
@@ -236,9 +262,23 @@ export async function getTrialClassesReport({
   const admin = createAdminClient();
   const { data: groupRows, error: groupError } = groupIds.length === 0
     ? { data: [], error: null }
-    : await admin.from("training_groups").select("id, name").in("id", groupIds);
+    : await admin.from("training_groups").select("id, name, campus_id, birth_year_min, birth_year_max, campuses(name)").in("id", groupIds);
   if (groupError) throw groupError;
   const groupNames = new Map((groupRows ?? []).map((row) => [row.id, row.name ?? "Grupo"]));
+  const groupMeta = new Map((groupRows ?? []).map((row) => {
+    const campusRelation = row.campuses as unknown as { name: string | null } | Array<{ name: string | null }> | null;
+    const campus = Array.isArray(campusRelation) ? campusRelation[0] ?? null : campusRelation;
+    const minYear = row.birth_year_min as number | null;
+    const maxYear = row.birth_year_max as number | null;
+    const birthYearLabel = minYear == null && maxYear == null
+      ? "Sin categoria"
+      : minYear === maxYear || maxYear == null
+        ? `Cat. ${minYear}`
+        : minYear == null
+          ? `Cat. ${maxYear}`
+          : `Cat. ${Math.min(minYear, maxYear)}/${Math.max(minYear, maxYear)}`;
+    return [row.id, { campusName: campus?.name ?? "Campus", birthYearLabel }] as const;
+  }));
 
   const visitsByProspect = new Map<string, number>();
   const groupVisits = new Map<string, number>();
@@ -253,6 +293,8 @@ export async function getTrialClassesReport({
     return {
       trainingGroupId: groupId,
       trainingGroupName: groupNames.get(groupId) ?? "Grupo",
+      campusName: groupMeta.get(groupId)?.campusName ?? "Campus",
+      birthYearLabel: groupMeta.get(groupId)?.birthYearLabel ?? "Sin categoria",
       registeredProspects: cohort.length,
       visits: groupVisits.get(groupId) ?? 0,
       convertedProspects: converted,
@@ -281,6 +323,46 @@ export async function getTrialClassesReport({
     conversionRate: percentage(metric.convertedProspectIds.size, metric.prospectIds.size),
   })).sort((left, right) => left.coachName.localeCompare(right.coachName, "es-MX"));
 
+  const visitorMetrics = new Map<string, {
+    prospectName: string;
+    birthYear: number | null;
+    groupNames: Set<string>;
+    coachNames: Set<string>;
+    visits: number;
+    lastVisitDate: string;
+    status: string;
+  }>();
+  for (const visit of visits) {
+    const relation = Array.isArray(visit.trial_prospects) ? visit.trial_prospects[0] ?? null : visit.trial_prospects;
+    if (!relation) continue;
+    const metric = visitorMetrics.get(visit.prospect_id) ?? {
+      prospectName: `${relation.first_name} ${relation.last_name}`.replace(/\s+/g, " ").trim(),
+      birthYear: Number(relation.birth_date.slice(0, 4)) || null,
+      groupNames: new Set<string>(),
+      coachNames: new Set<string>(),
+      visits: 0,
+      lastVisitDate: visit.visit_date,
+      status: relation.status,
+    };
+    metric.groupNames.add(groupNames.get(visit.training_group_id) ?? "Grupo");
+    for (const coach of visit.coach_snapshot ?? []) {
+      if (coach.name?.trim()) metric.coachNames.add(coach.name.trim());
+    }
+    metric.visits += 1;
+    if (visit.visit_date > metric.lastVisitDate) metric.lastVisitDate = visit.visit_date;
+    visitorMetrics.set(visit.prospect_id, metric);
+  }
+  const visitors: TrialReportVisitorRow[] = [...visitorMetrics.entries()].map(([prospectId, metric]) => ({
+    prospectId,
+    prospectName: metric.prospectName,
+    birthYear: metric.birthYear,
+    groupNames: [...metric.groupNames].sort((left, right) => left.localeCompare(right, "es-MX")),
+    coachNames: [...metric.coachNames].sort((left, right) => left.localeCompare(right, "es-MX")),
+    visits: metric.visits,
+    lastVisitDate: metric.lastVisitDate,
+    status: metric.status,
+  })).sort((left, right) => left.prospectName.localeCompare(right.prospectName, "es-MX"));
+
   const convertedProspects = prospects.filter((row) => row.status === "converted").length;
   return {
     selectedMonth,
@@ -292,6 +374,7 @@ export async function getTrialClassesReport({
     visitingProspects: visitsByProspect.size,
     groups: groupRowsResult,
     coaches,
+    visitors,
   };
 }
 

@@ -59,5 +59,8 @@ assert(query.includes('getMonterreyMonthBounds(selectedMonth)'), "Trial reportin
 assert(query.includes("coach_snapshot"), "Trial coach attribution must use the immutable visit snapshot");
 assert(page.includes("Reporte mensual") && page.includes("Prospectos registrados") && page.includes("Atribucion por coach"), "Trial monthly reporting UI is incomplete");
 assert(page.includes("separadas del plantel, asistencia oficial y finanzas"), "Trial reporting must preserve its official-metric boundary");
+assert(query.includes("TrialReportVisitorRow") && query.includes("visitorMetrics"), "Trial reporting must include a deduplicated monthly visitor roster");
+assert(query.includes("birth_year_min") && query.includes("birth_year_max") && query.includes("campuses(name)"), "Trial group reporting must include campus and category metadata");
+assert(page.includes("Prospectos que asistieron") && page.includes("Campus / categoria"), "Trial visitor and group metadata UI is missing");
 
 console.log("Trial classes v1 assertions passed.");

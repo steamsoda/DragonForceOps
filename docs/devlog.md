@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-22 (session 225)
+
+### Clases de Prueba Reporting Detail Follow-up (v1.16.216)
+
+- Added a deduplicated monthly visitor table to the tryout report with prospect name, YOB, actual visited group(s), visit-time coach snapshot(s), visit count, latest visit date, and current prospect status.
+- Enriched the group report with campus and configured group category/YOB range so mixed-year groups remain understandable.
+- Kept the report read-only and campus-scoped. No migration or changes to trial visits, conversion, official attendance, enrollment, roster, or finance behavior.
+- Confirmed the existing prospect model already supports a non-destructive `closed` state, but no operator closure workflow exists yet. Pass 5 remains the planned home for an explicit closure reason, audit trail, inactive queue, and optional stale-follow-up suggestions without deleting history or auto-closing prospects.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 224)
 
 ### Clases de Prueba Pass 4 Monthly Reporting (v1.16.215)
