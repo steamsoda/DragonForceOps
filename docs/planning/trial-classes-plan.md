@@ -32,6 +32,7 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 - Give Field Admin/attendance staff visibility that a prospect is expected/present.
 - Keep all existing player roster totals, attendance records, percentages, absence streaks, coach reports, and dashboards unchanged.
 - Preview `v1.16.212` implements this as a read-only `trial_visits` layer on `Asistencia > Hoy` and session detail. The official attendance recorder still receives only enrolled roster rows.
+- Preview `v1.16.213` separates database-save confirmation from page refresh and QZ printing, so a slow or unavailable printer cannot leave intake or arrival controls looking unsaved.
 
 ### Pass 3 - Convert To Enrollment
 

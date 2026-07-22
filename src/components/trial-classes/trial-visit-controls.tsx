@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { printTrialClassTicket, type TrialClassTicketData } from "@/lib/printer";
 import { recordTrialVisitAction } from "@/server/actions/trial-classes";
@@ -31,34 +31,48 @@ export function TrialCheckInControl({
   const [sessionId, setSessionId] = useState(matchingSession?.id ?? sessions[0]?.id ?? "");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [savedVisitCount, setSavedVisitCount] = useState(visitCount);
   const router = useRouter();
 
-  if (visitCount >= 3) {
+  if (savedVisitCount >= 3) {
     return <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">3/3 clases completadas</p>;
   }
   if (sessions.length === 0) {
     return <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">No hay sesiones generadas para hoy en este campus.</p>;
   }
 
-  function checkIn() {
+  async function checkIn() {
     if (!sessionId) return;
     setMessage(null);
-    startTransition(async () => {
+    setIsSaving(true);
+    try {
       const result = await recordTrialVisitAction({ prospectId, attendanceSessionId: sessionId, note });
       if (!result.ok) {
         setMessage(ERROR_LABELS[result.error]);
         return;
       }
+      setSavedVisitCount((current) => Math.max(current, result.ticket.visitNumber));
+      setNote("");
+      setMessage(result.duplicate ? "La llegada ya existia. Preparando reimpresion..." : "Llegada guardada. Preparando pase...");
+      startTransition(() => router.refresh());
+      setIsSaving(false);
+
+      setIsPrinting(true);
       try {
         await printTrialClassTicket(printerName, result.ticket);
         setMessage(result.duplicate ? "La llegada ya existia. Se reimprimio el pase." : "Llegada guardada y pase impreso.");
-        setNote("");
       } catch {
         setMessage("La llegada quedo guardada, pero no se pudo imprimir. Usa Reimprimir pase.");
+      } finally {
+        setIsPrinting(false);
       }
-      router.refresh();
-    });
+    } catch {
+      setMessage("No se pudo registrar la llegada.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -72,10 +86,10 @@ export function TrialCheckInControl({
         </select>
       </label>
       <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={2000} placeholder="Nota de esta visita (opcional)" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900" />
-      <button type="button" onClick={checkIn} disabled={isPending || !sessionId} className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-wait disabled:opacity-60">
-        {isPending ? "Guardando llegada..." : `Registrar llegada ${visitCount + 1}/3 e imprimir`}
+      <button type="button" onClick={checkIn} disabled={isSaving || !sessionId} className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-wait disabled:opacity-60">
+        {isSaving ? "Guardando llegada..." : `Registrar llegada ${savedVisitCount + 1}/3 e imprimir`}
       </button>
-      {message ? <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{message}</p> : null}
+      {message ? <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{message}{isPrinting ? " La llegada ya esta guardada; puedes continuar mientras responde la impresora." : ""}</p> : null}
     </div>
   );
 }

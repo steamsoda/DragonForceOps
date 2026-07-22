@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type FormEvent } from "react";
+import { startTransition, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import type { TrialTrainingGroup } from "@/lib/queries/trial-classes";
@@ -34,7 +34,7 @@ function groupContext(group: TrialTrainingGroup) {
 export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProspectFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<TrialProspectCreateResult | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -44,14 +44,21 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
 
     setResult(null);
     const formData = new FormData(form);
-    startTransition(async () => {
-      const nextResult = await createTrialProspectAction(formData);
-      setResult(nextResult);
-      if (!nextResult.ok) return;
+    setIsSaving(true);
+    void (async () => {
+      try {
+        const nextResult = await createTrialProspectAction(formData);
+        setResult(nextResult);
+        if (!nextResult.ok) return;
 
-      formRef.current?.reset();
-      router.refresh();
-    });
+        formRef.current?.reset();
+        startTransition(() => router.refresh());
+      } catch {
+        setResult({ ok: false, error: "create_failed" });
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   }
 
   return (
@@ -70,8 +77,8 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
       <label className="text-sm font-medium md:col-span-2">Grupo de prueba<select required name="trainingGroupId" defaultValue="" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"><option value="" disabled>Selecciona grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name} | {groupContext(group)}</option>)}</select></label>
       <label className="text-sm font-medium md:col-span-2 xl:col-span-4">Nota inicial (opcional)<textarea name="note" rows={2} maxLength={2000} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
       <div className="space-y-2 md:col-span-2 xl:col-span-4">
-        <button disabled={!campusId || groups.length === 0 || isPending} className="rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
-          {isPending ? "Guardando..." : "Guardar prospecto"}
+        <button disabled={!campusId || groups.length === 0 || isSaving} className="rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          {isSaving ? "Guardando..." : "Guardar prospecto"}
         </button>
         <div aria-live="polite">
           {result?.ok ? <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Prospecto registrado correctamente.</p> : null}

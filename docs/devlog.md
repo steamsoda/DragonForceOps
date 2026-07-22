@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 (session 222)
+
+### Clases de Prueba Save And Print Responsiveness (v1.16.213)
+
+- Removed the Front Desk attribution sentence from the trial visitor notice in attendance session detail while retaining the official-metric boundary.
+- Diagnosed both apparent save hangs as client-state coupling: prospect creation kept `Guardando...` active during the full server refresh, while visit check-in kept `Guardando llegada...` active through refresh and the QZ printer connection.
+- Prospect creation now confirms the database result and releases the save button before refreshing the page in a separate transition.
+- Visit check-in now confirms and displays the saved arrival before attempting QZ printing. Printing remains automatic, but runs under a separate state with explicit text that the visit is already safe and staff may continue.
+- Added regression assertions covering non-blocking refresh and print ordering. No migration, finance, enrollment, official attendance record, roster, report, or trial-ledger behavior changed.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 221)
 
 ### Clases de Prueba Pass 2 Attendance Awareness (v1.16.212)

@@ -70,7 +70,7 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-semibold">Clases de prueba</h2>
-                <p className="text-xs text-blue-800 dark:text-blue-200">Visitantes registrados por Front Desk. No cuentan en el plantel ni en la asistencia oficial.</p>
+                <p className="text-xs text-blue-800 dark:text-blue-200">No cuentan en el plantel ni en la asistencia oficial.</p>
               </div>
               <span className="rounded-full border border-blue-300 bg-white px-3 py-1 text-sm font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
                 +{session.trialVisitors.length}
