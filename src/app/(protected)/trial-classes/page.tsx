@@ -4,7 +4,7 @@ import { TrialCheckInControl, TrialTicketReprintButton } from "@/components/tria
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getPrinterName } from "@/lib/queries/settings";
-import { getTrialClassesData } from "@/lib/queries/trial-classes";
+import { getTrialClassesData, getTrialClassesReport } from "@/lib/queries/trial-classes";
 import { formatDateOnlyDdMmYyyy, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
 import { addTrialProspectNoteAction } from "@/server/actions/trial-classes";
 
@@ -15,6 +15,7 @@ type SearchParams = Promise<{
   ok?: string;
   duplicate?: string;
   focus?: string;
+  reportMonth?: string;
 }>;
 
 const ERROR_LABELS: Record<string, string> = {
@@ -30,12 +31,25 @@ function genderLabel(value: string) {
   return value === "female" ? "Femenino" : "Masculino";
 }
 
+function monthLabel(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return month;
+  const label = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function rateLabel(rate: number | null) {
+  return rate == null ? "Sin base" : `${rate}%`;
+}
+
 export default async function TrialClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const context = await requireOperationalContext();
   if (!context.campusAccess) return null;
-  const [data, printerName] = await Promise.all([
+  const [data, report, printerName] = await Promise.all([
     getTrialClassesData({ campusAccess: context.campusAccess, campusId: params.campus, query: params.q }),
+    getTrialClassesReport({ campusAccess: context.campusAccess, campusId: params.campus, month: params.reportMonth }),
     getPrinterName(),
   ]);
   const returnQuery = new URLSearchParams();
@@ -63,7 +77,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
         ) : null}
 
         <section className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-          <AttendanceCampusButtons pathname="/trial-classes" campuses={data.campuses} selectedCampusId={data.selectedCampusId} allLabel="Campus" params={{ q: params.q }} />
+          <AttendanceCampusButtons pathname="/trial-classes" campuses={data.campuses} selectedCampusId={data.selectedCampusId} allLabel="Campus" params={{ q: params.q, reportMonth: report.selectedMonth }} />
           <form className="flex flex-col gap-2 sm:flex-row">
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
             <input name="q" defaultValue={params.q ?? ""} placeholder="Buscar por jugador, tutor o telefono" className="min-h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
@@ -123,6 +137,64 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
               </article>
             );
           })}
+        </section>
+
+        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Reporte mensual</h2>
+              <p className="text-sm text-slate-500">Clases de prueba separadas del plantel, asistencia oficial y finanzas.</p>
+            </div>
+            <form className="flex items-end gap-2">
+              {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
+              {params.q ? <input type="hidden" name="q" value={params.q} /> : null}
+              <label className="text-sm font-medium">Mes<input name="reportMonth" type="month" defaultValue={report.selectedMonth} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" /></label>
+              <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white">Ver reporte</button>
+            </form>
+          </div>
+
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{monthLabel(report.selectedMonth)}</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            {[
+              ["Prospectos registrados", report.registeredProspects],
+              ["Visitas realizadas", report.visits],
+              ["Convertidos", report.convertedProspects],
+              ["Conversion", rateLabel(report.conversionRate)],
+              ["Siguen activos", report.activeProspects],
+              ["Prospectos con visita", report.visitingProspects],
+            ].map(([label, value]) => (
+              <article key={label} className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
+                <p className="text-[11px] font-semibold uppercase text-slate-500">{label}</p>
+                <p className="mt-1 text-xl font-semibold">{value}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Grupo</th><th className="px-3 py-2 text-center">Registrados</th><th className="px-3 py-2 text-center">Visitas</th><th className="px-3 py-2 text-center">Convertidos</th><th className="px-3 py-2 text-center">Conversion</th></tr></thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {report.groups.map((group) => <tr key={group.trainingGroupId}><td className="px-3 py-2 font-medium">{group.trainingGroupName}</td><td className="px-3 py-2 text-center">{group.registeredProspects}</td><td className="px-3 py-2 text-center">{group.visits}</td><td className="px-3 py-2 text-center">{group.convertedProspects}</td><td className="px-3 py-2 text-center font-semibold">{rateLabel(group.conversionRate)}</td></tr>)}
+                  {report.groups.length === 0 ? <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">Sin actividad en este mes.</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-2">
+              <div><h3 className="font-semibold">Atribucion por coach</h3><p className="text-xs text-slate-500">Usa el coach guardado al registrar cada visita. Un prospecto atendido por varios coaches puede aparecer en varias filas; los KPIs generales no se duplican.</p></div>
+              <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-950"><tr><th className="px-3 py-2">Coach</th><th className="px-3 py-2 text-center">Prospectos</th><th className="px-3 py-2 text-center">Visitas</th><th className="px-3 py-2 text-center">Convertidos</th><th className="px-3 py-2 text-center">Conversion</th></tr></thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {report.coaches.map((coach) => <tr key={coach.coachName}><td className="px-3 py-2 font-medium">{coach.coachName}</td><td className="px-3 py-2 text-center">{coach.prospectsSeen}</td><td className="px-3 py-2 text-center">{coach.visits}</td><td className="px-3 py-2 text-center">{coach.convertedProspects}</td><td className="px-3 py-2 text-center font-semibold">{rateLabel(coach.conversionRate)}</td></tr>)}
+                    {report.coaches.length === 0 ? <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">Sin visitas atribuidas en este mes.</td></tr> : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">La conversion general usa como cohorte los prospectos registrados durante el mes seleccionado. Las visitas se cuentan por su fecha real dentro del mes.</p>
         </section>
       </div>
     </PageShell>

@@ -1,6 +1,8 @@
 import { canAccessCampus, type OperationalCampusAccess } from "@/lib/auth/campuses";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMonterreyDateString } from "@/lib/time";
+import { getMonterreyDateString, getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
+
+const REPORT_PAGE_SIZE = 1000;
 
 export type TrialCampus = { id: string; name: string; code: string };
 export type TrialTrainingGroup = {
@@ -92,6 +94,49 @@ type TrialVisitRow = {
   note: string | null;
 };
 
+type TrialReportProspectRow = {
+  id: string;
+  preferred_training_group_id: string;
+  status: string;
+};
+
+type TrialReportVisitRow = {
+  id: string;
+  prospect_id: string;
+  training_group_id: string;
+  coach_snapshot: Array<{ name?: string }> | null;
+  trial_prospects: { status: string } | Array<{ status: string }> | null;
+};
+
+export type TrialReportGroupRow = {
+  trainingGroupId: string;
+  trainingGroupName: string;
+  registeredProspects: number;
+  visits: number;
+  convertedProspects: number;
+  conversionRate: number | null;
+};
+
+export type TrialReportCoachRow = {
+  coachName: string;
+  prospectsSeen: number;
+  visits: number;
+  convertedProspects: number;
+  conversionRate: number | null;
+};
+
+export type TrialClassesReport = {
+  selectedMonth: string;
+  registeredProspects: number;
+  visits: number;
+  convertedProspects: number;
+  conversionRate: number | null;
+  activeProspects: number;
+  visitingProspects: number;
+  groups: TrialReportGroupRow[];
+  coaches: TrialReportCoachRow[];
+};
+
 function searchable(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-MX");
 }
@@ -101,6 +146,153 @@ function splitGuardianName(value: string | null) {
   if (parts.length <= 1) return { firstName: parts[0] ?? "", lastName: "" };
   if (parts.length <= 3) return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
   return { firstName: parts.slice(0, 2).join(" "), lastName: parts.slice(2).join(" ") };
+}
+
+function normalizedMonth(value?: string | null) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value ?? "");
+  const monthNumber = Number(match?.[2] ?? 0);
+  return match && monthNumber >= 1 && monthNumber <= 12 ? value! : getMonterreyMonthString();
+}
+
+function percentage(numerator: number, denominator: number) {
+  return denominator === 0 ? null : Math.round((numerator / denominator) * 100);
+}
+
+async function loadReportProspects(campusId: string, start: string, end: string) {
+  const admin = createAdminClient();
+  const rows: TrialReportProspectRow[] = [];
+  for (let from = 0; ; from += REPORT_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("trial_prospects")
+      .select("id, preferred_training_group_id, status")
+      .eq("campus_id", campusId)
+      .gte("created_at", start)
+      .lt("created_at", end)
+      .order("created_at")
+      .range(from, from + REPORT_PAGE_SIZE - 1)
+      .returns<TrialReportProspectRow[]>();
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < REPORT_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function loadReportVisits(campusId: string, startDate: string, endDate: string) {
+  const admin = createAdminClient();
+  const rows: TrialReportVisitRow[] = [];
+  for (let from = 0; ; from += REPORT_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("trial_visits")
+      .select("id, prospect_id, training_group_id, coach_snapshot, trial_prospects!inner(status)")
+      .eq("campus_id", campusId)
+      .gte("visit_date", startDate)
+      .lt("visit_date", endDate)
+      .order("visit_date")
+      .range(from, from + REPORT_PAGE_SIZE - 1)
+      .returns<TrialReportVisitRow[]>();
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < REPORT_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+export async function getTrialClassesReport({
+  campusAccess,
+  campusId,
+  month,
+}: {
+  campusAccess: OperationalCampusAccess;
+  campusId?: string | null;
+  month?: string | null;
+}): Promise<TrialClassesReport> {
+  const selectedMonth = normalizedMonth(month);
+  const selectedCampusId = campusId && canAccessCampus(campusAccess, campusId)
+    ? campusId
+    : campusAccess.defaultCampusId;
+  const empty: TrialClassesReport = {
+    selectedMonth,
+    registeredProspects: 0,
+    visits: 0,
+    convertedProspects: 0,
+    conversionRate: null,
+    activeProspects: 0,
+    visitingProspects: 0,
+    groups: [],
+    coaches: [],
+  };
+  if (!selectedCampusId) return empty;
+
+  const bounds = getMonterreyMonthBounds(selectedMonth);
+  const [prospects, visits] = await Promise.all([
+    loadReportProspects(selectedCampusId, bounds.start, bounds.end),
+    loadReportVisits(selectedCampusId, bounds.start.slice(0, 10), bounds.end.slice(0, 10)),
+  ]);
+  const groupIds = [...new Set([
+    ...prospects.map((row) => row.preferred_training_group_id),
+    ...visits.map((row) => row.training_group_id),
+  ])];
+  const admin = createAdminClient();
+  const { data: groupRows, error: groupError } = groupIds.length === 0
+    ? { data: [], error: null }
+    : await admin.from("training_groups").select("id, name").in("id", groupIds);
+  if (groupError) throw groupError;
+  const groupNames = new Map((groupRows ?? []).map((row) => [row.id, row.name ?? "Grupo"]));
+
+  const visitsByProspect = new Map<string, number>();
+  const groupVisits = new Map<string, number>();
+  for (const visit of visits) {
+    visitsByProspect.set(visit.prospect_id, (visitsByProspect.get(visit.prospect_id) ?? 0) + 1);
+    groupVisits.set(visit.training_group_id, (groupVisits.get(visit.training_group_id) ?? 0) + 1);
+  }
+
+  const groupRowsResult: TrialReportGroupRow[] = groupIds.map((groupId) => {
+    const cohort = prospects.filter((row) => row.preferred_training_group_id === groupId);
+    const converted = cohort.filter((row) => row.status === "converted").length;
+    return {
+      trainingGroupId: groupId,
+      trainingGroupName: groupNames.get(groupId) ?? "Grupo",
+      registeredProspects: cohort.length,
+      visits: groupVisits.get(groupId) ?? 0,
+      convertedProspects: converted,
+      conversionRate: percentage(converted, cohort.length),
+    };
+  }).filter((row) => row.registeredProspects > 0 || row.visits > 0)
+    .sort((left, right) => left.trainingGroupName.localeCompare(right.trainingGroupName, "es-MX"));
+
+  const coachMetrics = new Map<string, { prospectIds: Set<string>; convertedProspectIds: Set<string>; visits: number }>();
+  for (const visit of visits) {
+    const relation = Array.isArray(visit.trial_prospects) ? visit.trial_prospects[0] ?? null : visit.trial_prospects;
+    const coachNames = [...new Set((visit.coach_snapshot ?? []).map((coach) => coach.name?.trim()).filter(Boolean) as string[])];
+    for (const coachName of coachNames.length > 0 ? coachNames : ["Sin coach asignado"]) {
+      const metric = coachMetrics.get(coachName) ?? { prospectIds: new Set<string>(), convertedProspectIds: new Set<string>(), visits: 0 };
+      metric.prospectIds.add(visit.prospect_id);
+      if (relation?.status === "converted") metric.convertedProspectIds.add(visit.prospect_id);
+      metric.visits += 1;
+      coachMetrics.set(coachName, metric);
+    }
+  }
+  const coaches: TrialReportCoachRow[] = [...coachMetrics.entries()].map(([coachName, metric]) => ({
+    coachName,
+    prospectsSeen: metric.prospectIds.size,
+    visits: metric.visits,
+    convertedProspects: metric.convertedProspectIds.size,
+    conversionRate: percentage(metric.convertedProspectIds.size, metric.prospectIds.size),
+  })).sort((left, right) => left.coachName.localeCompare(right.coachName, "es-MX"));
+
+  const convertedProspects = prospects.filter((row) => row.status === "converted").length;
+  return {
+    selectedMonth,
+    registeredProspects: prospects.length,
+    visits: visits.length,
+    convertedProspects,
+    conversionRate: percentage(convertedProspects, prospects.length),
+    activeProspects: prospects.filter((row) => row.status === "active").length,
+    visitingProspects: visitsByProspect.size,
+    groups: groupRowsResult,
+    coaches,
+  };
 }
 
 export async function getTrialEnrollmentPrefill({

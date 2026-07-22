@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 (session 224)
+
+### Clases de Prueba Pass 4 Monthly Reporting (v1.16.215)
+
+- Added a campus-scoped monthly report to `Gestion > Clases de prueba` with prospect registrations, visits, converted prospects, cohort conversion rate, active prospects, and unique prospects with a visit.
+- Added group-level reporting for registrations by preferred group, visits by the actual visited group, conversions, and conversion rate.
+- Added coach attribution from the immutable `trial_visits.coach_snapshot`, including unique prospects seen, visit volume, converted prospects, and conversion rate. Shared-coach attribution is explicitly labeled because one prospect can appear under more than one coach while overall KPIs stay deduplicated.
+- Defined the overall conversion cohort as prospects created during the selected Monterrey month; visit volume follows the visit's real date in that month. This keeps the numbers explainable without mixing trial activity into official academy attendance.
+- Fully paginated prospect and visit reads. This is a read-only pass with no migration and no changes to player, enrollment, roster, official attendance, absence-risk, finance, charge, or payment truth.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 223)
 
 ### Clases de Prueba Pass 3 Enrollment Conversion (v1.16.214)

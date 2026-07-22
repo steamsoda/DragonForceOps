@@ -53,5 +53,11 @@ assert(intakeAction.includes("source_trial_prospect_id: trialProspectId"), "Enro
 assert(intakeAction.includes('status: "converted"'), "Successful intake must close the prospect as converted");
 assert(intakeAction.includes('action: "trial_prospect.converted"'), "Prospect conversion must be audited");
 assert(intakeAction.includes('redirect(`/caja?enrollmentId=${createdEnrollment.id}`)'), "Conversion must preserve the existing Caja handoff");
+assert(query.includes("getTrialClassesReport"), "Trial reporting query is missing");
+assert(query.includes("REPORT_PAGE_SIZE") && query.includes(".range(from, from + REPORT_PAGE_SIZE - 1)"), "Trial reporting reads must be fully paginated");
+assert(query.includes('getMonterreyMonthBounds(selectedMonth)'), "Trial reporting must use Monterrey month boundaries");
+assert(query.includes("coach_snapshot"), "Trial coach attribution must use the immutable visit snapshot");
+assert(page.includes("Reporte mensual") && page.includes("Prospectos registrados") && page.includes("Atribucion por coach"), "Trial monthly reporting UI is incomplete");
+assert(page.includes("separadas del plantel, asistencia oficial y finanzas"), "Trial reporting must preserve its official-metric boundary");
 
 console.log("Trial classes v1 assertions passed.");
