@@ -4,6 +4,7 @@ import { EnrollmentIntakeForm } from "@/components/enrollments/enrollment-intake
 import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentIntakeContext } from "@/lib/queries/enrollments";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
+import { getTrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del formulario son invalidos.",
@@ -14,17 +15,28 @@ const errorMessages: Record<string, string> = {
   config_error: "Falta configuracion de cargos o precios para completar la inscripcion.",
   enrollment_failed: "No se pudo crear la inscripcion. Intenta de nuevo.",
   charges_failed: "No se pudieron crear los cargos iniciales. Intenta de nuevo.",
+  trial_conversion_invalid: "El prospecto ya no está disponible para inscripción o pertenece a otro campus.",
+  trial_conversion_failed: "La inscripción no se completó y el prospecto sigue intacto. Intenta de nuevo.",
 };
 
 export default async function NewPlayerPage({
   searchParams
 }: {
-  searchParams: Promise<{ err?: string; returning?: string; returnMode?: string }>;
+  searchParams: Promise<{ err?: string; returning?: string; returnMode?: string; trialProspectId?: string }>;
 }) {
   await requireOperationalContext("/unauthorized");
   const query = await searchParams;
   const intakeContext = await getEnrollmentIntakeContext();
-  const errorMessage = query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;
+  const trialPrefill = query.trialProspectId
+    ? await getTrialEnrollmentPrefill({
+        prospectId: query.trialProspectId,
+        allowedCampusIds: intakeContext.campuses.map((campus) => campus.id),
+      })
+    : null;
+  const invalidTrialSource = Boolean(query.trialProspectId && !trialPrefill);
+  const errorMessage = invalidTrialSource
+    ? errorMessages.trial_conversion_invalid
+    : query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;
   const isReturning = query.returning === "1";
   const initialReturnMode: ReturningInscriptionMode = isReturningInscriptionMode(query.returnMode)
     ? query.returnMode
@@ -44,19 +56,20 @@ export default async function NewPlayerPage({
         )}
 
         <div className="text-sm">
-          <Link href="/players" className="text-portoBlue hover:underline">
-            Volver a Jugadores
+          <Link href={query.trialProspectId ? "/trial-classes" : "/players"} className="text-portoBlue hover:underline">
+            {query.trialProspectId ? "Volver a Clases de prueba" : "Volver a Jugadores"}
           </Link>
         </div>
 
-        <EnrollmentIntakeForm
+        {!invalidTrialSource ? <EnrollmentIntakeForm
           campuses={intakeContext.campuses}
           planCode={intakeContext.planCode}
           pricingVersions={intakeContext.pricingVersions}
           defaultStartDate={intakeContext.defaultStartDate}
           initialIsReturning={isReturning}
           initialReturnInscriptionMode={initialReturnMode}
-        />
+          trialPrefill={trialPrefill}
+        /> : null}
       </div>
     </PageShell>
   );

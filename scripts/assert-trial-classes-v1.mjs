@@ -1,9 +1,13 @@
 import fs from "node:fs";
 
 const migration = fs.readFileSync("supabase/migrations/20260720120000_trial_classes_v1.sql", "utf8");
+const conversionMigration = fs.readFileSync("supabase/migrations/20260722120000_trial_prospect_enrollment_conversion.sql", "utf8");
 const action = fs.readFileSync("src/server/actions/trial-classes.ts", "utf8");
+const intakeAction = fs.readFileSync("src/server/actions/intake.ts", "utf8");
 const query = fs.readFileSync("src/lib/queries/trial-classes.ts", "utf8");
 const page = fs.readFileSync("src/app/(protected)/trial-classes/page.tsx", "utf8");
+const intakePage = fs.readFileSync("src/app/(protected)/players/new/page.tsx", "utf8");
+const intakeForm = fs.readFileSync("src/components/enrollments/enrollment-intake-form.tsx", "utf8");
 const prospectForm = fs.readFileSync("src/components/trial-classes/trial-prospect-form.tsx", "utf8");
 const visitControls = fs.readFileSync("src/components/trial-classes/trial-visit-controls.tsx", "utf8");
 const attendanceQuery = fs.readFileSync("src/lib/queries/attendance.ts", "utf8");
@@ -40,5 +44,14 @@ assert(attendanceTodayPage.includes("clase de prueba"), "Today's attendance card
 assert(attendanceSessionPage.includes("No cuentan en el plantel ni en la asistencia oficial"), "Session detail must explain the official-metric boundary");
 assert(attendanceSessionPage.includes("roster={session.roster}"), "The official recorder must continue receiving only the enrolled roster");
 assert(printer.includes("printTrialClassTicket"), "Thermal ticket printer is missing");
+assert(conversionMigration.includes("source_trial_prospect_id"), "Enrollment conversion source link is missing");
+assert(conversionMigration.includes("create unique index"), "A prospect must not create multiple enrollments");
+assert(page.includes("Inscribir jugador"), "Active prospects need a conversion entry point");
+assert(intakePage.includes("getTrialEnrollmentPrefill"), "Enrollment intake must load a campus-scoped prospect prefill");
+assert(intakeForm.includes('name="trialProspectId"'), "Enrollment intake must submit the durable prospect source");
+assert(intakeAction.includes("source_trial_prospect_id: trialProspectId"), "Enrollment insert must retain the prospect source");
+assert(intakeAction.includes('status: "converted"'), "Successful intake must close the prospect as converted");
+assert(intakeAction.includes('action: "trial_prospect.converted"'), "Prospect conversion must be audited");
+assert(intakeAction.includes('redirect(`/caja?enrollmentId=${createdEnrollment.id}`)'), "Conversion must preserve the existing Caja handoff");
 
 console.log("Trial classes v1 assertions passed.");

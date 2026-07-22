@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.209`
-- Current preview line: `v1.16.213`
+- Current preview line: `v1.16.214`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -101,7 +101,7 @@ The academy feedback cycle pushed attendance operations and player-context visib
 **Still Active / Not Dropped**
 
 - 🟡 Enrollment data validation + confirmation popup remains priority, but moves behind the attendance group polish unless staff escalate intake errors again.
-- 🔴 Tryout player tracking is now specified as a five-pass pre-enrollment workflow. Pass 1 is active in preview: intake, duplicate-aware search, three-visit tracking, current-session check-in, notes/history, and thermal tickets. Trial visits remain separate from academy attendance and finance truth.
+- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-3 are in preview through `v1.16.214`: isolated intake/visits, attendance awareness without metric drift, and guarded conversion through the existing enrollment/B1/Caja flow. Reporting and override/duplicate hardening remain open.
 - 🟡 Caja refund/reassignment/account-credit monitoring remains active after finance-sensitive work; keep using `/admin/finance-sanity` after finance edits.
 
 ## Checkpoint: 2026-07-11

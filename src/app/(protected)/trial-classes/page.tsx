@@ -110,7 +110,15 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
                       <form action={addTrialProspectNoteAction} className="flex flex-col gap-2 sm:flex-row"><input type="hidden" name="prospectId" value={prospect.id} /><input type="hidden" name="returnTo" value={returnTo} /><input required name="body" maxLength={2000} placeholder="Agregar nota" className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" /><button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium">Guardar nota</button></form>
                     </div>
                   </div>
-                  <TrialCheckInControl prospectId={prospect.id} preferredTrainingGroupId={prospect.preferredTrainingGroupId} sessions={data.sessions} visitCount={prospect.visits.length} printerName={printerName} />
+                  <div className="space-y-3">
+                    <TrialCheckInControl prospectId={prospect.id} preferredTrainingGroupId={prospect.preferredTrainingGroupId} sessions={data.sessions} visitCount={prospect.visits.length} printerName={printerName} />
+                    <a
+                      href={`/players/new?trialProspectId=${prospect.id}`}
+                      className="block rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-semibold text-white hover:bg-portoDark"
+                    >
+                      Inscribir jugador
+                    </a>
+                  </div>
                 </div>
               </article>
             );

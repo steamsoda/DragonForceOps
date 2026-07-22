@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 (session 223)
+
+### Clases de Prueba Pass 3 Enrollment Conversion (v1.16.214)
+
+- Added `Inscribir jugador` to active tryout prospects and prefilled the existing new-enrollment form with the prospect's campus, player identity, birth date, gender, tutor name, and phone.
+- Reused the current enrollment intake action for pricing, initial inscription/monthly charges, included uniforms, duplicate warning, guarded B1 assignment, audit, and Caja redirect. No parallel enrollment or finance workflow was introduced.
+- Added nullable `enrollments.source_trial_prospect_id` with a unique partial index so normal enrollments remain unchanged while one prospect cannot produce multiple enrollments.
+- The server validates that the source prospect is active and belongs to an allowed matching campus. After the normal intake succeeds, it marks the prospect `converted`, links the created player/enrollment, preserves all trial visits and notes, and writes a conversion audit event.
+- A link failure rolls back the newly created intake records and leaves the prospect available. Repeated conversion submissions resolve to the already-created Caja account instead of duplicating the enrollment.
+- Migration target: preview only, `20260722120000_trial_prospect_enrollment_conversion.sql`. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 222)
 
 ### Clases de Prueba Save And Print Responsiveness (v1.16.213)

@@ -52,6 +52,20 @@ export type TrialProspect = {
   notes: TrialNote[];
 };
 
+export type TrialEnrollmentPrefill = {
+  trialProspectId: string;
+  campusId: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  gender: "male" | "female";
+  guardianFirstName: string;
+  guardianLastName: string;
+  guardianPhone: string;
+  preferredGroupName: string;
+  visitCount: number;
+};
+
 type TrialProspectRow = {
   id: string;
   campus_id: string;
@@ -80,6 +94,60 @@ type TrialVisitRow = {
 
 function searchable(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-MX");
+}
+
+function splitGuardianName(value: string | null) {
+  const parts = (value ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { firstName: parts[0] ?? "", lastName: "" };
+  if (parts.length <= 3) return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  return { firstName: parts.slice(0, 2).join(" "), lastName: parts.slice(2).join(" ") };
+}
+
+export async function getTrialEnrollmentPrefill({
+  prospectId,
+  allowedCampusIds,
+}: {
+  prospectId: string;
+  allowedCampusIds: string[];
+}): Promise<TrialEnrollmentPrefill | null> {
+  if (!prospectId || allowedCampusIds.length === 0) return null;
+
+  const admin = createAdminClient();
+  const { data: prospect } = await admin
+    .from("trial_prospects")
+    .select("id, campus_id, preferred_training_group_id, first_name, last_name, birth_date, gender, guardian_name, guardian_phone, status")
+    .eq("id", prospectId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!prospect || !allowedCampusIds.includes(prospect.campus_id)) return null;
+
+  const [{ count }, { data: group }] = await Promise.all([
+    admin
+      .from("trial_visits")
+      .select("id", { count: "exact", head: true })
+      .eq("prospect_id", prospect.id),
+    admin
+      .from("training_groups")
+      .select("name")
+      .eq("id", prospect.preferred_training_group_id)
+      .maybeSingle<{ name: string }>(),
+  ]);
+  const guardian = splitGuardianName(prospect.guardian_name);
+
+  return {
+    trialProspectId: prospect.id,
+    campusId: prospect.campus_id,
+    firstName: prospect.first_name,
+    lastName: prospect.last_name,
+    birthDate: prospect.birth_date,
+    gender: prospect.gender === "female" ? "female" : "male",
+    guardianFirstName: guardian.firstName,
+    guardianLastName: guardian.lastName,
+    guardianPhone: prospect.guardian_phone,
+    preferredGroupName: group?.name ?? "Grupo",
+    visitCount: count ?? 0,
+  };
 }
 
 export async function getTrialClassesData({

@@ -39,6 +39,7 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 - Convert the prospect into the existing player/enrollment intake flow with fields prefilled.
 - Preserve the existing confirmation, guarded B1 auto-assignment, and Caja handoff.
 - Link the prospect to the created player/enrollment without rewriting trial history.
+- Preview `v1.16.214` adds this conversion path with a nullable unique source link on `enrollments`, campus-scoped server validation, duplicate-submit protection, conversion audit history, and rollback if the prospect cannot be linked after intake.
 
 ### Pass 4 - Reporting
 
