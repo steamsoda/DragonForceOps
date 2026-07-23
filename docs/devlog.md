@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 (session 228)
+
+### Optional Second Tutor And Safe Product-Charge Repricing (v1.16.218)
+
+- Added an optional second-tutor section to `Nueva Inscripcion`. When used, intake creates and links both tutors in the same guarded workflow; the second tutor is non-primary, and any failure rolls the incomplete intake back before the Caja handoff.
+- Added a Director Admin / Super Admin-only `Cambiar precio` action for one existing catalog-product charge. The override changes only that charge and never the product catalog price.
+- Kept the finance boundary deliberately narrow: only pending product charges with no payment allocation and no applied account credit are eligible. Tuition, inscription, correction, paid, partially paid, and credit-touched charges remain blocked.
+- Added a service-role-only atomic SQL function, mandatory operator reason, before/after audit entry, and finance-anomaly monitoring around the override.
+- Trial-class hardening remains queued: explicit closure/decline, controlled fourth-visit override, and stronger duplicate handling were not folded into this unrelated pass.
+- Verification target: `npm run test:intake-product-repricing`, `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 227)
 
 ### Clases de Prueba Production Promotion (v1.16.217)

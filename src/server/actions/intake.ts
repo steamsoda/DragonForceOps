@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getReturningInscriptionOption } from "@/lib/enrollments/returning";
 import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing/plans";
 import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
-import { parsePlayerFormData } from "@/lib/validations/player";
+import { parsePlayerFormData, parseSecondaryGuardianFormData } from "@/lib/validations/player";
 import { writeAuditLog } from "@/lib/audit";
 import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
 import { assignDefaultB1TrainingGroupForEnrollment } from "@/lib/training-groups/auto-assign";
@@ -64,8 +64,10 @@ async function rollbackIntake(
     teamAssignmentId?: string | null;
     enrollmentId?: string | null;
     playerGuardianId?: string | null;
+    secondaryPlayerGuardianId?: string | null;
     playerId?: string | null;
     guardianId?: string | null;
+    secondaryGuardianId?: string | null;
   }
 ) {
   if (ids.teamAssignmentId) {
@@ -78,11 +80,17 @@ async function rollbackIntake(
   if (ids.playerGuardianId) {
     await admin.from("player_guardians").delete().eq("id", ids.playerGuardianId);
   }
+  if (ids.secondaryPlayerGuardianId) {
+    await admin.from("player_guardians").delete().eq("id", ids.secondaryPlayerGuardianId);
+  }
   if (ids.playerId) {
     await admin.from("players").delete().eq("id", ids.playerId);
   }
   if (ids.guardianId) {
     await admin.from("guardians").delete().eq("id", ids.guardianId);
+  }
+  if (ids.secondaryGuardianId) {
+    await admin.from("guardians").delete().eq("id", ids.secondaryGuardianId);
   }
 }
 
@@ -183,8 +191,9 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const gameUniformIsGoalkeeper = formData.get("gameUniformIsGoalkeeper") === "1";
 
   const player = parsePlayerFormData(formData);
+  const secondaryGuardian = parseSecondaryGuardianFormData(formData);
   const enrollment = parseEnrollmentFormData(formData);
-  if (!player || !enrollment) {
+  if (!player || !enrollment || secondaryGuardian === "invalid") {
     return redirectWithError("invalid_form", { isReturning, returnMode, trialProspectId });
   }
   perf.mark("parse_form");
@@ -270,8 +279,10 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     teamAssignmentId?: string | null;
     enrollmentId?: string | null;
     playerGuardianId?: string | null;
+    secondaryPlayerGuardianId?: string | null;
     playerId?: string | null;
     guardianId?: string | null;
+    secondaryGuardianId?: string | null;
   } = {};
 
   const returnOption =
@@ -342,6 +353,48 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   }
   createdIds.playerGuardianId = link.id;
   perf.mark("guardian_link_insert");
+
+  if (secondaryGuardian) {
+    const { data: createdSecondaryGuardian, error: secondaryGuardianError } = await admin
+      .from("guardians")
+      .insert({
+        first_name: secondaryGuardian.firstName,
+        last_name: secondaryGuardian.lastName,
+        phone_primary: secondaryGuardian.phone,
+        phone_secondary: secondaryGuardian.phoneSecondary,
+        email: secondaryGuardian.email,
+        relationship_label: secondaryGuardian.relationship,
+      })
+      .select("id")
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (secondaryGuardianError || !createdSecondaryGuardian) {
+      console.error("intake secondary guardian insert failed", secondaryGuardianError);
+      await rollbackIntake(admin, createdIds);
+      return redirectWithError("guardian_failed", { isReturning: player.isReturning, trialProspectId });
+    }
+    createdIds.secondaryGuardianId = createdSecondaryGuardian.id;
+
+    const { data: secondaryLink, error: secondaryLinkError } = await admin
+      .from("player_guardians")
+      .insert({
+        player_id: createdPlayer.id,
+        guardian_id: createdSecondaryGuardian.id,
+        is_primary: false,
+      })
+      .select("id")
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (secondaryLinkError || !secondaryLink) {
+      console.error("intake secondary guardian link failed", secondaryLinkError);
+      await rollbackIntake(admin, createdIds);
+      return redirectWithError("link_failed", { isReturning: player.isReturning, trialProspectId });
+    }
+    createdIds.secondaryPlayerGuardianId = secondaryLink.id;
+  }
+  perf.mark("secondary_guardian_insert");
 
   const { data: createdEnrollment, error: enrollmentError } = await admin
     .from("enrollments")
@@ -582,6 +635,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       start_date: enrollment.startDate,
       is_returning: enrollment.isReturning,
       return_inscription_mode: enrollment.isReturning ? enrollment.returnInscriptionMode : null,
+      secondary_guardian_created: Boolean(secondaryGuardian),
       intake_mode: "single_page",
       source_trial_prospect_id: trialProspectId,
     },

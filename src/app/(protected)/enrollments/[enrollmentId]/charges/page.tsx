@@ -13,6 +13,7 @@ import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
+  repriceProductChargeAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -36,6 +37,12 @@ const errorMessages: Record<string, string> = {
   payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
   void_failed: "No se pudo anular. Intenta de nuevo.",
+  reprice_reason_required: "Debes escribir el motivo del precio especial.",
+  reprice_amount_invalid: "Captura un monto mayor a cero.",
+  charge_not_product: "Solo se puede cambiar el precio de cargos ligados a un producto.",
+  charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
+  charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
+  reprice_failed: "No se pudo cambiar el precio del cargo.",
   unauthorized: "No tienes permiso para anular.",
   invalid_incident: "Los datos de la incidencia no son válidos.",
   incident_type_required: "Selecciona un tipo de incidencia.",
@@ -116,6 +123,9 @@ export default async function ChargesPage({
   const voidCharge = isDirector
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
+  const repriceProductCharge = isDirector
+    ? repriceProductChargeAction.bind(null, enrollmentId)
+    : undefined;
   const voidPayment = isDirector
     ? voidPaymentAction.bind(null, enrollmentId)
     : undefined;
@@ -133,6 +143,8 @@ export default async function ChargesPage({
       ? "Incidencia reemplazada correctamente."
       : query.ok === "charge_voided"
       ? "Cargo anulado correctamente."
+      : query.ok === "charge_repriced"
+      ? "Precio especial aplicado solo a este cargo."
       : query.ok === "payment_voided"
       ? "Pago anulado. Los cargos asociados quedaron pendientes."
       : query.ok === "payment_reassigned"
@@ -235,7 +247,11 @@ export default async function ChargesPage({
 
         <section className="space-y-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cargos</h2>
-          <ChargesLedgerTable rows={ledger.charges} voidChargeAction={voidCharge} />
+          <ChargesLedgerTable
+            rows={ledger.charges}
+            voidChargeAction={voidCharge}
+            repriceProductChargeAction={repriceProductCharge}
+          />
         </section>
 
         <section className="space-y-2">

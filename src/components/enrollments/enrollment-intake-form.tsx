@@ -128,6 +128,7 @@ export function EnrollmentIntakeForm({
   const [birthDateText, setBirthDateText] = useState(trialPrefill ? formatDateOnlyDdMmYyyy(trialPrefill.birthDate) : "");
   const [guardianFirstName, setGuardianFirstName] = useState(trialPrefill?.guardianFirstName ?? "");
   const [guardianLastName, setGuardianLastName] = useState(trialPrefill?.guardianLastName ?? "");
+  const [addSecondaryGuardian, setAddSecondaryGuardian] = useState(false);
   const [startDateText, setStartDateText] = useState(formatDateOnlyDdMmYyyy(defaultStartDate));
   const [matches, setMatches] = useState<IntakeMatch[]>([]);
   const [isCheckingMatches, setIsCheckingMatches] = useState(false);
@@ -220,6 +221,7 @@ export function EnrollmentIntakeForm({
       <input type="hidden" name="addGameUniform" value={addGameUniform ? "1" : "0"} />
       <input type="hidden" name="gameUniformSize" value={gameUniformSize} />
       <input type="hidden" name="gameUniformIsGoalkeeper" value={gameUniformIsGoalkeeper ? "1" : "0"} />
+      <input type="hidden" name="addSecondaryGuardian" value={addSecondaryGuardian ? "1" : "0"} />
 
       {trialPrefill ? (
         <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
@@ -385,7 +387,7 @@ export function EnrollmentIntakeForm({
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tutor principal</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            En esta version se captura un solo tutor principal antes de enviar a Caja.
+            Captura el contacto principal. Puedes agregar un segundo tutor opcional antes de enviar a Caja.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
@@ -448,6 +450,63 @@ export function EnrollmentIntakeForm({
             />
           </label>
         </div>
+        <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={() => setAddSecondaryGuardian((current) => !current)}
+            aria-expanded={addSecondaryGuardian}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {addSecondaryGuardian ? "Quitar segundo tutor" : "Agregar segundo tutor"}
+          </button>
+        </div>
+        {addSecondaryGuardian ? (
+          <fieldset className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+            <legend className="px-1 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Segundo tutor (opcional)
+            </legend>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Si agregas este contacto, completa nombre, apellidos y telefono principal.
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  Nombre(s) <span className="text-rose-500">*</span>
+                </span>
+                <input type="text" name="secondaryGuardianFirstName" required className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  Apellidos <span className="text-rose-500">*</span>
+                </span>
+                <input type="text" name="secondaryGuardianLastName" required className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  Telefono principal <span className="text-rose-500">*</span>
+                </span>
+                <input type="tel" name="secondaryGuardianPhone" required className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Telefono secundario</span>
+                <input type="tel" name="secondaryGuardianPhoneSecondary" placeholder="Opcional" className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Email</span>
+                <input type="email" name="secondaryGuardianEmail" placeholder="Opcional" className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Parentesco</span>
+                <input
+                  type="text"
+                  name="secondaryGuardianRelationship"
+                  placeholder="Ej. Madre, Padre, Tutor"
+                  className={inputClass}
+                />
+              </label>
+            </div>
+          </fieldset>
+        ) : null}
       </section>
 
       <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

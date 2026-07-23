@@ -15,6 +15,34 @@ export type ParsedPlayerInput = {
   guardianRelationship: string | null;
 };
 
+export type ParsedSecondaryGuardianInput = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  phoneSecondary: string | null;
+  email: string | null;
+  relationship: string | null;
+};
+
+export function parseSecondaryGuardianFormData(
+  formData: FormData
+): ParsedSecondaryGuardianInput | null | "invalid" {
+  if (String(formData.get("addSecondaryGuardian") ?? "") !== "1") return null;
+
+  const firstName = (formData.get("secondaryGuardianFirstName") as string | null)?.trim() ?? "";
+  const lastName = (formData.get("secondaryGuardianLastName") as string | null)?.trim() ?? "";
+  const phone = (formData.get("secondaryGuardianPhone") as string | null)?.trim() ?? "";
+  const phoneSecondary =
+    (formData.get("secondaryGuardianPhoneSecondary") as string | null)?.trim() || null;
+  const email = (formData.get("secondaryGuardianEmail") as string | null)?.trim() || null;
+  const relationship =
+    (formData.get("secondaryGuardianRelationship") as string | null)?.trim() || null;
+
+  if (!firstName || !lastName || !phone) return "invalid";
+
+  return { firstName, lastName, phone, phoneSecondary, email, relationship };
+}
+
 export function parsePlayerFormData(formData: FormData): ParsedPlayerInput | null {
   const firstName = (formData.get("firstName") as string | null)?.trim() ?? "";
   const lastName = (formData.get("lastName") as string | null)?.trim() ?? "";

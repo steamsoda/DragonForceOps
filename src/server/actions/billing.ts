@@ -1009,6 +1009,90 @@ export async function voidChargeAction(
   redirect(`${BASE}?ok=charge_voided`);
 }
 
+export async function repriceProductChargeAction(
+  enrollmentId: string,
+  chargeId: string,
+  formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  const parsedAmount = Number(formData.get("newAmount"));
+  const newAmount = Math.round(parsedAmount * 100) / 100;
+  if (!reason) redirect(`${BASE}?err=reprice_reason_required`);
+  if (!Number.isFinite(newAmount) || newAmount <= 0 || newAmount > 1_000_000) {
+    redirect(`${BASE}?err=reprice_amount_invalid`);
+  }
+
+  const permissionContext = await requireDirectorContext(`${BASE}?err=unauthorized`);
+  if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    redirect(`${BASE}?err=unauthorized`);
+  }
+
+  const supabase = permissionContext.supabase;
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, enrollment_id, product_id, status, amount, description, pricing_rule_id")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{
+      id: string;
+      enrollment_id: string;
+      product_id: string | null;
+      status: string;
+      amount: number;
+      description: string;
+      pricing_rule_id: string | null;
+    } | null>();
+  if (!charge) redirect(`${BASE}?err=charge_not_found`);
+
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("reprice_unallocated_product_charge", {
+    p_charge_id: chargeId,
+    p_new_amount: newAmount,
+  });
+  const result = Array.isArray(data) ? data[0] : data;
+  if (error || !result?.ok) {
+    redirect(`${BASE}?err=${result?.error_code ?? "reprice_failed"}`);
+  }
+
+  await writeAuditLog(supabase, {
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    action: "charge.repriced.product_override",
+    tableName: "charges",
+    recordId: chargeId,
+    beforeData: {
+      enrollment_id: enrollmentId,
+      product_id: charge.product_id,
+      description: charge.description,
+      amount: charge.amount,
+      pricing_rule_id: charge.pricing_rule_id,
+    },
+    afterData: {
+      enrollment_id: enrollmentId,
+      product_id: charge.product_id,
+      description: charge.description,
+      amount: result.new_amount ?? newAmount,
+      pricing_rule_id: null,
+      reason,
+    },
+  });
+
+  revalidatePath(BASE);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email,
+    triggerAction: "charge.repriced.product_override",
+    before: anomalyBefore,
+    permissionContext,
+  });
+  redirect(`${BASE}?ok=charge_repriced`);
+}
+
 // ── Batch void charges for ended/cancelled enrollments ────────────────────────
 
 export async function voidHistoricalRegularizationChargeAction(
