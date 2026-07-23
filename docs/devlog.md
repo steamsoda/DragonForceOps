@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-22 (session 231)
+
+### Second Tutor And Durable Charge Overrides Production Promotion (v1.16.220)
+
+- Promoted the approved `v1.16.218`-`v1.16.220` intake and finance-hardening work from preview to production.
+- Applied production migrations `20260722130000_safe_product_charge_repricing.sql`, `20260722140000_superadmin_all_charge_repricing.sql`, and `20260722150000_manual_charge_override_hardening.sql` before the application merge.
+- Verified production has all six override metadata columns, service-role-only override/restore RPCs, the installed scheduled-repricing override guard, and zero historical production charges backfilled as manual overrides.
+- Confirmed the proven production cron commands remain unchanged. Monthly generation still runs on day 1, while pending monthly repricing remains scheduled for day 11 at 9:45 a.m. Monterrey time.
+- Release verification: focused override regression, enrollment/returning pricing assertions, typecheck, production build, migration dry run/apply verification, and direct production schema/function/cron inspection.
+
 ## 2026-07-22 (session 230)
 
 ### Durable Manual Charge Overrides And Cron Hardening (v1.16.220)
