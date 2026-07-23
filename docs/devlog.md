@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-22 (session 227)
+
+### Clases de Prueba Production Promotion (v1.16.217)
+
+- Promoted the approved `v1.16.210`-`v1.16.217` trial-class workflow from preview to production after operator validation.
+- Applied and verified production migrations `20260720120000_trial_classes_v1.sql`, `20260720121000_trial_classes_idempotency_hardening.sql`, and `20260722120000_trial_prospect_enrollment_conversion.sql` before the application merge.
+- Confirmed production recognizes `trial_prospects`, `trial_visits`, `trial_prospect_notes`, and `enrollments.source_trial_prospect_id`. No verification rows or finance mutations were created.
+- Release verification: trial-class regression suite, typecheck, and production build passed on the promoted commit; production deployment and migration workflow were monitored after the main push.
+
 ## 2026-07-22 (session 226)
 
 ### Clases de Prueba Range Filters And YOB Chart (v1.16.217)

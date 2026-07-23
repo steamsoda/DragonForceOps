@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.209`
+- Current production line: `v1.16.217`
 - Current preview line: `v1.16.217`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -101,7 +101,7 @@ The academy feedback cycle pushed attendance operations and player-context visib
 **Still Active / Not Dropped**
 
 - 🟡 Enrollment data validation + confirmation popup remains priority, but moves behind the attendance group polish unless staff escalate intake errors again.
-- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 and reporting detail are in preview through `v1.16.217`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate range-filtered group/coach/visitor/YOB reporting. Closure, override, and duplicate hardening remain open.
+- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 and reporting detail are in production through `v1.16.217`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate range-filtered group/coach/visitor/YOB reporting. Closure, override, and duplicate hardening remain open.
 - 🟡 Caja refund/reassignment/account-credit monitoring remains active after finance-sensitive work; keep using `/admin/finance-sanity` after finance edits.
 
 ## Checkpoint: 2026-07-11
@@ -352,6 +352,7 @@ Keep these visible, but do not mix them into urgent operational fixes.
 
 ## Recently Shipped Shortlist
 
+- ✅ `v1.16.210`-`v1.16.217` — production adds isolated trial-class intake and visits, attendance awareness without official metric drift, guarded conversion through the existing enrollment/B1/Caja workflow, and range-filtered group/coach/visitor/YOB reporting.
 - 🟢 `v1.16.209` — preview adds a read-only `Reportes > Mensualidades por coach` dashboard with campus/month/coach filters, status-only collection reporting, prior-month backlog signals, current coach/group ownership, deduplicated totals, charts, and direct printing. No amounts are exposed and no finance records are mutated.
 - 🟢 `v1.16.208` — preview improves category and group visual hierarchy in the coach attendance detail while preserving compact, background-neutral printing.
 - 🟢 `v1.16.207` — preview adds deduplicated coach-report totals and clarifies assigned-roster scope after a production read-only audit reconciled its four-player difference from the academy-wide Panel.
