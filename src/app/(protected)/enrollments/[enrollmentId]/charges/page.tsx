@@ -14,6 +14,7 @@ import {
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
   repriceChargeAction,
+  restoreChargePriceAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -42,6 +43,8 @@ const errorMessages: Record<string, string> = {
   charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
   charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
   reprice_failed: "No se pudo cambiar el precio del cargo.",
+  charge_not_overridden: "Este cargo no tiene un precio manual activo.",
+  restore_price_failed: "No se pudo restaurar el precio anterior.",
   unauthorized: "No tienes permiso para anular.",
   invalid_incident: "Los datos de la incidencia no son válidos.",
   incident_type_required: "Selecciona un tipo de incidencia.",
@@ -125,6 +128,9 @@ export default async function ChargesPage({
   const repriceCharge = permissionContext.isSuperAdmin
     ? repriceChargeAction.bind(null, enrollmentId)
     : undefined;
+  const restoreChargePrice = permissionContext.isSuperAdmin
+    ? restoreChargePriceAction.bind(null, enrollmentId)
+    : undefined;
   const voidPayment = isDirector
     ? voidPaymentAction.bind(null, enrollmentId)
     : undefined;
@@ -144,6 +150,8 @@ export default async function ChargesPage({
       ? "Cargo anulado correctamente."
       : query.ok === "charge_repriced"
       ? "Precio especial aplicado solo a este cargo."
+      : query.ok === "charge_price_restored"
+      ? "Precio anterior restaurado correctamente."
       : query.ok === "payment_voided"
       ? "Pago anulado. Los cargos asociados quedaron pendientes."
       : query.ok === "payment_reassigned"
@@ -250,6 +258,7 @@ export default async function ChargesPage({
             rows={ledger.charges}
             voidChargeAction={voidCharge}
             repriceChargeAction={repriceCharge}
+            restoreChargePriceAction={restoreChargePrice}
           />
         </section>
 

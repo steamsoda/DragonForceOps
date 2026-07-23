@@ -44,6 +44,9 @@ type CreditBalanceRow = {
 
 type ChargeRow = {
   id: string;
+  manual_price_override: boolean;
+  manual_price_override_reason: string | null;
+  manual_price_override_at: string | null;
   description: string;
   amount: number;
   currency: string;
@@ -149,6 +152,9 @@ export type EnrollmentLedger = {
   accountCredit: AccountCreditSummary;
   charges: Array<{
     id: string;
+    manualPriceOverride: boolean;
+    manualPriceOverrideReason: string | null;
+    manualPriceOverrideAt: string | null;
     typeCode: string;
     typeName: string;
     description: string;
@@ -252,7 +258,7 @@ export async function getEnrollmentLedger(
 
   let chargeQuery = supabase
     .from("charges")
-    .select("id, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
+    .select("id, manual_price_override, manual_price_override_reason, manual_price_override_at, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
     .eq("enrollment_id", enrollmentId);
 
   if (chargeScope === "pending") {
@@ -440,6 +446,9 @@ export async function getEnrollmentLedger(
       const creditAppliedAmount = creditAppliedByCharge.get(row.id) ?? 0;
       return {
         id: row.id,
+        manualPriceOverride: row.manual_price_override,
+        manualPriceOverrideReason: row.manual_price_override_reason,
+        manualPriceOverrideAt: row.manual_price_override_at,
         typeCode: row.charge_types?.code ?? "-",
         typeName: row.charge_types?.name ?? "-",
         description: row.description,

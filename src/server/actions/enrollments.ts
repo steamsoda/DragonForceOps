@@ -28,6 +28,7 @@ type EnrollmentScholarshipChargeRow = {
   period_month: string | null;
   amount: number;
   pricing_rule_id: string | null;
+  manual_price_override: boolean;
 };
 type EnrollmentScholarshipAllocationRow = {
   charge_id: string;
@@ -91,7 +92,7 @@ async function syncPendingTuitionForScholarshipChange(
   const currentDayOfMonth = Number(getMonterreyDateString().slice(8, 10));
   const { data: pendingCharges, error: pendingChargesError } = await supabase
     .from("charges")
-    .select("id, period_month, amount, pricing_rule_id")
+    .select("id, period_month, amount, pricing_rule_id, manual_price_override")
     .eq("enrollment_id", enrollment.id)
     .eq("charge_type_id", chargeTypeId)
     .eq("status", "pending")
@@ -101,6 +102,9 @@ async function syncPendingTuitionForScholarshipChange(
   if (pendingChargesError) return { ok: false as const, error: "scholarship_sync_failed" };
 
   const candidateCharges = pendingCharges ?? [];
+  if (candidateCharges.some((charge) => charge.manual_price_override)) {
+    return { ok: false as const, error: "scholarship_manual_price_override" };
+  }
   const candidateChargeIds = candidateCharges.map((charge) => charge.id);
   const allocationTotals = new Map<string, number>();
 

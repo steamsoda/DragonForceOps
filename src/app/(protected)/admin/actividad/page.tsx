@@ -29,6 +29,7 @@ const ACTION_LABELS: Record<string, string> = {
   "charge.voided": "Cargo anulado",
   "charge.repriced.product_override": "Precio especial aplicado",
   "charge.repriced.manual_override": "Precio manual aplicado",
+  "charge.price_override.restored": "Precio anterior restaurado",
   "balance_adjustment.created": "Ajuste de saldo registrado",
   "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
@@ -46,7 +47,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ACTION_OPTIONS = [
   "payment.posted", "payment.reassigned", "payment.refunded", "payment.voided",
-  "charge.created", "charge.corrective_created", "charge.voided", "charge.repriced.product_override", "charge.repriced.manual_override", "balance_adjustment.created", "payment_allocations.repaired",
+  "charge.created", "charge.corrective_created", "charge.voided", "charge.repriced.product_override", "charge.repriced.manual_override", "charge.price_override.restored", "balance_adjustment.created", "payment_allocations.repaired",
   "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
   "monthly_charges.generated", "player.nuked", "pending_follow_up.updated"
@@ -109,6 +110,11 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
     const amount = data.amount as number | undefined;
     const reason = data.reason as string | undefined;
     return [desc, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, reason].filter(Boolean).join(" Â· ");
+  }
+  if (action === "charge.price_override.restored") {
+    const desc = data.description as string | undefined;
+    const amount = data.amount as number | undefined;
+    return [desc, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null].filter(Boolean).join(" Â· ");
   }
   if (action === "charge.created" || action === "charge.corrective_created" || action === "charge.voided" || action === "balance_adjustment.created") {
     const desc = data.description as string | undefined;

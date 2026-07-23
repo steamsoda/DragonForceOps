@@ -26,6 +26,7 @@ import {
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
   repriceChargeAction,
+  restoreChargePriceAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -145,6 +146,8 @@ const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
   charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
   charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
   reprice_failed: "No se pudo cambiar el precio del cargo.",
+  charge_not_overridden: "Este cargo no tiene un precio manual activo.",
+  restore_price_failed: "No se pudo restaurar el precio anterior.",
 };
 
 function SummaryChip({
@@ -355,6 +358,8 @@ export default async function PlayerDetailPage({
                       ? "Asignaciones reparadas correctamente."
                     : sp.ok === "charge_repriced"
                       ? "Precio especial aplicado solo a este cargo."
+                    : sp.ok === "charge_price_restored"
+                      ? "Precio anterior restaurado correctamente."
           : null;
   const errorMessage = sp.err ? ACCOUNT_ERROR_MESSAGES[sp.err] ?? "No se pudo completar la corrección solicitada." : null;
 
@@ -364,6 +369,8 @@ export default async function PlayerDetailPage({
   const voidCharge = activeEnrollmentId && isDirector ? voidChargeAction.bind(null, activeEnrollmentId) : undefined;
   const repriceCharge =
     activeEnrollmentId && isSuperAdmin ? repriceChargeAction.bind(null, activeEnrollmentId) : undefined;
+  const restoreChargePrice =
+    activeEnrollmentId && isSuperAdmin ? restoreChargePriceAction.bind(null, activeEnrollmentId) : undefined;
   const voidPayment = activeEnrollmentId && isDirector ? voidPaymentAction.bind(null, activeEnrollmentId) : undefined;
 
   return (
@@ -810,6 +817,7 @@ export default async function PlayerDetailPage({
                     rows={activeLedger.charges}
                     voidChargeAction={voidCharge}
                     repriceChargeAction={repriceCharge}
+                    restoreChargePriceAction={restoreChargePrice}
                   />
                 </section>
                 <section className="space-y-2">

@@ -1052,6 +1052,8 @@ export async function repriceChargeAction(
   const { data, error } = await admin.rpc("reprice_unallocated_charge", {
     p_charge_id: chargeId,
     p_new_amount: newAmount,
+    p_actor_user_id: permissionContext.user.id,
+    p_reason: reason,
   });
   const result = Array.isArray(data) ? data[0] : data;
   if (error || !result?.ok) {
@@ -1091,6 +1093,84 @@ export async function repriceChargeAction(
     permissionContext,
   });
   redirect(`${BASE}?ok=charge_repriced`);
+}
+
+export async function restoreChargePriceAction(
+  enrollmentId: string,
+  chargeId: string,
+  _formData: FormData
+): Promise<void> {
+  const BASE = `/enrollments/${enrollmentId}/charges`;
+  await assertDebugWritesAllowed(BASE);
+
+  const permissionContext = await requireSuperAdminContext(`${BASE}?err=unauthorized`);
+  if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    redirect(`${BASE}?err=unauthorized`);
+  }
+
+  const supabase = permissionContext.supabase;
+  const { data: charge } = await supabase
+    .from("charges")
+    .select("id, enrollment_id, product_id, amount, description, pricing_rule_id, manual_price_override_reason, manual_price_original_amount, manual_price_original_pricing_rule_id")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{
+      id: string;
+      enrollment_id: string;
+      product_id: string | null;
+      amount: number;
+      description: string;
+      pricing_rule_id: string | null;
+      manual_price_override_reason: string | null;
+      manual_price_original_amount: number | null;
+      manual_price_original_pricing_rule_id: string | null;
+    } | null>();
+  if (!charge) redirect(`${BASE}?err=charge_not_found`);
+
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("restore_unallocated_charge_price", {
+    p_charge_id: chargeId,
+    p_actor_user_id: permissionContext.user.id,
+  });
+  const result = Array.isArray(data) ? data[0] : data;
+  if (error || !result?.ok) {
+    redirect(`${BASE}?err=${result?.error_code ?? "restore_price_failed"}`);
+  }
+
+  await writeAuditLog(supabase, {
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    action: "charge.price_override.restored",
+    tableName: "charges",
+    recordId: chargeId,
+    beforeData: {
+      enrollment_id: enrollmentId,
+      product_id: charge.product_id,
+      description: charge.description,
+      amount: charge.amount,
+      pricing_rule_id: charge.pricing_rule_id,
+      manual_price_override_reason: charge.manual_price_override_reason,
+    },
+    afterData: {
+      enrollment_id: enrollmentId,
+      product_id: charge.product_id,
+      description: charge.description,
+      amount: result.restored_amount ?? charge.manual_price_original_amount,
+      pricing_rule_id: charge.manual_price_original_pricing_rule_id,
+    },
+  });
+
+  revalidatePath(BASE);
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email,
+    triggerAction: "charge.price_override.restored",
+    before: anomalyBefore,
+    permissionContext,
+  });
+  redirect(`${BASE}?ok=charge_price_restored`);
 }
 
 // ── Batch void charges for ended/cancelled enrollments ────────────────────────

@@ -14,6 +14,8 @@ const errorMessages: Record<string, string> = {
   scholarship_forbidden: "Solo direccion puede cambiar la beca.",
   scholarship_allocated_pending_charges:
     "No se puede cambiar la beca porque ya hay mensualidades pendientes con pago asignado.",
+  scholarship_manual_price_override:
+    "No se puede cambiar la beca mientras exista una mensualidad con precio manual. Restaura primero el precio automatico desde la cuenta.",
   scholarship_rate_not_found: "No se pudo calcular la mensualidad correspondiente a la beca.",
   scholarship_sync_failed: "No se pudo actualizar la beca y las mensualidades pendientes."
 };

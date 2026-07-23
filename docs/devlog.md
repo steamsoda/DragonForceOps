@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-22 (session 230)
+
+### Durable Manual Charge Overrides And Cron Hardening (v1.16.220)
+
+- Added explicit override metadata to each manually repriced charge, including the required reason, actor, timestamp, and exact pre-override amount/pricing rule. This makes a one-charge exception durable and auditable instead of relying only on a historical log row.
+- Kept the proven monthly charge generator unchanged. The day-11 monthly repricer now skips charges carrying a manual override, in addition to its existing allocation safeguards, so a later cron run cannot silently replace a Super Admin decision.
+- Added a guarded Super Admin restore action for pending untouched charges. Restore returns the charge to the exact amount and pricing rule it had before the first manual override; paid, partially paid, credited, voided, or otherwise touched charges remain blocked.
+- Hardened adjacent repricing paths: 360Player batch posting skips overridden tuition, scholarship changes require restoring overridden tuition first, and Caja reuses an overridden advance-tuition charge without recalculating it.
+- Corrected Caja cart bookkeeping so a reused existing tuition charge is never treated as a newly created row during rollback. Only charges actually created by the current checkout can be deleted if a later cart step fails.
+- Added focused regression assertions for override persistence, restore behavior, service-role RPC boundaries, cron exclusion, Caja reuse/rollback separation, 360Player exclusion, and scholarship-change blocking.
+- Verification target: focused repricing regression, typecheck, production build, one-migration preview dry run/apply, RPC permission checks, and preview finance sanity after operator testing.
+
 ## 2026-07-22 (session 229)
 
 ### Super Admin-Only Repricing For All Untouched Charges (v1.16.219)
