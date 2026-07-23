@@ -151,7 +151,7 @@ async function getCajaAttendanceRisk(playerId: string | null): Promise<PlayerAtt
 }
 
 export type CajaAdvanceTuitionResult =
-  | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string; mode: "created" | "repriced" }
+  | { ok: true; updatedData: CajaEnrollmentData; newChargeId: string; mode: "created" | "repriced" | "manual_override" }
   | { ok: false; error: string };
 
 export type CajaCreditApplyResult =
@@ -185,6 +185,7 @@ type ExistingTuitionChargeLookup = {
   status: string;
   amount: number;
   pricing_rule_id: string | null;
+  manual_price_override: boolean;
 };
 
 type ProductRestrictionRow = {
@@ -552,7 +553,7 @@ async function createResolvedAdvanceTuitionCharge(
     existingPeriodCharges.length === 1
       ? supabase
           .from("charges")
-          .select("id, status, amount, pricing_rule_id")
+          .select("id, status, amount, pricing_rule_id, manual_price_override")
           .eq("id", existingPeriodCharges[0].id)
           .maybeSingle()
           .returns<ExistingTuitionChargeLookup | null>()
@@ -570,6 +571,16 @@ async function createResolvedAdvanceTuitionCharge(
   if (existingCharge?.data) {
     if (existingPeriodCharges[0].allocatedAmount > 0.009) {
       return { ok: false as const, error: "tuition_existing_allocated" };
+    }
+
+    if (existingCharge.data.manual_price_override) {
+      return {
+        ok: true as const,
+        newChargeId: existingCharge.data.id,
+        amount: Number(existingCharge.data.amount),
+        description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`,
+        mode: "manual_override" as const,
+      };
     }
 
     const { error: updateError } = await supabase
@@ -790,7 +801,7 @@ export async function postCajaChargeAction(
     });
     if (!tuitionResult.ok) return tuitionResult;
 
-    if (!suppressAudit) {
+    if (!suppressAudit && tuitionResult.mode !== "manual_override") {
       await writeAuditLog(supabase, {
         actorUserId: user.id,
         actorEmail: user.email ?? null,
@@ -1075,7 +1086,7 @@ export async function createAdvanceTuitionAction(
     });
     if (!tuitionResult.ok) return tuitionResult;
 
-    await writeAuditLog(supabase, {
+    if (tuitionResult.mode !== "manual_override") await writeAuditLog(supabase, {
       actorUserId: user.id,
       actorEmail: user.email ?? null,
       action: tuitionResult.mode === "repriced" ? "charge.updated" : "charge.created",
@@ -1093,7 +1104,7 @@ export async function createAdvanceTuitionAction(
     const updatedData = await getEnrollmentForCajaAction(enrollmentId);
     if (!updatedData) return { ok: false, error: "reload_failed" };
 
-    await writeEnrollmentAnomalyAuditTrail({
+    if (tuitionResult.mode !== "manual_override") await writeEnrollmentAnomalyAuditTrail({
       enrollmentId,
       actorUserId: user.id,
       actorEmail: user.email ?? null,
@@ -1326,6 +1337,7 @@ export async function checkoutCajaCartAction(
   if (!parsedPayment) return { ok: false, error: "invalid_form" };
 
   const createdChargeIds: string[] = [];
+  const checkoutChargeIds: string[] = [];
   const supabase = await createClient();
   const {
     data: { user },
@@ -1339,7 +1351,7 @@ export async function checkoutCajaCartAction(
         enrollmentId,
         periodMonth: item.periodMonth,
         userId: user.id,
-        coveredArrearChargeIds: [...existingTargetChargeIds, ...createdChargeIds],
+        coveredArrearChargeIds: [...existingTargetChargeIds, ...checkoutChargeIds],
       });
       if (!tuitionResult.ok) {
         if (createdChargeIds.length > 0) {
@@ -1347,7 +1359,8 @@ export async function checkoutCajaCartAction(
         }
         return tuitionResult;
       }
-      createdChargeIds.push(tuitionResult.newChargeId);
+      checkoutChargeIds.push(tuitionResult.newChargeId);
+      if (tuitionResult.mode === "created") createdChargeIds.push(tuitionResult.newChargeId);
       continue;
     }
 
@@ -1370,6 +1383,7 @@ export async function checkoutCajaCartAction(
 
     if (chargeResult.newChargeId) {
       createdChargeIds.push(chargeResult.newChargeId);
+      checkoutChargeIds.push(chargeResult.newChargeId);
     }
   }
 
@@ -1382,9 +1396,9 @@ export async function checkoutCajaCartAction(
       return { ok: false, error: "ledger_failed" };
     }
 
-    const checkoutChargeIds = new Set([...existingTargetChargeIds, ...createdChargeIds]);
+    const checkoutChargeIdSet = new Set([...existingTargetChargeIds, ...checkoutChargeIds]);
     const requiredCheckoutTotal = checkoutLedger.charges
-      .filter((charge) => checkoutChargeIds.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0)
+      .filter((charge) => checkoutChargeIdSet.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0)
       .reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
     const submittedTotal = Math.round((parsedPayment.amount + (parsedPayment.split?.amount ?? 0)) * 100) / 100;
 
@@ -1406,7 +1420,7 @@ export async function checkoutCajaCartAction(
   if (method2) paymentForm.set("method2", method2);
   const paidAt = formData.get("paidAt")?.toString().trim() ?? "";
   if (paidAt) paymentForm.set("paidAt", paidAt);
-  paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...createdChargeIds].join(","));
+  paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...checkoutChargeIds].join(","));
 
   const paymentResult = await postCajaPaymentAction(enrollmentId, paymentForm);
   if (!paymentResult.ok && createdChargeIds.length > 0) {

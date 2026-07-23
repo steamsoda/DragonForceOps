@@ -23,6 +23,7 @@ type ChargeContext = {
   status: string;
   period_month: string | null;
   pricing_rule_id: string | null;
+  manual_price_override: boolean;
   enrollments: {
     id: string;
     status: string;
@@ -108,7 +109,7 @@ async function getChargeContext(
 ) {
   const { data } = await supabase
     .from("charges")
-    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, charge_types(code), enrollments(id, status, campus_id, scholarship_status, custom_scholarship_amount, pricing_plans(plan_code, currency), players(id, first_name, last_name))")
+    .select("id, enrollment_id, description, amount, currency, status, period_month, pricing_rule_id, manual_price_override, charge_types(code), enrollments(id, status, campus_id, scholarship_status, custom_scholarship_amount, pricing_plans(plan_code, currency), players(id, first_name, last_name))")
     .eq("id", chargeId)
     .maybeSingle<ChargeContext | null>();
   return data;
@@ -319,6 +320,10 @@ export async function post360PlayerMonthlyBatchAction(formData: FormData) {
       continue;
     }
     if (charge.enrollments.scholarship_status === "full") {
+      skipped += 1;
+      continue;
+    }
+    if (charge.manual_price_override) {
       skipped += 1;
       continue;
     }

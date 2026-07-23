@@ -25,6 +25,8 @@ import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
+  repriceChargeAction,
+  restoreChargePriceAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -139,6 +141,13 @@ const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
   charge_overapplied: "La matriz dejaría uno o más cargos sobreaplicados.",
   allocation_repair_failed: "No se pudo reparar las asignaciones. Intenta de nuevo.",
   payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
+  reprice_reason_required: "Debes escribir el motivo del precio especial.",
+  reprice_amount_invalid: "Captura un monto mayor a cero.",
+  charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
+  charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
+  reprice_failed: "No se pudo cambiar el precio del cargo.",
+  charge_not_overridden: "Este cargo no tiene un precio manual activo.",
+  restore_price_failed: "No se pudo restaurar el precio anterior.",
 };
 
 function SummaryChip({
@@ -347,6 +356,10 @@ export default async function PlayerDetailPage({
                     ? "Ajuste de saldo registrado correctamente."
                     : sp.ok === "payment_allocations_repaired"
                       ? "Asignaciones reparadas correctamente."
+                    : sp.ok === "charge_repriced"
+                      ? "Precio especial aplicado solo a este cargo."
+                    : sp.ok === "charge_price_restored"
+                      ? "Precio anterior restaurado correctamente."
           : null;
   const errorMessage = sp.err ? ACCOUNT_ERROR_MESSAGES[sp.err] ?? "No se pudo completar la corrección solicitada." : null;
 
@@ -354,6 +367,10 @@ export default async function PlayerDetailPage({
   const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const replaceIncident = activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const voidCharge = activeEnrollmentId && isDirector ? voidChargeAction.bind(null, activeEnrollmentId) : undefined;
+  const repriceCharge =
+    activeEnrollmentId && isSuperAdmin ? repriceChargeAction.bind(null, activeEnrollmentId) : undefined;
+  const restoreChargePrice =
+    activeEnrollmentId && isSuperAdmin ? restoreChargePriceAction.bind(null, activeEnrollmentId) : undefined;
   const voidPayment = activeEnrollmentId && isDirector ? voidPaymentAction.bind(null, activeEnrollmentId) : undefined;
 
   return (
@@ -796,7 +813,12 @@ export default async function PlayerDetailPage({
               <div className="grid gap-5">
                 <section className="space-y-2">
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Cargos</h4>
-                  <ChargesLedgerTable rows={activeLedger.charges} voidChargeAction={voidCharge} />
+                  <ChargesLedgerTable
+                    rows={activeLedger.charges}
+                    voidChargeAction={voidCharge}
+                    repriceChargeAction={repriceCharge}
+                    restoreChargePriceAction={restoreChargePrice}
+                  />
                 </section>
                 <section className="space-y-2">
                   <h4 className="text-base font-semibold text-slate-900 dark:text-slate-100">Pagos</h4>

@@ -1,5 +1,8 @@
 type ChargeItem = {
   id: string;
+  manualPriceOverride: boolean;
+  manualPriceOverrideReason: string | null;
+  manualPriceOverrideAt: string | null;
   typeCode: string;
   typeName: string;
   description: string;
@@ -10,6 +13,7 @@ type ChargeItem = {
   periodMonth: string | null;
   createdAt: string;
   allocatedAmount: number;
+  creditAppliedAmount: number;
   pendingAmount: number;
   isCorrection?: boolean;
   correctionKind?: "corrective_charge" | "balance_adjustment" | null;
@@ -19,6 +23,8 @@ type ChargeItem = {
 type ChargesLedgerTableProps = {
   rows: ChargeItem[];
   voidChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
+  repriceChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
+  restoreChargePriceAction?: (chargeId: string, fd: FormData) => Promise<void>;
 };
 
 function formatMoney(amount: number, currency: string) {
@@ -51,7 +57,13 @@ function getChargeStatusLabel(effectiveStatus: string) {
   }
 }
 
-export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTableProps) {
+export function ChargesLedgerTable({
+  rows,
+  voidChargeAction,
+  repriceChargeAction,
+  restoreChargePriceAction,
+}: ChargesLedgerTableProps) {
+  const hasActions = Boolean(voidChargeAction || repriceChargeAction || restoreChargePriceAction);
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
       <table className="w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -62,13 +74,13 @@ export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTabl
             <th className="px-3 py-2 text-right">Monto</th>
             <th className="px-3 py-2 text-right">Aplicado</th>
             <th className="px-3 py-2 text-right">Pendiente</th>
-            {voidChargeAction ? <th className="px-3 py-2 text-right">Acciones</th> : null}
+            {hasActions ? <th className="px-3 py-2 text-right">Acciones</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={voidChargeAction ? 6 : 5}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={hasActions ? 6 : 5}>
                 No hay cargos registrados.
               </td>
             </tr>
@@ -92,6 +104,14 @@ export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTabl
                         {row.isNonCash ? (
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-300">
                             No caja
+                          </span>
+                        ) : null}
+                        {row.manualPriceOverride ? (
+                          <span
+                            className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+                            title={row.manualPriceOverrideReason ?? "Precio manual"}
+                          >
+                            Precio manual
                           </span>
                         ) : null}
                       </div>
@@ -124,10 +144,82 @@ export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTabl
                   <td className="px-3 py-2 text-right align-top font-medium text-slate-900 dark:text-slate-100">
                     {formatMoney(row.pendingAmount, row.currency)}
                   </td>
-                  {voidChargeAction ? (
-                    <td className="relative px-3 py-2 text-right align-top">
+                  {hasActions ? (
+                    <td className="px-3 py-2 text-right align-top">
                       {row.status === "pending" ? (
-                        <details className="group">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {repriceChargeAction &&
+                          !row.manualPriceOverride &&
+                          row.allocatedAmount <= 0 &&
+                          row.creditAppliedAmount <= 0 ? (
+                            <details className="group relative">
+                              <summary className="cursor-pointer list-none rounded-md border border-sky-300 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 dark:border-sky-700 dark:text-sky-300 dark:hover:bg-sky-900/20">
+                                Cambiar precio
+                              </summary>
+                              <form
+                                action={repriceChargeAction.bind(null, row.id)}
+                                className="absolute right-0 z-10 mt-1 w-64 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800"
+                              >
+                                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                  Precio manual para este cargo
+                                </p>
+                                <label className="block text-xs text-slate-600 dark:text-slate-400">
+                                  Nuevo monto
+                                  <input
+                                    type="number"
+                                    name="newAmount"
+                                    required
+                                    min="0.01"
+                                    max="1000000"
+                                    step="0.01"
+                                    defaultValue={row.amount.toFixed(2)}
+                                    className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-600"
+                                  />
+                                </label>
+                                <input
+                                  name="reason"
+                                  required
+                                  placeholder="Motivo obligatorio"
+                                  className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-600"
+                                />
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  Solo cambia este cargo. Las reglas generales de precios no se modifican.
+                                </p>
+                                <button
+                                  type="submit"
+                                  className="w-full rounded bg-sky-700 px-2 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
+                                >
+                                  Confirmar nuevo precio
+                                </button>
+                              </form>
+                            </details>
+                          ) : null}
+                          {restoreChargePriceAction &&
+                          row.manualPriceOverride &&
+                          row.allocatedAmount <= 0 &&
+                          row.creditAppliedAmount <= 0 ? (
+                            <details className="group relative">
+                              <summary className="cursor-pointer list-none rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50">
+                                Restaurar precio
+                              </summary>
+                              <form
+                                action={restoreChargePriceAction.bind(null, row.id)}
+                                className="absolute right-0 z-10 mt-1 w-64 space-y-2 rounded-md border border-amber-200 bg-white p-3 text-left shadow-lg dark:border-amber-800 dark:bg-slate-800"
+                              >
+                                <p className="text-xs text-slate-700 dark:text-slate-300">
+                                  Se recuperara el monto y la regla que tenia este cargo antes del cambio manual.
+                                </p>
+                                <button
+                                  type="submit"
+                                  className="w-full rounded bg-amber-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                                >
+                                  Confirmar restauracion
+                                </button>
+                              </form>
+                            </details>
+                          ) : null}
+                          {voidChargeAction ? (
+                            <details className="group relative">
                           <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
                             Anular
                           </summary>
@@ -149,7 +241,9 @@ export function ChargesLedgerTable({ rows, voidChargeAction }: ChargesLedgerTabl
                               Confirmar anulacion
                             </button>
                           </form>
-                        </details>
+                            </details>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-400">-</span>
                       )}

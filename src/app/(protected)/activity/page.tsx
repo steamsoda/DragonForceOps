@@ -21,6 +21,9 @@ const ACTION_LABELS: Record<string, string> = {
   "charge.created": "Cargo creado",
   "charge.corrective_created": "Cargo correctivo creado",
   "charge.voided": "Cargo anulado",
+  "charge.repriced.product_override": "Precio especial aplicado",
+  "charge.repriced.manual_override": "Precio manual aplicado",
+  "charge.price_override.restored": "Precio anterior restaurado",
   "balance_adjustment.created": "Ajuste de saldo registrado",
   "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
@@ -87,6 +90,21 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
     const refundMethod = data.refund_method as string | undefined;
     const reason = data.reason as string | undefined;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, refundMethod, reason]
+      .filter(Boolean)
+      .join(" | ");
+  }
+  if (action === "charge.repriced.product_override" || action === "charge.repriced.manual_override") {
+    const description = data.description as string | undefined;
+    const amount = data.amount as number | undefined;
+    const reason = data.reason as string | undefined;
+    return [description, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, reason]
+      .filter(Boolean)
+      .join(" | ");
+  }
+  if (action === "charge.price_override.restored") {
+    const description = data.description as string | undefined;
+    const amount = data.amount as number | undefined;
+    return [description, amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null]
       .filter(Boolean)
       .join(" | ");
   }

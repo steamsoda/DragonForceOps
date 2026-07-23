@@ -1,5 +1,38 @@
 # Devlog
 
+## 2026-07-22 (session 230)
+
+### Durable Manual Charge Overrides And Cron Hardening (v1.16.220)
+
+- Added explicit override metadata to each manually repriced charge, including the required reason, actor, timestamp, and exact pre-override amount/pricing rule. This makes a one-charge exception durable and auditable instead of relying only on a historical log row.
+- Kept the proven monthly charge generator unchanged. The day-11 monthly repricer now skips charges carrying a manual override, in addition to its existing allocation safeguards, so a later cron run cannot silently replace a Super Admin decision.
+- Added a guarded Super Admin restore action for pending untouched charges. Restore returns the charge to the exact amount and pricing rule it had before the first manual override; paid, partially paid, credited, voided, or otherwise touched charges remain blocked.
+- Hardened adjacent repricing paths: 360Player batch posting skips overridden tuition, scholarship changes require restoring overridden tuition first, and Caja reuses an overridden advance-tuition charge without recalculating it.
+- Corrected Caja cart bookkeeping so a reused existing tuition charge is never treated as a newly created row during rollback. Only charges actually created by the current checkout can be deleted if a later cart step fails.
+- Added focused regression assertions for override persistence, restore behavior, service-role RPC boundaries, cron exclusion, Caja reuse/rollback separation, 360Player exclusion, and scholarship-change blocking.
+- Verification target: focused repricing regression, typecheck, production build, one-migration preview dry run/apply, RPC permission checks, and preview finance sanity after operator testing.
+
+## 2026-07-22 (session 229)
+
+### Super Admin-Only Repricing For All Untouched Charges (v1.16.219)
+
+- Restricted manual charge repricing to Super Admin only; Director Admin no longer receives the action in the UI and the server action independently enforces the same role boundary.
+- Expanded eligibility from catalog-product charges to every charge type, including tuition and inscription, provided the charge is still pending and has no payment allocation or account credit applied.
+- Kept paid, partially paid, credited, refunded, voided, and otherwise non-pending charges blocked to prevent over-allocation and finance drift. Those cases continue to require the existing correction/reassignment workflows.
+- Added an additive migration that installs the generalized service-role-only RPC and retires the preview-only product-specific function. Mandatory reason, audit before/after, row locking, and anomaly monitoring remain in place.
+- Verification target: `npm run test:intake-product-repricing`, `npm run typecheck`, `npm run build`, preview migration verification, and `/admin/finance-sanity` after operator testing.
+
+## 2026-07-22 (session 228)
+
+### Optional Second Tutor And Safe Product-Charge Repricing (v1.16.218)
+
+- Added an optional second-tutor section to `Nueva Inscripcion`. When used, intake creates and links both tutors in the same guarded workflow; the second tutor is non-primary, and any failure rolls the incomplete intake back before the Caja handoff.
+- Added a Director Admin / Super Admin-only `Cambiar precio` action for one existing catalog-product charge. The override changes only that charge and never the product catalog price.
+- Kept the finance boundary deliberately narrow: only pending product charges with no payment allocation and no applied account credit are eligible. Tuition, inscription, correction, paid, partially paid, and credit-touched charges remain blocked.
+- Added a service-role-only atomic SQL function, mandatory operator reason, before/after audit entry, and finance-anomaly monitoring around the override.
+- Trial-class hardening remains queued: explicit closure/decline, controlled fourth-visit override, and stronger duplicate handling were not folded into this unrelated pass.
+- Verification target: `npm run test:intake-product-repricing`, `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 227)
 
 ### Clases de Prueba Production Promotion (v1.16.217)
