@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-22 (session 226)
+
+### Clases de Prueba Range Filters And YOB Chart (v1.16.217)
+
+- Added report period modes for one selected calendar month, the selected month plus its two preceding calendar months, and an inclusive custom start/end date range.
+- Routed registrations, conversions, visits, group/coach summaries, and the detailed visitor table through the same resolved Monterrey date range so the report remains internally consistent.
+- Added a YOB bar chart counting unique prospects with at least one visit in the selected period. Multiple visits by the same prospect do not inflate the bar.
+- Kept all reads paginated, campus-scoped, and separate from official attendance, enrollment, roster, and finance truth. No migration or database write was added.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-07-22 (session 225)
 
 ### Clases de Prueba Reporting Detail Follow-up (v1.16.216)

@@ -1,5 +1,6 @@
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { TrialProspectForm } from "@/components/trial-classes/trial-prospect-form";
+import { TrialBirthYearChart } from "@/components/trial-classes/trial-report-charts";
 import { TrialCheckInControl, TrialTicketReprintButton } from "@/components/trial-classes/trial-visit-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalContext } from "@/lib/auth/permissions";
@@ -16,6 +17,9 @@ type SearchParams = Promise<{
   duplicate?: string;
   focus?: string;
   reportMonth?: string;
+  reportRange?: string;
+  reportFrom?: string;
+  reportTo?: string;
 }>;
 
 const ERROR_LABELS: Record<string, string> = {
@@ -29,14 +33,6 @@ const ERROR_LABELS: Record<string, string> = {
 
 function genderLabel(value: string) {
   return value === "female" ? "Femenino" : "Masculino";
-}
-
-function monthLabel(month: string) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  if (!year || !monthNumber) return month;
-  const label = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function rateLabel(rate: number | null) {
@@ -55,7 +51,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
   if (!context.campusAccess) return null;
   const [data, report, printerName] = await Promise.all([
     getTrialClassesData({ campusAccess: context.campusAccess, campusId: params.campus, query: params.q }),
-    getTrialClassesReport({ campusAccess: context.campusAccess, campusId: params.campus, month: params.reportMonth }),
+    getTrialClassesReport({ campusAccess: context.campusAccess, campusId: params.campus, month: params.reportMonth, rangeMode: params.reportRange, dateFrom: params.reportFrom, dateTo: params.reportTo }),
     getPrinterName(),
   ]);
   const returnQuery = new URLSearchParams();
@@ -83,7 +79,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
         ) : null}
 
         <section className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
-          <AttendanceCampusButtons pathname="/trial-classes" campuses={data.campuses} selectedCampusId={data.selectedCampusId} allLabel="Campus" params={{ q: params.q, reportMonth: report.selectedMonth }} />
+          <AttendanceCampusButtons pathname="/trial-classes" campuses={data.campuses} selectedCampusId={data.selectedCampusId} allLabel="Campus" params={{ q: params.q, reportMonth: report.selectedMonth, reportRange: report.rangeMode, reportFrom: report.dateFrom, reportTo: report.dateTo }} />
           <form className="flex flex-col gap-2 sm:flex-row">
             {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
             <input name="q" defaultValue={params.q ?? ""} placeholder="Buscar por jugador, tutor o telefono" className="min-h-10 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
@@ -151,15 +147,19 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
               <h2 className="text-lg font-semibold">Reporte mensual</h2>
               <p className="text-sm text-slate-500">Clases de prueba separadas del plantel, asistencia oficial y finanzas.</p>
             </div>
-            <form className="flex items-end gap-2">
+            <form className="grid items-end gap-2 sm:grid-cols-2 xl:grid-cols-[12rem_10rem_10rem_10rem_auto]">
               {data.selectedCampusId ? <input type="hidden" name="campus" value={data.selectedCampusId} /> : null}
               {params.q ? <input type="hidden" name="q" value={params.q} /> : null}
-              <label className="text-sm font-medium">Mes<input name="reportMonth" type="month" defaultValue={report.selectedMonth} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" /></label>
+              <label className="text-sm font-medium">Periodo<select name="reportRange" defaultValue={report.rangeMode} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950"><option value="month">Mes seleccionado</option><option value="three_months">Ultimos 3 meses</option><option value="custom">Rango personalizado</option></select></label>
+              <label className="text-sm font-medium">Mes<input name="reportMonth" type="month" defaultValue={report.selectedMonth} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" /></label>
+              <label className="text-sm font-medium">Desde<input name="reportFrom" type="date" defaultValue={report.dateFrom} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" /></label>
+              <label className="text-sm font-medium">Hasta<input name="reportTo" type="date" defaultValue={report.dateTo} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950" /></label>
               <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white">Ver reporte</button>
             </form>
           </div>
 
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{monthLabel(report.selectedMonth)}</p>
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Periodo: {formatDateOnlyDdMmYyyy(report.dateFrom)} al {formatDateOnlyDdMmYyyy(report.dateTo)}</p>
+          <p className="text-xs text-slate-500">Los campos Desde/Hasta se usan solamente con Rango personalizado. Ultimos 3 meses termina en el mes seleccionado.</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             {[
               ["Prospectos registrados", report.registeredProspects],
@@ -175,6 +175,8 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
               </article>
             ))}
           </div>
+
+          <TrialBirthYearChart rows={report.birthYears} />
 
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
@@ -212,7 +214,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
               </table>
             </div>
           </div>
-          <p className="text-xs text-slate-500">La conversion general usa como cohorte los prospectos registrados durante el mes seleccionado. Las visitas se cuentan por su fecha real dentro del mes.</p>
+          <p className="text-xs text-slate-500">La conversion general usa como cohorte los prospectos registrados durante el periodo seleccionado. Las visitas se cuentan por su fecha real dentro del mismo periodo.</p>
         </section>
       </div>
     </PageShell>

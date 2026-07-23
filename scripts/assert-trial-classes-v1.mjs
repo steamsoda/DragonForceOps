@@ -10,6 +10,7 @@ const intakePage = fs.readFileSync("src/app/(protected)/players/new/page.tsx", "
 const intakeForm = fs.readFileSync("src/components/enrollments/enrollment-intake-form.tsx", "utf8");
 const prospectForm = fs.readFileSync("src/components/trial-classes/trial-prospect-form.tsx", "utf8");
 const visitControls = fs.readFileSync("src/components/trial-classes/trial-visit-controls.tsx", "utf8");
+const reportCharts = fs.readFileSync("src/components/trial-classes/trial-report-charts.tsx", "utf8");
 const attendanceQuery = fs.readFileSync("src/lib/queries/attendance.ts", "utf8");
 const attendanceTodayPage = fs.readFileSync("src/app/(protected)/attendance/page.tsx", "utf8");
 const attendanceSessionPage = fs.readFileSync("src/app/(protected)/attendance/sessions/[sessionId]/page.tsx", "utf8");
@@ -62,5 +63,8 @@ assert(page.includes("separadas del plantel, asistencia oficial y finanzas"), "T
 assert(query.includes("TrialReportVisitorRow") && query.includes("visitorMetrics"), "Trial reporting must include a deduplicated monthly visitor roster");
 assert(query.includes("birth_year_min") && query.includes("birth_year_max") && query.includes("campuses(name)"), "Trial group reporting must include campus and category metadata");
 assert(page.includes("Prospectos que asistieron") && page.includes("Campus / categoria"), "Trial visitor and group metadata UI is missing");
+assert(query.includes("resolveReportRange") && query.includes('rangeMode === "three_months"') && query.includes('rangeMode === "custom"'), "Trial reporting date-range modes are incomplete");
+assert(page.includes("Ultimos 3 meses") && page.includes("Rango personalizado"), "Trial reporting range controls are missing");
+assert(query.includes("birthYearCounts") && reportCharts.includes("BarChart") && reportCharts.includes("Prospectos unicos"), "Trial YOB visitor chart is incomplete");
 
 console.log("Trial classes v1 assertions passed.");

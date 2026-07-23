@@ -1,6 +1,6 @@
 import { canAccessCampus, type OperationalCampusAccess } from "@/lib/auth/campuses";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMonterreyDateString, getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
+import { getMonterreyDateString, getMonterreyDayBounds, getMonterreyMonthBounds, getMonterreyMonthString, parseDateOnlyInput } from "@/lib/time";
 
 const REPORT_PAGE_SIZE = 1000;
 
@@ -151,6 +151,9 @@ export type TrialReportCoachRow = {
 
 export type TrialClassesReport = {
   selectedMonth: string;
+  rangeMode: "month" | "three_months" | "custom";
+  dateFrom: string;
+  dateTo: string;
   registeredProspects: number;
   visits: number;
   convertedProspects: number;
@@ -160,6 +163,7 @@ export type TrialClassesReport = {
   groups: TrialReportGroupRow[];
   coaches: TrialReportCoachRow[];
   visitors: TrialReportVisitorRow[];
+  birthYears: Array<{ birthYear: number | null; count: number }>;
 };
 
 function searchable(value: string) {
@@ -181,6 +185,61 @@ function normalizedMonth(value?: string | null) {
 
 function percentage(numerator: number, denominator: number) {
   return denominator === 0 ? null : Math.round((numerator / denominator) * 100);
+}
+
+function shiftMonth(month: string, delta: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function previousDate(date: string) {
+  const value = new Date(`${date}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() - 1);
+  return value.toISOString().slice(0, 10);
+}
+
+function resolveReportRange({
+  month,
+  rangeMode,
+  dateFrom,
+  dateTo,
+}: {
+  month?: string | null;
+  rangeMode?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}) {
+  const selectedMonth = normalizedMonth(month);
+  if (rangeMode === "custom") {
+    const customFrom = parseDateOnlyInput(dateFrom);
+    const customTo = parseDateOnlyInput(dateTo);
+    if (customFrom && customTo && customFrom <= customTo) {
+      return {
+        selectedMonth,
+        rangeMode: "custom" as const,
+        dateFrom: customFrom,
+        dateTo: customTo,
+        timestampStart: getMonterreyDayBounds(customFrom).start,
+        timestampEnd: getMonterreyDayBounds(customTo).end,
+        dateEndExclusive: getMonterreyDayBounds(customTo).end.slice(0, 10),
+      };
+    }
+  }
+
+  const resolvedMode = rangeMode === "three_months" ? "three_months" as const : "month" as const;
+  const firstMonth = resolvedMode === "three_months" ? shiftMonth(selectedMonth, -2) : selectedMonth;
+  const startBounds = getMonterreyMonthBounds(firstMonth);
+  const endBounds = getMonterreyMonthBounds(selectedMonth);
+  return {
+    selectedMonth,
+    rangeMode: resolvedMode,
+    dateFrom: `${firstMonth}-01`,
+    dateTo: previousDate(endBounds.end.slice(0, 10)),
+    timestampStart: startBounds.start,
+    timestampEnd: endBounds.end,
+    dateEndExclusive: endBounds.end.slice(0, 10),
+  };
 }
 
 async function loadReportProspects(campusId: string, start: string, end: string) {
@@ -227,17 +286,27 @@ export async function getTrialClassesReport({
   campusAccess,
   campusId,
   month,
+  rangeMode,
+  dateFrom,
+  dateTo,
 }: {
   campusAccess: OperationalCampusAccess;
   campusId?: string | null;
   month?: string | null;
+  rangeMode?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
 }): Promise<TrialClassesReport> {
-  const selectedMonth = normalizedMonth(month);
+  const range = resolveReportRange({ month, rangeMode, dateFrom, dateTo });
+  const selectedMonth = range.selectedMonth;
   const selectedCampusId = campusId && canAccessCampus(campusAccess, campusId)
     ? campusId
     : campusAccess.defaultCampusId;
   const empty: TrialClassesReport = {
     selectedMonth,
+    rangeMode: range.rangeMode,
+    dateFrom: range.dateFrom,
+    dateTo: range.dateTo,
     registeredProspects: 0,
     visits: 0,
     convertedProspects: 0,
@@ -247,13 +316,13 @@ export async function getTrialClassesReport({
     groups: [],
     coaches: [],
     visitors: [],
+    birthYears: [],
   };
   if (!selectedCampusId) return empty;
 
-  const bounds = getMonterreyMonthBounds(selectedMonth);
   const [prospects, visits] = await Promise.all([
-    loadReportProspects(selectedCampusId, bounds.start, bounds.end),
-    loadReportVisits(selectedCampusId, bounds.start.slice(0, 10), bounds.end.slice(0, 10)),
+    loadReportProspects(selectedCampusId, range.timestampStart, range.timestampEnd),
+    loadReportVisits(selectedCampusId, range.dateFrom, range.dateEndExclusive),
   ]);
   const groupIds = [...new Set([
     ...prospects.map((row) => row.preferred_training_group_id),
@@ -362,10 +431,24 @@ export async function getTrialClassesReport({
     lastVisitDate: metric.lastVisitDate,
     status: metric.status,
   })).sort((left, right) => left.prospectName.localeCompare(right.prospectName, "es-MX"));
+  const birthYearCounts = new Map<number | null, number>();
+  for (const visitor of visitors) {
+    birthYearCounts.set(visitor.birthYear, (birthYearCounts.get(visitor.birthYear) ?? 0) + 1);
+  }
+  const birthYears = [...birthYearCounts.entries()]
+    .map(([birthYear, count]) => ({ birthYear, count }))
+    .sort((left, right) => {
+      if (left.birthYear == null) return 1;
+      if (right.birthYear == null) return -1;
+      return right.birthYear - left.birthYear;
+    });
 
   const convertedProspects = prospects.filter((row) => row.status === "converted").length;
   return {
     selectedMonth,
+    rangeMode: range.rangeMode,
+    dateFrom: range.dateFrom,
+    dateTo: range.dateTo,
     registeredProspects: prospects.length,
     visits: visits.length,
     convertedProspects,
@@ -375,6 +458,7 @@ export async function getTrialClassesReport({
     groups: groupRowsResult,
     coaches,
     visitors,
+    birthYears,
   };
 }
 

@@ -46,6 +46,7 @@ Track pre-enrollment children who attend up to three tryout classes, give Front 
 - Report tryout volume, visit count, conversion count/rate, campus, group, and coach attribution.
 - Keep trial statistics separate from academy attendance statistics.
 - Preview `v1.16.215` adds a campus-scoped monthly report with fully paginated reads, group breakdowns, and immutable visit-time coach attribution. Overall conversion uses the selected month's newly registered prospect cohort; visit totals use the visit's real date.
+- Preview `v1.16.216`-`v1.16.217` adds the deduplicated visitor roster, group campus/YOB metadata, a unique-visitor YOB chart, and consistent monthly/three-calendar-month/custom date ranges.
 
 ### Pass 5 - Hardening
 
