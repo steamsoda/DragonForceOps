@@ -1,0 +1,70 @@
+import fs from "node:fs";
+
+const migration = fs.readFileSync("supabase/migrations/20260720120000_trial_classes_v1.sql", "utf8");
+const conversionMigration = fs.readFileSync("supabase/migrations/20260722120000_trial_prospect_enrollment_conversion.sql", "utf8");
+const action = fs.readFileSync("src/server/actions/trial-classes.ts", "utf8");
+const intakeAction = fs.readFileSync("src/server/actions/intake.ts", "utf8");
+const query = fs.readFileSync("src/lib/queries/trial-classes.ts", "utf8");
+const page = fs.readFileSync("src/app/(protected)/trial-classes/page.tsx", "utf8");
+const intakePage = fs.readFileSync("src/app/(protected)/players/new/page.tsx", "utf8");
+const intakeForm = fs.readFileSync("src/components/enrollments/enrollment-intake-form.tsx", "utf8");
+const prospectForm = fs.readFileSync("src/components/trial-classes/trial-prospect-form.tsx", "utf8");
+const visitControls = fs.readFileSync("src/components/trial-classes/trial-visit-controls.tsx", "utf8");
+const reportCharts = fs.readFileSync("src/components/trial-classes/trial-report-charts.tsx", "utf8");
+const attendanceQuery = fs.readFileSync("src/lib/queries/attendance.ts", "utf8");
+const attendanceTodayPage = fs.readFileSync("src/app/(protected)/attendance/page.tsx", "utf8");
+const attendanceSessionPage = fs.readFileSync("src/app/(protected)/attendance/sessions/[sessionId]/page.tsx", "utf8");
+const printer = fs.readFileSync("src/lib/printer.ts", "utf8");
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+assert(migration.includes("create table public.trial_prospects"), "Missing isolated trial prospects table");
+assert(migration.includes("create table public.trial_visits"), "Missing isolated trial visits table");
+assert(migration.includes("unique (prospect_id, attendance_session_id)"), "Visit check-in must be idempotent per session");
+assert(migration.includes("visit_number between 1 and 3"), "Ordinary visits must be capped at three");
+assert(migration.includes("pg_advisory_xact_lock"), "Visit counter must be transactionally serialized");
+assert(migration.indexOf("where prospect_id = p_prospect_id", migration.indexOf("pg_advisory_xact_lock")) > migration.indexOf("pg_advisory_xact_lock"), "Visit RPC must recheck duplicates after acquiring its lock");
+assert(migration.includes("grant execute on function public.record_trial_visit") && migration.includes("to service_role"), "Visit RPC must remain service-role only");
+assert(!/insert into public\.(players|enrollments|attendance_records|charges|payments)/i.test(migration), "Pass 1 must not mutate academy attendance, enrollment, or finance tables");
+assert(action.includes("canAccessCampus"), "Server actions must enforce campus scope");
+assert(action.includes("trial_prospect.created") && action.includes("trial_visit.checked_in"), "Pass 1 writes must be audited");
+assert(action.includes("phone.length !== 10"), "Prospect intake must enforce a ten-digit phone on the server");
+assert(query.includes("eq(\"session_date\", today)"), "Check-in choices must use today's generated sessions");
+assert(page.includes("Las visitas de prueba no alteran planteles, asistencia oficial ni finanzas"), "Operator boundary must be explicit");
+assert(prospectForm.includes('pattern="[0-9]{10}"'), "Prospect intake must validate ten-digit phones before submission");
+assert(prospectForm.includes("event.preventDefault()"), "Prospect intake must preserve form state on server errors");
+assert(prospectForm.includes("formRef.current?.reset()"), "Prospect intake should reset only after a successful save");
+assert(prospectForm.includes("startTransition(() => router.refresh())"), "Prospect refresh must not hold the save button pending");
+assert(visitControls.indexOf("setIsSaving(false)") < visitControls.indexOf("setIsPrinting(true)"), "Arrival save state must finish before printer connection begins");
+assert(visitControls.includes("La llegada ya esta guardada; puedes continuar"), "Slow printers must clearly preserve the saved-arrival state");
+assert(attendanceQuery.includes('.from("trial_visits")'), "Attendance awareness must read the isolated trial visit ledger");
+assert(attendanceQuery.includes("trialVisitors: trialVisitorsBySession.get(row.id) ?? []"), "Today's sessions must receive trial visitors separately");
+assert(attendanceTodayPage.includes("clase de prueba"), "Today's attendance cards must show the separate trial count");
+assert(attendanceSessionPage.includes("No cuentan en el plantel ni en la asistencia oficial"), "Session detail must explain the official-metric boundary");
+assert(attendanceSessionPage.includes("roster={session.roster}"), "The official recorder must continue receiving only the enrolled roster");
+assert(printer.includes("printTrialClassTicket"), "Thermal ticket printer is missing");
+assert(conversionMigration.includes("source_trial_prospect_id"), "Enrollment conversion source link is missing");
+assert(conversionMigration.includes("create unique index"), "A prospect must not create multiple enrollments");
+assert(page.includes("Inscribir jugador"), "Active prospects need a conversion entry point");
+assert(intakePage.includes("getTrialEnrollmentPrefill"), "Enrollment intake must load a campus-scoped prospect prefill");
+assert(intakeForm.includes('name="trialProspectId"'), "Enrollment intake must submit the durable prospect source");
+assert(intakeAction.includes("source_trial_prospect_id: trialProspectId"), "Enrollment insert must retain the prospect source");
+assert(intakeAction.includes('status: "converted"'), "Successful intake must close the prospect as converted");
+assert(intakeAction.includes('action: "trial_prospect.converted"'), "Prospect conversion must be audited");
+assert(intakeAction.includes('redirect(`/caja?enrollmentId=${createdEnrollment.id}`)'), "Conversion must preserve the existing Caja handoff");
+assert(query.includes("getTrialClassesReport"), "Trial reporting query is missing");
+assert(query.includes("REPORT_PAGE_SIZE") && query.includes(".range(from, from + REPORT_PAGE_SIZE - 1)"), "Trial reporting reads must be fully paginated");
+assert(query.includes('getMonterreyMonthBounds(selectedMonth)'), "Trial reporting must use Monterrey month boundaries");
+assert(query.includes("coach_snapshot"), "Trial coach attribution must use the immutable visit snapshot");
+assert(page.includes("Reporte mensual") && page.includes("Prospectos registrados") && page.includes("Atribucion por coach"), "Trial monthly reporting UI is incomplete");
+assert(page.includes("separadas del plantel, asistencia oficial y finanzas"), "Trial reporting must preserve its official-metric boundary");
+assert(query.includes("TrialReportVisitorRow") && query.includes("visitorMetrics"), "Trial reporting must include a deduplicated monthly visitor roster");
+assert(query.includes("birth_year_min") && query.includes("birth_year_max") && query.includes("campuses(name)"), "Trial group reporting must include campus and category metadata");
+assert(page.includes("Prospectos que asistieron") && page.includes("Campus / categoria"), "Trial visitor and group metadata UI is missing");
+assert(query.includes("resolveReportRange") && query.includes('rangeMode === "three_months"') && query.includes('rangeMode === "custom"'), "Trial reporting date-range modes are incomplete");
+assert(page.includes("Ultimos 3 meses") && page.includes("Rango personalizado"), "Trial reporting range controls are missing");
+assert(query.includes("birthYearCounts") && reportCharts.includes("BarChart") && reportCharts.includes("Prospectos unicos"), "Trial YOB visitor chart is incomplete");
+
+console.log("Trial classes v1 assertions passed.");

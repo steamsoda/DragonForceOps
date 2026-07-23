@@ -1,5 +1,99 @@
 # Devlog
 
+## 2026-07-22 (session 227)
+
+### Clases de Prueba Production Promotion (v1.16.217)
+
+- Promoted the approved `v1.16.210`-`v1.16.217` trial-class workflow from preview to production after operator validation.
+- Applied and verified production migrations `20260720120000_trial_classes_v1.sql`, `20260720121000_trial_classes_idempotency_hardening.sql`, and `20260722120000_trial_prospect_enrollment_conversion.sql` before the application merge.
+- Confirmed production recognizes `trial_prospects`, `trial_visits`, `trial_prospect_notes`, and `enrollments.source_trial_prospect_id`. No verification rows or finance mutations were created.
+- Release verification: trial-class regression suite, typecheck, and production build passed on the promoted commit; production deployment and migration workflow were monitored after the main push.
+
+## 2026-07-22 (session 226)
+
+### Clases de Prueba Range Filters And YOB Chart (v1.16.217)
+
+- Added report period modes for one selected calendar month, the selected month plus its two preceding calendar months, and an inclusive custom start/end date range.
+- Routed registrations, conversions, visits, group/coach summaries, and the detailed visitor table through the same resolved Monterrey date range so the report remains internally consistent.
+- Added a YOB bar chart counting unique prospects with at least one visit in the selected period. Multiple visits by the same prospect do not inflate the bar.
+- Kept all reads paginated, campus-scoped, and separate from official attendance, enrollment, roster, and finance truth. No migration or database write was added.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-22 (session 225)
+
+### Clases de Prueba Reporting Detail Follow-up (v1.16.216)
+
+- Added a deduplicated monthly visitor table to the tryout report with prospect name, YOB, actual visited group(s), visit-time coach snapshot(s), visit count, latest visit date, and current prospect status.
+- Enriched the group report with campus and configured group category/YOB range so mixed-year groups remain understandable.
+- Kept the report read-only and campus-scoped. No migration or changes to trial visits, conversion, official attendance, enrollment, roster, or finance behavior.
+- Confirmed the existing prospect model already supports a non-destructive `closed` state, but no operator closure workflow exists yet. Pass 5 remains the planned home for an explicit closure reason, audit trail, inactive queue, and optional stale-follow-up suggestions without deleting history or auto-closing prospects.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-22 (session 224)
+
+### Clases de Prueba Pass 4 Monthly Reporting (v1.16.215)
+
+- Added a campus-scoped monthly report to `Gestion > Clases de prueba` with prospect registrations, visits, converted prospects, cohort conversion rate, active prospects, and unique prospects with a visit.
+- Added group-level reporting for registrations by preferred group, visits by the actual visited group, conversions, and conversion rate.
+- Added coach attribution from the immutable `trial_visits.coach_snapshot`, including unique prospects seen, visit volume, converted prospects, and conversion rate. Shared-coach attribution is explicitly labeled because one prospect can appear under more than one coach while overall KPIs stay deduplicated.
+- Defined the overall conversion cohort as prospects created during the selected Monterrey month; visit volume follows the visit's real date in that month. This keeps the numbers explainable without mixing trial activity into official academy attendance.
+- Fully paginated prospect and visit reads. This is a read-only pass with no migration and no changes to player, enrollment, roster, official attendance, absence-risk, finance, charge, or payment truth.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-22 (session 223)
+
+### Clases de Prueba Pass 3 Enrollment Conversion (v1.16.214)
+
+- Added `Inscribir jugador` to active tryout prospects and prefilled the existing new-enrollment form with the prospect's campus, player identity, birth date, gender, tutor name, and phone.
+- Reused the current enrollment intake action for pricing, initial inscription/monthly charges, included uniforms, duplicate warning, guarded B1 assignment, audit, and Caja redirect. No parallel enrollment or finance workflow was introduced.
+- Added nullable `enrollments.source_trial_prospect_id` with a unique partial index so normal enrollments remain unchanged while one prospect cannot produce multiple enrollments.
+- The server validates that the source prospect is active and belongs to an allowed matching campus. After the normal intake succeeds, it marks the prospect `converted`, links the created player/enrollment, preserves all trial visits and notes, and writes a conversion audit event.
+- A link failure rolls back the newly created intake records and leaves the prospect available. Repeated conversion submissions resolve to the already-created Caja account instead of duplicating the enrollment.
+- Migration target: preview only, `20260722120000_trial_prospect_enrollment_conversion.sql`. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-22 (session 222)
+
+### Clases de Prueba Save And Print Responsiveness (v1.16.213)
+
+- Removed the Front Desk attribution sentence from the trial visitor notice in attendance session detail while retaining the official-metric boundary.
+- Diagnosed both apparent save hangs as client-state coupling: prospect creation kept `Guardando...` active during the full server refresh, while visit check-in kept `Guardando llegada...` active through refresh and the QZ printer connection.
+- Prospect creation now confirms the database result and releases the save button before refreshing the page in a separate transition.
+- Visit check-in now confirms and displays the saved arrival before attempting QZ printing. Printing remains automatic, but runs under a separate state with explicit text that the visit is already safe and staff may continue.
+- Added regression assertions covering non-blocking refresh and print ordering. No migration, finance, enrollment, official attendance record, roster, report, or trial-ledger behavior changed.
+- Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-22 (session 221)
+
+### Clases de Prueba Pass 2 Attendance Awareness (v1.16.212)
+
+- Added a separate trial-visitor count to matching sessions in `Asistencia > Hoy`, shown as `+N clase(s) de prueba` without changing enrolled roster or official record counts.
+- Added a read-only `Clases de prueba` section to attendance session detail with prospect name, birth year, visit number, and Monterrey check-in time so Field Admin/coaches can see who arrived.
+- Kept the official recorder payload unchanged: only `session.roster` is passed to attendance capture. Trial visitors are never added to `attendance_records`, attendance percentages, absence streaks, coach reports, dashboards, enrollment, or finance.
+- Reused the isolated `trial_visits` ledger through a session-keyed batch read. No migration or database write was added.
+- Read-only preview verification against project `eqefgwdsqabnmpnbpqbq` confirmed the visit-to-prospect/session relationship resolves correctly. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-21 (session 220)
+
+### Clases de Prueba Intake Validation Follow-up (v1.16.211)
+
+- Hardened prospect intake with matching browser and server validation: tutor phone must contain exactly 10 digits, and birth date must be valid and no later than the current Monterrey date.
+- Replaced redirect-based prospect creation with an inline client submission state. A rejected save now keeps every entered field visible, explains the specific problem beside the form, and resets fields only after the database confirms creation.
+- Added a visible `Guardando...` state and a clear success message so Front Desk can distinguish an active save from a failed or completed one.
+- Enrollment remains intentionally outside this follow-up: Pass 2 is separate daily-attendance awareness, and Pass 3 will convert the prospect through the existing enrollment confirmation, guarded B1 assignment, and Caja handoff.
+- No migrations or changes to players, enrollments, attendance records, charges, payments, finance truth, or existing trial visit behavior. Verification target: `npm run test:trial-classes`, `npm run typecheck`, and `npm run build`.
+
+## 2026-07-20 (session 219)
+
+### Clases de Prueba Pass 1 (v1.16.210)
+
+- Replaced the old tryout placeholder with a durable five-pass plan in `docs/planning/trial-classes-plan.md`: isolated intake/visits, separate attendance awareness, conversion through existing enrollment/Caja, reporting, and override/duplicate hardening.
+- Added service-role-only `trial_prospects`, `trial_prospect_notes`, and `trial_visits` tables. Prospects remain separate from `players`/`enrollments`; visits reference today's real generated training session but never create `attendance_records` or enter roster, attendance, absence-risk, coach-report, tuition, charge, payment, or finance truth.
+- Added `Gestion > Clases de prueba` for Front Desk and directors with campus-scoped intake/search, required child/contact/group fields, duplicate warnings, `0/3` through `3/3` progress, dated notes and visit history, and today's generated-session selector.
+- Added transactional `record_trial_visit(...)`: serializes concurrent check-ins, returns an existing visit for duplicate prospect/session clicks, blocks ordinary visits after three, rejects cancelled/non-current/wrong-campus sessions, and snapshots linked coaches for historical attribution.
+- Added automatic QZ thermal ticket printing after the visit commit plus a reprint action. Printer failure does not roll back the visit, and reprinting never creates another visit.
+- Applied and verified migrations `20260720120000_trial_classes_v1.sql` and `20260720121000_trial_classes_idempotency_hardening.sql` only against linked preview project `eqefgwdsqabnmpnbpqbq`: all three tables are readable by service role and the RPC validation/post-lock duplicate protection are active. No verification rows were created.
+- Added `npm run test:trial-classes`; verification passed with `npm run typecheck` and `npm run build`.
+
 ## 2026-07-20 (session 218)
 
 ### Coach Monthly Tuition Status Report (v1.16.209)

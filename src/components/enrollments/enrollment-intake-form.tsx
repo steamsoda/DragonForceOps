@@ -17,6 +17,7 @@ import {
   searchLikelyPlayersForIntakeAction,
   type IntakeMatch,
 } from "@/server/actions/intake";
+import type { TrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
 
 type EnrollmentIntakeFormProps = {
   campuses: Array<{ id: string; code: string; name: string }>;
@@ -25,6 +26,7 @@ type EnrollmentIntakeFormProps = {
   defaultStartDate: string;
   initialIsReturning?: boolean;
   initialReturnInscriptionMode?: ReturningInscriptionMode;
+  trialPrefill?: TrialEnrollmentPrefill | null;
 };
 
 const inputClass =
@@ -115,16 +117,17 @@ export function EnrollmentIntakeForm({
   defaultStartDate,
   initialIsReturning = false,
   initialReturnInscriptionMode = "full",
+  trialPrefill = null,
 }: EnrollmentIntakeFormProps) {
   const [isReturning, setIsReturning] = useState(initialIsReturning);
   const [returnInscriptionMode, setReturnInscriptionMode] =
     useState<ReturningInscriptionMode>(initialReturnInscriptionMode);
-  const [campusId, setCampusId] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [birthDateText, setBirthDateText] = useState("");
-  const [guardianFirstName, setGuardianFirstName] = useState("");
-  const [guardianLastName, setGuardianLastName] = useState("");
+  const [campusId, setCampusId] = useState(trialPrefill?.campusId ?? "");
+  const [firstName, setFirstName] = useState(trialPrefill?.firstName ?? "");
+  const [lastName, setLastName] = useState(trialPrefill?.lastName ?? "");
+  const [birthDateText, setBirthDateText] = useState(trialPrefill ? formatDateOnlyDdMmYyyy(trialPrefill.birthDate) : "");
+  const [guardianFirstName, setGuardianFirstName] = useState(trialPrefill?.guardianFirstName ?? "");
+  const [guardianLastName, setGuardianLastName] = useState(trialPrefill?.guardianLastName ?? "");
   const [startDateText, setStartDateText] = useState(formatDateOnlyDdMmYyyy(defaultStartDate));
   const [matches, setMatches] = useState<IntakeMatch[]>([]);
   const [isCheckingMatches, setIsCheckingMatches] = useState(false);
@@ -203,6 +206,7 @@ export function EnrollmentIntakeForm({
       }}
     >
       <input type="hidden" name="pricingPlanCode" value={planCode} />
+      <input type="hidden" name="trialProspectId" value={trialPrefill?.trialProspectId ?? ""} />
       <input type="hidden" name="campusId" value={campusId} />
       <input type="hidden" name="startDate" value={startDate ?? ""} />
       <input type="hidden" name="isReturning" value={isReturning ? "1" : "0"} />
@@ -216,6 +220,16 @@ export function EnrollmentIntakeForm({
       <input type="hidden" name="addGameUniform" value={addGameUniform ? "1" : "0"} />
       <input type="hidden" name="gameUniformSize" value={gameUniformSize} />
       <input type="hidden" name="gameUniformIsGoalkeeper" value={gameUniformIsGoalkeeper ? "1" : "0"} />
+
+      {trialPrefill ? (
+        <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <p className="font-semibold">Conversión desde Clases de prueba</p>
+          <p className="mt-1">
+            Se precargaron los datos y {trialPrefill.visitCount} de 3 visitas en {trialPrefill.preferredGroupName}.
+            Revisa la información antes de crear la inscripción. El historial de prueba se conservará por separado.
+          </p>
+        </div>
+      ) : null}
 
       <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
         <div className="space-y-1">
@@ -302,7 +316,7 @@ export function EnrollmentIntakeForm({
           />
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Genero</span>
-            <select name="gender" className={inputClass} defaultValue="">
+            <select name="gender" className={inputClass} defaultValue={trialPrefill?.gender ?? ""}>
               <option value="">Sin especificar</option>
               <option value="male">Masculino</option>
               <option value="female">Femenino</option>
@@ -411,6 +425,7 @@ export function EnrollmentIntakeForm({
               type="tel"
               name="guardianPhone"
               required
+              defaultValue={trialPrefill?.guardianPhone ?? ""}
               placeholder="Ej. 8112345678"
               className={inputClass}
             />
@@ -453,7 +468,8 @@ export function EnrollmentIntakeForm({
                 <button
                   key={campus.id}
                   type="button"
-                  onClick={() => setCampusId(campus.id)}
+                  onClick={() => { if (!trialPrefill) setCampusId(campus.id); }}
+                  disabled={Boolean(trialPrefill)}
                   className={`rounded-md border px-3 py-2 text-sm font-medium transition ${
                     campusId === campus.id
                       ? "border-portoBlue bg-portoBlue text-white"
@@ -464,7 +480,9 @@ export function EnrollmentIntakeForm({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Selecciona el campus antes de crear.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {trialPrefill ? "El campus se conserva desde la clase de prueba." : "Selecciona el campus antes de crear."}
+            </p>
           </fieldset>
 
           <MaskedDateField
@@ -833,8 +851,8 @@ export function EnrollmentIntakeForm({
           >
             {isSubmitting ? "Creando..." : "Crear registro y abrir Caja"}
           </button>
-          <Link href="/players" className="text-sm text-portoBlue hover:underline">
-            Cancelar y volver a Jugadores
+          <Link href={trialPrefill ? "/trial-classes" : "/players"} className="text-sm text-portoBlue hover:underline">
+            {trialPrefill ? "Cancelar y volver a Clases de prueba" : "Cancelar y volver a Jugadores"}
           </Link>
         </div>
       </section>

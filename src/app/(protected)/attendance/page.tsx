@@ -218,6 +218,11 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                           <p className="text-xs text-slate-500 dark:text-slate-400">
                             {session.sourceType === "training_group" ? "Grupo de entrenamiento" : "Equipo"} | Coach {session.coachName ?? "-"} | {session.rosterCount} jugadores
                           </p>
+                          {(session.trialVisitors?.length ?? 0) > 0 ? (
+                            <p className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+                              +{session.trialVisitors?.length ?? 0} {session.trialVisitors?.length === 1 ? "clase de prueba" : "clases de prueba"}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">

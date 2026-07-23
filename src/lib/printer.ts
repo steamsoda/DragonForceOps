@@ -438,6 +438,42 @@ export async function printCorte(printerName: string, data: CorteData): Promise<
   await sendToQZ(printerName, buildCorte(data, logo));
 }
 
+export type TrialClassTicketData = {
+  visitId: string;
+  prospectName: string;
+  campusName: string;
+  groupName: string;
+  coachNames: string[];
+  visitNumber: number;
+  visitDate: string;
+  checkedInAt: string;
+};
+
+export async function printTrialClassTicket(printerName: string, data: TrialClassTicketData): Promise<void> {
+  const shortReference = data.visitId.split("-")[0]?.toUpperCase() ?? data.visitId.slice(0, 8).toUpperCase();
+  await sendToQZ(printerName, [
+    t(`${ESC}@`),
+    t(`${ESC}a\x01`),
+    t(`${ESC}E\x01`),
+    t("CLASE DE PRUEBA\n"),
+    t(`${ESC}E\x00`),
+    t(`${data.campusName}\n`),
+    t(divider() + "\n"),
+    t(`${ESC}a\x00`),
+    t(`Jugador: ${data.prospectName}\n`),
+    t(`Grupo: ${data.groupName}\n`),
+    ...(data.coachNames.length > 0 ? [t(`Coach: ${data.coachNames.join(", ")}\n`)] : []),
+    t(`Fecha: ${data.visitDate} ${data.checkedInAt}\n`),
+    t(`Clase: ${data.visitNumber} de 3\n`),
+    t(`Referencia: ${shortReference}\n`),
+    t(divider() + "\n"),
+    t(`${ESC}a\x01`),
+    t("Presentar este pase al coach.\n"),
+    t("\n\n\n"),
+    t(`${GS}V\x00`),
+  ]);
+}
+
 export async function printTestPage(printerName: string): Promise<void> {
   const now = new Date().toLocaleString("es-MX", {
     day: "2-digit",

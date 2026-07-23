@@ -45,11 +45,12 @@ export type IntakeMatch = {
 
 function redirectWithError(
   code: string,
-  options?: { isReturning?: boolean; returnMode?: string | null }
+  options?: { isReturning?: boolean; returnMode?: string | null; trialProspectId?: string | null }
 ): never {
   const params = new URLSearchParams({ err: code });
   if (options?.isReturning) params.set("returning", "1");
   if (options?.isReturning && options.returnMode) params.set("returnMode", options.returnMode);
+  if (options?.trialProspectId) params.set("trialProspectId", options.trialProspectId);
   redirect(`/players/new?${params.toString()}`);
 }
 
@@ -170,6 +171,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const perf = createPerfTimer("intake.create_enrollment");
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
+  const trialProspectId = String(formData.get("trialProspectId") ?? "").trim() || null;
   const uniformSize             = formData.get("uniformSize")?.toString().trim() || null;
   const kitFulfillment          = formData.get("kitFulfillment")?.toString() === "deliver_now" ? "deliver_now" : "pending_order";
   const kitIsGoalkeeper         = formData.get("kitIsGoalkeeper") === "1";
@@ -183,7 +185,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const player = parsePlayerFormData(formData);
   const enrollment = parseEnrollmentFormData(formData);
   if (!player || !enrollment) {
-    return redirectWithError("invalid_form", { isReturning, returnMode });
+    return redirectWithError("invalid_form", { isReturning, returnMode, trialProspectId });
   }
   perf.mark("parse_form");
   await assertDebugWritesAllowed(`/players/new${isReturning ? "?returning=1" : ""}`);
@@ -199,6 +201,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("unauthenticated", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
     });
   }
   perf.mark("auth_user");
@@ -207,9 +210,25 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("invalid_form", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
     });
   }
   perf.mark("campus_access");
+
+  if (trialProspectId) {
+    const { data: trialProspect } = await admin
+      .from("trial_prospects")
+      .select("id, campus_id, status, converted_enrollment_id")
+      .eq("id", trialProspectId)
+      .maybeSingle<{ id: string; campus_id: string; status: string; converted_enrollment_id: string | null }>();
+    if (trialProspect?.status === "converted" && trialProspect.converted_enrollment_id) {
+      redirect(`/caja?enrollmentId=${trialProspect.converted_enrollment_id}`);
+    }
+    if (!trialProspect || trialProspect.status !== "active" || trialProspect.campus_id !== enrollment.campusId) {
+      return redirectWithError("trial_conversion_invalid", { trialProspectId });
+    }
+  }
+  perf.mark("trial_source_guard");
 
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(admin, {
@@ -243,6 +262,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("config_error", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
     });
   }
 
@@ -277,7 +297,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
 
   if (guardianError || !guardian) {
     console.error("intake guardian insert failed", guardianError);
-    return redirectWithError("guardian_failed", { isReturning: player.isReturning });
+    return redirectWithError("guardian_failed", { isReturning: player.isReturning, trialProspectId });
   }
   createdIds.guardianId = guardian.id;
   perf.mark("guardian_insert");
@@ -299,7 +319,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   if (playerError || !createdPlayer) {
     console.error("intake player insert failed", playerError);
     await rollbackIntake(admin, createdIds);
-    return redirectWithError("player_failed", { isReturning: player.isReturning });
+    return redirectWithError("player_failed", { isReturning: player.isReturning, trialProspectId });
   }
   createdIds.playerId = createdPlayer.id;
   perf.mark("player_insert");
@@ -318,7 +338,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   if (linkError || !link) {
     console.error("intake guardian link failed", linkError);
     await rollbackIntake(admin, createdIds);
-    return redirectWithError("link_failed", { isReturning: player.isReturning });
+    return redirectWithError("link_failed", { isReturning: player.isReturning, trialProspectId });
   }
   createdIds.playerGuardianId = link.id;
   perf.mark("guardian_link_insert");
@@ -334,6 +354,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       inscription_date: enrollment.startDate,
       is_returning: enrollment.isReturning,
       return_inscription_mode: enrollment.isReturning ? enrollment.returnInscriptionMode : null,
+      source_trial_prospect_id: trialProspectId,
       notes: enrollment.notes ?? null,
     })
     .select("id, pricing_plans(currency)")
@@ -343,9 +364,18 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   if (enrollmentError || !createdEnrollment) {
     console.error("intake enrollment insert failed", enrollmentError);
     await rollbackIntake(admin, createdIds);
+    if (trialProspectId && enrollmentError?.code === "23505") {
+      const { data: existingEnrollment } = await admin
+        .from("enrollments")
+        .select("id")
+        .eq("source_trial_prospect_id", trialProspectId)
+        .maybeSingle<{ id: string }>();
+      if (existingEnrollment) redirect(`/caja?enrollmentId=${existingEnrollment.id}`);
+    }
     return redirectWithError("enrollment_failed", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
     });
   }
   createdIds.enrollmentId = createdEnrollment.id;
@@ -383,6 +413,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     return redirectWithError("charges_failed", {
       isReturning: enrollment.isReturning,
       returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
     });
   }
   perf.mark("seed_charges");
@@ -496,6 +527,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       return redirectWithError("enrollment_failed", {
         isReturning: enrollment.isReturning,
         returnMode: enrollment.returnInscriptionMode,
+        trialProspectId,
       });
     }
 
@@ -503,6 +535,40 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     await admin.from("players").update({ level: "B2" }).eq("id", createdPlayer.id);
   }
   perf.mark("auto_assign_write");
+
+  if (trialProspectId) {
+    const convertedAt = new Date().toISOString();
+    const { data: convertedProspect, error: conversionError } = await admin
+      .from("trial_prospects")
+      .update({
+        status: "converted",
+        converted_player_id: createdPlayer.id,
+        converted_enrollment_id: createdEnrollment.id,
+        closed_at: convertedAt,
+        updated_at: convertedAt,
+      })
+      .eq("id", trialProspectId)
+      .eq("status", "active")
+      .eq("campus_id", enrollment.campusId)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    if (conversionError || !convertedProspect) {
+      console.error("trial prospect conversion link failed", conversionError);
+      await rollbackIntake(admin, createdIds);
+      return redirectWithError("trial_conversion_failed", { trialProspectId });
+    }
+
+    await writeAuditLog(admin, {
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      action: "trial_prospect.converted",
+      tableName: "trial_prospects",
+      recordId: trialProspectId,
+      afterData: { player_id: createdPlayer.id, enrollment_id: createdEnrollment.id },
+    });
+  }
+  perf.mark("trial_conversion_link");
 
   await writeAuditLog(admin, {
     actorUserId: user.id,
@@ -517,11 +583,13 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       is_returning: enrollment.isReturning,
       return_inscription_mode: enrollment.isReturning ? enrollment.returnInscriptionMode : null,
       intake_mode: "single_page",
+      source_trial_prospect_id: trialProspectId,
     },
   });
   perf.mark("audit_log");
 
   revalidatePath("/players");
+  revalidatePath("/trial-classes");
   revalidatePath(`/players/${createdPlayer.id}`);
   perf.mark("revalidate");
   perf.end({
