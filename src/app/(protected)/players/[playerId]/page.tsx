@@ -25,7 +25,7 @@ import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
-  repriceProductChargeAction,
+  repriceChargeAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -142,7 +142,6 @@ const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
   payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
   reprice_reason_required: "Debes escribir el motivo del precio especial.",
   reprice_amount_invalid: "Captura un monto mayor a cero.",
-  charge_not_product: "Solo se puede cambiar el precio de cargos ligados a un producto.",
   charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
   charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
   reprice_failed: "No se pudo cambiar el precio del cargo.",
@@ -363,8 +362,8 @@ export default async function PlayerDetailPage({
   const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const replaceIncident = activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const voidCharge = activeEnrollmentId && isDirector ? voidChargeAction.bind(null, activeEnrollmentId) : undefined;
-  const repriceProductCharge =
-    activeEnrollmentId && isDirector ? repriceProductChargeAction.bind(null, activeEnrollmentId) : undefined;
+  const repriceCharge =
+    activeEnrollmentId && isSuperAdmin ? repriceChargeAction.bind(null, activeEnrollmentId) : undefined;
   const voidPayment = activeEnrollmentId && isDirector ? voidPaymentAction.bind(null, activeEnrollmentId) : undefined;
 
   return (
@@ -810,7 +809,7 @@ export default async function PlayerDetailPage({
                   <ChargesLedgerTable
                     rows={activeLedger.charges}
                     voidChargeAction={voidCharge}
-                    repriceProductChargeAction={repriceProductCharge}
+                    repriceChargeAction={repriceCharge}
                   />
                 </section>
                 <section className="space-y-2">

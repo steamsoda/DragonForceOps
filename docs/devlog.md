@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-22 (session 229)
+
+### Super Admin-Only Repricing For All Untouched Charges (v1.16.219)
+
+- Restricted manual charge repricing to Super Admin only; Director Admin no longer receives the action in the UI and the server action independently enforces the same role boundary.
+- Expanded eligibility from catalog-product charges to every charge type, including tuition and inscription, provided the charge is still pending and has no payment allocation or account credit applied.
+- Kept paid, partially paid, credited, refunded, voided, and otherwise non-pending charges blocked to prevent over-allocation and finance drift. Those cases continue to require the existing correction/reassignment workflows.
+- Added an additive migration that installs the generalized service-role-only RPC and retires the preview-only product-specific function. Mandatory reason, audit before/after, row locking, and anomaly monitoring remain in place.
+- Verification target: `npm run test:intake-product-repricing`, `npm run typecheck`, `npm run build`, preview migration verification, and `/admin/finance-sanity` after operator testing.
+
 ## 2026-07-22 (session 228)
 
 ### Optional Second Tutor And Safe Product-Charge Repricing (v1.16.218)

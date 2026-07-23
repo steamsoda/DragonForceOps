@@ -1009,7 +1009,7 @@ export async function voidChargeAction(
   redirect(`${BASE}?ok=charge_voided`);
 }
 
-export async function repriceProductChargeAction(
+export async function repriceChargeAction(
   enrollmentId: string,
   chargeId: string,
   formData: FormData
@@ -1025,7 +1025,7 @@ export async function repriceProductChargeAction(
     redirect(`${BASE}?err=reprice_amount_invalid`);
   }
 
-  const permissionContext = await requireDirectorContext(`${BASE}?err=unauthorized`);
+  const permissionContext = await requireSuperAdminContext(`${BASE}?err=unauthorized`);
   if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
     redirect(`${BASE}?err=unauthorized`);
   }
@@ -1049,7 +1049,7 @@ export async function repriceProductChargeAction(
 
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("reprice_unallocated_product_charge", {
+  const { data, error } = await admin.rpc("reprice_unallocated_charge", {
     p_charge_id: chargeId,
     p_new_amount: newAmount,
   });
@@ -1061,7 +1061,7 @@ export async function repriceProductChargeAction(
   await writeAuditLog(supabase, {
     actorUserId: permissionContext.user.id,
     actorEmail: permissionContext.user.email ?? null,
-    action: "charge.repriced.product_override",
+    action: "charge.repriced.manual_override",
     tableName: "charges",
     recordId: chargeId,
     beforeData: {
@@ -1086,7 +1086,7 @@ export async function repriceProductChargeAction(
     enrollmentId,
     actorUserId: permissionContext.user.id,
     actorEmail: permissionContext.user.email,
-    triggerAction: "charge.repriced.product_override",
+    triggerAction: "charge.repriced.manual_override",
     before: anomalyBefore,
     permissionContext,
   });

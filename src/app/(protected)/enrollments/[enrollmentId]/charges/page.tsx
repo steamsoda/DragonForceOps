@@ -13,7 +13,7 @@ import {
   cancelEnrollmentIncidentAction,
   createEnrollmentIncidentAction,
   replaceEnrollmentIncidentAction,
-  repriceProductChargeAction,
+  repriceChargeAction,
   voidChargeAction,
   voidPaymentAction,
 } from "@/server/actions/billing";
@@ -39,7 +39,6 @@ const errorMessages: Record<string, string> = {
   void_failed: "No se pudo anular. Intenta de nuevo.",
   reprice_reason_required: "Debes escribir el motivo del precio especial.",
   reprice_amount_invalid: "Captura un monto mayor a cero.",
-  charge_not_product: "Solo se puede cambiar el precio de cargos ligados a un producto.",
   charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
   charge_not_pending: "Solo se puede cambiar el precio de un cargo pendiente.",
   reprice_failed: "No se pudo cambiar el precio del cargo.",
@@ -123,8 +122,8 @@ export default async function ChargesPage({
   const voidCharge = isDirector
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
-  const repriceProductCharge = isDirector
-    ? repriceProductChargeAction.bind(null, enrollmentId)
+  const repriceCharge = permissionContext.isSuperAdmin
+    ? repriceChargeAction.bind(null, enrollmentId)
     : undefined;
   const voidPayment = isDirector
     ? voidPaymentAction.bind(null, enrollmentId)
@@ -250,7 +249,7 @@ export default async function ChargesPage({
           <ChargesLedgerTable
             rows={ledger.charges}
             voidChargeAction={voidCharge}
-            repriceProductChargeAction={repriceProductCharge}
+            repriceChargeAction={repriceCharge}
           />
         </section>
 

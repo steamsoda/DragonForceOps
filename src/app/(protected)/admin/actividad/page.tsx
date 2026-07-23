@@ -28,6 +28,7 @@ const ACTION_LABELS: Record<string, string> = {
   "charge.corrective_created": "Cargo correctivo creado",
   "charge.voided": "Cargo anulado",
   "charge.repriced.product_override": "Precio especial aplicado",
+  "charge.repriced.manual_override": "Precio manual aplicado",
   "balance_adjustment.created": "Ajuste de saldo registrado",
   "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
@@ -45,7 +46,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ACTION_OPTIONS = [
   "payment.posted", "payment.reassigned", "payment.refunded", "payment.voided",
-  "charge.created", "charge.corrective_created", "charge.voided", "charge.repriced.product_override", "balance_adjustment.created", "payment_allocations.repaired",
+  "charge.created", "charge.corrective_created", "charge.voided", "charge.repriced.product_override", "charge.repriced.manual_override", "balance_adjustment.created", "payment_allocations.repaired",
   "enrollment_incident.created", "enrollment_incident.cancelled", "enrollment_incident.replaced",
   "enrollment.created", "enrollment.ended", "enrollment.reactivated", "enrollment.updated",
   "monthly_charges.generated", "player.nuked", "pending_follow_up.updated"
@@ -103,7 +104,7 @@ function describeDetail(action: string, after: Record<string, unknown> | null, b
     const reason = data.reason as string | undefined;
     return [amount !== undefined ? `$${amount.toLocaleString("es-MX")}` : null, refundMethod, reason].filter(Boolean).join(" Â· ");
   }
-  if (action === "charge.repriced.product_override") {
+  if (action === "charge.repriced.product_override" || action === "charge.repriced.manual_override") {
     const desc = data.description as string | undefined;
     const amount = data.amount as number | undefined;
     const reason = data.reason as string | undefined;

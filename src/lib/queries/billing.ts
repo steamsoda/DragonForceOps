@@ -44,7 +44,6 @@ type CreditBalanceRow = {
 
 type ChargeRow = {
   id: string;
-  product_id: string | null;
   description: string;
   amount: number;
   currency: string;
@@ -150,7 +149,6 @@ export type EnrollmentLedger = {
   accountCredit: AccountCreditSummary;
   charges: Array<{
     id: string;
-    productId: string | null;
     typeCode: string;
     typeName: string;
     description: string;
@@ -254,7 +252,7 @@ export async function getEnrollmentLedger(
 
   let chargeQuery = supabase
     .from("charges")
-    .select("id, product_id, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
+    .select("id, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
     .eq("enrollment_id", enrollmentId);
 
   if (chargeScope === "pending") {
@@ -442,7 +440,6 @@ export async function getEnrollmentLedger(
       const creditAppliedAmount = creditAppliedByCharge.get(row.id) ?? 0;
       return {
         id: row.id,
-        productId: row.product_id,
         typeCode: row.charge_types?.code ?? "-",
         typeName: row.charge_types?.name ?? "-",
         description: row.description,

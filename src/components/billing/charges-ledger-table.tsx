@@ -1,6 +1,5 @@
 type ChargeItem = {
   id: string;
-  productId: string | null;
   typeCode: string;
   typeName: string;
   description: string;
@@ -21,7 +20,7 @@ type ChargeItem = {
 type ChargesLedgerTableProps = {
   rows: ChargeItem[];
   voidChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
-  repriceProductChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
+  repriceChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
 };
 
 function formatMoney(amount: number, currency: string) {
@@ -57,9 +56,9 @@ function getChargeStatusLabel(effectiveStatus: string) {
 export function ChargesLedgerTable({
   rows,
   voidChargeAction,
-  repriceProductChargeAction,
+  repriceChargeAction,
 }: ChargesLedgerTableProps) {
-  const hasActions = Boolean(voidChargeAction || repriceProductChargeAction);
+  const hasActions = Boolean(voidChargeAction || repriceChargeAction);
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
       <table className="w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -136,8 +135,7 @@ export function ChargesLedgerTable({
                     <td className="px-3 py-2 text-right align-top">
                       {row.status === "pending" ? (
                         <div className="flex flex-wrap justify-end gap-2">
-                          {repriceProductChargeAction &&
-                          row.productId &&
+                          {repriceChargeAction &&
                           row.allocatedAmount <= 0 &&
                           row.creditAppliedAmount <= 0 ? (
                             <details className="group relative">
@@ -145,11 +143,11 @@ export function ChargesLedgerTable({
                                 Cambiar precio
                               </summary>
                               <form
-                                action={repriceProductChargeAction.bind(null, row.id)}
+                                action={repriceChargeAction.bind(null, row.id)}
                                 className="absolute right-0 z-10 mt-1 w-64 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-left shadow-lg dark:border-slate-700 dark:bg-slate-800"
                               >
                                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                  Precio especial para este cargo
+                                  Precio manual para este cargo
                                 </p>
                                 <label className="block text-xs text-slate-600 dark:text-slate-400">
                                   Nuevo monto

@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   "charge.corrective_created": "Cargo correctivo creado",
   "charge.voided": "Cargo anulado",
   "charge.repriced.product_override": "Precio especial aplicado",
+  "charge.repriced.manual_override": "Precio manual aplicado",
   "balance_adjustment.created": "Ajuste de saldo registrado",
   "payment_allocations.repaired": "Asignaciones reparadas",
   "enrollment_incident.created": "Incidencia registrada",
@@ -91,7 +92,7 @@ function describeAfterData(action: string, data: Record<string, unknown> | null)
       .filter(Boolean)
       .join(" | ");
   }
-  if (action === "charge.repriced.product_override") {
+  if (action === "charge.repriced.product_override" || action === "charge.repriced.manual_override") {
     const description = data.description as string | undefined;
     const amount = data.amount as number | undefined;
     const reason = data.reason as string | undefined;
