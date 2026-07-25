@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-24 (session 233)
+
+### Finance Sanity Deep-Scan Hardening Production Promotion (v1.16.221)
+
+- Promoted the approved Finance Sanity reliability pass from `preview` to production.
+- Production behavior now uses bounded enrollment-diagnostic concurrency, strict diagnostic ledger reads, and explicit incomplete-scan reporting instead of converting failed reads into `$0.00` derived balances.
+- No database migration or finance mutation is part of this release. Canonical balances, charges, payments, allocations, refunds, credits, Caja workflows, and scheduled jobs remain unchanged.
+- Release verification: focused Finance Sanity regression, typecheck, production build, GitHub secret scan, dependency security audit, and remote branch/hash confirmation.
+
 ## 2026-07-24 (session 232)
 
 ### Finance Sanity Deep-Scan Hardening (v1.16.221)

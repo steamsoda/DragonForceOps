@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.220`
+- Current production line: `v1.16.221`
 - Current preview line: `v1.16.221`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -134,7 +134,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
 | 🟢 | Tryout classes Pass 1-4 | Production `v1.16.210`-`v1.16.217` adds isolated intake/check-in/tickets, separate attendance awareness, guarded conversion through normal enrollment/Caja, and range-filtered group/coach/visitor/YOB reporting. Trial visitors remain outside official rosters, attendance metrics, charges, and payments. Pass 5 hardening remains open: explicit closure/decline, controlled fourth-visit override, and stronger duplicate handling. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.217` devlog |
 | ✅ | Enrollment second tutor + durable manual charge override | Production `v1.16.220` adds optional second-tutor capture plus durable Super Admin-only overrides for pending untouched charges. Generation stays unchanged; scheduled repricing and adjacent application paths preserve overrides, and an explicit restore returns to the exact pre-override price/rule. Continue finance-sanity monitoring after real operator use. | New Enrollments / Caja, `v1.16.218`-`v1.16.220` devlog |
-| 🟢 | Finance Sanity deep-scan reliability | Preview `v1.16.221` replaces unbounded enrollment diagnostics with bounded concurrency, rejects incomplete ledger reads instead of manufacturing `$0.00` balances, and reports incomplete scans explicitly. Validate a production-sized deep scan before promotion. | Finance Sanity, `v1.16.221` devlog |
+| ✅ | Finance Sanity deep-scan reliability | Production `v1.16.221` replaces unbounded enrollment diagnostics with bounded concurrency, rejects incomplete ledger reads instead of manufacturing `$0.00` balances, and reports incomplete scans explicitly. | Finance Sanity, `v1.16.221` devlog |
 | 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
