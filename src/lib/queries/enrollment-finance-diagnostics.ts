@@ -152,12 +152,12 @@ export async function getEnrollmentFinanceDiagnostics(
   if (!context?.hasOperationalAccess) return null;
   if (!(await canAccessEnrollmentRecord(enrollmentId, context))) return null;
 
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const ledger = await getEnrollmentLedger(enrollmentId, { strictReadErrors: true });
   if (!ledger) return null;
 
   const paymentIds = ledger.payments.map((row) => row.id);
   const supabase = context.supabase;
-  const [{ data: canonicalRow }, { data: refundRows }] = await Promise.all([
+  const [canonicalResult, refundResult] = await Promise.all([
     supabase
       .from("v_enrollment_balances")
       .select("enrollment_id, balance")
@@ -170,9 +170,18 @@ export async function getEnrollmentFinanceDiagnostics(
           .select("payment_id, amount")
           .in("payment_id", paymentIds)
           .returns<RefundAmountRow[]>()
-      : Promise.resolve({ data: [] as RefundAmountRow[] }),
+      : Promise.resolve({ data: [] as RefundAmountRow[], error: null }),
   ]);
 
+  if (canonicalResult.error) {
+    throw new Error(`finance_diagnostic_read_failed:canonical_balance:${canonicalResult.error.message}`);
+  }
+  if (refundResult.error) {
+    throw new Error(`finance_diagnostic_read_failed:payment_refunds:${refundResult.error.message}`);
+  }
+
+  const canonicalRow = canonicalResult.data;
+  const refundRows = refundResult.data;
   const refundAmountByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, toNumber(row.amount)]));
   const canonicalBalance = roundMoney(toNumber(canonicalRow?.balance ?? ledger.totals.balance));
   const anomalies: EnrollmentFinanceAnomaly[] = [];

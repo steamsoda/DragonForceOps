@@ -131,6 +131,7 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
   const balanceDriftDetected = hasBalanceDrift(sanity);
   const anomalyDetected = sanity.activeAnomalyRows.length > 0;
   const needsCorrectionDetected = hasNeedsCorrectionAnomalies(sanity);
+  const scanIncomplete = sanity.failedEnrollmentCount > 0;
   const warningOnlyDetected = anomalyDetected && !needsCorrectionDetected && !balanceDriftDetected;
   const activeWarningCount = sanity.activeAnomalyRows.filter((row) => row.highestSeverity === "warning").length;
   const activeNeedsCorrectionCount = sanity.activeAnomalyRows.filter(
@@ -215,7 +216,9 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
           className={`rounded-lg border p-4 ${
             sanity.isHealthy
               ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-              : warningOnlyDetected
+              : scanIncomplete && !balanceDriftDetected && !needsCorrectionDetected
+                ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
+                : warningOnlyDetected
                 ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
               : "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30"
           }`}
@@ -225,6 +228,8 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
               ? "Sin drift ni anomalias activas"
               : balanceDriftDetected
                 ? "Se detecto drift financiero"
+                : scanIncomplete
+                  ? "Escaneo financiero incompleto"
                 : warningOnlyDetected
                   ? "Se detectaron advertencias operativas"
                   : "Se detectaron anomalias financieras"}
@@ -241,6 +246,10 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
               {balanceDriftDetected
                 ? "Hay divergencia real entre la capa canonica y alguna vista operativa."
+                : scanIncomplete
+                  ? `${sanity.failedEnrollmentCount} inscripcion${
+                      sanity.failedEnrollmentCount !== 1 ? "es no pudieron" : " no pudo"
+                    } verificarse. Esas lecturas no se convirtieron en saldos de $0 ni en falsas anomalias; vuelve a ejecutar el escaneo.`
                 : warningOnlyDetected
                   ? `No hay drift global activo, pero siguen visibles ${activeWarningCount} cuenta${
                       activeWarningCount !== 1 ? "s" : ""
@@ -368,12 +377,26 @@ export default async function FinanceSanityPage({ searchParams }: { searchParams
                   {activeWarningCount} advertencia{activeWarningCount !== 1 ? "s" : ""}
                 </span>
               ) : null}
+              {scanIncomplete ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  {sanity.failedEnrollmentCount} lectura{sanity.failedEnrollmentCount !== 1 ? "s" : ""} incompleta
+                  {sanity.failedEnrollmentCount !== 1 ? "s" : ""}
+                </span>
+              ) : null}
             </div>
           </div>
 
           {sanity.activeAnomalyRows.length === 0 ? (
-            <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-              No hay anomalias activas para los filtros actuales.
+            <div
+              className={`mt-4 rounded-md border px-3 py-2 text-sm ${
+                scanIncomplete
+                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+              }`}
+            >
+              {scanIncomplete
+                ? "No hay anomalias entre las cuentas verificadas, pero el escaneo no termino todas las lecturas."
+                : "No hay anomalias activas para los filtros actuales."}
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto">

@@ -125,6 +125,7 @@ export type FinanceSanityData = {
   summary: FinanceSanitySummary;
   latestSnapshot: FinanceSanitySnapshot | null;
   scannedEnrollmentCount: number;
+  failedEnrollmentCount: number;
   driftRows: FinanceSanityDriftRow[];
   activeAnomalyRows: FinanceSanityActiveAnomalyRow[];
   recentAnomalyEvents: EnrollmentFinanceAnomalyEvent[];
@@ -132,6 +133,30 @@ export type FinanceSanityData = {
 };
 
 export type FinanceSanityScanMode = "recent" | "deep";
+
+const FINANCE_DIAGNOSTIC_CONCURRENCY = 6;
+
+async function mapWithConcurrencyLimit<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(Math.max(concurrency, 1), items.length) }, () => runWorker()),
+  );
+  return results;
+}
 
 const RECENT_FINANCE_ACTIVITY_ACTIONS = [
   "payment.created",
@@ -388,9 +413,24 @@ export async function getFinanceSanityData(
     ),
   ).slice(0, candidateLimit);
 
-  const diagnosticsList = await Promise.all(
-    candidateEnrollmentIds.map((enrollmentId) => getEnrollmentFinanceDiagnostics(enrollmentId, context)),
+  const diagnosticResults = await mapWithConcurrencyLimit(
+    candidateEnrollmentIds,
+    FINANCE_DIAGNOSTIC_CONCURRENCY,
+    async (enrollmentId) => {
+      try {
+        const diagnostic = await getEnrollmentFinanceDiagnostics(enrollmentId, context);
+        return { diagnostic, failed: diagnostic === null };
+      } catch (error) {
+        console.error("[finance-sanity] enrollment diagnostic failed", {
+          enrollmentId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return { diagnostic: null, failed: true };
+      }
+    },
   );
+  const diagnosticsList = diagnosticResults.map((result) => result.diagnostic);
+  const failedEnrollmentCount = diagnosticResults.filter((result) => result.failed).length;
 
   const activeAnomalyRows: FinanceSanityActiveAnomalyRow[] = diagnosticsList
     .filter((row): row is NonNullable<typeof row> => row !== null)
@@ -426,12 +466,14 @@ export async function getFinanceSanityData(
     summary.pendingVsCanonicalCountDrift === 0 &&
     summary.dashboardVsCanonicalCountDrift === 0 &&
     normalizedDriftRows.length === 0 &&
-    activeAnomalyRows.length === 0;
+    activeAnomalyRows.length === 0 &&
+    failedEnrollmentCount === 0;
 
   return {
     summary,
     latestSnapshot,
     scannedEnrollmentCount: candidateEnrollmentIds.length,
+    failedEnrollmentCount,
     driftRows: normalizedDriftRows,
     activeAnomalyRows,
     recentAnomalyEvents,

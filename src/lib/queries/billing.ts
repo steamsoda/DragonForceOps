@@ -239,7 +239,17 @@ type EnrollmentLedgerOptions = {
   includePayments?: boolean;
   includeIncidents?: boolean;
   includeRefunds?: boolean;
+  strictReadErrors?: boolean;
 };
+
+function assertLedgerReadSucceeded(
+  strictReadErrors: boolean,
+  label: string,
+  error: { message?: string } | null | undefined,
+) {
+  if (!strictReadErrors || !error) return;
+  throw new Error(`enrollment_ledger_read_failed:${label}:${error.message ?? "unknown_error"}`);
+}
 
 export async function getEnrollmentLedger(
   enrollmentId: string,
@@ -255,6 +265,7 @@ export async function getEnrollmentLedger(
   const includePayments = options.includePayments ?? true;
   const includeIncidents = options.includeIncidents ?? true;
   const includeRefunds = options.includeRefunds ?? includePayments;
+  const strictReadErrors = options.strictReadErrors ?? false;
 
   let chargeQuery = supabase
     .from("charges")
@@ -266,12 +277,12 @@ export async function getEnrollmentLedger(
   }
 
   const [
-    { data: enrollment },
-    { data: balance },
-    { data: creditBalance },
-    { data: charges },
-    { data: payments },
-    { data: incidents },
+    enrollmentResult,
+    balanceResult,
+    creditBalanceResult,
+    chargesResult,
+    paymentsResult,
+    incidentsResult,
   ] = await Promise.all([
     supabase
       .from("enrollments")
@@ -301,7 +312,7 @@ export async function getEnrollmentLedger(
           .eq("enrollment_id", enrollmentId)
           .order("paid_at", { ascending: false })
           .returns<PaymentRow[]>()
-      : Promise.resolve({ data: [] as PaymentRow[] }),
+      : Promise.resolve({ data: [] as PaymentRow[], error: null }),
     includeIncidents
       ? supabase
           .from("enrollment_incidents")
@@ -309,21 +320,37 @@ export async function getEnrollmentLedger(
           .eq("enrollment_id", enrollmentId)
           .order("created_at", { ascending: false })
           .returns<EnrollmentIncidentRow[]>()
-      : Promise.resolve({ data: [] as EnrollmentIncidentRow[] })
+      : Promise.resolve({ data: [] as EnrollmentIncidentRow[], error: null })
   ]);
+
+  assertLedgerReadSucceeded(strictReadErrors, "enrollment", enrollmentResult.error);
+  assertLedgerReadSucceeded(strictReadErrors, "canonical_balance", balanceResult.error);
+  assertLedgerReadSucceeded(strictReadErrors, "credit_balance", creditBalanceResult.error);
+  assertLedgerReadSucceeded(strictReadErrors, "charges", chargesResult.error);
+  assertLedgerReadSucceeded(strictReadErrors, "payments", paymentsResult.error);
+  assertLedgerReadSucceeded(strictReadErrors, "incidents", incidentsResult.error);
+
+  const enrollment = enrollmentResult.data;
+  const balance = balanceResult.data;
+  const creditBalance = creditBalanceResult.data;
+  const charges = chargesResult.data;
+  const payments = paymentsResult.data;
+  const incidents = incidentsResult.data;
 
   if (!enrollment) return null;
   if (!canAccessCampus(campusAccess, enrollment.campus_id)) return null;
 
   const operatorCampusIds = [...new Set((payments ?? []).map((row) => row.operator_campus_id).filter(Boolean))];
   const campusIdsToLoad = [...new Set([enrollment.campus_id, ...operatorCampusIds])];
-  const { data: campusRows } = campusIdsToLoad.length
+  const campusResult = campusIdsToLoad.length
     ? await supabase
         .from("campuses")
         .select("id, name, code")
         .in("id", campusIdsToLoad)
         .returns<Array<{ id: string; name: string; code: string }>>()
-    : { data: [] };
+    : { data: [] as Array<{ id: string; name: string; code: string }>, error: null };
+  assertLedgerReadSucceeded(strictReadErrors, "campuses", campusResult.error);
+  const campusRows = campusResult.data;
   const campusById = new Map((campusRows ?? []).map((campus) => [campus.id, campus]));
 
   const chargeIds = (charges ?? []).map((row) => row.id);
@@ -338,24 +365,28 @@ export async function getEnrollmentLedger(
 
     allocationQuery = allocationQuery.in("charge_id", chargeIds);
 
-    const { data: allocationRows } = await allocationQuery.returns<AllocationRow[]>();
+    const { data: allocationRows, error: allocationError } = await allocationQuery.returns<AllocationRow[]>();
+    assertLedgerReadSucceeded(strictReadErrors, "payment_allocations", allocationError);
     allocations = allocationRows ?? [];
 
-    const { data: creditApplicationRows } = await supabase
+    const { data: creditApplicationRows, error: creditApplicationError } = await supabase
       .from("enrollment_credit_applications")
       .select("charge_id, amount")
       .in("charge_id", chargeIds)
       .returns<CreditApplicationRow[]>();
+    assertLedgerReadSucceeded(strictReadErrors, "credit_applications", creditApplicationError);
     creditApplications = creditApplicationRows ?? [];
   }
 
-  const { data: refundRows } = includeRefunds && paymentIds.length
+  const refundResult = includeRefunds && paymentIds.length
     ? await supabase
         .from("payment_refunds")
         .select("payment_id, refunded_at, refund_method, reason, notes, amount")
         .in("payment_id", paymentIds)
         .returns<PaymentRefundRow[]>()
-    : { data: [] as PaymentRefundRow[] };
+    : { data: [] as PaymentRefundRow[], error: null };
+  assertLedgerReadSucceeded(strictReadErrors, "payment_refunds", refundResult.error);
+  const refundRows = refundResult.data;
 
   const allocatedByCharge = new Map<string, number>();
   const creditAppliedByCharge = new Map<string, number>();
@@ -376,7 +407,7 @@ export async function getEnrollmentLedger(
     ]),
   );
   const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
-  const { data: paymentCreditRows } = paymentIds.length
+  const paymentCreditResult = paymentIds.length
     ? await supabase
         .from("enrollment_credits")
         .select("source_payment_id, original_amount, status")
@@ -384,7 +415,9 @@ export async function getEnrollmentLedger(
         .in("source_payment_id", paymentIds)
         .neq("status", "void")
         .returns<EnrollmentCreditRow[]>()
-    : { data: [] as EnrollmentCreditRow[] };
+    : { data: [] as EnrollmentCreditRow[], error: null };
+  assertLedgerReadSucceeded(strictReadErrors, "payment_credits", paymentCreditResult.error);
+  const paymentCreditRows = paymentCreditResult.data;
 
   const explicitCreditOriginalByPayment = new Map<string, number>();
   for (const credit of paymentCreditRows ?? []) {

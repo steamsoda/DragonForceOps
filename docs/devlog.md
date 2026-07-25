@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-24 (session 232)
+
+### Finance Sanity Deep-Scan Hardening (v1.16.221)
+
+- Investigated nine production `canonical_vs_operational_drift` alerts read-only and confirmed the underlying ledgers reconcile correctly: active charges minus posted payments matched every canonical balance, with no refunds, non-posted allocations, or allocations to void charges causing the reported differences.
+- Identified the false-positive mechanism: deep scan launched hundreds of enrollment diagnostics simultaneously, while diagnostic ledger reads did not surface individual Supabase errors. Failed reads could therefore become empty charge/payment arrays and manufacture a `$0.00` derived balance.
+- Limited enrollment diagnostics to six concurrent workers and made Finance Sanity ledger reads strict. A failed charges, payments, allocation, refund, credit, campus, or canonical-balance query now fails that enrollment diagnostic instead of becoming an empty ledger.
+- Added explicit incomplete-scan accounting and UI. Failed enrollment reads are excluded from anomaly results, prevent a healthy verdict, and appear as an amber `Escaneo financiero incompleto` warning with a retry instruction.
+- Kept the change read-only and diagnostic-only: no schema migration, ledger mutation, balance formula, Caja behavior, payment allocation, refund, credit, charge, or cron behavior changed.
+- Added focused regression coverage for bounded concurrency, strict diagnostic reads, false-zero prevention, and incomplete-scan presentation.
+
 ## 2026-07-22 (session 231)
 
 ### Second Tutor And Durable Charge Overrides Production Promotion (v1.16.220)
