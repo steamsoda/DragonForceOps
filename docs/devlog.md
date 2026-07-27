@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-27 (session 236)
+
+### Permanent $300 Tournament Price Restoration (v1.16.223)
+
+- Restored the Caja price for `Superliga Regia 17 Edicion` and `Rosa Power Cup 13 Edicion` to `$300 MXN` for new charges beginning July 27, 2026, using the existing Monterrey business-date pricing resolver.
+- Preserved the original pricing history: `$300` through July 25 and `$500` on July 26. The new `$300` period has no end date or scheduled future increase.
+- Kept the change catalog-only and forward-looking. Existing charges, payments, allocations, receipts, tournament registrations, and finance balances are not repriced or mutated.
+- Added regression coverage for the July 26 historical `$500` price, the July 27 restoration, and the open-ended future `$300` price.
+
 ## 2026-07-27 (session 235)
 
 ### Finance Sanity Stale-Audit Cleanup Production Promotion (v1.16.222)

@@ -18,6 +18,15 @@ const baseRules = [
   {
     amount: 500,
     startsOn: "2026-07-26",
+    endsOn: "2026-07-26",
+    gender: null,
+    birthYearMin: null,
+    birthYearMax: null,
+    priority: 0,
+  },
+  {
+    amount: 300,
+    startsOn: "2026-07-27",
     endsOn: null,
     gender: null,
     birthYearMin: null,
@@ -46,6 +55,28 @@ assert.equal(
     fallbackAmount: null,
   }),
   500,
+);
+
+assert.equal(
+  resolveProductPricingRuleAmount({
+    rules: baseRules,
+    businessDate: "2026-07-27",
+    gender: "male",
+    birthYear: 2014,
+    fallbackAmount: null,
+  }),
+  300,
+);
+
+assert.equal(
+  resolveProductPricingRuleAmount({
+    rules: baseRules,
+    businessDate: "2027-01-01",
+    gender: "female",
+    birthYear: 2018,
+    fallbackAmount: null,
+  }),
+  300,
 );
 
 const comboRules = [
