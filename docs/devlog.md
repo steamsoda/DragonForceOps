@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-27 (session 235)
+
+### Finance Sanity Stale-Audit Cleanup Production Promotion (v1.16.222)
+
+- Promoted the verified stale-audit candidate cleanup from `preview` to production.
+- Preview deep-scan validation completed 813 live enrollment diagnostics with zero incomplete reads. Cross-surface canonical, Pendientes, and Panel drift remained `$0.00`.
+- Confirmed the two remaining preview correction rows were genuine preview-data anomalies rather than scanner failures: one refunded payment retained an allocation and one charge was overallocated.
+- No database migration or finance mutation is included. This release changes only diagnostic candidate accounting and regression coverage.
+- Release verification: focused Finance Sanity regression, typecheck, production build, preview deep scan, GitHub security checks, and remote/deployment confirmation.
+
 ## 2026-07-27 (session 234)
 
 ### Finance Sanity Stale-Audit Candidate Cleanup (v1.16.222)
