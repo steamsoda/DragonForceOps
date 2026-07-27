@@ -419,7 +419,7 @@ export async function getFinanceSanityData(
     async (enrollmentId) => {
       try {
         const diagnostic = await getEnrollmentFinanceDiagnostics(enrollmentId, context);
-        return { diagnostic, failed: diagnostic === null };
+        return { diagnostic, failed: false };
       } catch (error) {
         console.error("[finance-sanity] enrollment diagnostic failed", {
           enrollmentId,
@@ -472,7 +472,7 @@ export async function getFinanceSanityData(
   return {
     summary,
     latestSnapshot,
-    scannedEnrollmentCount: candidateEnrollmentIds.length,
+    scannedEnrollmentCount: diagnosticsList.filter((diagnostic) => diagnostic !== null).length,
     failedEnrollmentCount,
     driftRows: normalizedDriftRows,
     activeAnomalyRows,

@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-27 (session 234)
+
+### Finance Sanity Stale-Audit Candidate Cleanup (v1.16.222)
+
+- Verified production after `v1.16.221`: the nine false canonical/derived drift alerts disappeared, all four remaining active warnings had matching canonical and derived balances, and global cross-surface drift remained `$0.00`.
+- Investigated the three reported incomplete reads directly against production. All three IDs were historical audit references whose enrollment records were deleted in March/April 2026; no live enrollment read or Supabase query had failed.
+- Updated deep-scan accounting so a diagnostic that resolves to no current enrollment is skipped rather than reported as an incomplete read. Thrown query/read failures still count as incomplete, prevent a healthy verdict, and remain visible in amber.
+- Changed the displayed scanned-enrollment count to include only current enrollments that completed a diagnostic.
+- No migration or finance mutation: balances, charges, payments, allocations, refunds, credits, Caja, and scheduled jobs remain unchanged.
+
 ## 2026-07-24 (session 233)
 
 ### Finance Sanity Deep-Scan Hardening Production Promotion (v1.16.221)

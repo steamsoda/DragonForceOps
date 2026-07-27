@@ -19,6 +19,11 @@ assert.doesNotMatch(
   /candidateEnrollmentIds\.map\(\(enrollmentId\) => getEnrollmentFinanceDiagnostics/,
 );
 assert.match(sanitySource, /failedEnrollmentCount === 0/);
+assert.match(
+  sanitySource,
+  /scannedEnrollmentCount: diagnosticsList\.filter\(\(diagnostic\) => diagnostic !== null\)\.length/,
+);
+assert.doesNotMatch(sanitySource, /failed: diagnostic === null/);
 assert.match(pageSource, /Escaneo financiero incompleto/);
 assert.match(pageSource, /no se convirtieron en saldos de \$0 ni en falsas anomalias/);
 
