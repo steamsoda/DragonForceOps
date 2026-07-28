@@ -117,7 +117,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
                       {prospect.visits.length === 0 ? <p className="text-sm text-slate-500">Sin visitas registradas.</p> : prospect.visits.map((visit) => (
                         <div key={visit.id} className="flex flex-col gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                           <span><strong>Clase {visit.visitNumber}/3</strong> | {formatDateOnlyDdMmYyyy(visit.visitDate)} | {visit.groupName}{visit.note ? ` | ${visit.note}` : ""}</span>
-                          <TrialTicketReprintButton printerName={printerName} ticket={{ visitId: visit.id, prospectName: `${prospect.firstName} ${prospect.lastName}`, campusName: data.campuses.find((campus) => campus.id === prospect.campusId)?.name ?? "Campus", groupName: visit.groupName, coachNames: visit.coachNames, visitNumber: visit.visitNumber, visitDate: formatDateOnlyDdMmYyyy(visit.visitDate), checkedInAt: formatTimeMonterrey(visit.checkedInAt) }} />
+                          <TrialTicketReprintButton printerName={printerName} ticket={{ visitId: visit.id, prospectName: `${prospect.firstName} ${prospect.lastName}`, birthYear: Number(prospect.birthDate.slice(0, 4)), campusName: data.campuses.find((campus) => campus.id === prospect.campusId)?.name ?? "Campus", groupName: visit.groupName, coachNames: visit.coachNames, visitNumber: visit.visitNumber, visitDate: formatDateOnlyDdMmYyyy(visit.visitDate), checkedInAt: formatTimeMonterrey(visit.checkedInAt) }} />
                         </div>
                       ))}
                     </div>

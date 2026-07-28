@@ -48,6 +48,9 @@ assert(attendanceTodayPage.includes("clase de prueba"), "Today's attendance card
 assert(attendanceSessionPage.includes("No cuentan en el plantel ni en la asistencia oficial"), "Session detail must explain the official-metric boundary");
 assert(attendanceSessionPage.includes("roster={session.roster}"), "The official recorder must continue receiving only the enrolled roster");
 assert(printer.includes("printTrialClassTicket"), "Thermal ticket printer is missing");
+assert(action.includes("birthYear: Number(prospect.birth_date.slice(0, 4))"), "New tryout tickets must include the prospect birth year");
+assert(page.includes("birthYear: Number(prospect.birthDate.slice(0, 4))"), "Tryout ticket reprints must retain the prospect birth year");
+assert(printer.includes("Categoria: ${data.birthYear}"), "Tryout tickets must print the prospect category");
 assert(conversionMigration.includes("source_trial_prospect_id"), "Enrollment conversion source link is missing");
 assert(conversionMigration.includes("create unique index"), "A prospect must not create multiple enrollments");
 assert(page.includes("Inscribir jugador"), "Active prospects need a conversion entry point");

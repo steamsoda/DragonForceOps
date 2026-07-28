@@ -12,6 +12,7 @@ import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString } from
 export type TrialTicketPayload = {
   visitId: string;
   prospectName: string;
+  birthYear: number;
   campusName: string;
   groupName: string;
   coachNames: string[];
@@ -174,9 +175,9 @@ export async function recordTrialVisitAction({ prospectId, attendanceSessionId, 
   const admin = createAdminClient();
   const { data: prospect } = await admin
     .from("trial_prospects")
-    .select("id, campus_id, first_name, last_name")
+    .select("id, campus_id, first_name, last_name, birth_date")
     .eq("id", prospectId)
-    .maybeSingle<{ id: string; campus_id: string; first_name: string; last_name: string }>();
+    .maybeSingle<{ id: string; campus_id: string; first_name: string; last_name: string; birth_date: string }>();
   const context = prospect ? await requireTrialWriter(prospect.campus_id) : null;
   if (!context || !prospect) return { ok: false, error: "unauthorized" };
 
@@ -210,6 +211,7 @@ export async function recordTrialVisitAction({ prospectId, attendanceSessionId, 
   const ticket: TrialTicketPayload = {
     visitId: visitRow.id,
     prospectName: `${prospect.first_name} ${prospect.last_name}`,
+    birthYear: Number(prospect.birth_date.slice(0, 4)),
     campusName: campus?.name ?? "Campus",
     groupName: group?.name ?? "Grupo",
     coachNames: coachSnapshot.map((coach) => coach.name ?? "").filter(Boolean),

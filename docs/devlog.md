@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-27 (session 239)
+
+### Clases de Prueba Ticket Category (v1.16.225)
+
+- Added the prospect birth year to the printed tryout pass as `Categoria: YYYY` so coaches can immediately identify the player's category.
+- Updated both newly registered arrival tickets and historical `Reimprimir pase` tickets to use the same category field.
+- No migration and no changes to prospect identity, visits, official attendance, enrollment, Caja, or finance.
+
 ## 2026-07-27 (session 238)
 
 ### Clases de Prueba Sibling Duplicate Confirmation (v1.16.224)

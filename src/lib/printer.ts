@@ -441,6 +441,7 @@ export async function printCorte(printerName: string, data: CorteData): Promise<
 export type TrialClassTicketData = {
   visitId: string;
   prospectName: string;
+  birthYear: number;
   campusName: string;
   groupName: string;
   coachNames: string[];
@@ -461,6 +462,7 @@ export async function printTrialClassTicket(printerName: string, data: TrialClas
     t(divider() + "\n"),
     t(`${ESC}a\x00`),
     t(`Jugador: ${data.prospectName}\n`),
+    t(`Categoria: ${data.birthYear}\n`),
     t(`Grupo: ${data.groupName}\n`),
     ...(data.coachNames.length > 0 ? [t(`Coach: ${data.coachNames.join(", ")}\n`)] : []),
     t(`Fecha: ${data.visitDate} ${data.checkedInAt}\n`),
