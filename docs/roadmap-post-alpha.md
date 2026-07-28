@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.223`
+- Current production line: `v1.16.225`
 - Current preview line: `v1.16.225`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -101,7 +101,7 @@ The academy feedback cycle pushed attendance operations and player-context visib
 **Still Active / Not Dropped**
 
 - 🟡 Enrollment data validation + confirmation popup remains priority, but moves behind the attendance group polish unless staff escalate intake errors again.
-- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 and reporting detail are in production through `v1.16.217`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate range-filtered group/coach/visitor/YOB reporting. Preview `v1.16.224` adds explicit, audited sibling-safe duplicate confirmation; closure/decline and controlled fourth-visit override remain open.
+- 🟢 Tryout player tracking is specified as a five-pass workflow. Passes 1-4 and reporting detail are in production through `v1.16.217`: isolated intake/visits, attendance awareness without metric drift, guarded conversion through the existing enrollment/B1/Caja flow, and separate range-filtered group/coach/visitor/YOB reporting. Production `v1.16.224` adds explicit, audited sibling-safe duplicate confirmation, and `v1.16.225` adds category/YOB to coach tickets; closure/decline and controlled fourth-visit override remain open.
 - 🟡 Caja refund/reassignment/account-credit monitoring remains active after finance-sensitive work; keep using `/admin/finance-sanity` after finance edits.
 
 ## Checkpoint: 2026-07-11
@@ -182,7 +182,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | 2026-07-01 tournament product/pricing refresh | Production `v1.16.183` implements the urgent July 2026 product refresh with additive pricing rules and keeps old products manually deactivatable for history safety. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | ✅ | 2026-06-27 priority wave: weekly coach packet | Production `v1.16.180` provides the full campus packet and single-coach reprint, grouped by coach and training group, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation popup | Plan after coach packet. Must preserve the current successful behavior where enrollment opens Caja with inscription/monthly charges staged for payment. | New Enrollments / Caja |
-| 🟢 | Tryout classes workflow | Production `v1.16.210`-`v1.16.217` implements Passes 1-4 plus visitor reporting detail, date ranges, and YOB distribution. Preview `v1.16.224` adds explicit, audited duplicate confirmation for siblings and other legitimate matches; `v1.16.225` adds category/YOB to new and reprinted coach tickets. Pass 5 still needs abandoned/declined closure and a controlled fourth-class override without deleting trial history. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.225` devlog |
+| 🟢 | Tryout classes workflow | Production `v1.16.210`-`v1.16.225` implements Passes 1-4 plus visitor reporting detail, date ranges, YOB distribution, explicit audited duplicate confirmation for siblings and other legitimate matches, and category/YOB on new and reprinted coach tickets. Pass 5 still needs abandoned/declined closure and a controlled fourth-class override without deleting trial history. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.225` devlog |
 | 🔴 | 2026-06-23 Front Desk print + attendance visibility wave | Promote the coach print sheet first if staff need paper immediately; build recent attendance through a shared source before surfacing it across queues. | Checkpoint 2026-06-23 |
 | ✅ | Coach roster print sheet from `Jugadores` | Shipped in `v1.16.166`: direct-print action under `Herramientas`, separate from `Exportar Excel`. One group per printed page; players alphabetical; columns: count, full name, ID, enrollment date, `Conozco a este jugador?` Si/No checkboxes, and notes. | Jugadores, `v1.16.166` devlog |
 | ✅ | Recent attendance visible beside players | Production `v1.16.167`-`v1.16.179` establishes the shared summary/risk sources and reuses them in Jugadores, Pendientes, Caja, and the collections-attendance relation report. | Asistencia, Jugadores, Front Desk / Caja / Collections |

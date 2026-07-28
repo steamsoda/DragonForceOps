@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-27 (session 240)
+
+### Clases de Prueba Sibling Confirmation and Ticket Category Production Promotion (v1.16.225)
+
+- Promoted the verified `v1.16.224` sibling-safe duplicate confirmation and `v1.16.225` printed category/YOB field from preview to production.
+- Production keeps possible-duplicate warnings but allows an explicit, audited override for legitimate siblings or coincident guardian data.
+- New and reprinted coach tickets now include `Categoria: YYYY`.
+- No database migration and no changes to visits, official attendance, enrollment, Caja, charges, payments, or finance reporting.
+- Release verification: focused trial-class regression, typecheck, production build, preview deployment, GitHub security checks, remote branch confirmation, and production deployment confirmation.
+
 ## 2026-07-27 (session 239)
 
 ### Clases de Prueba Ticket Category (v1.16.225)
