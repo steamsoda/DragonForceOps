@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-27 (session 242)
+
+### Transactional Charge Void to Explicit Credit Production Promotion (v1.16.226)
+
+- Promoted the verified transactional charge-annulment and explicit-credit workflow from preview to production.
+- Production now converts only the allocation released from an eligible paid product charge into explicit account credit, reopens prior credit applications without duplication, and keeps paid monthly tuition and inscription charges protected.
+- Front Desk receives the same scoped `Anular` behavior as Director/Admin after enrollment and campus authorization; no broader Director finance permissions were granted.
+- Caja now recommends a pending charge for explicit credit, displays the amount and remaining balance, and still requires staff confirmation before applying it.
+- The legacy payment normalizer excludes amounts already represented by explicit credit, preventing the same payment remainder from being consumed twice.
+- Release verification: preview rollback integration tests, focused finance safeguards, typecheck, production build, preview migration confirmation, GitHub security checks, and preview deployment confirmation.
+
 ## 2026-07-27 (session 241)
 
 ### Transactional Charge Void to Explicit Credit (v1.16.226)

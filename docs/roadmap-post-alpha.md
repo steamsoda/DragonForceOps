@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.225`
+- Current production line: `v1.16.226`
 - Current preview line: `v1.16.226`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -136,7 +136,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | Enrollment second tutor + durable manual charge override | Production `v1.16.220` adds optional second-tutor capture plus durable Super Admin-only overrides for pending untouched charges. Generation stays unchanged; scheduled repricing and adjacent application paths preserve overrides, and an explicit restore returns to the exact pre-override price/rule. Continue finance-sanity monitoring after real operator use. | New Enrollments / Caja, `v1.16.218`-`v1.16.220` devlog |
 | ✅ | Finance Sanity deep-scan reliability | Production `v1.16.221` replaces unbounded enrollment diagnostics with bounded concurrency, rejects incomplete ledger reads instead of manufacturing `$0.00` balances, and reports incomplete scans explicitly. | Finance Sanity, `v1.16.221` devlog |
 | ✅ | Finance Sanity stale-audit cleanup | Production `v1.16.222` skips deleted historical enrollment references without hiding genuine query failures, and counts only completed live-enrollment diagnostics. | Finance Sanity, `v1.16.222` devlog |
-| 🟢 | Charge void to explicit credit | Preview `v1.16.226` makes eligible paid-charge annulment transactional, converts only the released allocation into explicit credit, reopens existing credit applications without duplication, keeps paid tuition/inscription protected, and exposes the scoped action to Front Desk. Validate Caja and Finance Sanity before production. | Front Desk / Caja, `v1.16.226` devlog |
+| ✅ | Charge void to explicit credit | Production `v1.16.226` makes eligible paid-charge annulment transactional, converts only the released allocation into explicit credit, reopens existing credit applications without duplication, keeps paid tuition/inscription protected, and exposes the scoped action to Front Desk. | Front Desk / Caja, `v1.16.226` devlog |
 | 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
