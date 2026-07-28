@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-27 (session 237)
+
+### Permanent $300 Tournament Price Production Promotion (v1.16.223)
+
+- Promoted the verified permanent `$300 MXN` Caja pricing restoration for `Superliga Regia 17 Edicion` and `Rosa Power Cup 13 Edicion` from preview to production.
+- Production keeps the historical `$500` price only for July 26 and resolves `$300` from July 27 onward with no future increase or expiration.
+- Existing charges, payments, allocations, receipts, registrations, and finance balances remain untouched; only prices for newly created Caja charges are affected.
+- Release verification: focused product-pricing regression, typecheck, production build, preview migration and live-rule inspection, GitHub security checks, production migration verification, and deployment confirmation.
+
 ## 2026-07-27 (session 236)
 
 ### Permanent $300 Tournament Price Restoration (v1.16.223)
