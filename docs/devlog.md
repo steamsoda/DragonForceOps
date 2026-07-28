@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-27 (session 241)
+
+### Transactional Charge Void to Explicit Credit (v1.16.226)
+
+- Replaced the legacy charge-void sequence that deleted payment allocations and left under-applied payments with the service-role-only `void_charge_to_explicit_credit` RPC.
+- Eligible product charges now void atomically: payment allocations released from the charge become explicit `charge_void` account-credit rows, while existing explicit-credit applications are reopened instead of duplicated.
+- Paid or credit-applied `monthly_tuition` and `inscription` charges remain protected. Unpaid charges can still be voided without creating credit.
+- Extended only the `Anular` charge action to Front Desk, retaining enrollment/campus access checks; no broader Director finance permissions were granted.
+- Clarified the Caja credit panel and made `Aplicar credito al saldo pendiente` usable without first hunting for a charge checkbox. Caja recommends the oldest pending tuition charge, shows the amount applied and remaining balance, and still requires explicit confirmation.
+- Hardened legacy payment-allocation normalization so payment amounts already represented by explicit credit cannot also be swept into a later charge.
+- Preview migration verification included rollback-only database cases for paid eligible product charges, protected paid tuition, and reopening existing explicit credit. No fixture changes survived the test.
+- Added `npm run test:charge-void-credit`; typecheck and production build remain required before promotion.
+
 ## 2026-07-27 (session 240)
 
 ### Clases de Prueba Sibling Confirmation and Ticket Category Production Promotion (v1.16.225)

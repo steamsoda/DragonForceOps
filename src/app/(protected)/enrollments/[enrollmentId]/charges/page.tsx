@@ -38,6 +38,8 @@ const errorMessages: Record<string, string> = {
   payment_refunded_cannot_be_voided: "No puedes anular un pago que ya tiene un reembolso registrado.",
   void_reason_required: "Debes escribir el motivo de anulacion.",
   void_failed: "No se pudo anular. Intenta de nuevo.",
+  protected_paid_charge:
+    "Las mensualidades e inscripciones con pagos o credito aplicado no se pueden anular. Usa una correccion revisada.",
   reprice_reason_required: "Debes escribir el motivo del precio especial.",
   reprice_amount_invalid: "Captura un monto mayor a cero.",
   charge_has_allocations: "Este cargo ya tiene pagos o credito aplicado y no puede cambiarse desde esta herramienta.",
@@ -122,7 +124,7 @@ export default async function ChargesPage({
   const createIncident = createEnrollmentIncidentAction.bind(null, enrollmentId);
   const cancelIncident = cancelEnrollmentIncidentAction.bind(null, enrollmentId);
   const replaceIncident = replaceEnrollmentIncidentAction.bind(null, enrollmentId);
-  const voidCharge = isDirector
+  const voidCharge = isDirector || permissionContext.isFrontDesk
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
   const repriceCharge = permissionContext.isSuperAdmin
@@ -147,7 +149,7 @@ export default async function ChargesPage({
       : query.ok === "incident_replaced"
       ? "Incidencia reemplazada correctamente."
       : query.ok === "charge_voided"
-      ? "Cargo anulado correctamente."
+      ? "Cargo anulado correctamente. Cualquier monto aplicado quedo como credito visible en la cuenta."
       : query.ok === "charge_repriced"
       ? "Precio especial aplicado solo a este cargo."
       : query.ok === "charge_price_restored"

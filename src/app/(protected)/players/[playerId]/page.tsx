@@ -123,6 +123,8 @@ const DROPOUT_LABELS: Record<string, string> = {
 
 const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
   unauthorized: "No tienes permiso para usar el toolkit de corrección.",
+  protected_paid_charge:
+    "Las mensualidades e inscripciones con pagos o credito aplicado no se pueden anular.",
   enrollment_not_found: "No se encontró la cuenta seleccionada.",
   correction_invalid_form: "Completa todos los datos requeridos para el cargo correctivo.",
   correction_charge_type_missing: "No se encontró el tipo de cargo correctivo.",
@@ -366,7 +368,10 @@ export default async function PlayerDetailPage({
   const createIncident = activeEnrollmentId ? createEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const replaceIncident = activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
-  const voidCharge = activeEnrollmentId && isDirector ? voidChargeAction.bind(null, activeEnrollmentId) : undefined;
+  const voidCharge =
+    activeEnrollmentId && (isDirector || permissionContext.isFrontDesk)
+      ? voidChargeAction.bind(null, activeEnrollmentId)
+      : undefined;
   const repriceCharge =
     activeEnrollmentId && isSuperAdmin ? repriceChargeAction.bind(null, activeEnrollmentId) : undefined;
   const restoreChargePrice =

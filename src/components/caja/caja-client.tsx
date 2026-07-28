@@ -163,6 +163,7 @@ function AccountCreditPanel({
   currency,
   selectedChargeCount = 0,
   selectedPendingAmount = 0,
+  targetDescription,
   isApplying = false,
   confirmed = false,
   onConfirmedChange,
@@ -172,6 +173,7 @@ function AccountCreditPanel({
   currency: string;
   selectedChargeCount?: number;
   selectedPendingAmount?: number;
+  targetDescription?: string | null;
   isApplying?: boolean;
   confirmed?: boolean;
   onConfirmedChange?: (checked: boolean) => void;
@@ -195,7 +197,7 @@ function AccountCreditPanel({
             Credito visible en cuenta: {formatMoney(summary.totalVisibleCreditAmount, currency)}
           </p>
           <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-            Solo lectura por ahora. No se aplica automaticamente ni cambia cargos o pagos.
+            Se aplica solo cuando confirmas. Nunca se mueve automaticamente al abrir Caja.
           </p>
         </div>
         {summary.hasExplicitCredit ? (
@@ -219,7 +221,7 @@ function AccountCreditPanel({
                 onChange={(event) => onConfirmedChange?.(event.target.checked)}
                 className="h-4 w-4 rounded border-emerald-300"
               />
-              Confirmo aplicar credito a los cargos seleccionados.
+              Confirmo aplicar credito a {targetDescription ?? "este saldo pendiente"}.
             </label>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
@@ -229,12 +231,12 @@ function AccountCreditPanel({
             onClick={onApplyCredit}
             className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
           >
-            {isApplying ? "Aplicando..." : "Usar credito"}
+            {isApplying ? "Aplicando..." : "Aplicar credito al saldo pendiente"}
           </button>
           <span className="text-xs text-emerald-700 dark:text-emerald-300">
             {selectedChargeCount > 0
-              ? `Aplicara hasta ${formatMoney(amountToApply, currency)} a ${selectedChargeCount} cargo${selectedChargeCount === 1 ? "" : "s"} seleccionado${selectedChargeCount === 1 ? "" : "s"}.`
-              : "Selecciona cargos pendientes para aplicar credito."}
+              ? `Aplicara ${formatMoney(amountToApply, currency)}. Saldo restante: ${formatMoney(Math.max(selectedPendingAmount - amountToApply, 0), currency)}.`
+              : "No hay un cargo pendiente donde aplicar este credito."}
           </span>
           </div>
         </div>
@@ -1224,6 +1226,16 @@ function PosEnrollmentPanel({
   }, [availableTuitionOptions, tuitionPeriod]);
 
   const selectedCharges = data.pendingCharges.filter((charge) => selectedIds.has(charge.id));
+  const recommendedCreditCharge =
+    data.pendingCharges.find((charge) => charge.typeCode === "monthly_tuition") ??
+    data.pendingCharges[0] ??
+    null;
+  const creditTargetCharges =
+    selectedCharges.length > 0
+      ? selectedCharges
+      : recommendedCreditCharge
+        ? [recommendedCreditCharge]
+        : [];
   const cartTotal =
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
     stagedItems.reduce((sum, item) => sum + item.amount, 0);
@@ -1429,8 +1441,8 @@ function PosEnrollmentPanel({
       setPanelError("No hay credito disponible para aplicar.");
       return;
     }
-    if (selectedCharges.length === 0) {
-      setPanelError("Selecciona primero los cargos pendientes donde quieres aplicar el credito.");
+    if (creditTargetCharges.length === 0) {
+      setPanelError("No hay cargos pendientes donde aplicar el credito.");
       return;
     }
     if (!creditConfirmed) {
@@ -1440,7 +1452,7 @@ function PosEnrollmentPanel({
 
     const amountToApply = Math.min(
       data.accountCredit.explicitAvailableAmount,
-      selectedCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0),
+      creditTargetCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0),
     );
     if (amountToApply <= 0.009) {
       setPanelError("No hay monto pendiente para aplicar credito.");
@@ -1449,7 +1461,7 @@ function PosEnrollmentPanel({
 
     startCreditTransition(async () => {
       const formData = new FormData();
-      formData.set("targetChargeIds", Array.from(selectedIds).join(","));
+      formData.set("targetChargeIds", creditTargetCharges.map((charge) => charge.id).join(","));
       formData.set("amount", amountToApply.toFixed(2));
       formData.set("applicationKey", creditApplicationKey);
 
@@ -1497,8 +1509,13 @@ function PosEnrollmentPanel({
       <AccountCreditPanel
         summary={data.accountCredit}
         currency={data.currency}
-        selectedChargeCount={selectedCharges.length}
-        selectedPendingAmount={selectedCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0)}
+        selectedChargeCount={creditTargetCharges.length}
+        selectedPendingAmount={creditTargetCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0)}
+        targetDescription={
+          creditTargetCharges.length === 1
+            ? creditTargetCharges[0].description
+            : `${creditTargetCharges.length} cargos seleccionados`
+        }
         isApplying={isCreditPending}
         confirmed={creditConfirmed}
         onConfirmedChange={setCreditConfirmed}

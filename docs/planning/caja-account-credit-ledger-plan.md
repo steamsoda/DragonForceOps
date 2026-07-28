@@ -307,17 +307,54 @@ Confirm Corte Diario and cash reports do not count credit application as collect
 - Modify: reassignment server action and UI
 - Modify: Caja recent payments panel copy
 
-- [ ] **Step 1: Extend allocation-level reassignment**
+- [x] **Step 1: Extend allocation-level reassignment**
 
 Allow target capacity below selected source amount only when the remainder is explicitly converted to credit.
 
-- [ ] **Step 2: Add preview math**
+- [x] **Step 2: Add preview math**
 
 Before submit, show applied amount, created credit amount, and original source charge behavior.
 
-- [ ] **Step 3: Verify protected charges remain protected**
+- [x] **Step 3: Verify protected charges remain protected**
 
 Monthly tuition and inscription source allocations must still reject reassignment.
+
+Completed in `v1.16.157`.
+
+### Phase 5B: Void Eligible Paid Charges Into Explicit Credit
+
+- [x] **Step 1: Replace allocation deletion with one transaction**
+
+`void_charge_to_explicit_credit` locks the charge, payment allocations, payments,
+and credit applications before changing any finance row.
+
+- [x] **Step 2: Preserve protected charge policy**
+
+Paid or credit-applied monthly tuition and inscription charges reject the
+operation. Eligible product allocations become explicit `charge_void` credit.
+
+- [x] **Step 3: Reopen existing credit without duplication**
+
+Credit applications removed from the voided charge reopen their original credit
+rows. They do not create a second credit event.
+
+- [x] **Step 4: Keep credit spending deliberate**
+
+Caja recommends the oldest pending tuition charge and shows the post-credit
+balance, but requires staff confirmation before applying credit.
+
+- [x] **Step 5: Prevent legacy normalization from double-spending**
+
+Posted payment amounts represented by non-void explicit credit are excluded from
+the old under-allocation normalization helper.
+
+- [x] **Step 6: Extend only the required role capability**
+
+Director Admin, Super Admin, and Front Desk can void eligible charges after
+campus/enrollment authorization. No other Director finance capability was
+granted to Front Desk.
+
+Completed on preview in `v1.16.226`.
 
 ### Phase 6: Legacy Review Tool
 

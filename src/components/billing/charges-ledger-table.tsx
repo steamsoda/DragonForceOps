@@ -87,6 +87,9 @@ export function ChargesLedgerTable({
           ) : (
             rows.map((row) => {
               const effectiveStatus = getEffectiveStatus(row.status, row.pendingAmount);
+              const isProtectedPaidCharge =
+                (row.typeCode === "monthly_tuition" || row.typeCode === "inscription") &&
+                (row.allocatedAmount > 0 || row.creditAppliedAmount > 0);
 
               return (
                 <tr key={row.id} className={row.status === "void" ? "opacity-50" : ""}>
@@ -218,7 +221,7 @@ export function ChargesLedgerTable({
                               </form>
                             </details>
                           ) : null}
-                          {voidChargeAction ? (
+                          {voidChargeAction && !isProtectedPaidCharge ? (
                             <details className="group relative">
                           <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
                             Anular
@@ -227,7 +230,10 @@ export function ChargesLedgerTable({
                             action={voidChargeAction.bind(null, row.id)}
                             className="absolute right-0 z-10 mt-1 w-60 rounded-md border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800"
                           >
-                            <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">Motivo de anulacion</p>
+                            <p className="mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">Motivo de anulacion</p>
+                            <p className="mb-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                              Si este cargo tiene pagos, el monto aplicado quedara como credito visible en la cuenta.
+                            </p>
                             <input
                               name="reason"
                               required
@@ -242,6 +248,14 @@ export function ChargesLedgerTable({
                             </button>
                           </form>
                             </details>
+                          ) : null}
+                          {voidChargeAction && isProtectedPaidCharge ? (
+                            <span
+                              className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-400 dark:border-slate-700"
+                              title="Las mensualidades e inscripciones con pagos o credito aplicado estan protegidas."
+                            >
+                              No anulable
+                            </span>
                           ) : null}
                         </div>
                       ) : (

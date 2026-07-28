@@ -40,12 +40,35 @@ export async function normalizeRemainingPostedCreditAllocations(
     pendingCharges.map((charge) => [charge.id, roundMoney(charge.pendingAmount)]),
   );
 
+  const paymentIds = ledger.payments.map((payment) => payment.id);
+  const explicitCreditByPayment = new Map<string, number>();
+  if (paymentIds.length > 0) {
+    const { data: paymentCredits, error: paymentCreditsError } = await supabase
+      .from("enrollment_credits")
+      .select("source_payment_id, original_amount")
+      .eq("enrollment_id", enrollmentId)
+      .neq("status", "void")
+      .in("source_payment_id", paymentIds)
+      .returns<Array<{ source_payment_id: string | null; original_amount: number }>>();
+
+    if (paymentCreditsError) throw paymentCreditsError;
+
+    for (const credit of paymentCredits ?? []) {
+      if (!credit.source_payment_id) continue;
+      explicitCreditByPayment.set(
+        credit.source_payment_id,
+        roundMoney((explicitCreditByPayment.get(credit.source_payment_id) ?? 0) + Number(credit.original_amount)),
+      );
+    }
+  }
+
   const newAllocations: Array<{ payment_id: string; charge_id: string; amount: number }> = [];
 
   for (const payment of ledger.payments) {
     if (payment.status !== "posted" || payment.refundStatus === "refunded") continue;
 
-    const availableAmount = roundMoney(payment.amount - payment.allocatedAmount);
+    const explicitCreditAmount = explicitCreditByPayment.get(payment.id) ?? 0;
+    const availableAmount = roundMoney(payment.amount - payment.allocatedAmount - explicitCreditAmount);
     if (availableAmount <= 0.01) continue;
 
     const chargePool = pendingCharges.map((charge) => ({

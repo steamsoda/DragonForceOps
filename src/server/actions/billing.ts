@@ -933,49 +933,61 @@ export async function voidChargeAction(
   const reason = formData.get("reason")?.toString().trim() ?? "";
   if (!reason) redirect(`${BASE}?err=void_reason_required`);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) redirect(`${BASE}?err=unauthenticated`);
-  const permissionContext = await requireDirectorContext(`${BASE}?err=unauthorized`);
+  const permissionContext = await requireOperationalContext(`${BASE}?err=unauthorized`);
+  if (!permissionContext.isDirector && !permissionContext.isFrontDesk) {
+    redirect(`${BASE}?err=unauthorized`);
+  }
+  if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    redirect(`${BASE}?err=unauthorized`);
+  }
+  const supabase = permissionContext.supabase;
+  const user = permissionContext.user;
 
   // Verify charge belongs to this enrollment and is pending
   const { data: charge } = await supabase
     .from("charges")
-    .select("id, status, amount, description")
+    .select("id, status, amount, description, charge_types(code)")
     .eq("id", chargeId)
     .eq("enrollment_id", enrollmentId)
     .eq("status", "pending")
-    .maybeSingle<{ id: string; status: string; amount: number; description: string }>();
+    .maybeSingle<{
+      id: string;
+      status: string;
+      amount: number;
+      description: string;
+      charge_types: { code: string } | null;
+    }>();
 
   if (!charge) redirect(`${BASE}?err=charge_not_found`);
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
 
-  const { data: releasedAllocations, error: releaseLookupError } = await supabase
-    .from("payment_allocations")
-    .select("payment_id, amount")
-    .eq("charge_id", chargeId)
-    .returns<Array<{ payment_id: string; amount: number }>>();
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .rpc("void_charge_to_explicit_credit", {
+      p_enrollment_id: enrollmentId,
+      p_charge_id: chargeId,
+      p_actor_id: user.id,
+      p_reason: reason,
+    })
+    .returns<Array<{
+      released_payment_amount: number;
+      reopened_credit_amount: number;
+      created_credit_count: number;
+    }>>();
 
-  if (releaseLookupError) redirect(`${BASE}?err=void_failed`);
+  if (error) {
+    const message = error.message ?? "";
+    if (message.includes("protected_paid_charge")) {
+      redirect(`${BASE}?err=protected_paid_charge`);
+    }
+    if (message.includes("charge_not_found") || message.includes("charge_not_pending")) {
+      redirect(`${BASE}?err=charge_not_found`);
+    }
+    redirect(`${BASE}?err=void_failed`);
+  }
+  const result = Array.isArray(data) ? data[0] : null;
 
-  const { error: releaseAllocationsError } = await supabase
-    .from("payment_allocations")
-    .delete()
-    .eq("charge_id", chargeId);
-
-  if (releaseAllocationsError) redirect(`${BASE}?err=void_failed`);
-
-  const { error } = await supabase
-    .from("charges")
-    .update({ status: "void" })
-    .eq("id", chargeId);
-
-  if (error) redirect(`${BASE}?err=void_failed`);
-
-  await writeAuditLog(supabase, {
+  await writeAuditLog(admin, {
     actorUserId: user.id,
     actorEmail: user.email ?? null,
     action: "charge.voided",
@@ -985,9 +997,11 @@ export async function voidChargeAction(
       enrollment_id: enrollmentId,
       description: charge.description,
       amount: charge.amount,
+      charge_type: charge.charge_types?.code ?? null,
       reason,
-      released_allocation_count: releasedAllocations?.length ?? 0,
-      released_allocation_amount: (releasedAllocations ?? []).reduce((sum, row) => sum + row.amount, 0),
+      released_payment_amount: Number(result?.released_payment_amount ?? 0),
+      reopened_credit_amount: Number(result?.reopened_credit_amount ?? 0),
+      created_credit_count: Number(result?.created_credit_count ?? 0),
     }
   });
 
