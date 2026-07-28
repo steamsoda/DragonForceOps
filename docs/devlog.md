@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-27 (session 238)
+
+### Clases de Prueba Sibling Duplicate Confirmation (v1.16.224)
+
+- Kept the existing possible-duplicate detection for tryout prospects, including guardian-phone matches that may identify an existing family.
+- Replaced the hard stop with an explicit `No, revisar` / `Si, registrar` confirmation. Staff can review the highlighted possible match or deliberately continue when registering siblings or another legitimate coincidence.
+- Form values remain intact while the warning is open and after choosing review. Only a successful prospect creation clears the form.
+- The server reruns the same duplicate check and requires the explicit override flag before inserting. Confirmed overrides use the distinct `trial_prospect.created_duplicate_override` audit action and retain the matched prospect ID for traceability.
+- No database migration and no changes to visits, official attendance, enrollment, Caja, charges, payments, or finance reporting.
+
 ## 2026-07-27 (session 237)
 
 ### Permanent $300 Tournament Price Production Promotion (v1.16.223)

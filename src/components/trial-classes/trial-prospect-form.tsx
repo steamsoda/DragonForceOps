@@ -37,28 +37,36 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<TrialProspectCreateResult | null>(null);
 
+  async function submitForm(form: HTMLFormElement, confirmPossibleDuplicate = false) {
+    setResult(null);
+    const formData = new FormData(form);
+    if (confirmPossibleDuplicate) formData.set("confirmPossibleDuplicate", "true");
+    setIsSaving(true);
+    try {
+      const nextResult = await createTrialProspectAction(formData);
+      setResult(nextResult);
+      if (!nextResult.ok) return;
+
+      formRef.current?.reset();
+      startTransition(() => router.refresh());
+    } catch {
+      setResult({ ok: false, error: "create_failed" });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
+    void submitForm(form);
+  }
 
-    setResult(null);
-    const formData = new FormData(form);
-    setIsSaving(true);
-    void (async () => {
-      try {
-        const nextResult = await createTrialProspectAction(formData);
-        setResult(nextResult);
-        if (!nextResult.ok) return;
-
-        formRef.current?.reset();
-        startTransition(() => router.refresh());
-      } catch {
-        setResult({ ok: false, error: "create_failed" });
-      } finally {
-        setIsSaving(false);
-      }
-    })();
+  function confirmDuplicateRegistration() {
+    const form = formRef.current;
+    if (!form || !form.reportValidity()) return;
+    void submitForm(form, true);
   }
 
   return (
@@ -82,10 +90,24 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
         </button>
         <div aria-live="polite">
           {result?.ok ? <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Prospecto registrado correctamente.</p> : null}
-          {result && !result.ok ? (
+          {result && !result.ok && result.error === "possible_duplicate" ? (
+            <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p className="font-semibold">Este jugador posiblemente ya esta registrado. ¿Deseas registrarlo de todos modos?</p>
+              <p>Puede ser un hermano u otra coincidencia legitima. Confirma antes de crear un registro adicional.</p>
+              {result.duplicateId ? <a className="inline-block font-semibold underline" href={`#prospect-${result.duplicateId}`}>Ver posible coincidencia</a> : null}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={isSaving} onClick={() => setResult(null)} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 disabled:opacity-50">
+                  No, revisar
+                </button>
+                <button type="button" disabled={isSaving} onClick={confirmDuplicateRegistration} className="rounded-md bg-portoBlue px-4 py-2 font-semibold text-white disabled:opacity-50">
+                  {isSaving ? "Registrando..." : "Si, registrar"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {result && !result.ok && result.error !== "possible_duplicate" ? (
             <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
               {ERROR_LABELS[result.error]}
-              {result.error === "possible_duplicate" && result.duplicateId ? <a className="ml-1 font-semibold underline" href={`#prospect-${result.duplicateId}`}>Ver registro.</a> : null}
             </p>
           ) : null}
         </div>

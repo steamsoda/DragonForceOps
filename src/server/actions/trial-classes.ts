@@ -60,6 +60,7 @@ export async function createTrialProspectAction(formData: FormData): Promise<Tri
   const guardianPhone = clean(formData.get("guardianPhone"), 40);
   const phone = normalizedPhone(guardianPhone);
   const note = clean(formData.get("note"));
+  const confirmPossibleDuplicate = clean(formData.get("confirmPossibleDuplicate"), 10) === "true";
 
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const context = await requireTrialWriter(campusId);
@@ -91,9 +92,10 @@ export async function createTrialProspectAction(formData: FormData): Promise<Tri
       candidate.first_name.toLocaleLowerCase("es-MX") === firstName.toLocaleLowerCase("es-MX") &&
       candidate.last_name.toLocaleLowerCase("es-MX") === lastName.toLocaleLowerCase("es-MX"))
   );
-  if (duplicate) {
+  if (duplicate && !confirmPossibleDuplicate) {
     return { ok: false, error: "possible_duplicate", duplicateId: duplicate.id };
   }
+  const duplicateOverride = Boolean(duplicate && confirmPossibleDuplicate);
 
   const { data: prospect, error } = await admin
     .from("trial_prospects")
@@ -129,10 +131,15 @@ export async function createTrialProspectAction(formData: FormData): Promise<Tri
   await writeAuditLog(admin, {
     actorUserId: context.user.id,
     actorEmail: context.user.email,
-    action: "trial_prospect.created",
+    action: duplicateOverride ? "trial_prospect.created_duplicate_override" : "trial_prospect.created",
     tableName: "trial_prospects",
     recordId: prospect.id,
-    afterData: { campus_id: campusId, preferred_training_group_id: groupId },
+    afterData: {
+      campus_id: campusId,
+      preferred_training_group_id: groupId,
+      possible_duplicate_override: duplicateOverride,
+      matched_prospect_id: duplicateOverride ? duplicate?.id ?? null : null,
+    },
   });
   revalidatePath("/trial-classes");
   return { ok: true, prospectId: prospect.id };
