@@ -35,6 +35,7 @@ import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { canAccessEnrollmentRecord } from "@/lib/auth/permissions";
 import { getPlayerNotesForCaja, type PlayerNote } from "@/lib/queries/player-notes";
 import {
   hasGenderConditionalBundleEntitlements,
@@ -92,6 +93,24 @@ export type CajaRecentPayment = {
   }>;
 };
 
+export type CajaRecentCharge = {
+  id: string;
+  typeName: string;
+  typeCode: string;
+  description: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  settledAt: string | null;
+  allocatedAmount: number;
+  creditAppliedAmount: number;
+  pendingAmount: number;
+  paymentFolios: string[];
+  canVoid: boolean;
+  voidBlockedReason: string | null;
+};
+
 export type CajaEnrollmentData = {
   enrollmentId: string;
   playerId: string | null;
@@ -105,12 +124,28 @@ export type CajaEnrollmentData = {
   attendanceRisk: PlayerAttendanceRisk | null;
   recentNotes: PlayerNote[];
   pendingCharges: CajaPendingCharge[];
+  recentCharges: CajaRecentCharge[];
   recentPayments: CajaRecentPayment[];
   advanceTuitionOptions: Array<{ periodMonth: string; label: string; amount: number }>;
 };
 
 export type CajaPaymentResult =
   | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
+  | { ok: false; error: string };
+
+export type CajaCheckoutResult =
+  | CajaPaymentResult
+  | { ok: true; creditOnly: true; updatedData: CajaEnrollmentData; appliedAmount: number };
+
+export type CajaChargeVoidResult =
+  | {
+      ok: true;
+      updatedData: CajaEnrollmentData;
+      releasedPaymentAmount: number;
+      reopenedCreditAmount: number;
+      autoAppliedCreditAmount: number;
+      remainingCreditAmount: number;
+    }
   | { ok: false; error: string };
 
 // ── Products for Caja POS grid ────────────────────────────────────────────────
@@ -1120,8 +1155,40 @@ export async function createAdvanceTuitionAction(
 
 export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<CajaEnrollmentData | null> {
   const supabase = await createClient();
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const permissionContext = await getPermissionContext();
+  let ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return null;
+
+  const hasPendingCharge = ledger.charges.some(
+    (charge) => charge.status !== "void" && charge.pendingAmount > 0.009,
+  );
+  const canAccessEnrollment =
+    permissionContext
+      ? await canAccessEnrollmentRecord(enrollmentId, permissionContext)
+      : false;
+  if (
+    permissionContext?.hasOperationalAccess &&
+    canAccessEnrollment &&
+    ledger.accountCredit.hasExplicitCredit &&
+    hasPendingCharge &&
+    !(await isDebugWriteBlocked())
+  ) {
+    const admin = createAdminClient();
+    const { error: creditApplyError } = await admin.rpc("auto_apply_enrollment_credit_fifo", {
+      p_enrollment_id: enrollmentId,
+      p_actor_id: permissionContext.user.id,
+      p_application_key: crypto.randomUUID(),
+      p_notes: "Credito aplicado automaticamente al abrir Caja.",
+    });
+    if (creditApplyError) {
+      console.error("[getEnrollmentForCajaAction] automatic credit application failed", {
+        enrollmentId,
+        error: creditApplyError,
+      });
+    } else {
+      ledger = (await getEnrollmentLedger(enrollmentId)) ?? ledger;
+    }
+  }
 
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void")
@@ -1153,10 +1220,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     : [];
   const payableBalance = pendingCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
   const displayBalance = payableBalance > 0 ? payableBalance : ledger.totals.balance < 0 ? ledger.totals.balance : 0;
-  const [attendanceRisk, permissionContext] = await Promise.all([
-    getCajaAttendanceRisk(ledger.enrollment.playerId),
-    getPermissionContext(),
-  ]);
+  const attendanceRisk = await getCajaAttendanceRisk(ledger.enrollment.playerId);
   const recentNotes = await getPlayerNotesForCaja(ledger.enrollment.playerId, enrollmentId, permissionContext);
 
   return {
@@ -1180,6 +1244,50 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
     attendanceRisk,
     recentNotes,
     pendingCharges,
+    recentCharges: ledger.charges
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 8)
+      .map((charge) => {
+        const isProtectedChargeType =
+          charge.typeCode === "monthly_tuition" || charge.typeCode === "inscription";
+        const canVoid =
+          Boolean(
+            permissionContext?.isSuperAdmin ||
+            permissionContext?.isDirector ||
+            permissionContext?.isFrontDesk,
+          ) &&
+          charge.status === "pending" &&
+          !isProtectedChargeType;
+        return {
+          id: charge.id,
+          typeName: charge.typeName,
+          typeCode: charge.typeCode,
+          description: charge.description,
+          amount: charge.amount,
+          currency: charge.currency,
+          status: charge.status,
+          createdAt: charge.createdAt,
+          settledAt: charge.settledAt,
+          allocatedAmount: charge.allocatedAmount,
+          creditAppliedAmount: charge.creditAppliedAmount,
+          pendingAmount: charge.pendingAmount,
+          paymentFolios: charge.paymentReferences
+            .filter((reference) => reference.status === "posted")
+            .map((reference) => reference.folio ?? "Sin folio"),
+          canVoid,
+          voidBlockedReason:
+            charge.status === "void"
+              ? "Cargo anulado"
+              : isProtectedChargeType
+                ? charge.typeCode === "inscription"
+                  ? "Inscripcion no anulable desde Caja"
+                  : "Mensualidad no anulable desde Caja"
+                : canVoid
+                  ? null
+                  : "Sin permiso para anular",
+        };
+      }),
     recentPayments: ledger.payments
       .filter((payment) => payment.status === "posted")
       .slice(0, 5)
@@ -1318,23 +1426,167 @@ export async function applyCajaCreditAction(
   return { ok: true, updatedData, appliedAmount, applicationCount };
 }
 
+export async function voidCajaChargeAction(
+  enrollmentId: string,
+  chargeId: string,
+  formData: FormData,
+): Promise<CajaChargeVoidResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  const confirmed = formData.get("confirmed") === "1";
+  if (!reason) return { ok: false, error: "void_reason_required" };
+  if (!confirmed) return { ok: false, error: "void_confirmation_required" };
+
+  const permissionContext = await getPermissionContext();
+  if (
+    !permissionContext ||
+    !(
+      permissionContext.isSuperAdmin ||
+      permissionContext.isDirector ||
+      permissionContext.isFrontDesk
+    )
+  ) {
+    return { ok: false, error: "unauthorized" };
+  }
+  if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  const { data: charge } = await permissionContext.supabase
+    .from("charges")
+    .select("id, status, amount, description, charge_types(code)")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .eq("status", "pending")
+    .maybeSingle<{
+      id: string;
+      status: string;
+      amount: number;
+      description: string;
+      charge_types: { code: string } | null;
+    }>();
+  if (!charge) return { ok: false, error: "charge_not_found" };
+  if (
+    charge.charge_types?.code === "monthly_tuition" ||
+    charge.charge_types?.code === "inscription"
+  ) {
+    return { ok: false, error: "protected_paid_charge" };
+  }
+
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .rpc("void_charge_to_explicit_credit", {
+      p_enrollment_id: enrollmentId,
+      p_charge_id: chargeId,
+      p_actor_id: permissionContext.user.id,
+      p_reason: reason,
+    })
+    .returns<Array<{
+      released_payment_amount: number;
+      reopened_credit_amount: number;
+      created_credit_count: number;
+      auto_applied_credit_amount: number;
+      remaining_credit_amount: number;
+    }>>();
+
+  if (error) {
+    const message = error.message ?? "";
+    if (message.includes("protected_paid_charge")) return { ok: false, error: "protected_paid_charge" };
+    if (message.includes("charge_not_found") || message.includes("charge_not_pending")) {
+      return { ok: false, error: "charge_not_found" };
+    }
+    return { ok: false, error: "void_failed" };
+  }
+
+  const result = Array.isArray(data) ? data[0] : null;
+  const releasedPaymentAmount = Number(result?.released_payment_amount ?? 0);
+  const reopenedCreditAmount = Number(result?.reopened_credit_amount ?? 0);
+  const autoAppliedCreditAmount = Number(result?.auto_applied_credit_amount ?? 0);
+  const remainingCreditAmount = Number(result?.remaining_credit_amount ?? 0);
+
+  await writeAuditLog(admin, {
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    action: "charge.voided",
+    tableName: "charges",
+    recordId: chargeId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      description: charge.description,
+      amount: charge.amount,
+      charge_type: charge.charge_types?.code ?? null,
+      reason,
+      released_payment_amount: releasedPaymentAmount,
+      reopened_credit_amount: reopenedCreditAmount,
+      created_credit_count: Number(result?.created_credit_count ?? 0),
+      auto_applied_credit_amount: autoAppliedCreditAmount,
+      remaining_credit_amount: remainingCreditAmount,
+      source: "caja_recent_charges",
+    },
+  });
+
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) {
+    revalidatePath(`/tournaments/${tournamentId}`);
+  }
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    triggerAction: "charge.voided.caja",
+    before: anomalyBefore,
+    permissionContext,
+  });
+
+  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+  if (!updatedData) return { ok: false, error: "reload_failed" };
+
+  return {
+    ok: true,
+    updatedData,
+    releasedPaymentAmount,
+    reopenedCreditAmount,
+    autoAppliedCreditAmount,
+    remainingCreditAmount,
+  };
+}
+
+async function rollbackCreatedCajaCheckoutCharges(
+  enrollmentId: string,
+  chargeIds: string[],
+) {
+  if (chargeIds.length === 0) return;
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("rollback_unpaid_caja_checkout_charges", {
+    p_enrollment_id: enrollmentId,
+    p_charge_ids: chargeIds,
+  });
+  if (error) {
+    console.error("[checkoutCajaCartAction] staged charge rollback failed", {
+      enrollmentId,
+      chargeIds,
+      error,
+    });
+  }
+}
+
 export async function checkoutCajaCartAction(
   enrollmentId: string,
   formData: FormData
-): Promise<CajaPaymentResult> {
+): Promise<CajaCheckoutResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const amount = formData.get("amount")?.toString() ?? "";
   const method = formData.get("method")?.toString() ?? "";
   const notes = formData.get("notes")?.toString() ?? "";
-  const amount2 = formData.get("amount2")?.toString() ?? "";
   const method2 = formData.get("method2")?.toString() ?? "";
   const targetChargeIdsRaw = formData.get("targetChargeIds")?.toString().trim() ?? "";
   const existingTargetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
   const cartItems = parseCheckoutCartItems(formData.get("cartItems")?.toString() ?? "[]");
-  const parsedPayment = parsePaymentFormData(formData);
 
   if (cartItems === null) return { ok: false, error: "invalid_form" };
-  if (!parsedPayment) return { ok: false, error: "invalid_form" };
 
   const createdChargeIds: string[] = [];
   const checkoutChargeIds: string[] = [];
@@ -1354,9 +1606,7 @@ export async function checkoutCajaCartAction(
         coveredArrearChargeIds: [...existingTargetChargeIds, ...checkoutChargeIds],
       });
       if (!tuitionResult.ok) {
-        if (createdChargeIds.length > 0) {
-          await supabase.from("charges").delete().in("id", createdChargeIds);
-        }
+        await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
         return tuitionResult;
       }
       checkoutChargeIds.push(tuitionResult.newChargeId);
@@ -1375,9 +1625,7 @@ export async function checkoutCajaCartAction(
 
     const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
     if (!chargeResult.ok) {
-      if (createdChargeIds.length > 0) {
-        await supabase.from("charges").delete().in("id", createdChargeIds);
-      }
+      await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
       return chargeResult;
     }
 
@@ -1387,44 +1635,66 @@ export async function checkoutCajaCartAction(
     }
   }
 
-  if (cartItems.some((item) => item.kind === "tuition")) {
-    const checkoutLedger = await getEnrollmentLedger(enrollmentId);
-    if (!checkoutLedger) {
-      if (createdChargeIds.length > 0) {
-        await supabase.from("charges").delete().in("id", createdChargeIds);
-      }
-      return { ok: false, error: "ledger_failed" };
-    }
+  const checkoutLedger = await getEnrollmentLedger(enrollmentId);
+  if (!checkoutLedger) {
+    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
+    return { ok: false, error: "ledger_failed" };
+  }
 
-    const checkoutChargeIdSet = new Set([...existingTargetChargeIds, ...checkoutChargeIds]);
-    const requiredCheckoutTotal = checkoutLedger.charges
-      .filter((charge) => checkoutChargeIdSet.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0)
-      .reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
-    const submittedTotal = Math.round((parsedPayment.amount + (parsedPayment.split?.amount ?? 0)) * 100) / 100;
+  const checkoutChargeIdSet = new Set([...existingTargetChargeIds, ...checkoutChargeIds]);
+  const checkoutCharges =
+    checkoutChargeIdSet.size > 0
+      ? checkoutLedger.charges.filter((charge) => checkoutChargeIdSet.has(charge.id))
+      : checkoutLedger.charges;
+  const requiredCheckoutTotal = checkoutCharges
+    .filter((charge) => charge.status !== "void" && charge.pendingAmount > 0)
+    .reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
 
-    if (submittedTotal + 0.009 < requiredCheckoutTotal) {
-      if (createdChargeIds.length > 0) {
-        await supabase.from("charges").delete().in("id", createdChargeIds);
-      }
-      return { ok: false, error: "advance_tuition_full_payment_required" };
-    }
+  if (requiredCheckoutTotal <= 0.009) {
+    const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+    if (!updatedData) return { ok: false, error: "reload_failed" };
+    const appliedAmount = checkoutCharges.reduce(
+      (sum, charge) => Math.round((sum + charge.creditAppliedAmount) * 100) / 100,
+      0,
+    );
+    return { ok: true, creditOnly: true, updatedData, appliedAmount };
+  }
+
+  const parsedPayment = parsePaymentFormData(formData);
+  if (!parsedPayment) {
+    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
+    return { ok: false, error: "invalid_form" };
   }
 
   const paymentForm = new FormData();
-  paymentForm.set("amount", amount);
+  const requestedFirstAmount = parsedPayment.amount;
+  const normalizedFirstAmount = parsedPayment.split
+    ? Math.min(Math.round(requestedFirstAmount * 100) / 100, requiredCheckoutTotal)
+    : requiredCheckoutTotal;
+  const normalizedSecondAmount = parsedPayment.split
+    ? Math.round((requiredCheckoutTotal - normalizedFirstAmount) * 100) / 100
+    : 0;
+  if (parsedPayment.split && (normalizedFirstAmount <= 0.009 || normalizedSecondAmount <= 0.009)) {
+    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
+    return { ok: false, error: "invalid_split_amount" };
+  }
+
+  paymentForm.set("amount", normalizedFirstAmount.toFixed(2));
   paymentForm.set("method", method);
   const operatorCampusId = formData.get("operatorCampusId")?.toString().trim() ?? "";
   if (operatorCampusId) paymentForm.set("operatorCampusId", operatorCampusId);
   if (notes) paymentForm.set("notes", notes);
-  if (amount2) paymentForm.set("amount2", amount2);
-  if (method2) paymentForm.set("method2", method2);
+  if (parsedPayment.split) {
+    paymentForm.set("amount2", normalizedSecondAmount.toFixed(2));
+    paymentForm.set("method2", method2);
+  }
   const paidAt = formData.get("paidAt")?.toString().trim() ?? "";
   if (paidAt) paymentForm.set("paidAt", paidAt);
   paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...checkoutChargeIds].join(","));
 
   const paymentResult = await postCajaPaymentAction(enrollmentId, paymentForm);
   if (!paymentResult.ok && createdChargeIds.length > 0) {
-    await supabase.from("charges").delete().in("id", createdChargeIds);
+    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
   }
 
   return paymentResult;

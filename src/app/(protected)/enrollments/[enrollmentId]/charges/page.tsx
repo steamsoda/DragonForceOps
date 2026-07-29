@@ -284,6 +284,7 @@ export default async function ChargesPage({
             rows={ledger.payments}
             returnTo={`/enrollments/${enrollmentId}/charges`}
             voidPaymentAction={voidPayment}
+            allowReassignment={permissionContext.isSuperAdmin}
           />
         </section>
       </div>

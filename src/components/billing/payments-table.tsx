@@ -39,6 +39,7 @@ type PaymentsTableProps = {
   rows: PaymentItem[];
   returnTo?: string;
   voidPaymentAction?: (paymentId: string, fd: FormData) => Promise<void>;
+  allowReassignment?: boolean;
 };
 
 function formatMoney(amount: number, currency: string) {
@@ -93,6 +94,7 @@ function getReassignBlockedReason(code: string | null) {
     source_charge_not_exclusive: "El cargo origen no esta cubierto de forma exclusiva por este pago.",
     source_charge_monthly_tuition: "Las mensualidades no se reembolsan ni se cambian de concepto desde Caja.",
     source_charge_inscription: "Las inscripciones no se reembolsan ni se cambian de concepto desde Caja.",
+    superadmin_required: "Solo Super Admin puede cambiar conceptos como corrección excepcional.",
   };
   return code ? messages[code] ?? "Este pago no se puede mover con seguridad." : null;
 }
@@ -111,7 +113,13 @@ function getRefundBlockedReason(code: string | null) {
   return code ? messages[code] ?? "Este pago no se puede reembolsar con seguridad." : null;
 }
 
-export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction }: PaymentsTableProps) {
+export function PaymentsTable({
+  enrollmentId,
+  rows,
+  returnTo,
+  voidPaymentAction,
+  allowReassignment = false,
+}: PaymentsTableProps) {
   const colSpan = voidPaymentAction ? 10 : 9;
 
   return (
@@ -217,7 +225,7 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                   <div className="flex flex-col gap-2">
                     {row.status === "posted" ? (
                       <>
-                        {row.canReassign ? (
+                        {allowReassignment && row.canReassign ? (
                           <Link
                             href={`/enrollments/${enrollmentId}/payments/${row.id}/reassign${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
                             prefetch={false}
@@ -228,7 +236,11 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                         ) : (
                           <span
                             className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400"
-                            title={getReassignBlockedReason(row.reassignBlockedReason) ?? undefined}
+                            title={
+                              getReassignBlockedReason(
+                                allowReassignment ? row.reassignBlockedReason : "superadmin_required",
+                              ) ?? undefined
+                            }
                           >
                             Cambiar concepto
                           </span>
@@ -249,9 +261,11 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                             Reembolsar
                           </span>
                         )}
-                        {!row.canReassign && row.reassignBlockedReason ? (
+                        {(!allowReassignment || !row.canReassign) ? (
                           <p className="max-w-[14rem] text-[11px] text-slate-500 dark:text-slate-400">
-                            {getReassignBlockedReason(row.reassignBlockedReason)}
+                            {getReassignBlockedReason(
+                              allowReassignment ? row.reassignBlockedReason : "superadmin_required",
+                            )}
                           </p>
                         ) : null}
                         {!row.canRefund && row.refundBlockedReason && row.refundBlockedReason !== row.reassignBlockedReason ? (

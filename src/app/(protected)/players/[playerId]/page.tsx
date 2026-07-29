@@ -832,6 +832,7 @@ export default async function PlayerDetailPage({
                     rows={activeLedger.payments}
                     returnTo={`/players/${player.id}`}
                     voidPaymentAction={voidPayment}
+                    allowReassignment={isSuperAdmin}
                   />
                 </section>
               </div>

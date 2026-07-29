@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-28 (session 245)
+
+### Automatic Explicit-Credit FIFO and Charge-Centric Caja (v1.16.228)
+
+- Replaced Caja's manual explicit-credit decision with deterministic automatic FIFO application: the oldest explicit account credit is consumed against the oldest live pending charge, and Caja only asks Front Desk to collect the remaining difference.
+- Added a service-role-only SQL helper plus an after-charge-insert trigger. The helper writes only `enrollment_credit_applications`; it does not create, edit, or delete payments, receipts, cash-session records, or finance report facts, and it does not convert historical implicit credit.
+- Extended transactional paid-product charge annulment so only allocations attached to the selected charge are released into explicit credit. The original payment and its other charge allocations remain intact; released credit is immediately applied to other pending charges or remains visible for a future charge.
+- Replaced Caja's `Ultimos pagos` shortcut panel with `Ultimos cargos`, including charge amount, creation time, payment folios, payment/credit application detail, and a guarded annulment confirmation that previews the expected credit destination.
+- Kept monthly tuition and inscription outside Caja's quick-annulment path, while the underlying ledger RPC still protects any paid/application-backed tuition or inscription. Scoped Caja's product-charge annulment action to Super Admin, Director/Admin, and Front Desk with the existing enrollment/campus authorization boundary.
+- Made normal `Cobrar todo` / cart totals read-only. Split payments may divide the fixed total between two methods, but cannot change the total owed. A fully credit-covered cart records no new payment.
+- Added transactional cleanup for an interrupted/failed staged checkout: only newly created unpaid cart charges are removed, and any explicit credit temporarily consumed by those charges is reopened.
+- Restricted `Cambiar concepto` to Super Admin as an exceptional correction path at the shared payment-table UI, direct route, and server action. Existing refund rules remain unchanged.
+- Added regression coverage for automatic FIFO order, non-cash behavior, protected charges, fixed checkout totals, charge-centric Caja, and Super Admin-only reassignment.
+- Verification: `npm run typecheck`, `npm run test:charge-void-credit`, `npm run test:ledger-cross-references`, `npm run test:finance-sanity-hardening`, and `npm run build`.
+
 ## 2026-07-28 (session 244)
 
 ### Charge and Payment Ledger Cross-References Production Promotion (v1.16.227)

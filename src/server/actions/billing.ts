@@ -655,8 +655,15 @@ export async function reassignPaymentAction(
   const basePath = `/enrollments/${enrollmentId}/payments/${paymentId}/reassign`;
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   await assertDebugWritesAllowed(basePath);
-  const workflowContext = await getPaymentWorkflowContext(enrollmentId);
-  if (!workflowContext) return { ok: false, error: "unauthorized" };
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isSuperAdmin) return { ok: false, error: "unauthorized" };
+  if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    return { ok: false, error: "unauthorized" };
+  }
+  const workflowContext = {
+    supabase: permissionContext.supabase,
+    user: permissionContext.user,
+  };
 
   const supabase = workflowContext.supabase;
   const targetChargeIds = parseChargeIdList(String(formData.get("targetChargeIds") ?? ""));
@@ -694,6 +701,14 @@ export async function reassignPaymentAction(
   if (error || !resultRow?.ok) {
     return { ok: false, error: error?.message ?? resultRow?.error_code ?? "reassign_failed" };
   }
+
+  const admin = createAdminClient();
+  await admin.rpc("auto_apply_enrollment_credit_fifo", {
+    p_enrollment_id: enrollmentId,
+    p_actor_id: workflowContext.user.id,
+    p_application_key: crypto.randomUUID(),
+    p_notes: "Credito remanente aplicado automaticamente despues de una correccion de concepto.",
+  });
 
   const { data: destinationChargeRows } = await supabase
     .from("charges")
@@ -973,6 +988,8 @@ export async function voidChargeAction(
       released_payment_amount: number;
       reopened_credit_amount: number;
       created_credit_count: number;
+      auto_applied_credit_amount: number;
+      remaining_credit_amount: number;
     }>>();
 
   if (error) {
@@ -1002,6 +1019,8 @@ export async function voidChargeAction(
       released_payment_amount: Number(result?.released_payment_amount ?? 0),
       reopened_credit_amount: Number(result?.reopened_credit_amount ?? 0),
       created_credit_count: Number(result?.created_credit_count ?? 0),
+      auto_applied_credit_amount: Number(result?.auto_applied_credit_amount ?? 0),
+      remaining_credit_amount: Number(result?.remaining_credit_amount ?? 0),
     }
   });
 

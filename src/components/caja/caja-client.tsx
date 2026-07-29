@@ -12,14 +12,14 @@ import {
   postCajaPaymentAction,
   getProductsForCajaAction,
   postCajaChargeAction,
-  applyCajaCreditAction,
+  voidCajaChargeAction,
   createAdvanceTuitionAction,
   checkoutCajaCartAction,
   getCajaDrilldownMetaAction,
   listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
-  type CajaRecentPayment,
+  type CajaRecentCharge,
   type CajaPaymentResult,
   type CajaProduct,
   type CajaProductCategory,
@@ -39,10 +39,6 @@ function formatMoney(amount: number, currency: string) {
 function parseMoneyInput(value: string) {
   const amount = Number(value.replace(",", "."));
   return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
-}
-
-function createClientUuid() {
-  return globalThis.crypto?.randomUUID?.() ?? `client-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function formatPeriodMonth(periodMonth: string | null): string {
@@ -81,26 +77,6 @@ function formatNoteDateShort(value: string) {
     minute: "2-digit",
     timeZone: "America/Monterrey",
   });
-}
-
-function getPaymentWorkflowBlockedReason(code: string | null, action: "refund" | "reassign") {
-  const messages: Record<string, string> = {
-    payment_not_posted: "Solo pagos vigentes.",
-    payment_already_refunded: "Pago ya reembolsado.",
-    payment_has_no_allocations: "Sin cargos aplicados.",
-    payment_not_fully_allocated: "No esta aplicado al 100%.",
-    source_charge_shared: "Pago combinado: requiere ajuste parcial.",
-    source_charge_not_exclusive: "Cargo origen completado.",
-    source_charge_monthly_tuition:
-      action === "refund"
-        ? "Mensualidad no reembolsable"
-        : "Mensualidad no reasignable",
-    source_charge_inscription:
-      action === "refund"
-        ? "Inscripcion no reembolsable"
-        : "Inscripcion no reasignable",
-  };
-  return code ? messages[code] ?? "No disponible con seguridad." : null;
 }
 
 function formatDateOnly(dateStr: string | null | undefined) {
@@ -161,189 +137,242 @@ function CajaAttendanceSignals({ data }: { data: CajaEnrollmentData }) {
 function AccountCreditPanel({
   summary,
   currency,
-  selectedChargeCount = 0,
-  selectedPendingAmount = 0,
-  targetDescription,
-  isApplying = false,
-  confirmed = false,
-  onConfirmedChange,
-  onApplyCredit,
 }: {
   summary: CajaEnrollmentData["accountCredit"];
   currency: string;
-  selectedChargeCount?: number;
-  selectedPendingAmount?: number;
-  targetDescription?: string | null;
-  isApplying?: boolean;
-  confirmed?: boolean;
-  onConfirmedChange?: (checked: boolean) => void;
-  onApplyCredit?: () => void;
 }) {
   if (!summary.hasAnyCredit) return null;
-  const canApplyCredit =
-    Boolean(onApplyCredit) &&
-    summary.hasExplicitCredit &&
-    selectedChargeCount > 0 &&
-    selectedPendingAmount > 0 &&
-    confirmed &&
-    !isApplying;
-  const amountToApply = Math.min(summary.explicitAvailableAmount, selectedPendingAmount);
 
   return (
     <section className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-emerald-800 dark:text-emerald-200">
-            Credito visible en cuenta: {formatMoney(summary.totalVisibleCreditAmount, currency)}
+            Saldo a favor disponible: {formatMoney(summary.explicitAvailableAmount, currency)}
           </p>
           <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-            Se aplica solo cuando confirmas. Nunca se mueve automaticamente al abrir Caja.
+            Se aplica automaticamente, del cargo mas antiguo al mas reciente. Caja solo cobrara la diferencia.
           </p>
         </div>
-        {summary.hasExplicitCredit ? (
+        {summary.explicitAppliedAmount > 0 ? (
           <span className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            Ledger: {formatMoney(summary.explicitAvailableAmount, currency)}
+            Ya aplicado: {formatMoney(summary.explicitAppliedAmount, currency)}
           </span>
         ) : null}
       </div>
       {summary.hasLegacyImplicitCredit ? (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
-          Credito legado detectado: {formatMoney(summary.legacyImplicitCreditAmount, currency)} de pagos antiguos no aplicados al 100%.
-        </div>
-      ) : null}
-      {summary.hasExplicitCredit ? (
-        <div className="mt-3 space-y-2">
-          {selectedChargeCount > 0 ? (
-            <label className="flex items-center gap-2 text-xs font-medium text-emerald-800 dark:text-emerald-200">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(event) => onConfirmedChange?.(event.target.checked)}
-                className="h-4 w-4 rounded border-emerald-300"
-              />
-              Confirmo aplicar credito a {targetDescription ?? "este saldo pendiente"}.
-            </label>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!canApplyCredit}
-            onClick={onApplyCredit}
-            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800"
-          >
-            {isApplying ? "Aplicando..." : "Aplicar credito al saldo pendiente"}
-          </button>
-          <span className="text-xs text-emerald-700 dark:text-emerald-300">
-            {selectedChargeCount > 0
-              ? `Aplicara ${formatMoney(amountToApply, currency)}. Saldo restante: ${formatMoney(Math.max(selectedPendingAmount - amountToApply, 0), currency)}.`
-              : "No hay un cargo pendiente donde aplicar este credito."}
-          </span>
-          </div>
+          Hay {formatMoney(summary.legacyImplicitCreditAmount, currency)} de saldo historico pendiente de revision. No se convierte ni se mueve automaticamente.
         </div>
       ) : null}
     </section>
   );
 }
 
-function RecentPaymentsPanel({
-  enrollmentId,
-  payments,
+function RecentChargesPanel({
+  data,
+  onDataUpdate,
 }: {
-  enrollmentId: string;
-  payments: CajaRecentPayment[];
+  data: CajaEnrollmentData;
+  onDataUpdate: (updatedData: CajaEnrollmentData) => void;
 }) {
-  if (payments.length === 0) return null;
+  const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const returnTo = `/caja?enrollmentId=${encodeURIComponent(enrollmentId)}`;
+  if (data.recentCharges.length === 0) return null;
+
+  function openConfirmation(chargeId: string) {
+    setExpandedChargeId(chargeId);
+    setReason("");
+    setConfirmed(false);
+    setMessage(null);
+    setError(null);
+  }
+
+  function submitVoid(charge: CajaRecentCharge) {
+    setError(null);
+    setMessage(null);
+    if (!reason.trim()) {
+      setError("Escribe el motivo de la anulacion.");
+      return;
+    }
+    if (!confirmed) {
+      setError("Confirma que revisaste el cargo y el saldo a favor.");
+      return;
+    }
+
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("reason", reason.trim());
+      formData.set("confirmed", "1");
+      const result = await voidCajaChargeAction(data.enrollmentId, charge.id, formData);
+      if (!result.ok) {
+        const messages: Record<string, string> = {
+          protected_paid_charge: "Las mensualidades e inscripciones pagadas no se pueden anular.",
+          charge_not_found: "El cargo ya no esta disponible para anular.",
+          void_reason_required: "Escribe el motivo de la anulacion.",
+          void_confirmation_required: "Confirma la operacion.",
+          unauthorized: "No tienes permiso para anular este cargo.",
+          debug_read_only: "La vista debug es de solo lectura.",
+        };
+        setError(messages[result.error] ?? "No se pudo anular el cargo.");
+        return;
+      }
+
+      const released = result.releasedPaymentAmount + result.reopenedCreditAmount;
+      const destinationMessage =
+        result.autoAppliedCreditAmount > 0
+          ? `${formatMoney(result.autoAppliedCreditAmount, data.currency)} se aplicaron automaticamente a otros cargos pendientes.`
+          : "No habia otro cargo pendiente; el saldo a favor quedo disponible para el siguiente cargo.";
+      setMessage(
+        released > 0
+          ? `Cargo anulado. Se liberaron ${formatMoney(released, data.currency)} como saldo a favor. ${destinationMessage}`
+          : "Cargo anulado. No tenia pagos ni saldo a favor aplicado.",
+      );
+      setExpandedChargeId(null);
+      setReason("");
+      setConfirmed(false);
+      onDataUpdate(result.updatedData);
+    });
+  }
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
         <div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos pagos</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Revisa pagos recientes para reembolso o cambio de concepto.</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos cargos</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Anula el producto correcto. El pago original se conserva y el monto aplicado se convierte en saldo a favor.
+          </p>
         </div>
         <Link
-          href={`/enrollments/${enrollmentId}/charges`}
+          href={`/enrollments/${data.enrollmentId}/charges`}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
         >
-          Ver historial
+          Ver historial completo
         </Link>
       </div>
+      {message ? (
+        <p className="m-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+          {message}
+        </p>
+      ) : null}
       <div>
-        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 xl:grid xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center">
-          <span>Pago</span>
-          <span>Fecha</span>
-          <span>Cargo origen</span>
-          <span className="text-center">Acciones</span>
+        <div className="hidden border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800 dark:bg-slate-950/40 xl:grid xl:grid-cols-[minmax(260px,1fr)_150px_160px_190px] xl:items-center">
+          <span>Cargo</span>
+          <span>Creado</span>
+          <span>Aplicacion</span>
+          <span className="text-center">Accion</span>
         </div>
-        {payments.map((payment) => {
-          const sourceSummary =
-            payment.sourceCharges.length > 0
-              ? payment.sourceCharges.map((charge) => charge.description).join(", ")
-              : "Sin cargo aplicado";
-          const refundBlockedReason = getPaymentWorkflowBlockedReason(payment.refundBlockedReason, "refund");
-          const reassignBlockedReason = getPaymentWorkflowBlockedReason(payment.reassignBlockedReason, "reassign");
+        {data.recentCharges.map((charge) => {
+          const releasedAmount = charge.allocatedAmount + charge.creditAppliedAmount;
+          const otherPendingAmount = data.pendingCharges
+            .filter((pendingCharge) => pendingCharge.id !== charge.id)
+            .reduce((sum, pendingCharge) => Math.round((sum + pendingCharge.pendingAmount) * 100) / 100, 0);
+          const predictedAutoApply = Math.min(releasedAmount, otherPendingAmount);
+          const predictedAvailable = Math.max(releasedAmount - predictedAutoApply, 0);
+          const isExpanded = expandedChargeId === charge.id;
 
           return (
-            <div
-              key={payment.id}
-              className="grid gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 xl:grid-cols-[180px_190px_minmax(0,1fr)_340px] xl:items-center"
-            >
-              <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {formatMoney(payment.amount, payment.currency)}
-                  </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {methodLabel(payment.method)}
-                  </span>
-                  {payment.refundStatus === "refunded" ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                      Reembolsado
+            <div key={charge.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
+              <div className="grid gap-3 px-4 py-3 text-sm xl:grid-cols-[minmax(260px,1fr)_150px_160px_190px] xl:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{charge.description}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      {charge.status === "void" ? "Anulado" : charge.pendingAmount <= 0.009 ? "Pagado" : "Pendiente"}
                     </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatMoney(charge.amount, charge.currency)}
+                    {charge.paymentFolios.length > 0 ? ` | Folio ${charge.paymentFolios.join(", ")}` : ""}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Creado</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">{formatDateTimeShort(charge.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Aplicacion</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Pago {formatMoney(charge.allocatedAmount, charge.currency)}
+                  </p>
+                  {charge.creditAppliedAmount > 0 ? (
+                    <p className="text-xs text-emerald-700">
+                      Credito {formatMoney(charge.creditAppliedAmount, charge.currency)}
+                    </p>
                   ) : null}
                 </div>
+                <div className="text-center">
+                  {charge.canVoid ? (
+                    <button
+                      type="button"
+                      onClick={() => (isExpanded ? setExpandedChargeId(null) : openConfirmation(charge.id))}
+                      className="w-full rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                    >
+                      {isExpanded ? "Cancelar" : "Anular cargo"}
+                    </button>
+                  ) : (
+                    <span className="inline-block w-full rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700">
+                      {charge.voidBlockedReason ?? "No anulable"}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Fecha</p>
-                <p className="text-xs text-slate-600 dark:text-slate-300">{formatDateTimeShort(payment.paidAt)}</p>
-              </div>
-              <div className="min-w-0 space-y-1">
-                <p className="text-xs font-medium uppercase text-slate-400 xl:hidden">Cargo origen</p>
-                <p className="break-words text-xs text-slate-700 dark:text-slate-300">{sourceSummary}</p>
-                {payment.notes?.trim() ? (
-                  <p className="break-words text-xs text-slate-400">{payment.notes}</p>
-                ) : null}
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:w-[340px]">
-                {payment.canReassign ? (
-                  <Link
-                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/reassign?returnTo=${encodeURIComponent(returnTo)}`}
-                    prefetch={false}
-                    className="rounded-md border border-blue-300 px-3 py-1.5 text-center text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/20"
+              {isExpanded ? (
+                <div className="space-y-3 border-t border-rose-100 bg-rose-50/60 px-4 py-4 dark:border-rose-900/30 dark:bg-rose-950/10">
+                  <div className="grid gap-3 text-xs sm:grid-cols-3">
+                    <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
+                      <p className="text-slate-500">Monto que se libera</p>
+                      <p className="mt-1 font-semibold text-slate-900">{formatMoney(releasedAmount, charge.currency)}</p>
+                    </div>
+                    <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
+                      <p className="text-slate-500">Aplicacion automatica estimada</p>
+                      <p className="mt-1 font-semibold text-slate-900">{formatMoney(predictedAutoApply, charge.currency)}</p>
+                    </div>
+                    <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
+                      <p className="text-slate-500">Saldo a favor que quedaria</p>
+                      <p className="mt-1 font-semibold text-slate-900">{formatMoney(predictedAvailable, charge.currency)}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-rose-800">
+                    El pago original y sus otras aplicaciones no cambian. Solo se libera lo aplicado a este cargo.
+                    El cargo queda anulado y el saldo a favor se usa por antiguedad.
+                  </p>
+                  <label className="block space-y-1 text-xs">
+                    <span className="font-semibold text-slate-700">Motivo de anulacion</span>
+                    <input
+                      type="text"
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value)}
+                      placeholder="Ej. Torneo cancelado; familia solicita saldo a favor."
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                    />
+                  </label>
+                  <label className="flex items-start gap-2 text-xs font-medium text-rose-900">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(event) => setConfirmed(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-rose-300"
+                    />
+                    Confirmo que seleccione el cargo correcto y revise como se aplicara el saldo a favor.
+                  </label>
+                  {error ? <p className="rounded-md bg-white px-3 py-2 text-xs text-rose-700">{error}</p> : null}
+                  <button
+                    type="button"
+                    disabled={isPending || !reason.trim() || !confirmed}
+                    onClick={() => submitVoid(charge)}
+                    className="rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Cambiar concepto
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-400 dark:border-slate-700">
-                    {reassignBlockedReason ?? "Cambiar concepto"}
-                  </span>
-                )}
-                {payment.canRefund ? (
-                  <Link
-                    href={`/enrollments/${enrollmentId}/payments/${payment.id}/refund?returnTo=${encodeURIComponent(returnTo)}`}
-                    prefetch={false}
-                    className="rounded-md border border-amber-300 px-3 py-1.5 text-center text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
-                  >
-                    Reembolsar
-                  </Link>
-                ) : (
-                  <span className="rounded-md border border-slate-200 px-3 py-1.5 text-center text-xs font-semibold text-slate-400 dark:border-slate-700">
-                    {refundBlockedReason ?? "Reembolsar"}
-                  </span>
-                )}
-              </div>
+                    {isPending ? "Anulando y aplicando saldo..." : "Confirmar anulacion"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -1175,9 +1204,6 @@ function PosEnrollmentPanel({
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
-  const [isCreditPending, startCreditTransition] = useTransition();
-  const [creditApplicationKey, setCreditApplicationKey] = useState(createClientUuid);
-  const [creditConfirmed, setCreditConfirmed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1202,7 +1228,6 @@ function PosEnrollmentPanel({
       }
       return next;
     });
-    setCreditConfirmed(false);
   }, [data.pendingCharges]);
 
   const stagedTuitionPeriods = new Set(
@@ -1226,26 +1251,24 @@ function PosEnrollmentPanel({
   }, [availableTuitionOptions, tuitionPeriod]);
 
   const selectedCharges = data.pendingCharges.filter((charge) => selectedIds.has(charge.id));
-  const recommendedCreditCharge =
-    data.pendingCharges.find((charge) => charge.typeCode === "monthly_tuition") ??
-    data.pendingCharges[0] ??
-    null;
-  const creditTargetCharges =
-    selectedCharges.length > 0
-      ? selectedCharges
-      : recommendedCreditCharge
-        ? [recommendedCreditCharge]
-        : [];
-  const cartTotal =
+  const stagedItemsTotal = stagedItems.reduce((sum, item) => sum + item.amount, 0);
+  const automaticCreditForStagedItems = Math.min(
+    data.accountCredit.explicitAvailableAmount,
+    stagedItemsTotal,
+  );
+  const grossCartTotal =
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
-    stagedItems.reduce((sum, item) => sum + item.amount, 0);
+    stagedItemsTotal;
+  const cartTotal = Math.max(grossCartTotal - automaticCreditForStagedItems, 0);
   const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
+  const hasCartSelection = selectedIds.size > 0 || stagedItems.length > 0;
   const hasStagedTuition = stagedItems.some((item) => item.payload.kind === "tuition");
   const submittedPaymentTotal = Math.round((parseMoneyInput(paymentAmount) + (splitMode ? parseMoneyInput(paymentAmount2) : 0)) * 100) / 100;
   const hasFullStagedTuitionPayment = !hasStagedTuition || submittedPaymentTotal + 0.009 >= cartTotal;
-  const payableNow = checkoutTotal > 0;
-  const hasPrimaryMethod = Boolean(paymentMethod);
-  const hasSecondaryMethod = !splitMode || Boolean(paymentMethod2);
+  const requiresCashPayment = checkoutTotal > 0.009;
+  const payableNow = requiresCashPayment || stagedItems.length > 0;
+  const hasPrimaryMethod = !requiresCashPayment || Boolean(paymentMethod);
+  const hasSecondaryMethod = !requiresCashPayment || !splitMode || Boolean(paymentMethod2);
   const selectedOperatorCampus = allowedCampuses.find((campus) => campus.id === operatorCampusId) ?? null;
   const isCrossCampus = operatorCampusId !== data.campusId;
   const selectedTuitionOption = availableTuitionOptions.find(
@@ -1275,8 +1298,19 @@ function PosEnrollmentPanel({
   const hasCoveredStagedTuitionArrears = !hasStagedTuition || uncoveredPriorMonthlyChargesForStagedTuition.length === 0;
 
   useEffect(() => {
-    setPaymentAmount(checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "");
-  }, [checkoutTotal]);
+    if (!splitMode) {
+      setPaymentAmount(checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "");
+      setPaymentAmount2("");
+      return;
+    }
+    const currentFirst = parseMoneyInput(paymentAmount);
+    const firstAmount =
+      currentFirst > 0.009 && currentFirst + 0.009 < checkoutTotal
+        ? currentFirst
+        : Math.round((checkoutTotal / 2) * 100) / 100;
+    setPaymentAmount(firstAmount > 0 ? firstAmount.toFixed(2) : "");
+    setPaymentAmount2(Math.max(checkoutTotal - firstAmount, 0).toFixed(2));
+  }, [checkoutTotal, splitMode]);
 
   useEffect(() => {
     if (!allowedCampuses.some((campus) => campus.id === operatorCampusId)) {
@@ -1295,7 +1329,6 @@ function PosEnrollmentPanel({
 
   function toggleCharge(id: string) {
     setPanelError(null);
-    setCreditConfirmed(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -1398,7 +1431,7 @@ function PosEnrollmentPanel({
   function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPanelError(null);
-    if (!paymentMethod || (splitMode && !paymentMethod2)) {
+    if (requiresCashPayment && (!paymentMethod || (splitMode && !paymentMethod2))) {
       setPanelError("Selecciona el método de pago antes de cobrar.");
       return;
     }
@@ -1431,50 +1464,14 @@ function PosEnrollmentPanel({
       }
 
       clearCart();
-      onCheckoutSuccess(result);
-    });
-  }
-
-  function handleApplyCredit() {
-    setPanelError(null);
-    if (!data.accountCredit.hasExplicitCredit) {
-      setPanelError("No hay credito disponible para aplicar.");
-      return;
-    }
-    if (creditTargetCharges.length === 0) {
-      setPanelError("No hay cargos pendientes donde aplicar el credito.");
-      return;
-    }
-    if (!creditConfirmed) {
-      setPanelError("Confirma que quieres aplicar credito a los cargos seleccionados.");
-      return;
-    }
-
-    const amountToApply = Math.min(
-      data.accountCredit.explicitAvailableAmount,
-      creditTargetCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0),
-    );
-    if (amountToApply <= 0.009) {
-      setPanelError("No hay monto pendiente para aplicar credito.");
-      return;
-    }
-
-    startCreditTransition(async () => {
-      const formData = new FormData();
-      formData.set("targetChargeIds", creditTargetCharges.map((charge) => charge.id).join(","));
-      formData.set("amount", amountToApply.toFixed(2));
-      formData.set("applicationKey", creditApplicationKey);
-
-      const result = await applyCajaCreditAction(data.enrollmentId, formData);
-      if (!result.ok) {
-        setPanelError(errorMessage(result.error));
+      if ("creditOnly" in result) {
+        setPanelError(
+          `El saldo a favor cubrio ${formatMoney(result.appliedAmount, data.currency)}. No se registro un pago nuevo.`,
+        );
+        onDataUpdate(result.updatedData);
         return;
       }
-
-      setSelectedIds(new Set());
-      setCreditConfirmed(false);
-      setCreditApplicationKey(createClientUuid());
-      onDataUpdate(result.updatedData);
+      onCheckoutSuccess(result);
     });
   }
 
@@ -1509,17 +1506,6 @@ function PosEnrollmentPanel({
       <AccountCreditPanel
         summary={data.accountCredit}
         currency={data.currency}
-        selectedChargeCount={creditTargetCharges.length}
-        selectedPendingAmount={creditTargetCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0)}
-        targetDescription={
-          creditTargetCharges.length === 1
-            ? creditTargetCharges[0].description
-            : `${creditTargetCharges.length} cargos seleccionados`
-        }
-        isApplying={isCreditPending}
-        confirmed={creditConfirmed}
-        onConfirmedChange={setCreditConfirmed}
-        onApplyCredit={handleApplyCredit}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
@@ -1878,7 +1864,7 @@ function PosEnrollmentPanel({
               <div>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Cobro actual</p>
                 <p className="text-xs text-slate-400">
-                  {cartTotal > 0 ? "Todo se cobra en una sola salida." : "Vacío. Puedes cobrar todo sin armar una selección."}
+                  {hasCartSelection ? "Todo se cobra en una sola salida." : "Vacío. Puedes cobrar todo sin armar una selección."}
                 </p>
               </div>
               {(selectedIds.size > 0 || stagedItems.length > 0) && (
@@ -1940,13 +1926,27 @@ function PosEnrollmentPanel({
                 ))}
               </ul>
             )}
-            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {cartTotal > 0 ? "Total del cobro actual" : "Saldo a cobrar"}
-              </span>
-              <span className="text-lg font-bold text-portoDark">
-                {formatMoney(checkoutTotal, data.currency)}
-              </span>
+            <div className="space-y-2 border-t border-slate-100 px-4 py-3">
+              {hasCartSelection && automaticCreditForStagedItems > 0 ? (
+                <>
+                  <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
+                    <span>Subtotal de cargos</span>
+                    <span>{formatMoney(grossCartTotal, data.currency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    <span>Saldo a favor aplicado automáticamente</span>
+                    <span>-{formatMoney(automaticCreditForStagedItems, data.currency)}</span>
+                  </div>
+                </>
+              ) : null}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {hasCartSelection ? "Total a cobrar" : "Saldo a cobrar"}
+                </span>
+                <span className="text-lg font-bold text-portoDark">
+                  {formatMoney(checkoutTotal, data.currency)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1956,10 +1956,10 @@ function PosEnrollmentPanel({
           >
             <div>
               <p className="font-medium text-slate-800 dark:text-slate-200">
-                {cartTotal > 0 ? "Cobro actual" : "Cobrar todo"}
+                {hasCartSelection ? "Cobro actual" : "Cobrar todo"}
               </p>
               <p className="text-xs text-slate-400">
-                {cartTotal > 0
+                {hasCartSelection
                   ? "Los cargos seleccionados se cobran primero y el excedente sigue FIFO."
                   : "Pago rápido del saldo pendiente completo."}
               </p>
@@ -1977,24 +1977,47 @@ function PosEnrollmentPanel({
               </p>
             ) : null}
 
-            <div className="space-y-3">
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
-                />
-              </label>
-              <div className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
-                <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} disabled={isCheckoutPending} />
+            {requiresCashPayment ? (
+              <div className="space-y-3">
+                <label className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    {splitMode ? "Monto método 1" : "Monto fijo a cobrar"}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    readOnly={!splitMode}
+                    value={paymentAmount}
+                    onChange={(event) => {
+                      if (!splitMode) return;
+                      const firstAmount = Math.min(parseMoneyInput(event.target.value), checkoutTotal);
+                      setPaymentAmount(event.target.value);
+                      setPaymentAmount2(Math.max(checkoutTotal - firstAmount, 0).toFixed(2));
+                    }}
+                    className={`w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 ${
+                      splitMode
+                        ? "focus:border-portoBlue focus:outline-none"
+                        : "cursor-not-allowed bg-slate-50 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    }`}
+                  />
+                  {!splitMode ? (
+                    <p className="text-xs text-slate-500">
+                      Corresponde exactamente a los cargos pendientes después de aplicar el saldo a favor.
+                    </p>
+                  ) : null}
+                </label>
+                <div className="space-y-1 text-sm">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
+                  <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} disabled={isCheckoutPending} />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
+                El saldo a favor cubre este cobro. Al confirmar no se registrará un pago nuevo.
+              </div>
+            )}
 
             {allowedCampuses.length > 1 ? (
               <label className="block space-y-1 text-sm">
@@ -2019,7 +2042,7 @@ function PosEnrollmentPanel({
               </div>
             ) : null}
 
-            {!splitMode ? (
+            {requiresCashPayment && !splitMode ? (
               <button
                 type="button"
                 onClick={() => setSplitMode(true)}
@@ -2027,7 +2050,7 @@ function PosEnrollmentPanel({
               >
                 + Dividir pago en dos métodos
               </button>
-            ) : (
+            ) : requiresCashPayment ? (
               <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Segundo método de pago</span>
@@ -2051,9 +2074,9 @@ function PosEnrollmentPanel({
                       step="0.01"
                       min="0.01"
                       required
+                      readOnly
                       value={paymentAmount2}
-                      onChange={(e) => setPaymentAmount2(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 focus:border-portoBlue focus:outline-none"
+                      className="w-full cursor-not-allowed rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                     />
                   </label>
                   <div className="space-y-1 text-sm">
@@ -2062,7 +2085,7 @@ function PosEnrollmentPanel({
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
             <label className="block space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
@@ -2094,7 +2117,13 @@ function PosEnrollmentPanel({
                 disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
-                {isCheckoutPending ? "Procesando…" : cartTotal > 0 ? "Cobrar carrito" : "Cobrar todo"}
+                {isCheckoutPending
+                  ? "Procesando…"
+                  : !requiresCashPayment
+                    ? "Aplicar saldo a favor"
+                    : hasCartSelection
+                      ? "Cobrar carrito"
+                      : "Cobrar todo"}
               </button>
               <button
                 type="button"
@@ -2110,7 +2139,7 @@ function PosEnrollmentPanel({
 
       <CajaOperationalNotesPanel data={data} onDataUpdate={onDataUpdate} />
 
-      <RecentPaymentsPanel enrollmentId={data.enrollmentId} payments={data.recentPayments} />
+      <RecentChargesPanel data={data} onDataUpdate={onDataUpdate} />
     </div>
   );
 }

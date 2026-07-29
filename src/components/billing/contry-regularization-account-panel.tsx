@@ -1098,6 +1098,7 @@ export function ContryRegularizationAccountPanel({
             enrollmentId={ledger.enrollment.id}
             rows={ledger.payments}
             returnTo={`/admin/regularizacion-historica?campus=${ledger.enrollment.campusId}&enrollment=${ledger.enrollment.id}`}
+            allowReassignment
           />
         ) : (
           <div className="rounded-md border border-dashed border-slate-300 px-4 py-5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
