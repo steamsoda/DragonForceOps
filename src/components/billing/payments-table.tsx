@@ -3,6 +3,7 @@ import { formatDateTimeMonterrey } from "@/lib/time";
 
 type PaymentItem = {
   id: string;
+  folio: string | null;
   paidAt: string;
   method: string;
   amount: number;
@@ -21,6 +22,16 @@ type PaymentItem = {
   reassignBlockedReason: string | null;
   canRefund: boolean;
   refundBlockedReason: string | null;
+  sourceCharges: Array<{
+    chargeId: string;
+    description: string;
+    typeCode: string;
+    typeName: string;
+    amount: number;
+    allocatedAmount: number;
+    canReassign: boolean;
+    reassignBlockedReason: string | null;
+  }>;
 };
 
 type PaymentsTableProps = {
@@ -101,7 +112,7 @@ function getRefundBlockedReason(code: string | null) {
 }
 
 export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction }: PaymentsTableProps) {
-  const colSpan = voidPaymentAction ? 8 : 7;
+  const colSpan = voidPaymentAction ? 10 : 9;
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
@@ -109,10 +120,12 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Pago</th>
+            <th className="px-3 py-2">Folio</th>
             <th className="px-3 py-2">Campus que recibe</th>
             <th className="px-3 py-2">Estatus</th>
             <th className="px-3 py-2 text-right">Monto</th>
             <th className="px-3 py-2 text-right">Aplicado</th>
+            <th className="px-3 py-2">Aplicado a</th>
             <th className="px-3 py-2">Notas</th>
             <th className="px-3 py-2">Acciones</th>
             {voidPaymentAction ? <th className="px-3 py-2">Director</th> : null}
@@ -133,6 +146,14 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                     <p className="text-slate-900 dark:text-slate-100">{formatDate(row.paidAt)}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{getPaymentMethodLabel(row.method)}</p>
                   </div>
+                </td>
+                <td className="min-w-40 px-3 py-2 align-top">
+                  <p className="font-mono text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {row.folio ?? "Sin folio"}
+                  </p>
+                  {!row.folio ? (
+                    <p className="mt-1 font-mono text-[11px] text-slate-400">ID {row.id.slice(0, 8)}</p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 align-top">
                   <div className="flex flex-wrap items-center gap-2">
@@ -168,6 +189,22 @@ export function PaymentsTable({ enrollmentId, rows, returnTo, voidPaymentAction 
                 </td>
                 <td className="px-3 py-2 text-right align-top">{formatMoney(row.amount, row.currency)}</td>
                 <td className="px-3 py-2 text-right align-top">{formatMoney(row.allocatedAmount, row.currency)}</td>
+                <td className="min-w-56 px-3 py-2 align-top">
+                  {row.sourceCharges.length > 0 ? (
+                    <div className="space-y-2">
+                      {row.sourceCharges.map((charge) => (
+                        <div key={charge.chargeId}>
+                          <p className="font-medium text-slate-800 dark:text-slate-200">{charge.description}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {formatMoney(charge.allocatedAmount, row.currency)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">Sin cargos aplicados</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 align-top">
                   <div className="space-y-1">
                     <p className="max-w-xs whitespace-normal break-words">{row.notes?.trim() ? row.notes : "-"}</p>

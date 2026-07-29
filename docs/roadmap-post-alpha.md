@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.226`
-- Current preview line: `v1.16.226`
+- Current production line: `v1.16.227`
+- Current preview line: `v1.16.227`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -137,6 +137,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | Finance Sanity deep-scan reliability | Production `v1.16.221` replaces unbounded enrollment diagnostics with bounded concurrency, rejects incomplete ledger reads instead of manufacturing `$0.00` balances, and reports incomplete scans explicitly. | Finance Sanity, `v1.16.221` devlog |
 | ✅ | Finance Sanity stale-audit cleanup | Production `v1.16.222` skips deleted historical enrollment references without hiding genuine query failures, and counts only completed live-enrollment diagnostics. | Finance Sanity, `v1.16.222` devlog |
 | ✅ | Charge void to explicit credit | Production `v1.16.226` makes eligible paid-charge annulment transactional, converts only the released allocation into explicit credit, reopens existing credit applications without duplication, keeps paid tuition/inscription protected, and exposes the scoped action to Front Desk. | Front Desk / Caja, `v1.16.226` devlog |
+| ✅ | Charge/payment ledger traceability | Production `v1.16.227` adds charge creation/settlement dates, payment folios, and bidirectional charge-payment allocation detail to the shared player/account ledger without changing financial state. | Player profile / Cargos y cuenta, `v1.16.227` devlog |
 | 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
@@ -239,6 +240,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Tournament product pricing rules and bundles | Preview `v1.16.183` adds additive July pricing rules. Preview `v1.16.200` adds the Combo as one financial charge; `v1.16.201` hardens both-campus tournament destinations and registration visibility; `v1.16.202` changes the Combo standard price to `$300` and resolves `$150` only after a fully paid direct Leyendas charge. Production `v1.16.223` permanently restores new Superliga 17 and Rosa Power 13 charges to `$300` from July 27 without touching historical charges. Future pass: product archive/pricing-rule/bundle admin UI. |
 | 🟡 | Uniform quantity/payment mismatch guardrail | Production repair on 2026-07-03 showed Front Desk can overtype one product payment to cover multiple physical items while only one charge exists. Future UX should make quantity/add-another-item obvious and prevent payments from being partially misapplied to tuition by accident. |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds a dated, operational notes history for player context that can be viewed/added from Caja and the player profile. Keep separate from finance ledger/audit notes and attendance records unless a workflow intentionally links them. |
+| ✅ | Charge/payment ledger traceability | Production `v1.16.227` shows charge creation and settlement timestamps, every attached payment folio or explicit-credit application, and each payment's destination charges on both shared account surfaces. Read-only; no ledger mutation or drift exposure. |
 | 🟡 | Offline/outage fallback | Define what Front Desk can safely keep doing without internet and what must wait; likely printable queues plus retry-safe notes rather than offline payment mutation. |
 | 🟡 | `Pendientes` call-center mode | Tuition-only pending board works; keep open for follow-up refinements after real usage. |
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |

@@ -1,3 +1,5 @@
+import { formatDateTimeMonterrey } from "@/lib/time";
+
 type ChargeItem = {
   id: string;
   manualPriceOverride: boolean;
@@ -15,6 +17,20 @@ type ChargeItem = {
   allocatedAmount: number;
   creditAppliedAmount: number;
   pendingAmount: number;
+  settledAt: string | null;
+  paymentReferences: Array<{
+    paymentId: string;
+    folio: string | null;
+    paidAt: string;
+    allocatedAt: string;
+    amount: number;
+    status: string;
+  }>;
+  creditReferences: Array<{
+    applicationId: string;
+    appliedAt: string;
+    amount: number;
+  }>;
   isCorrection?: boolean;
   correctionKind?: "corrective_charge" | "balance_adjustment" | null;
   isNonCash?: boolean;
@@ -31,10 +47,14 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
-function formatDate(value: string | null) {
+function formatDateOnly(value: string | null) {
   if (!value) return "-";
   const [y, m, d] = value.split("-");
   return d ? `${d}/${m}/${y}` : value;
+}
+
+function formatDateTime(value: string | null) {
+  return value ? formatDateTimeMonterrey(value) : "-";
 }
 
 function getEffectiveStatus(status: string, pendingAmount: number) {
@@ -70,7 +90,9 @@ export function ChargesLedgerTable({
         <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
           <tr>
             <th className="px-3 py-2">Cargo</th>
+            <th className="px-3 py-2">Fechas</th>
             <th className="px-3 py-2">Estatus</th>
+            <th className="px-3 py-2">Pagos / folios</th>
             <th className="px-3 py-2 text-right">Monto</th>
             <th className="px-3 py-2 text-right">Aplicado</th>
             <th className="px-3 py-2 text-right">Pendiente</th>
@@ -80,7 +102,7 @@ export function ChargesLedgerTable({
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
           {rows.length === 0 ? (
             <tr>
-              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={hasActions ? 6 : 5}>
+              <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={hasActions ? 8 : 7}>
                 No hay cargos registrados.
               </td>
             </tr>
@@ -95,7 +117,6 @@ export function ChargesLedgerTable({
                 <tr key={row.id} className={row.status === "void" ? "opacity-50" : ""}>
                   <td className="px-3 py-2 align-top">
                     <div className="space-y-1">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(row.createdAt)}</p>
                       <div className="flex flex-wrap items-center gap-1">
                         <span className="font-medium text-slate-800 dark:text-slate-200">{row.typeName}</span>
                         <span className="text-xs text-slate-500 dark:text-slate-400">{row.typeCode}</span>
@@ -121,9 +142,17 @@ export function ChargesLedgerTable({
                       <p className="break-words text-slate-700 dark:text-slate-300">{row.description}</p>
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                         {row.periodMonth ? <span>Periodo {row.periodMonth.slice(0, 7)}</span> : null}
-                        <span>Vence {formatDate(row.dueDate)}</span>
+                        <span>Vence {formatDateOnly(row.dueDate)}</span>
                       </div>
                     </div>
+                  </td>
+                  <td className="min-w-40 px-3 py-2 align-top text-xs">
+                    <p className="text-slate-500 dark:text-slate-400">Creado</p>
+                    <p className="text-slate-800 dark:text-slate-200">{formatDateTime(row.createdAt)}</p>
+                    <p className="mt-2 text-slate-500 dark:text-slate-400">Liquidado</p>
+                    <p className={row.settledAt ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400"}>
+                      {formatDateTime(row.settledAt)}
+                    </p>
                   </td>
                   <td className="px-3 py-2 align-top">
                     <span
@@ -137,6 +166,37 @@ export function ChargesLedgerTable({
                     >
                       {getChargeStatusLabel(effectiveStatus)}
                     </span>
+                  </td>
+                  <td className="min-w-52 px-3 py-2 align-top">
+                    <div className="space-y-2 text-xs">
+                      {row.paymentReferences.map((reference) => (
+                        <div key={reference.paymentId}>
+                          <p className="font-mono font-medium text-slate-800 dark:text-slate-200">
+                            {reference.folio ?? `Sin folio · ${reference.paymentId.slice(0, 8)}`}
+                          </p>
+                          <p className="text-slate-500 dark:text-slate-400">
+                            Pago {formatDateTime(reference.paidAt)} · {formatMoney(reference.amount, row.currency)}
+                            {reference.status === "void" ? " · Anulado" : ""}
+                          </p>
+                          {formatDateTime(reference.allocatedAt) !== formatDateTime(reference.paidAt) ? (
+                            <p className="text-slate-500 dark:text-slate-400">
+                              Aplicado {formatDateTime(reference.allocatedAt)}
+                            </p>
+                          ) : null}
+                        </div>
+                      ))}
+                      {row.creditReferences.map((reference) => (
+                        <div key={reference.applicationId}>
+                          <p className="font-medium text-violet-700 dark:text-violet-300">Credito aplicado</p>
+                          <p className="text-slate-500 dark:text-slate-400">
+                            {formatDateTime(reference.appliedAt)} · {formatMoney(reference.amount, row.currency)}
+                          </p>
+                        </div>
+                      ))}
+                      {row.paymentReferences.length === 0 && row.creditReferences.length === 0 ? (
+                        <span className="text-slate-400">Sin aplicaciones</span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-right align-top text-slate-700 dark:text-slate-300">
                     {formatMoney(row.amount, row.currency)}

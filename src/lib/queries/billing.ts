@@ -73,6 +73,7 @@ function getProtectedSourceChargeBlockedReason(typeCode: string | null | undefin
 
 type PaymentRow = {
   id: string;
+  folio: string | null;
   paid_at: string;
   method: string;
   amount: number;
@@ -88,11 +89,14 @@ type AllocationRow = {
   payment_id: string;
   charge_id: string;
   amount: number;
+  created_at: string;
 };
 
 type CreditApplicationRow = {
+  id: string;
   charge_id: string;
   amount: number;
+  applied_at: string;
 };
 
 type EnrollmentCreditRow = {
@@ -167,12 +171,27 @@ export type EnrollmentLedger = {
     allocatedAmount: number;
     creditAppliedAmount: number;
     pendingAmount: number;
+    settledAt: string | null;
+    paymentReferences: Array<{
+      paymentId: string;
+      folio: string | null;
+      paidAt: string;
+      allocatedAt: string;
+      amount: number;
+      status: string;
+    }>;
+    creditReferences: Array<{
+      applicationId: string;
+      appliedAt: string;
+      amount: number;
+    }>;
     isCorrection: boolean;
     correctionKind: "corrective_charge" | "balance_adjustment" | null;
     isNonCash: boolean;
   }>;
   payments: Array<{
     id: string;
+    folio: string | null;
     paidAt: string;
     method: string;
     amount: number;
@@ -308,7 +327,7 @@ export async function getEnrollmentLedger(
     includePayments
       ? supabase
           .from("payments")
-          .select("id, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
+          .select("id, folio, paid_at, method, amount, currency, status, notes, created_at, operator_campus_id")
           .eq("enrollment_id", enrollmentId)
           .order("paid_at", { ascending: false })
           .returns<PaymentRow[]>()
@@ -361,7 +380,7 @@ export async function getEnrollmentLedger(
   if (chargeIds.length > 0) {
     let allocationQuery = supabase
       .from("payment_allocations")
-      .select("payment_id, charge_id, amount");
+      .select("payment_id, charge_id, amount, created_at");
 
     allocationQuery = allocationQuery.in("charge_id", chargeIds);
 
@@ -371,7 +390,7 @@ export async function getEnrollmentLedger(
 
     const { data: creditApplicationRows, error: creditApplicationError } = await supabase
       .from("enrollment_credit_applications")
-      .select("charge_id, amount")
+      .select("id, charge_id, amount, applied_at")
       .in("charge_id", chargeIds)
       .returns<CreditApplicationRow[]>();
     assertLedgerReadSucceeded(strictReadErrors, "credit_applications", creditApplicationError);
@@ -390,6 +409,7 @@ export async function getEnrollmentLedger(
 
   const allocatedByCharge = new Map<string, number>();
   const creditAppliedByCharge = new Map<string, number>();
+  const creditApplicationsByCharge = new Map<string, CreditApplicationRow[]>();
   const allocatedByPayment = new Map<string, number>();
   const allocationsByPayment = new Map<string, AllocationRow[]>();
   const allocationsByCharge = new Map<string, AllocationRow[]>();
@@ -406,6 +426,7 @@ export async function getEnrollmentLedger(
       },
     ]),
   );
+  const paymentById = new Map((payments ?? []).map((payment) => [payment.id, payment]));
   const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
   const paymentCreditResult = paymentIds.length
     ? await supabase
@@ -436,6 +457,10 @@ export async function getEnrollmentLedger(
   });
   creditApplications.forEach((row) => {
     creditAppliedByCharge.set(row.charge_id, (creditAppliedByCharge.get(row.charge_id) ?? 0) + row.amount);
+    creditApplicationsByCharge.set(row.charge_id, [
+      ...(creditApplicationsByCharge.get(row.charge_id) ?? []),
+      row,
+    ]);
   });
 
   const accountCredit = summarizeAccountCredit({
@@ -477,6 +502,35 @@ export async function getEnrollmentLedger(
     charges: (charges ?? []).map((row) => {
       const allocatedAmount = allocatedByCharge.get(row.id) ?? 0;
       const creditAppliedAmount = creditAppliedByCharge.get(row.id) ?? 0;
+      const pendingAmount = Math.max(row.amount - allocatedAmount - creditAppliedAmount, 0);
+      const paymentReferences = (allocationsByCharge.get(row.id) ?? [])
+        .map((allocation) => {
+          const payment = paymentById.get(allocation.payment_id);
+          if (!payment) return null;
+          return {
+            paymentId: payment.id,
+            folio: payment.folio,
+            paidAt: payment.paid_at,
+            allocatedAt: allocation.created_at,
+            amount: allocation.amount,
+            status: payment.status,
+          };
+        })
+        .filter((reference): reference is NonNullable<typeof reference> => reference !== null)
+        .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+      const creditReferences = (creditApplicationsByCharge.get(row.id) ?? [])
+        .map((application) => ({
+          applicationId: application.id,
+          appliedAt: application.applied_at,
+          amount: application.amount,
+        }))
+        .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));
+      const settlementEvents = [
+        ...paymentReferences
+          .filter((reference) => reference.status === "posted")
+          .map((reference) => reference.allocatedAt),
+        ...creditReferences.map((reference) => reference.appliedAt),
+      ].sort((a, b) => b.localeCompare(a));
       return {
         id: row.id,
         manualPriceOverride: row.manual_price_override,
@@ -493,7 +547,10 @@ export async function getEnrollmentLedger(
         createdAt: row.created_at,
         allocatedAmount,
         creditAppliedAmount,
-        pendingAmount: Math.max(row.amount - allocatedAmount - creditAppliedAmount, 0),
+        pendingAmount,
+        settledAt: row.status !== "void" && pendingAmount <= 0 ? settlementEvents[0] ?? null : null,
+        paymentReferences,
+        creditReferences,
         isCorrection: CORRECTION_CHARGE_TYPE_CODES.has(row.charge_types?.code ?? ""),
         correctionKind:
           row.charge_types?.code === "corrective_charge" || row.charge_types?.code === "balance_adjustment"
@@ -587,6 +644,7 @@ export async function getEnrollmentLedger(
 
       return {
         id: row.id,
+        folio: row.folio,
         paidAt: row.paid_at,
         method: row.method,
         amount: row.amount,

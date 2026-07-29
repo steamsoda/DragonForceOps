@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-07-28 (session 244)
+
+### Charge and Payment Ledger Cross-References Production Promotion (v1.16.227)
+
+- Promoted the verified read-only charge/payment traceability pass from preview to production.
+- Player profiles and dedicated account pages now show charge creation and settlement timestamps, payment folios, charge destinations, payment allocations, and explicit-credit applications through their shared ledger components.
+- No database migration, financial mutation, allocation rewrite, balance calculation, permission expansion, or cron behavior changed.
+- Release verification: focused ledger cross-reference regression, typecheck, production build, diff validation, and remote branch confirmation.
+
+## 2026-07-28 (session 243)
+
+### Charge and Payment Ledger Cross-References (v1.16.227)
+
+- Expanded the existing read-only enrollment ledger so payments expose their stored folio and attached charges, while charges expose every current payment allocation and explicit-credit application.
+- Added clear `Creado` and `Liquidado` timestamps to each charge. `Liquidado` is only derived when current payment allocations plus explicit credit fully cover the non-void charge.
+- Added `Folio` and `Aplicado a` columns to the payment ledger, including the allocated amount for each charge when one payment covers multiple concepts.
+- Added `Pagos / folios` to the charge ledger, including split-payment folios, payment dates, allocation amounts, explicit-credit applications, and safe fallbacks for historical payments without a folio.
+- Corrected charge timestamp rendering to use Monterrey time instead of parsing a timestamp as a date-only string.
+- Both the player profile and dedicated `Cargos y cuenta` page receive the same behavior through their existing shared ledger components.
+- This pass is read-only: no migration, payment/charge mutation, allocation rewrite, balance-view change, permission expansion, or finance calculation change.
+- Added `npm run test:ledger-cross-references`; typecheck and production build remain required before promotion.
+
 ## 2026-07-27 (session 242)
 
 ### Transactional Charge Void to Explicit Credit Production Promotion (v1.16.226)
