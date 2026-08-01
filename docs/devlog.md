@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-31 (session 246)
+
+### Charge-Level Cash Refunds in Caja (v1.16.229)
+
+- Added a charge-level `Reembolso en efectivo` action beside `Anular cargo` in Caja. It reverses only the selected paid product, even when its original payment covered multiple charges; the original payment, folio, receipt, and unrelated allocations remain intact.
+- Kept paid monthly tuition and inscription charges non-refundable. The new action is limited to Super Admin, Director/Admin, and Front Desk under the existing enrollment/campus access boundary, and requires an open cash session, reason, real Monterrey date/time, and explicit confirmation.
+- Added an additive refund ledger with per-payment source rows. Payment-funded value is recorded as cash returned and cannot become accidental legacy credit; any explicit credit previously applied to the refunded charge is reopened and consumed against other live charges through the existing FIFO helper.
+- Recorded the refund as a negative cash-session entry, included it in Corte Diario as `Efectivo`, and updated the open-session expected-cash calculation to subtract refunds/outflows.
+- Extended canonical and pending balance contracts, the shared charge ledger, account-credit calculations, allocation normalization, and Finance Sanity diagnostics so charge refunds remain traceable without creating false drift or reusable payment remainder.
+- Added `npm run test:charge-cash-refund` plus a regression case proving refunded payment value is excluded from legacy implicit credit. Preview migration/build verification is required before production promotion.
+
 ## 2026-07-28 (session 245)
 
 ### Automatic Explicit-Credit FIFO and Charge-Centric Caja (v1.16.228)

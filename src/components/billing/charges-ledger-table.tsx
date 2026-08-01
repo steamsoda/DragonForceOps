@@ -31,6 +31,14 @@ type ChargeItem = {
     appliedAt: string;
     amount: number;
   }>;
+  cashRefund: {
+    id: string;
+    amount: number;
+    reopenedCreditAmount: number;
+    refundedAt: string;
+    reason: string;
+    notes: string | null;
+  } | null;
   isCorrection?: boolean;
   correctionKind?: "corrective_charge" | "balance_adjustment" | null;
   isNonCash?: boolean;
@@ -57,7 +65,8 @@ function formatDateTime(value: string | null) {
   return value ? formatDateTimeMonterrey(value) : "-";
 }
 
-function getEffectiveStatus(status: string, pendingAmount: number) {
+function getEffectiveStatus(status: string, pendingAmount: number, hasCashRefund = false) {
+  if (hasCashRefund) return "cash_refunded";
   if (status === "void") return "void";
   if (status === "pending" && pendingAmount <= 0) return "paid";
   if (status === "pending") return "pending";
@@ -72,6 +81,8 @@ function getChargeStatusLabel(effectiveStatus: string) {
       return "Pendiente";
     case "void":
       return "Anulado";
+    case "cash_refunded":
+      return "Reembolsado";
     default:
       return "Registrado";
   }
@@ -108,7 +119,7 @@ export function ChargesLedgerTable({
             </tr>
           ) : (
             rows.map((row) => {
-              const effectiveStatus = getEffectiveStatus(row.status, row.pendingAmount);
+              const effectiveStatus = getEffectiveStatus(row.status, row.pendingAmount, Boolean(row.cashRefund));
               const isProtectedPaidCharge =
                 (row.typeCode === "monthly_tuition" || row.typeCode === "inscription") &&
                 (row.allocatedAmount > 0 || row.creditAppliedAmount > 0);
@@ -153,12 +164,20 @@ export function ChargesLedgerTable({
                     <p className={row.settledAt ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400"}>
                       {formatDateTime(row.settledAt)}
                     </p>
+                    {row.cashRefund ? (
+                      <>
+                        <p className="mt-2 text-amber-700 dark:text-amber-300">Reembolsado</p>
+                        <p className="text-amber-800 dark:text-amber-200">{formatDateTime(row.cashRefund.refundedAt)}</p>
+                      </>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 align-top">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         effectiveStatus === "pending"
                           ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          : effectiveStatus === "cash_refunded"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
                           : effectiveStatus === "void"
                             ? "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
                             : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
@@ -195,6 +214,12 @@ export function ChargesLedgerTable({
                       ))}
                       {row.paymentReferences.length === 0 && row.creditReferences.length === 0 ? (
                         <span className="text-slate-400">Sin aplicaciones</span>
+                      ) : null}
+                      {row.cashRefund ? (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900">
+                          <p className="font-semibold">Reembolso en efectivo {formatMoney(row.cashRefund.amount, row.currency)}</p>
+                          <p>{row.cashRefund.reason}</p>
+                        </div>
                       ) : null}
                     </div>
                   </td>

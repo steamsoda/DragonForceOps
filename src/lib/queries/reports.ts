@@ -211,15 +211,48 @@ export async function getCorteDiarioData(filters: {
     .returns<PaymentWithPlayer[]>();
 
   const payments = data ?? [];
-  const { data: refundData } = await supabase
-    .from("payment_refunds")
-    .select("id, payment_id, amount, refund_method, refunded_at, reason, notes, operator_campus_id, enrollment_id, charge_breakdown")
-    .gte("refunded_at", queryStart)
-    .lt("refunded_at", queryEnd)
-    .eq("operator_campus_id", selectedCampusId)
-    .returns<RefundRow[]>();
+  const [paymentRefundResult, chargeRefundResult] = await Promise.all([
+    supabase
+      .from("payment_refunds")
+      .select("id, payment_id, amount, refund_method, refunded_at, reason, notes, operator_campus_id, enrollment_id, charge_breakdown")
+      .gte("refunded_at", queryStart)
+      .lt("refunded_at", queryEnd)
+      .eq("operator_campus_id", selectedCampusId)
+      .returns<RefundRow[]>(),
+    supabase
+      .from("charge_cash_refunds")
+      .select("id, primary_payment_id, amount, refunded_at, reason, notes, operator_campus_id, enrollment_id, charge_breakdown")
+      .gte("refunded_at", queryStart)
+      .lt("refunded_at", queryEnd)
+      .eq("operator_campus_id", selectedCampusId)
+      .returns<Array<{
+        id: string;
+        primary_payment_id: string;
+        amount: number;
+        refunded_at: string;
+        reason: string;
+        notes: string | null;
+        operator_campus_id: string;
+        enrollment_id: string;
+        charge_breakdown: unknown;
+      }>>(),
+  ]);
 
-  const refunds = refundData ?? [];
+  const refunds: RefundRow[] = [
+    ...(paymentRefundResult.data ?? []),
+    ...(chargeRefundResult.data ?? []).map((row) => ({
+      id: row.id,
+      payment_id: row.primary_payment_id,
+      enrollment_id: row.enrollment_id,
+      operator_campus_id: row.operator_campus_id,
+      refunded_at: row.refunded_at,
+      refund_method: "cash",
+      amount: Number(row.amount),
+      reason: row.reason,
+      notes: row.notes,
+      charge_breakdown: row.charge_breakdown,
+    })),
+  ];
   const refundPaymentIds = [...new Set(refunds.map((refund) => refund.payment_id).filter(Boolean))];
   const { data: refundPaymentRows } = refundPaymentIds.length
     ? await supabase

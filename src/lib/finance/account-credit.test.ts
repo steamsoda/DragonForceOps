@@ -16,6 +16,19 @@ const summary = summarizeAccountCredit({
 
 assert.equal(summary.explicitAvailableAmount, 250);
 assert.equal(summary.legacyImplicitCreditAmount, 300);
+
+const refundedPaymentSummary = summarizeAccountCredit({
+  explicitAvailableAmount: 0,
+  payments: [
+    {
+      status: "posted",
+      amount: 1_000,
+      allocatedAmount: 700,
+      chargeCashRefundedAmount: 300,
+    },
+  ],
+});
+assert.equal(refundedPaymentSummary.legacyImplicitCreditAmount, 0);
 assert.equal(summary.totalVisibleCreditAmount, 550);
 assert.equal(summary.hasAnyCredit, true);
 

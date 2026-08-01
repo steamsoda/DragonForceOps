@@ -15,6 +15,7 @@ type CreditPaymentInput = {
   amount: number;
   allocatedAmount: number;
   explicitCreditOriginalAmount?: number;
+  chargeCashRefundedAmount?: number;
 };
 
 type CreditApplicationCreditInput = {
@@ -61,7 +62,12 @@ export function summarizeAccountCredit({
   const legacyImplicit = payments.reduce((sum, payment) => {
     if (payment.status !== "posted") return sum;
     return roundMoney(
-      sum + positiveMoney(payment.amount - payment.allocatedAmount - (payment.explicitCreditOriginalAmount ?? 0)),
+      sum + positiveMoney(
+        payment.amount
+          - payment.allocatedAmount
+          - (payment.explicitCreditOriginalAmount ?? 0)
+          - (payment.chargeCashRefundedAmount ?? 0),
+      ),
     );
   }, 0);
   const totalVisibleCredit = roundMoney(explicitAvailable + legacyImplicit);

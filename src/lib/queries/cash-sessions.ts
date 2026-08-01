@@ -8,6 +8,7 @@ export type OpenSession = {
   openedAt: string;
   openingCash: number;
   cashIn: number; // sum of payment_in entries for this session
+  cashOut: number; // absolute sum of manual_out entries for this session
 };
 
 export type CampusSessionStatus = {
@@ -49,13 +50,19 @@ export async function getCampusSessionStatuses(): Promise<CampusSessionStatus[]>
     const cashIn = s.cash_session_entries
       .filter((e) => e.entry_type === "payment_in")
       .reduce((sum, e) => sum + e.amount, 0);
+    const cashOut = Math.abs(
+      s.cash_session_entries
+        .filter((e) => e.entry_type === "manual_out")
+        .reduce((sum, e) => sum + e.amount, 0),
+    );
     byCampus.set(s.campus_id, {
       id: s.id,
       campusId: s.campus_id,
       campusName: s.campuses?.name ?? "-",
       openedAt: s.opened_at,
       openingCash: s.opening_cash,
-      cashIn
+      cashIn,
+      cashOut,
     });
   }
 

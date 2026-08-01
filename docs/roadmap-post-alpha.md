@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.227`
-- Current preview candidate: `v1.16.228`
+- Current preview candidate: `v1.16.229`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -149,6 +149,8 @@ These are the highest-value items to consider next. Keep this list short: usuall
 - When it ships, mark it ✅ with the version/devlog reference, then remove it from `Now` at the next checkpoint.
 
 ## Next
+
+- 🟢 `v1.16.229` charge-level cash refunds are ready for preview validation: selected paid products can be refunded in cash without changing unrelated allocations, and Caja/Corte/credit/diagnostic contracts share the same refund truth. See the `v1.16.229` devlog entry.
 
 Important, but not necessarily the next edit.
 

@@ -13,6 +13,7 @@ import {
   getProductsForCajaAction,
   postCajaChargeAction,
   voidCajaChargeAction,
+  cashRefundCajaChargeAction,
   createAdvanceTuitionAction,
   checkoutCajaCartAction,
   getCajaDrilldownMetaAction,
@@ -169,15 +170,34 @@ function AccountCreditPanel({
   );
 }
 
+function getMonterreyDateTimeLocalValue() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Monterrey",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}`;
+}
+
 function RecentChargesPanel({
   data,
+  operatorCampusId,
   onDataUpdate,
 }: {
   data: CajaEnrollmentData;
+  operatorCampusId: string;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
 }) {
-  const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null);
+  const [expandedAction, setExpandedAction] = useState<{ chargeId: string; mode: "void" | "cash_refund" } | null>(null);
   const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [refundedAt, setRefundedAt] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -185,9 +205,11 @@ function RecentChargesPanel({
 
   if (data.recentCharges.length === 0) return null;
 
-  function openConfirmation(chargeId: string) {
-    setExpandedChargeId(chargeId);
+  function openConfirmation(chargeId: string, mode: "void" | "cash_refund") {
+    setExpandedAction({ chargeId, mode });
     setReason("");
+    setNotes("");
+    setRefundedAt(getMonterreyDateTimeLocalValue());
     setConfirmed(false);
     setMessage(null);
     setError(null);
@@ -233,8 +255,57 @@ function RecentChargesPanel({
           ? `Cargo anulado. Se liberaron ${formatMoney(released, data.currency)} como saldo a favor. ${destinationMessage}`
           : "Cargo anulado. No tenia pagos ni saldo a favor aplicado.",
       );
-      setExpandedChargeId(null);
+      setExpandedAction(null);
       setReason("");
+      setConfirmed(false);
+      onDataUpdate(result.updatedData);
+    });
+  }
+
+  function submitCashRefund(charge: CajaRecentCharge) {
+    setError(null);
+    setMessage(null);
+    if (!reason.trim()) return setError("Escribe el motivo del reembolso.");
+    if (!refundedAt) return setError("Captura la fecha y hora real del reembolso.");
+    if (!confirmed) return setError("Confirma que revisaste el cargo y el efectivo a entregar.");
+
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("reason", reason.trim());
+      formData.set("notes", notes.trim());
+      formData.set("refundedAt", refundedAt);
+      formData.set("operatorCampusId", operatorCampusId);
+      formData.set("confirmed", "1");
+      const result = await cashRefundCajaChargeAction(data.enrollmentId, charge.id, formData);
+      if (!result.ok) {
+        const messages: Record<string, string> = {
+          cash_session_required: "Abre una sesion de Caja para registrar la salida de efectivo.",
+          protected_paid_charge: "Las mensualidades e inscripciones no son reembolsables.",
+          charge_not_found: "El cargo ya no esta disponible para reembolso.",
+          charge_not_pending: "El cargo ya fue anulado o reembolsado.",
+          charge_already_cash_refunded: "Este cargo ya tiene un reembolso en efectivo.",
+          charge_not_fully_paid: "Solo se pueden reembolsar cargos pagados por completo.",
+          cash_refund_requires_payment: "Este cargo no tiene dinero pagado para devolver en efectivo.",
+          source_payment_already_refunded: "El pago original ya fue reembolsado.",
+          refund_reason_required: "Escribe el motivo del reembolso.",
+          refund_confirmation_required: "Confirma la operacion.",
+          invalid_refund_date: "La fecha y hora del reembolso no es valida.",
+          unauthorized: "No tienes permiso para reembolsar este cargo.",
+          debug_read_only: "La vista debug es de solo lectura.",
+        };
+        setError(messages[result.error] ?? "No se pudo registrar el reembolso en efectivo.");
+        return;
+      }
+
+      const creditNote = result.reopenedCreditAmount > 0
+        ? ` ${formatMoney(result.reopenedCreditAmount, data.currency)} de saldo previo se reabrieron y se aplicaron por antiguedad.`
+        : "";
+      setMessage(
+        `Reembolso registrado: entrega ${formatMoney(result.cashRefundAmount, data.currency)} en efectivo. El cargo quedo anulado y el Corte Diario ya incluye la salida.${creditNote}`,
+      );
+      setExpandedAction(null);
+      setReason("");
+      setNotes("");
       setConfirmed(false);
       onDataUpdate(result.updatedData);
     });
@@ -246,7 +317,7 @@ function RecentChargesPanel({
         <div>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos cargos</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Anula el producto correcto. El pago original se conserva y el monto aplicado se convierte en saldo a favor.
+            Anula para dejar saldo a favor o registra un reembolso en efectivo sobre el producto correcto.
           </p>
         </div>
         <Link
@@ -275,7 +346,8 @@ function RecentChargesPanel({
             .reduce((sum, pendingCharge) => Math.round((sum + pendingCharge.pendingAmount) * 100) / 100, 0);
           const predictedAutoApply = Math.min(releasedAmount, otherPendingAmount);
           const predictedAvailable = Math.max(releasedAmount - predictedAutoApply, 0);
-          const isExpanded = expandedChargeId === charge.id;
+          const isExpanded = expandedAction?.chargeId === charge.id;
+          const actionMode = isExpanded ? expandedAction.mode : null;
 
           return (
             <div key={charge.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
@@ -284,7 +356,7 @@ function RecentChargesPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-slate-900 dark:text-slate-100">{charge.description}</span>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {charge.status === "void" ? "Anulado" : charge.pendingAmount <= 0.009 ? "Pagado" : "Pendiente"}
+                      {charge.cashRefundedAt ? "Reembolsado" : charge.status === "void" ? "Anulado" : charge.pendingAmount <= 0.009 ? "Pagado" : "Pendiente"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
@@ -307,23 +379,36 @@ function RecentChargesPanel({
                     </p>
                   ) : null}
                 </div>
-                <div className="text-center">
+                <div className="grid gap-2 text-center">
                   {charge.canVoid ? (
                     <button
                       type="button"
-                      onClick={() => (isExpanded ? setExpandedChargeId(null) : openConfirmation(charge.id))}
+                      onClick={() => (actionMode === "void" ? setExpandedAction(null) : openConfirmation(charge.id, "void"))}
                       className="w-full rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                     >
-                      {isExpanded ? "Cancelar" : "Anular cargo"}
+                      {actionMode === "void" ? "Cancelar" : "Anular cargo"}
                     </button>
-                  ) : (
+                  ) : !charge.canCashRefund ? (
                     <span className="inline-block w-full rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700">
                       {charge.voidBlockedReason ?? "No anulable"}
                     </span>
-                  )}
+                  ) : null}
+                  {charge.canCashRefund ? (
+                    <button
+                      type="button"
+                      onClick={() => (actionMode === "cash_refund" ? setExpandedAction(null) : openConfirmation(charge.id, "cash_refund"))}
+                      className="w-full rounded-md border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50"
+                    >
+                      {actionMode === "cash_refund" ? "Cancelar" : "Reembolso en efectivo"}
+                    </button>
+                  ) : charge.cashRefundedAt ? (
+                    <span className="inline-block w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                      {formatMoney(charge.cashRefundAmount, charge.currency)} reembolsados
+                    </span>
+                  ) : null}
                 </div>
               </div>
-              {isExpanded ? (
+              {actionMode === "void" ? (
                 <div className="space-y-3 border-t border-rose-100 bg-rose-50/60 px-4 py-4 dark:border-rose-900/30 dark:bg-rose-950/10">
                   <div className="grid gap-3 text-xs sm:grid-cols-3">
                     <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
@@ -370,6 +455,55 @@ function RecentChargesPanel({
                     className="rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isPending ? "Anulando y aplicando saldo..." : "Confirmar anulacion"}
+                  </button>
+                </div>
+              ) : actionMode === "cash_refund" ? (
+                <div className="space-y-3 border-t border-amber-200 bg-amber-50/70 px-4 py-4">
+                  <div className="grid gap-3 text-xs sm:grid-cols-2">
+                    <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                      <p className="text-slate-500">Efectivo a entregar</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {formatMoney(charge.allocatedAmount, charge.currency)}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                      <p className="text-slate-500">Saldo previo que se reabre</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {formatMoney(charge.creditAppliedAmount, charge.currency)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-amber-900">
+                    Solo se revierte este cargo. El pago y sus demas productos no cambian. La salida queda registrada
+                    como monto negativo en la sesion de Caja y en el Corte Diario.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-semibold text-slate-700">Motivo del reembolso</span>
+                      <input value={reason} onChange={(event) => setReason(event.target.value)}
+                        placeholder="Ej. Torneo cancelado." className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" />
+                    </label>
+                    <label className="block space-y-1 text-xs">
+                      <span className="font-semibold text-slate-700">Fecha y hora real</span>
+                      <input type="datetime-local" value={refundedAt} onChange={(event) => setRefundedAt(event.target.value)}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" />
+                    </label>
+                  </div>
+                  <label className="block space-y-1 text-xs">
+                    <span className="font-semibold text-slate-700">Notas (opcional)</span>
+                    <input value={notes} onChange={(event) => setNotes(event.target.value)}
+                      placeholder="Referencia o detalle operativo." className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" />
+                  </label>
+                  <label className="flex items-start gap-2 text-xs font-medium text-amber-950">
+                    <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-amber-400" />
+                    Confirmo el cargo y que se entregaran {formatMoney(charge.allocatedAmount, charge.currency)} en efectivo.
+                  </label>
+                  {error ? <p className="rounded-md bg-white px-3 py-2 text-xs text-rose-700">{error}</p> : null}
+                  <button type="button" disabled={isPending || !reason.trim() || !refundedAt || !confirmed}
+                    onClick={() => submitCashRefund(charge)}
+                    className="rounded-md bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    {isPending ? "Registrando salida de efectivo..." : "Confirmar reembolso en efectivo"}
                   </button>
                 </div>
               ) : null}
@@ -2139,7 +2273,7 @@ function PosEnrollmentPanel({
 
       <CajaOperationalNotesPanel data={data} onDataUpdate={onDataUpdate} />
 
-      <RecentChargesPanel data={data} onDataUpdate={onDataUpdate} />
+      <RecentChargesPanel data={data} operatorCampusId={operatorCampusId} onDataUpdate={onDataUpdate} />
     </div>
   );
 }

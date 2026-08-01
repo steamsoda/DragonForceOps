@@ -92,6 +92,7 @@ function getActionErrorMessage(code: string) {
     source_charge_monthly_tuition: "Las mensualidades no se pueden mover desde Caja. Usa una correccion administrativa.",
     source_charge_inscription: "Las inscripciones no se pueden mover desde Caja. Usa una correccion administrativa.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_charge_cash_refund: "Este pago contiene un cargo reembolsado en efectivo y ya no se puede reasignar.",
     payment_not_posted: "Solo se pueden mover pagos vigentes.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
     unauthorized: "No tienes permiso para modificar este pago.",

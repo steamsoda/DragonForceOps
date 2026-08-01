@@ -114,6 +114,21 @@ type PaymentRefundRow = {
   amount: number;
 };
 
+type ChargeCashRefundRow = {
+  id: string;
+  charge_id: string;
+  amount: number;
+  reopened_credit_amount: number;
+  refunded_at: string;
+  reason: string;
+  notes: string | null;
+};
+
+type ChargeCashRefundSourceRow = {
+  payment_id: string;
+  amount: number;
+};
+
 type ChargeTypeRow = {
   id: string;
   code: string;
@@ -185,6 +200,14 @@ export type EnrollmentLedger = {
       appliedAt: string;
       amount: number;
     }>;
+    cashRefund: {
+      id: string;
+      amount: number;
+      reopenedCreditAmount: number;
+      refundedAt: string;
+      reason: string;
+      notes: string | null;
+    } | null;
     isCorrection: boolean;
     correctionKind: "corrective_charge" | "balance_adjustment" | null;
     isNonCash: boolean;
@@ -200,6 +223,7 @@ export type EnrollmentLedger = {
     notes: string | null;
     createdAt: string;
     allocatedAmount: number;
+    chargeCashRefundedAmount: number;
     operatorCampusId: string;
     operatorCampusName: string;
     isCrossCampus: boolean;
@@ -377,6 +401,7 @@ export async function getEnrollmentLedger(
 
   let allocations: AllocationRow[] = [];
   let creditApplications: CreditApplicationRow[] = [];
+  let chargeCashRefunds: ChargeCashRefundRow[] = [];
   if (chargeIds.length > 0) {
     let allocationQuery = supabase
       .from("payment_allocations")
@@ -395,6 +420,14 @@ export async function getEnrollmentLedger(
       .returns<CreditApplicationRow[]>();
     assertLedgerReadSucceeded(strictReadErrors, "credit_applications", creditApplicationError);
     creditApplications = creditApplicationRows ?? [];
+
+    const { data: chargeCashRefundRows, error: chargeCashRefundError } = await supabase
+      .from("charge_cash_refunds")
+      .select("id, charge_id, amount, reopened_credit_amount, refunded_at, reason, notes")
+      .in("charge_id", chargeIds)
+      .returns<ChargeCashRefundRow[]>();
+    assertLedgerReadSucceeded(strictReadErrors, "charge_cash_refunds", chargeCashRefundError);
+    chargeCashRefunds = chargeCashRefundRows ?? [];
   }
 
   const refundResult = includeRefunds && paymentIds.length
@@ -406,6 +439,16 @@ export async function getEnrollmentLedger(
     : { data: [] as PaymentRefundRow[], error: null };
   assertLedgerReadSucceeded(strictReadErrors, "payment_refunds", refundResult.error);
   const refundRows = refundResult.data;
+
+  const chargeCashRefundSourceResult = paymentIds.length
+    ? await supabase
+        .from("charge_cash_refund_sources")
+        .select("payment_id, amount")
+        .in("payment_id", paymentIds)
+        .returns<ChargeCashRefundSourceRow[]>()
+    : { data: [] as ChargeCashRefundSourceRow[], error: null };
+  assertLedgerReadSucceeded(strictReadErrors, "charge_cash_refund_sources", chargeCashRefundSourceResult.error);
+  const chargeCashRefundSourceRows = chargeCashRefundSourceResult.data ?? [];
 
   const allocatedByCharge = new Map<string, number>();
   const creditAppliedByCharge = new Map<string, number>();
@@ -428,6 +471,14 @@ export async function getEnrollmentLedger(
   );
   const paymentById = new Map((payments ?? []).map((payment) => [payment.id, payment]));
   const refundByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, row]));
+  const cashRefundByChargeId = new Map(chargeCashRefunds.map((row) => [row.charge_id, row]));
+  const cashRefundedByPaymentId = new Map<string, number>();
+  for (const row of chargeCashRefundSourceRows) {
+    cashRefundedByPaymentId.set(
+      row.payment_id,
+      (cashRefundedByPaymentId.get(row.payment_id) ?? 0) + Number(row.amount),
+    );
+  }
   const paymentCreditResult = paymentIds.length
     ? await supabase
         .from("enrollment_credits")
@@ -473,6 +524,7 @@ export async function getEnrollmentLedger(
       amount: row.amount,
       allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
       explicitCreditOriginalAmount: explicitCreditOriginalByPayment.get(row.id) ?? 0,
+      chargeCashRefundedAmount: cashRefundedByPaymentId.get(row.id) ?? 0,
     })),
   });
 
@@ -525,6 +577,7 @@ export async function getEnrollmentLedger(
           amount: application.amount,
         }))
         .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));
+      const cashRefund = cashRefundByChargeId.get(row.id) ?? null;
       const settlementEvents = [
         ...paymentReferences
           .filter((reference) => reference.status === "posted")
@@ -551,6 +604,16 @@ export async function getEnrollmentLedger(
         settledAt: row.status !== "void" && pendingAmount <= 0 ? settlementEvents[0] ?? null : null,
         paymentReferences,
         creditReferences,
+        cashRefund: cashRefund
+          ? {
+              id: cashRefund.id,
+              amount: cashRefund.amount,
+              reopenedCreditAmount: cashRefund.reopened_credit_amount,
+              refundedAt: cashRefund.refunded_at,
+              reason: cashRefund.reason,
+              notes: cashRefund.notes,
+            }
+          : null,
         isCorrection: CORRECTION_CHARGE_TYPE_CODES.has(row.charge_types?.code ?? ""),
         correctionKind:
           row.charge_types?.code === "corrective_charge" || row.charge_types?.code === "balance_adjustment"
@@ -569,6 +632,8 @@ export async function getEnrollmentLedger(
           ? "payment_not_posted"
           : refund
             ? "payment_already_refunded"
+            : (cashRefundedByPaymentId.get(row.id) ?? 0) > 0.009
+              ? "payment_has_charge_cash_refund"
             : paymentAllocations.length === 0
               ? "payment_has_no_allocations"
               : Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01
@@ -606,6 +671,8 @@ export async function getEnrollmentLedger(
         workflowBlockedReason = "payment_not_posted";
       } else if (refund) {
         workflowBlockedReason = "payment_already_refunded";
+      } else if ((cashRefundedByPaymentId.get(row.id) ?? 0) > 0.009) {
+        workflowBlockedReason = "payment_has_charge_cash_refund";
       } else if (paymentAllocations.length === 0) {
         workflowBlockedReason = "payment_has_no_allocations";
       } else if (Math.abs((allocatedByPayment.get(row.id) ?? 0) - row.amount) > 0.01) {
@@ -653,6 +720,7 @@ export async function getEnrollmentLedger(
         notes: row.notes,
         createdAt: row.created_at,
         allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+        chargeCashRefundedAmount: cashRefundedByPaymentId.get(row.id) ?? 0,
         operatorCampusId: row.operator_campus_id,
         operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",
         isCrossCampus: row.operator_campus_id !== enrollment.campus_id,

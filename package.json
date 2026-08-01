@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.228",
+  "version": "1.16.229",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -26,6 +26,7 @@
     "test:intake-product-repricing": "node scripts/assert-intake-and-product-repricing.mjs",
     "test:finance-sanity-hardening": "node scripts/assert-finance-sanity-hardening.mjs",
     "test:charge-void-credit": "node scripts/assert-charge-void-credit.mjs",
+    "test:charge-cash-refund": "node scripts/assert-charge-cash-refund.mjs",
     "test:ledger-cross-references": "node scripts/assert-ledger-cross-references.mjs",
     "test:sports-signups-excel": "node scripts/assert-sports-signups-excel-export.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",

@@ -88,6 +88,7 @@ function getReassignBlockedReason(code: string | null) {
   const messages: Record<string, string> = {
     payment_not_posted: "Solo se puede cambiar concepto en pagos vigentes.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_charge_cash_refund: "Este pago contiene un cargo reembolsado en efectivo.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",
@@ -103,6 +104,7 @@ function getRefundBlockedReason(code: string | null) {
   const messages: Record<string, string> = {
     payment_not_posted: "Solo se pueden reembolsar pagos vigentes.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_charge_cash_refund: "Este pago contiene un cargo reembolsado en efectivo.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
     payment_not_fully_allocated: "Solo se pueden reembolsar pagos aplicados al 100%.",
     source_charge_shared: "El cargo origen tambien tiene otro pago aplicado.",

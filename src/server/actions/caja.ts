@@ -109,6 +109,10 @@ export type CajaRecentCharge = {
   paymentFolios: string[];
   canVoid: boolean;
   voidBlockedReason: string | null;
+  cashRefundedAt: string | null;
+  cashRefundAmount: number;
+  canCashRefund: boolean;
+  cashRefundBlockedReason: string | null;
 };
 
 export type CajaEnrollmentData = {
@@ -142,6 +146,17 @@ export type CajaChargeVoidResult =
       ok: true;
       updatedData: CajaEnrollmentData;
       releasedPaymentAmount: number;
+      reopenedCreditAmount: number;
+      autoAppliedCreditAmount: number;
+      remainingCreditAmount: number;
+    }
+  | { ok: false; error: string };
+
+export type CajaChargeCashRefundResult =
+  | {
+      ok: true;
+      updatedData: CajaEnrollmentData;
+      cashRefundAmount: number;
       reopenedCreditAmount: number;
       autoAppliedCreditAmount: number;
       remainingCreditAmount: number;
@@ -1259,6 +1274,18 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
           ) &&
           charge.status === "pending" &&
           !isProtectedChargeType;
+        const hasCashRefund = Boolean(charge.cashRefund);
+        const canCashRefund =
+          Boolean(
+            permissionContext?.isSuperAdmin ||
+            permissionContext?.isDirector ||
+            permissionContext?.isFrontDesk,
+          ) &&
+          charge.status === "pending" &&
+          !isProtectedChargeType &&
+          !hasCashRefund &&
+          charge.pendingAmount <= 0.009 &&
+          charge.allocatedAmount > 0.009;
         return {
           id: charge.id,
           typeName: charge.typeName,
@@ -1286,6 +1313,24 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
                 : canVoid
                   ? null
                   : "Sin permiso para anular",
+          cashRefundedAt: charge.cashRefund?.refundedAt ?? null,
+          cashRefundAmount: charge.cashRefund?.amount ?? 0,
+          canCashRefund,
+          cashRefundBlockedReason: hasCashRefund
+            ? "Reembolso en efectivo registrado"
+            : charge.status === "void"
+              ? "Cargo anulado"
+              : isProtectedChargeType
+                ? charge.typeCode === "inscription"
+                  ? "Inscripcion no reembolsable"
+                  : "Mensualidad no reembolsable"
+                : charge.pendingAmount > 0.009
+                  ? "Cargo no pagado por completo"
+                  : charge.allocatedAmount <= 0.009
+                    ? "Sin pago para reembolsar"
+                    : canCashRefund
+                      ? null
+                      : "Sin permiso para reembolsar",
         };
       }),
     recentPayments: ledger.payments
@@ -1549,6 +1594,151 @@ export async function voidCajaChargeAction(
     ok: true,
     updatedData,
     releasedPaymentAmount,
+    reopenedCreditAmount,
+    autoAppliedCreditAmount,
+    remainingCreditAmount,
+  };
+}
+
+export async function cashRefundCajaChargeAction(
+  enrollmentId: string,
+  chargeId: string,
+  formData: FormData,
+): Promise<CajaChargeCashRefundResult> {
+  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+  const notes = formData.get("notes")?.toString().trim() ?? "";
+  const refundedAtRaw = formData.get("refundedAt")?.toString().trim() ?? "";
+  const operatorCampusId = formData.get("operatorCampusId")?.toString().trim() ?? "";
+  const confirmed = formData.get("confirmed") === "1";
+  if (!reason) return { ok: false, error: "refund_reason_required" };
+  if (!confirmed) return { ok: false, error: "refund_confirmation_required" };
+  if (!operatorCampusId) return { ok: false, error: "operator_campus_required" };
+  const refundedAt = parseMonterreyDateTimeInput(refundedAtRaw);
+  if (!refundedAt) return { ok: false, error: "invalid_refund_date" };
+
+  const permissionContext = await getPermissionContext();
+  if (
+    !permissionContext ||
+    !(permissionContext.isSuperAdmin || permissionContext.isDirector || permissionContext.isFrontDesk)
+  ) {
+    return { ok: false, error: "unauthorized" };
+  }
+  if (
+    !(await canAccessEnrollmentRecord(enrollmentId, permissionContext)) ||
+    !canAccessCampus(permissionContext.campusAccess, operatorCampusId)
+  ) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  const { data: charge } = await permissionContext.supabase
+    .from("charges")
+    .select("id, status, amount, description, charge_types(code)")
+    .eq("id", chargeId)
+    .eq("enrollment_id", enrollmentId)
+    .maybeSingle<{
+      id: string;
+      status: string;
+      amount: number;
+      description: string;
+      charge_types: { code: string } | null;
+    }>();
+  if (!charge) return { ok: false, error: "charge_not_found" };
+  if (charge.charge_types?.code === "monthly_tuition" || charge.charge_types?.code === "inscription") {
+    return { ok: false, error: "protected_paid_charge" };
+  }
+
+  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId, permissionContext);
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .rpc("record_charge_cash_refund", {
+      p_enrollment_id: enrollmentId,
+      p_charge_id: chargeId,
+      p_operator_campus_id: operatorCampusId,
+      p_actor_id: permissionContext.user.id,
+      p_refunded_at: refundedAt,
+      p_reason: reason,
+      p_notes: notes || null,
+    })
+    .returns<Array<{
+      refund_id: string;
+      cash_refund_amount: number;
+      reopened_credit_amount: number;
+      auto_applied_credit_amount: number;
+      remaining_credit_amount: number;
+      cash_session_id: string;
+    }>>();
+
+  if (error) {
+    const message = error.message ?? "";
+    const knownErrors = [
+      "cash_session_required",
+      "charge_not_found",
+      "charge_not_pending",
+      "charge_already_cash_refunded",
+      "charge_not_fully_paid",
+      "cash_refund_requires_payment",
+      "protected_paid_charge",
+      "source_payment_already_refunded",
+      "payment_not_posted",
+    ];
+    const known = knownErrors.find((code) => message.includes(code));
+    return { ok: false, error: known ?? "cash_refund_failed" };
+  }
+
+  const result = Array.isArray(data) ? data[0] : null;
+  const cashRefundAmount = Number(result?.cash_refund_amount ?? 0);
+  const reopenedCreditAmount = Number(result?.reopened_credit_amount ?? 0);
+  const autoAppliedCreditAmount = Number(result?.auto_applied_credit_amount ?? 0);
+  const remainingCreditAmount = Number(result?.remaining_credit_amount ?? 0);
+
+  await writeAuditLog(admin, {
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    action: "charge.cash_refunded",
+    tableName: "charge_cash_refunds",
+    recordId: result?.refund_id ?? chargeId,
+    afterData: {
+      enrollment_id: enrollmentId,
+      charge_id: chargeId,
+      description: charge.description,
+      original_charge_amount: charge.amount,
+      cash_refund_amount: cashRefundAmount,
+      reopened_credit_amount: reopenedCreditAmount,
+      auto_applied_credit_amount: autoAppliedCreditAmount,
+      remaining_credit_amount: remainingCreditAmount,
+      operator_campus_id: operatorCampusId,
+      refunded_at: refundedAt,
+      reason,
+      notes: notes || null,
+      cash_session_id: result?.cash_session_id ?? null,
+      source: "caja_recent_charges",
+    },
+  });
+
+  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  revalidatePath("/caja/sesion");
+  revalidatePath("/reports/corte-diario");
+  revalidatePath("/director-deportivo");
+  revalidatePath("/tournaments");
+  for (const tournamentId of affectedTournamentIds) revalidatePath(`/tournaments/${tournamentId}`);
+
+  await writeEnrollmentAnomalyAuditTrail({
+    enrollmentId,
+    actorUserId: permissionContext.user.id,
+    actorEmail: permissionContext.user.email ?? null,
+    triggerAction: "charge.cash_refunded.caja",
+    before: anomalyBefore,
+    permissionContext,
+  });
+
+  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
+  if (!updatedData) return { ok: false, error: "reload_failed" };
+  return {
+    ok: true,
+    updatedData,
+    cashRefundAmount,
     reopenedCreditAmount,
     autoAppliedCreditAmount,
     remainingCreditAmount,

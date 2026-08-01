@@ -96,8 +96,12 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           <p className="font-semibold text-emerald-700 dark:text-emerald-400">{fmt(session.cashIn)}</p>
                         </div>
                         <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Reembolsos / salidas</p>
+                          <p className="font-semibold text-rose-700 dark:text-rose-400">-{fmt(session.cashOut)}</p>
+                        </div>
+                        <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Esperado en caja</p>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash + session.cashIn)}</p>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash + session.cashIn - session.cashOut)}</p>
                         </div>
                       </div>
                     </>
@@ -125,7 +129,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           placeholder="0.00"
                           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
                         />
-                        <p className="text-xs text-slate-400">Esperado: {fmt(session.openingCash + session.cashIn)}</p>
+                        <p className="text-xs text-slate-400">Esperado: {fmt(session.openingCash + session.cashIn - session.cashOut)}</p>
                       </label>
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>

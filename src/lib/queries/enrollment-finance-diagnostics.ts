@@ -13,6 +13,11 @@ type RefundAmountRow = {
   amount: number | string | null;
 };
 
+type ChargeRefundSourceAmountRow = {
+  payment_id: string;
+  amount: number | string | null;
+};
+
 type CanonicalBalanceRow = {
   enrollment_id: string;
   balance: number | string | null;
@@ -157,7 +162,7 @@ export async function getEnrollmentFinanceDiagnostics(
 
   const paymentIds = ledger.payments.map((row) => row.id);
   const supabase = context.supabase;
-  const [canonicalResult, refundResult] = await Promise.all([
+  const [canonicalResult, refundResult, chargeRefundSourceResult] = await Promise.all([
     supabase
       .from("v_enrollment_balances")
       .select("enrollment_id, balance")
@@ -171,6 +176,13 @@ export async function getEnrollmentFinanceDiagnostics(
           .in("payment_id", paymentIds)
           .returns<RefundAmountRow[]>()
       : Promise.resolve({ data: [] as RefundAmountRow[], error: null }),
+    paymentIds.length > 0
+      ? supabase
+          .from("charge_cash_refund_sources")
+          .select("payment_id, amount")
+          .in("payment_id", paymentIds)
+          .returns<ChargeRefundSourceAmountRow[]>()
+      : Promise.resolve({ data: [] as ChargeRefundSourceAmountRow[], error: null }),
   ]);
 
   if (canonicalResult.error) {
@@ -179,10 +191,20 @@ export async function getEnrollmentFinanceDiagnostics(
   if (refundResult.error) {
     throw new Error(`finance_diagnostic_read_failed:payment_refunds:${refundResult.error.message}`);
   }
+  if (chargeRefundSourceResult.error) {
+    throw new Error(`finance_diagnostic_read_failed:charge_cash_refund_sources:${chargeRefundSourceResult.error.message}`);
+  }
 
   const canonicalRow = canonicalResult.data;
   const refundRows = refundResult.data;
   const refundAmountByPaymentId = new Map((refundRows ?? []).map((row) => [row.payment_id, toNumber(row.amount)]));
+  const chargeRefundedByPaymentId = new Map<string, number>();
+  for (const row of chargeRefundSourceResult.data ?? []) {
+    chargeRefundedByPaymentId.set(
+      row.payment_id,
+      roundMoney((chargeRefundedByPaymentId.get(row.payment_id) ?? 0) + toNumber(row.amount)),
+    );
+  }
   const canonicalBalance = roundMoney(toNumber(canonicalRow?.balance ?? ledger.totals.balance));
   const anomalies: EnrollmentFinanceAnomaly[] = [];
 
@@ -190,10 +212,18 @@ export async function getEnrollmentFinanceDiagnostics(
     (payment) => payment.status === "posted" && payment.refundStatus !== "refunded",
   );
   const unappliedPostedAmount = roundMoney(
-    activePostedPayments.reduce((sum, payment) => sum + Math.max(payment.amount - payment.allocatedAmount, 0), 0),
+    activePostedPayments.reduce(
+      (sum, payment) =>
+        sum + Math.max(payment.amount - payment.chargeCashRefundedAmount - payment.allocatedAmount, 0),
+      0,
+    ),
   );
   const refundedPaymentTotal = roundMoney(
-    ledger.payments.reduce((sum, payment) => sum + (refundAmountByPaymentId.get(payment.id) ?? 0), 0),
+    ledger.payments.reduce(
+      (sum, payment) =>
+        sum + (refundAmountByPaymentId.get(payment.id) ?? 0) + (chargeRefundedByPaymentId.get(payment.id) ?? 0),
+      0,
+    ),
   );
   const voidedChargeCount = ledger.charges.filter((charge) => charge.status === "void").length;
   const pendingChargeTotal = roundMoney(
@@ -212,6 +242,9 @@ export async function getEnrollmentFinanceDiagnostics(
   const paymentDiagnostics: EnrollmentFinancePaymentDiagnostic[] = [];
   for (const payment of ledger.payments) {
     const refundAmount = refundAmountByPaymentId.get(payment.id) ?? 0;
+    const effectivePaymentAmount = roundMoney(
+      payment.amount - (chargeRefundedByPaymentId.get(payment.id) ?? 0),
+    );
 
     if (payment.refundStatus === "refunded") {
       if (payment.allocatedAmount > 0.01) {
@@ -272,7 +305,7 @@ export async function getEnrollmentFinanceDiagnostics(
       continue;
     }
 
-    if (payment.status === "posted" && payment.allocatedAmount < 0.01) {
+    if (payment.status === "posted" && effectivePaymentAmount > 0.01 && payment.allocatedAmount < 0.01) {
       const title = "Pago registrado sin asignaciones";
       const detail = "El pago sigue vigente, pero no esta aplicado a ningun cargo.";
       paymentDiagnostics.push({
@@ -290,7 +323,7 @@ export async function getEnrollmentFinanceDiagnostics(
       continue;
     }
 
-    if (payment.status === "posted" && payment.allocatedAmount + 0.01 < payment.amount) {
+    if (payment.status === "posted" && payment.allocatedAmount + 0.01 < effectivePaymentAmount) {
       const title = "Pago parcialmente asignado";
       const detail = "Hay una parte del pago que sigue como credito no aplicado.";
       paymentDiagnostics.push({

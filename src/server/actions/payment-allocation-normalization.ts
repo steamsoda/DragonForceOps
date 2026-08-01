@@ -68,7 +68,12 @@ export async function normalizeRemainingPostedCreditAllocations(
     if (payment.status !== "posted" || payment.refundStatus === "refunded") continue;
 
     const explicitCreditAmount = explicitCreditByPayment.get(payment.id) ?? 0;
-    const availableAmount = roundMoney(payment.amount - payment.allocatedAmount - explicitCreditAmount);
+    const availableAmount = roundMoney(
+      payment.amount
+        - payment.allocatedAmount
+        - explicitCreditAmount
+        - payment.chargeCashRefundedAmount,
+    );
     if (availableAmount <= 0.01) continue;
 
     const chargePool = pendingCharges.map((charge) => ({

@@ -146,7 +146,7 @@ async function getPaymentSourceWorkflowBlockReason(
   enrollmentId: string,
   paymentId: string,
 ): Promise<string | null> {
-  const [{ data: payment }, { data: refundRow }] = await Promise.all([
+  const [{ data: payment }, { data: refundRow }, { data: chargeRefundSource }] = await Promise.all([
     supabase
       .from("payments")
       .select("id, amount, status")
@@ -158,11 +158,18 @@ async function getPaymentSourceWorkflowBlockReason(
       .select("payment_id")
       .eq("payment_id", paymentId)
       .maybeSingle<{ payment_id: string } | null>(),
+    supabase
+      .from("charge_cash_refund_sources")
+      .select("payment_id")
+      .eq("payment_id", paymentId)
+      .limit(1)
+      .maybeSingle<{ payment_id: string } | null>(),
   ]);
 
   if (!payment) return "payment_not_found";
   if (payment.status !== "posted") return "payment_not_posted";
   if (refundRow?.payment_id) return "payment_already_refunded";
+  if (chargeRefundSource?.payment_id) return "payment_has_charge_cash_refund";
 
   const { data: allocations, error: allocationError } = await supabase
     .from("payment_allocations")
@@ -265,6 +272,7 @@ function getPaymentWorkflowError(error: string) {
     payment_not_found: "No se encontr\u00f3 el pago seleccionado.",
     payment_not_posted: "Solo se pueden modificar pagos vigentes.",
     payment_already_refunded: "Este pago ya fue reembolsado.",
+    payment_has_charge_cash_refund: "Este pago contiene un cargo reembolsado en efectivo y ya no se puede reasignar.",
     payment_has_no_allocations: "Este pago ya no tiene cargos aplicados.",
     payment_not_fully_allocated: "Solo se pueden mover pagos aplicados al 100%.",
     source_charge_shared: "Este pago comparte cargo origen con otro pago y no se puede mover autom\u00e1ticamente.",
@@ -298,6 +306,7 @@ function normalizeRefundWorkflowError(raw: string | null | undefined) {
     "payment_not_found",
     "payment_not_posted",
     "payment_already_refunded",
+    "payment_has_charge_cash_refund",
     "payment_has_no_allocations",
     "payment_not_fully_allocated",
     "source_charge_shared",
