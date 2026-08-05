@@ -44,4 +44,3 @@ This is a staffing-capacity report. It does not replace player attendance percen
 2. Compact `Por coach` report UI and direct validation against representative groups.
 3. `Por horario` mode and print layout.
 4. Role regression, performance validation, and historical-snapshot monitoring.
-
