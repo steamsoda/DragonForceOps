@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 250)
+
+### Training Workload Report Data Foundation (v1.16.231)
+
+- Added the preview-first data foundation for a compact 30-natural-day staffing-capacity report with future `Por coach` and `Por horario` modes.
+- Attendance sessions now preserve a coach-assignment snapshot. Generated sessions capture the current coaching unit, and the snapshot refreshes/finalizes when attendance first becomes completed so later group reassignment does not rewrite future history.
+- Existing sessions receive a clearly marked `legacy_backfill_current_assignment` snapshot because exact historical coach assignment did not previously exist; the report must not present that backfill as guaranteed historical attribution.
+- Added the read-only `get_training_workload_30d` RPC. It excludes cancelled and not-yet-started sessions, keeps past unregistered sessions visible, counts only confirmed `A Asistio` records as official attendance, and returns tryouts separately while including them in combined workload.
+- The RPC exposes official attendance, tryout, and total-served averages over completed sessions only. It is campus-scoped, uses Monterrey time, does not read finance tables, and does not mutate attendance, rosters, or trial-class records.
+- Confirmed production currently uses `Bloque previo` 15:00-16:00 at Linda Vista plus four standard blocks: 16:00-17:10, 17:20-18:30, 18:40-19:50, and 20:00-21:10.
+- Planning and acceptance rules are recorded in `docs/planning/training-workload-report-plan.md`.
+
 ## 2026-08-05 (session 249)
 
 ### J5 San Pedro Agosto 2026 Promoted to Production (v1.16.230)

@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.230",
+  "version": "1.16.231",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,6 +16,7 @@
     "test:guardian-phone-resolution": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-guardian-phone-resolution.mjs",
     "test:dashboard-attendance-participation": "node scripts/assert-dashboard-attendance-participation.mjs",
     "test:coach-attendance-report": "node scripts/assert-coach-attendance-report.mjs",
+    "test:training-workload-foundation": "node scripts/assert-training-workload-foundation.mjs",
     "test:attendance-nomenclature": "node scripts/assert-attendance-nomenclature.mjs",
     "test:weekly-coach-packet": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-weekly-coach-packet.mjs",
     "test:bajas-print-report": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-bajas-print-report.mjs",

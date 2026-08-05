@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.230`
-- Current preview candidate: `v1.16.230` (production-approved)
+- Current preview candidate: `v1.16.231`
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -129,6 +129,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
+| 🟡 | Training workload by coach and time block | Preview candidate `v1.16.231` adds coach snapshots plus a read-only rolling 30-day workload RPC. Next passes add compact `Por coach` and `Por horario` matrices, separate `+P` tryouts, three averages, unregistered-session warnings, and printing. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
 | ✅ | J5 San Pedro Agosto 2026 product rules | Production `v1.16.230` adds strict campus/program/YOB pricing, the paid-Polideportivo Femenil discount, both-campus tournament metadata, and Super Admin product-level date configuration without mutating existing charges. | Products / Competencias, `v1.16.230` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
@@ -140,7 +141,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | ✅ | Charge void to explicit credit | Production `v1.16.226` makes eligible paid-charge annulment transactional, converts only the released allocation into explicit credit, reopens existing credit applications without duplication, keeps paid tuition/inscription protected, and exposes the scoped action to Front Desk. | Front Desk / Caja, `v1.16.226` devlog |
 | ✅ | Charge/payment ledger traceability | Production `v1.16.227` adds charge creation/settlement dates, payment folios, and bidirectional charge-payment allocation detail to the shared player/account ledger without changing financial state. | Player profile / Cargos y cuenta, `v1.16.227` devlog |
 | 🟢 | Automatic explicit-credit FIFO + charge-centric Caja | Preview candidate `v1.16.228` automatically consumes explicit credit FIFO, keeps historical implicit credit untouched, makes Caja totals fixed, replaces recent payments with guarded recent-charge annulment, and leaves reassignment as Super Admin-only correction. | Front Desk / Caja, `v1.16.228` devlog |
-| 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard and printable report; larger date-range trends, best/worst groups, comparisons, and drilldowns remain. | Reports / Asistencia / Panel |
+| 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard; preview `v1.16.231` starts the separate 30-day staffing-capacity report foundation. Broader trends and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
 
