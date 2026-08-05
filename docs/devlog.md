@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-05 (session 249)
+
+### J5 San Pedro Agosto 2026 Promoted to Production (v1.16.230)
+
+- Promoted the preview-validated J5 tournament product, strict campus/program/YOB eligibility, paid-Polideportivo Femenil discount, and Super Admin-only product tournament configuration to production.
+- Production promotion preserves all existing charges and payments; the migrations only add pricing metadata, the new product, linked tournament records, and the opt-in strict-match flag used by J5.
+- Release verification target: remote `main` commit parity plus successful production migration, dependency-audit, secret-scan, and deployment workflows.
+
 ## 2026-08-05 (session 248)
 
 ### J5 San Pedro Agosto 2026 Dynamic Tournament Product (v1.16.230)
