@@ -13,6 +13,7 @@ import {
   type ProductTrainingGroupOption,
 } from "@/lib/queries/products";
 import { deleteProductAction, updateProductAction } from "@/server/actions/products";
+import { saveSportsSignupTournamentSettingsAction } from "@/server/actions/sports-signups";
 
 const inputClass =
   "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none dark:border-slate-600";
@@ -26,6 +27,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   unauthenticated: "Sesion expirada.",
   invalid_training_group: "Grupo de entrenamiento no valido.",
   restriction_update_failed: "No se pudo actualizar la restriccion por grupo.",
+  invalid_tournament_settings: "Selecciona campus y producto validos.",
+  invalid_tournament_dates: "La fecha final no puede ser anterior al inicio.",
+  tournament_settings_failed: "No se pudo guardar la configuracion del torneo.",
+  tournament_signup_backfill_failed: "El torneo se guardo, pero no se pudieron sincronizar las inscripciones existentes.",
 };
 
 function formatMoney(amount: number, currency: string) {
@@ -50,13 +55,13 @@ export default async function ProductDetailPage({
   searchParams,
 }: {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ err?: string; salesPage?: string }>;
+  searchParams: Promise<{ err?: string; ok?: string; salesPage?: string }>;
 }) {
   const { productId } = await params;
   const query = await searchParams;
   const salesPage = Math.max(1, Number.parseInt(query.salesPage ?? "1", 10) || 1);
 
-  await requireDirectorContext("/unauthorized");
+  const permissionContext = await requireDirectorContext("/unauthorized");
 
   const [product, sizeStats, recentSales, restrictionOptions] = await Promise.all([
     getProductDetail(productId),
@@ -66,6 +71,32 @@ export default async function ProductDetailPage({
   ]);
 
   if (!product) notFound();
+
+  const isCompetitionProduct = ["tournament", "cup", "league"].includes(product.chargeTypeCode);
+  const [campusesResult, tournamentsResult] = permissionContext.isSuperAdmin && isCompetitionProduct
+    ? await Promise.all([
+        permissionContext.supabase
+          .from("campuses")
+          .select("id, name")
+          .in("id", permissionContext.campusAccess?.campusIds ?? [])
+          .order("name", { ascending: true }),
+        permissionContext.supabase
+          .from("tournaments")
+          .select("id, campus_id, name, start_date, end_date, signup_deadline")
+          .eq("product_id", productId)
+          .eq("is_active", true)
+          .order("start_date", { ascending: true, nullsFirst: false }),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const tournamentCampuses = (campusesResult.data ?? []) as Array<{ id: string; name: string }>;
+  const tournamentSettings = (tournamentsResult.data ?? []) as Array<{
+    id: string;
+    campus_id: string;
+    name: string;
+    start_date: string | null;
+    end_date: string | null;
+    signup_deadline: string | null;
+  }>;
 
   const [kpis, reconciliation] = await Promise.all([
     getProductKpis(productId, product.currency),
@@ -89,6 +120,11 @@ export default async function ProductDetailPage({
         {errorMessage ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
             {errorMessage}
+          </div>
+        ) : null}
+        {query.ok === "tournament_settings_saved" ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Configuracion del torneo guardada.
           </div>
         ) : null}
 
@@ -157,6 +193,60 @@ export default async function ProductDetailPage({
             </div>
           </form>
         </details>
+
+        {permissionContext.isSuperAdmin && isCompetitionProduct ? (
+          <details className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700 hover:text-portoBlue dark:text-slate-300">
+              Configuracion de Torneos
+            </summary>
+            <p className="mt-3 text-sm text-slate-500">
+              Controla las fechas y la visibilidad operativa en Inscripciones Torneos. El producto sigue siendo el cobro de Caja.
+            </p>
+            <form action={saveSportsSignupTournamentSettingsAction} className="mt-4 grid gap-3 lg:grid-cols-5">
+              <input type="hidden" name="returnTo" value={`/products/${productId}`} />
+              <input type="hidden" name="productId" value={productId} />
+              <input type="hidden" name="name" value={product.name} />
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700">Campus</span>
+                <select name="campusId" defaultValue="__all__" className={inputClass}>
+                  <option value="__all__">Ambos campus</option>
+                  {tournamentCampuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700">Inicio</span>
+                <input name="startDate" type="date" className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700">Fin</span>
+                <input name="endDate" type="date" className={inputClass} />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium text-slate-700">Cierre de inscripcion</span>
+                <input name="signupDeadline" type="date" defaultValue={tournamentSettings[0]?.signup_deadline ?? ""} className={inputClass} />
+              </label>
+              <div className="flex items-end">
+                <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                  Guardar configuracion
+                </button>
+              </div>
+            </form>
+            {tournamentSettings.length > 0 ? (
+              <div className="mt-4 overflow-hidden rounded-md border border-slate-200 text-sm">
+                {tournamentSettings.map((setting) => (
+                  <div key={setting.id} className="grid gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0 sm:grid-cols-4">
+                    <span className="font-medium">{tournamentCampuses.find((campus) => campus.id === setting.campus_id)?.name ?? "Campus"}</span>
+                    <span>Inicio: {setting.start_date ?? "Por confirmar"}</span>
+                    <span>Fin: {setting.end_date ?? "Por confirmar"}</span>
+                    <span>Cierre: {setting.signup_deadline ?? "Sin definir"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </details>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <span

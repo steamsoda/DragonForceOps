@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-08-05 (session 248)
+
+### J5 San Pedro Agosto 2026 Dynamic Tournament Product (v1.16.230)
+
+- Added the preview-only `J5 San Pedro Agosto 2026` tournament product with campus-, program-, gender-, and YOB-specific Caja pricing through August 20, 2026. Existing charges and payments are not repriced or mutated.
+- Linda Vista rules cover Selectivo 2014/2015 at `$1,000`, Selectivo 2016 at `$1,200`, and YOB 2020 in Selectivo or Futbol Para Todos at `$1,000`; Little Dragons is explicitly excluded by program matching.
+- Contry rules cover Selectivo 2014/2015 at `$1,200`, Selectivo 2016 at `$1,000`, and Femenil Futbol Para Todos YOB 2011-2013 at `$1,000`.
+- Added the `$500` Contry Femenil YOB 2011-2013 price only when the same enrollment has a fully paid, non-void `Copa Polideportivo` charge. Voided charges that became explicit credit do not duplicate the discount; normal FIFO credit can still reduce the remaining J5 balance.
+- Hardened dynamic products with an opt-in strict rule-match contract. J5 is hidden and rejected server-side for ineligible enrollments instead of falling back to a manually entered amount; existing dynamic products retain their prior fallback behavior.
+- Seeded active tournament-board records for both campuses with `Inscripcion cierra` on August 20 and unknown event dates left as `Por confirmar`.
+- Added Super Admin-only tournament date configuration inside the existing Product detail/edit page. Product charging and tournament roster metadata remain linked to the same product.
+- Preview verification: migrations `20260805190000_j5_san_pedro_agosto_2026.sql` and `20260805193000_strict_product_pricing_match.sql` applied; product, ten pricing rules, and two campus tournament rows read back successfully; focused pricing assertions and TypeScript validation pass.
+
 ## 2026-08-05 (session 247)
 
 ### Charge-Level Cash Refunds Promoted to Production (v1.16.229)

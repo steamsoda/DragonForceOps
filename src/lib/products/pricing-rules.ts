@@ -2,6 +2,8 @@ export type ProductPricingRuleInput = {
   amount: number;
   startsOn: string | null;
   endsOn: string | null;
+  campusId?: string | null;
+  trainingProgram?: string | null;
   gender: string | null;
   birthYearMin: number | null;
   birthYearMax: number | null;
@@ -25,10 +27,14 @@ function normalizeGender(value: string | null | undefined) {
 
 function ruleMatchesPlayer(
   rule: ProductPricingRuleInput,
+  campusId: string | null,
+  activeTrainingPrograms: ReadonlySet<string>,
   gender: string | null,
   birthYear: number | null,
   paidProductIds: ReadonlySet<string>,
 ) {
+  if (rule.campusId && rule.campusId !== campusId) return false;
+  if (rule.trainingProgram && !activeTrainingPrograms.has(rule.trainingProgram)) return false;
   const ruleGender = normalizeGender(rule.gender);
   const playerGender = normalizeGender(gender);
   if (ruleGender && ruleGender !== playerGender) return false;
@@ -41,6 +47,8 @@ function ruleMatchesPlayer(
 export function resolveProductPricingRuleAmount({
   rules,
   businessDate,
+  campusId = null,
+  activeTrainingPrograms = new Set<string>(),
   gender,
   birthYear,
   paidProductIds = new Set<string>(),
@@ -48,6 +56,8 @@ export function resolveProductPricingRuleAmount({
 }: {
   rules: ProductPricingRuleInput[];
   businessDate: string;
+  campusId?: string | null;
+  activeTrainingPrograms?: ReadonlySet<string>;
   gender: string | null;
   birthYear: number | null;
   paidProductIds?: ReadonlySet<string>;
@@ -55,7 +65,7 @@ export function resolveProductPricingRuleAmount({
 }) {
   const matchingRule = rules
     .filter((rule) => isRuleActiveOnDate(rule, businessDate))
-    .filter((rule) => ruleMatchesPlayer(rule, gender, birthYear, paidProductIds))
+    .filter((rule) => ruleMatchesPlayer(rule, campusId, activeTrainingPrograms, gender, birthYear, paidProductIds))
     .sort((a, b) => b.priority - a.priority || a.amount - b.amount)[0];
 
   return matchingRule ? Math.round(Number(matchingRule.amount) * 100) / 100 : fallbackAmount;

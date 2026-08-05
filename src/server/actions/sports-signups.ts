@@ -21,7 +21,9 @@ function normalizeTextInput(raw: FormDataEntryValue | null) {
 
 function normalizeRedirectTarget(raw: FormDataEntryValue | null) {
   const value = String(raw ?? "").trim();
-  return value.startsWith("/sports-signups") ? value : "/sports-signups";
+  if (value.startsWith("/sports-signups")) return value;
+  if (/^\/products\/[0-9a-f-]+(?:\?.*)?$/i.test(value)) return value;
+  return "/sports-signups";
 }
 
 async function validateCompetitionProduct(admin: ReturnType<typeof createAdminClient>, productId: string) {
@@ -122,6 +124,7 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
 
   revalidatePath("/sports-signups");
   revalidatePath("/tournaments");
+  revalidatePath(`/products/${productId}`);
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}ok=tournament_settings_saved`);
 }
 
