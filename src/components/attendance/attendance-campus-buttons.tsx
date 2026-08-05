@@ -13,6 +13,7 @@ type AttendanceCampusButtonsProps = {
   selectedCampusId: string | null;
   params?: Record<string, QueryValue>;
   allLabel?: string;
+  showAll?: boolean;
 };
 
 function buildHref(pathname: string, params: Record<string, QueryValue>, campusId: string | null) {
@@ -39,6 +40,7 @@ export function AttendanceCampusButtons({
   selectedCampusId,
   params = {},
   allLabel = "Todos",
+  showAll = true,
 }: AttendanceCampusButtonsProps) {
   const baseClass =
     "inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-semibold transition-colors";
@@ -51,13 +53,15 @@ export function AttendanceCampusButtons({
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Campus</p>
       <div className="flex flex-wrap gap-2">
-        <Link
-          href={buildHref(pathname, params, null)}
-          prefetch={false}
-          className={`${baseClass} ${selectedCampusId ? inactiveClass : activeClass}`}
-        >
-          {allLabel}
-        </Link>
+        {showAll ? (
+          <Link
+            href={buildHref(pathname, params, null)}
+            prefetch={false}
+            className={`${baseClass} ${selectedCampusId ? inactiveClass : activeClass}`}
+          >
+            {allLabel}
+          </Link>
+        ) : null}
         {campuses.map((campus) => (
           <Link
             key={campus.id}

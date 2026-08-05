@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 251)
+
+### Training Workload Report - Por Coach (v1.16.232)
+
+- Added the preview `Reportes > Carga de entrenamiento` page with a compact, campus-scoped `Por coach` matrix for the latest 30 natural Monterrey days.
+- Each historical coaching unit is shown once, including shared-coach combinations. Rows keep group, category, and schedule fixed while session columns show official attendance counts, separately identified tryouts such as `+1P`, and past unregistered sessions as `SR`.
+- Added three completed-session averages per group: official attendance, trial visitors, and combined players served. Unregistered sessions remain visible but do not change the averages.
+- Existing backfilled coach assignments are explicitly identified as legacy history; newly captured and completed sessions retain their real coach snapshot even after later assignment changes.
+- Added the report to the role-aware Reports navigation for Front Desk, attendance staff, directors, and Super Admins. The report remains attendance-read scoped and does not expose or query financial data.
+- Verification: focused coach-view and data-foundation assertions, TypeScript, and the full Next.js production build pass.
+
 ## 2026-08-05 (session 250)
 
 ### Training Workload Report Data Foundation (v1.16.231)

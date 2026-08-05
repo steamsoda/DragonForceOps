@@ -39,7 +39,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.230`
-- Current preview candidate: `v1.16.231`
+- Current preview candidate: `v1.16.232`
+- Training workload status: `v1.16.231` supplies coach snapshots and the rolling RPC; `v1.16.232` adds the compact campus-scoped `Por coach` matrix. `Por horario` and printing remain the next pass.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`

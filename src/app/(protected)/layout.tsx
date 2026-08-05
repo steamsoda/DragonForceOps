@@ -64,6 +64,7 @@ const FRONT_DESK_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
     { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
+    { href: "/reports/carga-entrenamiento", label: "Carga de entrenamiento" },
     { href: "/reports/mensualidades-coaches", label: "Mensualidades por coach" },
     { href: "/reports/corte-diario", label: "Corte Diario" },
     { href: "/receipts", label: "Recibos" },
@@ -74,6 +75,7 @@ const DIRECTOR_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
     { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
+    { href: "/reports/carga-entrenamiento", label: "Carga de entrenamiento" },
     { href: "/reports/mensualidades-coaches", label: "Mensualidades por coach" },
     { href: "/reports/corte-diario", label: "Corte Diario" },
     { href: "/reports/corte-semanal", label: "Corte Semanal" },
@@ -87,6 +89,7 @@ const ATTENDANCE_REPORTES_SECTION: NavSection = {
   label: "Reportes",
   items: [
     { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
+    { href: "/reports/carga-entrenamiento", label: "Carga de entrenamiento" },
     { href: "/reports/mensualidades-coaches", label: "Mensualidades por coach" },
   ],
 };
@@ -222,6 +225,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           { href: "/attendance/groups", label: "Grupos" },
           { href: "/attendance/reports", label: "Reportes asistencia" },
           { href: "/reports/asistencia-coaches", label: "Asistencia por coach" },
+          { href: "/reports/carga-entrenamiento", label: "Carga entrenamiento" },
           { href: "/reports/mensualidades-coaches", label: "Mensualidades por coach" },
         ]
       : []),
