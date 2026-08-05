@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-05 (session 247)
+
+### Charge-Level Cash Refunds Promoted to Production (v1.16.229)
+
+- Promoted the preview-validated Caja credit FIFO, charge-centric annulment, and charge-level cash refund workflow to production after user acceptance.
+- Production release verification covers the atomic refund ledger, negative cash-session/Corte Diario entry, protected tuition and inscription rules, payment reassignment lock after a charge refund, and unchanged unrelated payment allocations.
+- Verification target: production migration `20260731100000_charge_cash_refunds.sql`, remote `main` commit parity, migration workflow success, and production deployment readiness.
+
 ## 2026-07-31 (session 246)
 
 ### Charge-Level Cash Refunds in Caja (v1.16.229)
