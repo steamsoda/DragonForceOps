@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.1`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.2`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.243`
-- Current preview candidate: `v1.17.1` complete recent-attendance batching
+- Current production line: `v1.17.2`
+- Current preview candidate: `v1.17.2` branch sync; next implementation is enrollment program/group hardening
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -138,7 +138,7 @@ This checkpoint closes the long `v1.16` delivery wave without deleting its backl
 **First `v1.17` Work**
 
 - ✅ Read-only production audit completed on 2026-08-06: 655 active enrollments, 646 with one active training group, 9 without a group, no duplicate active assignments, and 9 YOB-range mismatches. Detailed evidence and accepted rules are recorded in `docs/planning/training-groups-model-analysis.md`.
-- ✅ Preview `v1.17.1` repairs the `Jugadores` recent-attendance batching defect with row-budgeted 66-player chunks and a true 15-record RPC cap. Production promotion remains pending preview verification.
+- ✅ Production `v1.17.2` repairs the `Jugadores` recent-attendance batching defect, keeps the interactive page at five records, retains 15 for exports, and leaves risk tags on their independent full-history calculation.
 - 🔴 Harden enrollment around an explicit program and confirmed training group: `Futbol Para Todos`, `Selectivo`, or age-appropriate `Little Dragons`; never complete silently without an assignment.
 - 🔴 Remove competition-team auto-assignment from enrollment. Competition rosters remain a separate sporting concept and must not decide the player's training group.
 - 🟡 Keep `players.level`, but synchronize it from the active training program: `B1` for Futbol Para Todos, `Selectivo` for Selectivo, and `Little Dragons` for Little Dragons.
@@ -158,7 +158,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| ✅ | `Jugadores` attendance batch-cap repair | Preview `v1.17.1` keeps each 15-record RPC below 1,000 rows and regression-tests full batching. Verify on preview before production promotion. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1` devlog |
+| ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
 | 🔴 | Enrollment program/group hardening | Require Front Desk to confirm program and suggested group; support Little Dragons explicitly and prevent silent `Sin grupo` enrollment completion. | Nueva Inscripcion, training groups, `docs/planning/training-groups-model-analysis.md` |
 | 🟡 | Production assignment review and repair | After enrollment rules are fixed, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |

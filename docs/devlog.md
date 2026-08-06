@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-06 (session 268)
+
+### Efficient Interactive Attendance History (v1.17.2)
+
+- Limited the interactive `Jugadores` grouped-roster response to the five recent attendance records the UI already displays, reducing production-sized attendance transfer and restoring the efficient 150-player RPC chunk size.
+- Kept the grouped-roster Excel export explicitly configured for the complete last 15 recorded sessions.
+- Preserved the independent attendance-risk RPC unchanged, so consecutive-absence and days-without-attendance tags continue using their full derived history.
+- Added regression assertions that lock the interactive route to 5 and the export route to 15. No database migration, attendance write, finance behavior, or permission change is included.
+
 ## 2026-08-06 (session 267)
 
 ### Complete Recent Attendance Batches (v1.17.1)

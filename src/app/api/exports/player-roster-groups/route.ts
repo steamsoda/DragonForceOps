@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     {
       campusAccess: context.campusAccess,
       supabase: createAdminClient(),
+      recentAttendanceLimit: 15,
     },
   );
 

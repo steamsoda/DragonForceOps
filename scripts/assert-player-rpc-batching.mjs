@@ -58,8 +58,16 @@ const attendanceSource = await import("node:fs/promises").then(({ readFile }) =>
 const migrationSource = await import("node:fs/promises").then(({ readFile }) =>
   readFile(new URL("../supabase/migrations/20260806143000_recent_player_attendance_complete_batches.sql", import.meta.url), "utf8"),
 );
+const interactiveRosterSource = await import("node:fs/promises").then(({ readFile }) =>
+  readFile(new URL("../src/app/api/players/grouped-roster/route.ts", import.meta.url), "utf8"),
+);
+const exportRosterSource = await import("node:fs/promises").then(({ readFile }) =>
+  readFile(new URL("../src/app/api/exports/player-roster-groups/route.ts", import.meta.url), "utf8"),
+);
 
 assert.match(attendanceSource, /maxRowsPerPlayer:\s*limit/);
 assert.match(migrationSource, /least\(coalesce\(p_limit, 5\), 15\)/);
+assert.match(interactiveRosterSource, /recentAttendanceLimit:\s*5/);
+assert.match(exportRosterSource, /recentAttendanceLimit:\s*15/);
 
 console.log("Player RPC batching assertions passed.");
