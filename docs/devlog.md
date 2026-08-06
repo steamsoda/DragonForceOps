@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 262)
+
+### Weekly WhatsApp Convocatorias - Quick Group Composer Pass 3C-1 (v1.16.241)
+
+- Replaced the tournament-first creation form with large campus and program selectors followed by one spreadsheet-style list of matching active training groups.
+- Added per-group tournament selection plus first-game inputs for date, arrival time, venue, opponent, and `Descansa`; rows without a tournament are omitted.
+- Added additive category-level tournament snapshots. Existing packets are backfilled and remain readable, while one new packet can combine different tournaments in one WhatsApp image.
+- Each selected row freezes only players currently assigned to that group who are fully paid for that row's tournament, using the same direct and Combo-aware source as `Inscripciones Torneos`.
+- Mixed packets retain player exclusions, extra games, ordering, readiness, and PNG export. Legacy single-tournament comparison/refresh and unpaid-exception controls stay hidden for mixed packets until they are rebuilt per group.
+- Kept the finance boundary unchanged: this workflow reads paid eligibility but never mutates tournament registrations, charges, payments, or allocations.
+- Added migration `20260806120000_weekly_callup_group_tournaments.sql` and `test:weekly-callups-composer` coverage.
+
 ## 2026-08-05 (session 261)
 
 ### Weekly WhatsApp Convocatorias - PNG Fitting and Visual Polish Pass 3B (v1.16.240)

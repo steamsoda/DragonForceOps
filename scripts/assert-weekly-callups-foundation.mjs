@@ -39,7 +39,7 @@ assert.doesNotMatch(action, /from\("(?:charges|payments|payment_allocations)"\)/
 assert.doesNotMatch(query, /from\("(?:charges|payments|payment_allocations)"\)/);
 
 assert.match(page, /title="Convocatorias"/);
-assert.match(page, /Crear borrador/);
+assert.match(page, /Preparar convocatoria semanal/);
 assert.match(page, /plantel pagado congelado/);
 assert.match(nav, /href: "\/convocatorias", label: "Convocatorias"/);
 

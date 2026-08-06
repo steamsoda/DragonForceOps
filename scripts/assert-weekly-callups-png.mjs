@@ -29,7 +29,8 @@ assert.match(exportButton, /data\.status === "draft"/);
 
 assert.match(editorPage, /WeeklyCallupPngExportButton/);
 assert.match(editorPage, /player\.rosterStatus === "included"/);
-assert.match(editorPage, /tournamentName: callup\.tournamentName/);
+assert.match(editorPage, /tournamentName: packetTitle/);
+assert.match(editorPage, /tournamentName: category\.tournamentName/);
 assert.match(editorPage, /games: category\.games\.map/);
 
 for (const source of [layout, exportButton, editorPage]) {

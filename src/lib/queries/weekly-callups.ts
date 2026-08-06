@@ -32,6 +32,14 @@ export type WeeklyCallupsFoundationData = {
   defaultCampusId: string;
   currentWeekStart: string;
   tournaments: WeeklyCallupTournamentOption[];
+  groups: Array<{
+    id: string;
+    campusId: string;
+    name: string;
+    program: WeeklyCallupProgram;
+    categoryLabel: string;
+    primaryCoachName: string;
+  }>;
   callups: WeeklyCallupListRow[];
 };
 
@@ -87,6 +95,7 @@ export type WeeklyCallupDetailCategory = {
   id: string;
   categoryLabel: string;
   trainingGroupName: string;
+  tournamentName: string;
   sortOrder: number;
   isRest: boolean;
   games: WeeklyCallupDetailGame[];
@@ -130,7 +139,7 @@ type CallupRow = {
   tournaments: { name: string | null } | null;
 };
 
-type CategoryRow = { id: string; weekly_callup_id: string };
+type CategoryRow = { id: string; weekly_callup_id: string; tournament_name_snapshot: string | null };
 type PlayerRow = { weekly_callup_category_id: string };
 
 type DetailCallupRow = Omit<CallupRow, "tournaments"> & {
@@ -142,8 +151,24 @@ type DetailCategoryRow = {
   weekly_callup_id: string;
   category_label: string;
   training_group_name_snapshot: string;
+  tournament_name_snapshot: string | null;
   sort_order: number;
   is_rest: boolean;
+};
+
+type ComposerGroupRow = {
+  id: string;
+  campus_id: string;
+  name: string;
+  program: WeeklyCallupProgram;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+};
+
+type ComposerCoachRow = {
+  training_group_id: string;
+  is_primary: boolean;
+  coaches: { first_name: string | null; last_name: string | null } | null;
 };
 
 type DetailPlayerRow = {
@@ -235,7 +260,7 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
   const admin = createAdminClient();
-  const [tournamentsResult, callupsResult] = await Promise.all([
+  const [tournamentsResult, callupsResult, groupsResult, coachesResult] = await Promise.all([
     admin
       .from("tournaments")
       .select("id, campus_id, product_id, name, start_date, end_date, signup_deadline, products(name)")
@@ -251,16 +276,38 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
       .order("created_at", { ascending: false })
       .limit(30)
       .returns<CallupRow[]>(),
+    admin
+      .from("training_groups")
+      .select("id, campus_id, name, program, birth_year_min, birth_year_max")
+      .in("campus_id", campusAccess.campusIds)
+      .eq("status", "active")
+      .in("program", ["selectivo", "futbol_para_todos"])
+      .order("birth_year_max", { ascending: false, nullsFirst: false })
+      .order("name")
+      .returns<ComposerGroupRow[]>(),
+    admin
+      .from("training_group_coaches")
+      .select("training_group_id, is_primary, coaches(first_name, last_name)")
+      .returns<ComposerCoachRow[]>(),
   ]);
 
   if (tournamentsResult.error) throw tournamentsResult.error;
   if (callupsResult.error) throw callupsResult.error;
+  if (groupsResult.error) throw groupsResult.error;
+  if (coachesResult.error) throw coachesResult.error;
+
+  const coachRowsByGroup = new Map<string, ComposerCoachRow[]>();
+  for (const row of coachesResult.data ?? []) {
+    const current = coachRowsByGroup.get(row.training_group_id) ?? [];
+    current.push(row);
+    coachRowsByGroup.set(row.training_group_id, current);
+  }
 
   const callupIds = (callupsResult.data ?? []).map((row) => row.id);
   const categoriesResult = callupIds.length
     ? await admin
         .from("weekly_callup_categories")
-        .select("id, weekly_callup_id")
+        .select("id, weekly_callup_id, tournament_name_snapshot")
         .in("weekly_callup_id", callupIds)
         .returns<CategoryRow[]>()
     : { data: [] as CategoryRow[], error: null };
@@ -306,13 +353,33 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
       endDate: row.end_date,
       signupDeadline: row.signup_deadline,
     })),
+    groups: (groupsResult.data ?? []).map((group) => {
+      const coachRows = (coachRowsByGroup.get(group.id) ?? []).sort(
+        (a, b) => Number(b.is_primary) - Number(a.is_primary),
+      );
+      const coach = coachRows[0]?.coaches;
+      return {
+        id: group.id,
+        campusId: group.campus_id,
+        name: group.name,
+        program: group.program,
+        categoryLabel: group.birth_year_min && group.birth_year_max
+          ? group.birth_year_min === group.birth_year_max
+            ? String(group.birth_year_min)
+            : `${group.birth_year_min}/${group.birth_year_max}`
+          : group.name,
+        primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin coach",
+      };
+    }),
     callups: (callupsResult.data ?? []).map((row) => {
       const categories = categoriesByCallup.get(row.id) ?? [];
       return {
         id: row.id,
         campusId: row.campus_id,
         campusName: campusNameById.get(row.campus_id) ?? "Campus",
-        tournamentName: row.tournaments?.name ?? "Torneo",
+        tournamentName: new Set(categories.map((category) => category.tournament_name_snapshot).filter(Boolean)).size > 1
+          ? "Convocatoria mixta"
+          : categories.find((category) => category.tournament_name_snapshot)?.tournament_name_snapshot ?? row.tournaments?.name ?? "Torneo",
         program: row.program,
         weekStart: row.week_start,
         status: row.status,
@@ -348,7 +415,7 @@ export async function getWeeklyCallupDetail(
 
   const categoriesResult = await admin
     .from("weekly_callup_categories")
-    .select("id, weekly_callup_id, category_label, training_group_name_snapshot, sort_order, is_rest")
+    .select("id, weekly_callup_id, category_label, training_group_name_snapshot, tournament_name_snapshot, sort_order, is_rest")
     .eq("weekly_callup_id", callup.id)
     .order("sort_order")
     .order("category_label")
@@ -401,7 +468,9 @@ export async function getWeeklyCallupDetail(
   const weekEndDate = new Date(`${callup.week_start}T12:00:00Z`);
   weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
   const campusName = campusAccess.campuses.find((campus) => campus.id === callup.campus_id)?.name ?? "Campus";
-  const shouldLoadLiveRoster = options.includeComparison || (options.includeCandidates && context.isSportsDirector);
+  const categoryTournamentNames = new Set(categories.map((category) => category.tournament_name_snapshot).filter(Boolean));
+  const hasMixedTournaments = categoryTournamentNames.size > 1;
+  const shouldLoadLiveRoster = !hasMixedTournaments && (options.includeComparison || (options.includeCandidates && context.isSportsDirector));
   const livePaidRoster = shouldLoadLiveRoster && callup.tournaments?.product_id
     ? await getWeeklyCallupLivePaidRoster({
         campusId: callup.campus_id,
@@ -505,13 +574,14 @@ export async function getWeeklyCallupDetail(
     weekEnd: weekEndDate.toISOString().slice(0, 10),
     status: callup.status,
     snapshotAt: callup.roster_snapshot_at,
-    canManageExceptions: context.isSportsDirector,
+    canManageExceptions: context.isSportsDirector && !hasMixedTournaments,
     rosterComparison,
     manualCandidates,
     categories: categories.map((category) => ({
       id: category.id,
       categoryLabel: category.category_label,
       trainingGroupName: category.training_group_name_snapshot,
+      tournamentName: category.tournament_name_snapshot ?? callup.tournaments?.name ?? "Torneo",
       sortOrder: category.sort_order,
       isRest: category.is_rest,
       games: (gamesByCategory.get(category.id) ?? []).map((game) => ({

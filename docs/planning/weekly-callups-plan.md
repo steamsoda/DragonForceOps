@@ -2,7 +2,7 @@
 
 ## Goal
 
-Generate one clear weekly WhatsApp image per campus, tournament, and program (`Selectivos` or `Futbol Para Todos`) without rebuilding paid rosters by hand.
+Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or `Futbol Para Todos`) without rebuilding paid rosters by hand. Each training group may select its own tournament in the same image.
 
 ## Confirmed Rules
 
@@ -55,9 +55,16 @@ Generate one clear weekly WhatsApp image per campus, tournament, and program (`S
 - Browser fixtures cover a realistic 12-category/152-player packet plus a 16-category/roughly-300-player stress packet with long names and multiple games.
 - Real Linda Vista and Contry packet review remains part of operational preview validation.
 
-### Pass 3C - Editor simplification
+### Pass 3C-1 - Quick group composer (implemented in preview v1.16.241)
 
-- Reduce visual density in the operational editor after staff test the complete draft-to-image flow.
+- Replaced tournament-first setup with large campus/program buttons and one spreadsheet-style group list.
+- Added a tournament snapshot per group so one packet can combine competitions without changing historical packets.
+- Captures the first game or `Descansa` in the table, then opens the existing editor for exclusions, extra games, ordering, and PNG export.
+- Mixed packets intentionally do not expose legacy single-tournament comparison/refresh or unpaid-exception controls.
+
+### Pass 3C-2 - Final editor simplification
+
+- Add inline player exclusion to the quick composer and reduce visual density after staff test the new flow.
 - Keep exception, refresh, and status controls understandable without hiding their safeguards.
 
 ### Pass 4 - Hardening

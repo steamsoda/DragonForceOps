@@ -9,6 +9,7 @@ export type WeeklyCallupPngCategory = {
   id: string;
   categoryLabel: string;
   trainingGroupName: string;
+  tournamentName: string;
   isRest: boolean;
   players: Array<{ id: string; playerName: string }>;
   games: WeeklyCallupPngGame[];
@@ -151,6 +152,7 @@ function renderCategory(category: SizedCategory, density: LayoutDensity) {
       <div style="background:${headerBackground};border-bottom:1px solid #94a3b8;padding:9px 12px;">
         <div style="font-size:${categoryFontSize}px;font-weight:900;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(category.categoryLabel)}</div>
         <div style="margin-top:1px;font-size:13px;font-weight:700;color:#475569;overflow-wrap:anywhere;">${escapeHtml(category.trainingGroupName)}</div>
+        <div style="margin-top:3px;font-size:12px;font-weight:800;color:#9a3412;overflow-wrap:anywhere;">${escapeHtml(category.tournamentName ?? "")}</div>
       </div>
       ${
         category.isRest

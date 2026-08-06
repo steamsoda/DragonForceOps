@@ -54,6 +54,7 @@ const OK_MESSAGES: Record<string, string> = {
   reopened: "Convocatoria reabierta como borrador.",
   manual_exception_added: "Excepcion sin pago agregada y registrada en auditoria.",
   roster_refreshed: "Plantel pagado actualizado. Partidos, descansos y excepciones manuales se conservaron.",
+  composer_created: "Convocatoria preparada. Revisa jugadores, agrega partidos adicionales y genera la imagen.",
 };
 
 function formatDate(value: string) {
@@ -100,8 +101,11 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
   const comparisonChangeTotal = callup.rosterComparison
     ? callup.rosterComparison.added.length + callup.rosterComparison.removed.length + callup.rosterComparison.moved.length
     : 0;
+  const tournamentNames = [...new Set(callup.categories.map((category) => category.tournamentName))];
+  const isMixedTournament = tournamentNames.length > 1;
+  const packetTitle = isMixedTournament ? "Convocatoria semanal" : tournamentNames[0] ?? callup.tournamentName;
   const pngData = {
-    tournamentName: callup.tournamentName,
+    tournamentName: packetTitle,
     campusName: callup.campusName,
     program: callup.program,
     weekStart: callup.weekStart,
@@ -111,6 +115,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
       id: category.id,
       categoryLabel: category.categoryLabel,
       trainingGroupName: category.trainingGroupName,
+      tournamentName: category.tournamentName,
       isRest: category.isRest,
       games: category.games.map((game) => ({
         matchDate: game.matchDate,
@@ -127,7 +132,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
   return (
     <PageShell
       wide
-      title={callup.tournamentName}
+      title={packetTitle}
       subtitle={`${callup.campusName} | ${programLabel(callup.program)} | ${formatDate(callup.weekStart)} al ${formatDate(callup.weekEnd)}`}
     >
       <div className="space-y-5">
@@ -137,12 +142,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <WeeklyCallupPngExportButton data={pngData} />
-            <Link
-              href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue"
-            >
-              {showComparison ? "Cerrar comparacion" : "Comparar plantel actual"}
-            </Link>
+            {!isMixedTournament ? <Link href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue">{showComparison ? "Cerrar comparacion" : "Comparar plantel actual"}</Link> : null}
             {callup.canManageExceptions ? (
               <Link
                 href={`/convocatorias/${callup.id}${showExceptions ? "" : "?exceptions=1"}`}
@@ -173,7 +173,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
           </p>
         ) : null}
 
-        {showComparison && callup.rosterComparison ? (
+        {showComparison && !isMixedTournament && callup.rosterComparison ? (
           <section className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
             <div>
               <h2 className="text-lg font-semibold text-portoBlue">Comparacion con pagos actuales</h2>
@@ -223,7 +223,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
             ) : null}
           </section>
         ) : null}
-        {showComparison && !callup.rosterComparison ? (
+        {showComparison && !isMixedTournament && !callup.rosterComparison ? (
           <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             No se pudo consultar el plantel pagado actual. El plantel congelado no fue modificado.
           </p>
@@ -276,6 +276,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                 <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                   <div>
                     <h2 className="text-lg font-semibold text-portoBlue">{category.categoryLabel} - {category.trainingGroupName}</h2>
+                    <p className="text-sm font-medium text-slate-700">{category.tournamentName}</p>
                     <p className="text-sm text-slate-500">{included.length} incluidos | {excluded.length} excluidos | {category.games.length} partidos</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

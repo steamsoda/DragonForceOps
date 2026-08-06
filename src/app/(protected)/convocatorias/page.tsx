@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
-import { createWeeklyCallupSnapshotAction } from "@/server/actions/weekly-callups";
+import { createWeeklyCallupComposerAction } from "@/server/actions/weekly-callups";
 
-type SearchParams = Promise<{ err?: string; ok?: string }>;
+type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string }>;
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_snapshot_settings: "Selecciona campus, torneo, programa y un lunes valido.",
@@ -13,6 +13,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   paid_roster_unavailable: "No se pudo leer el plantel pagado del torneo.",
   no_matching_paid_players: "No hay jugadores pagados con un grupo activo de ese programa.",
   snapshot_create_failed: "No se pudo crear el borrador congelado.",
+  invalid_composer_settings: "Selecciona campus, programa y un lunes valido.",
+  empty_composer: "Selecciona al menos un torneo para preparar la convocatoria.",
+  invalid_composer_game: "Cada grupo seleccionado necesita partido completo o marcar Descansa.",
+  composer_already_exists: "Ya existe una convocatoria para ese campus, programa y semana.",
+  invalid_composer_source: "Un grupo o torneo seleccionado ya no esta disponible.",
+  ambiguous_composer_roster: "Hay jugadores con mas de un grupo activo. Corrige esas asignaciones antes de continuar.",
+  composer_create_failed: "No se pudo preparar la convocatoria.",
 };
 
 function programLabel(program: string) {
@@ -38,6 +45,16 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
   const params = await searchParams;
   const data = await getWeeklyCallupsFoundationData();
   if (!data) redirect("/unauthorized");
+  const selectedCampusId = data.campuses.some((campus) => campus.id === params.campus)
+    ? params.campus!
+    : data.defaultCampusId;
+  const selectedProgram = params.program === "selectivo" ? "selectivo" : "futbol_para_todos";
+  const visibleGroups = data.groups.filter(
+    (group) => group.campusId === selectedCampusId && group.program === selectedProgram,
+  );
+  const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
+  const selectionHref = (campusId: string, program: string) =>
+    `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}`;
 
   return (
     <PageShell
@@ -57,44 +74,73 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           </p>
         ) : null}
 
-        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div>
-            <h2 className="text-base font-semibold">Crear borrador semanal</h2>
+            <h2 className="text-base font-semibold">Preparar convocatoria semanal</h2>
             <p className="text-sm text-slate-500">
-              Guarda una fotografia del plantel pagado y su grupo actual. Cambios posteriores no alteran este borrador.
+              Elige campus y programa. Despues captura el torneo y partido de cada grupo en una sola lista.
             </p>
           </div>
-          <form action={createWeeklyCallupSnapshotAction} className="grid gap-3 lg:grid-cols-[1fr_1.5fr_1fr_1fr_auto] lg:items-end">
-            <label className="space-y-1 text-sm font-medium">
-              <span>Campus</span>
-              <select name="campusId" defaultValue={data.defaultCampusId} required className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950">
-                {data.campuses.map((campus) => <option key={campus.id} value={campus.id}>{campus.name}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              <span>Torneo</span>
-              <select name="tournamentId" required className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950">
-                <option value="">Selecciona torneo</option>
-                {data.tournaments.map((tournament) => {
-                  const campus = data.campuses.find((candidate) => candidate.id === tournament.campusId);
-                  return <option key={tournament.id} value={tournament.id}>{campus?.name ?? "Campus"} | {tournament.name}</option>;
-                })}
-              </select>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              <span>Programa</span>
-              <select name="program" defaultValue="futbol_para_todos" required className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950">
-                <option value="futbol_para_todos">Futbol Para Todos</option>
-                <option value="selectivo">Selectivos</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              <span>Lunes de la semana</span>
-              <input name="weekStart" type="date" defaultValue={data.currentWeekStart} required className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950" />
-            </label>
-            <button className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white">
-              Crear borrador
-            </button>
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Campus</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {data.campuses.map((campus) => (
+                  <Link key={campus.id} href={selectionHref(campus.id, selectedProgram)} className={`min-h-14 rounded-md border px-4 py-4 text-center font-semibold ${campus.id === selectedCampusId ? "border-portoBlue bg-blue-50 text-portoBlue" : "border-slate-300 bg-white text-slate-700"}`}>
+                    {campus.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Programa</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[{ value: "selectivo", label: "Selectivos" }, { value: "futbol_para_todos", label: "Futbol Para Todos" }].map((program) => (
+                  <Link key={program.value} href={selectionHref(selectedCampusId, program.value)} className={`min-h-14 rounded-md border px-4 py-4 text-center font-semibold ${program.value === selectedProgram ? "border-portoBlue bg-blue-50 text-portoBlue" : "border-slate-300 bg-white text-slate-700"}`}>
+                    {program.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <form action={createWeeklyCallupComposerAction} className="space-y-4">
+            <input type="hidden" name="campusId" value={selectedCampusId} />
+            <input type="hidden" name="program" value={selectedProgram} />
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <label className="space-y-1 text-sm font-medium">
+                <span>Lunes de la semana</span>
+                <input name="weekStart" type="date" defaultValue={data.currentWeekStart} required className="min-h-10 rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950" />
+              </label>
+              <p className="text-xs text-slate-500">Deja Torneo vacio para omitir un grupo esta semana.</p>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="min-w-[1180px] w-full border-collapse text-sm">
+                <thead className="bg-slate-100 text-left text-xs uppercase text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2">Grupo</th><th className="px-3 py-2">Coach principal</th><th className="px-3 py-2">Torneo</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Hora cita</th><th className="px-3 py-2">Sede</th><th className="px-3 py-2">Rival</th><th className="px-3 py-2 text-center">Descansa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {visibleGroups.map((group) => (
+                    <tr key={group.id} className="align-top odd:bg-white even:bg-slate-50/70">
+                      <td className="px-3 py-2"><input type="hidden" name="groupId" value={group.id} /><strong className="block text-portoBlue">{group.name}</strong><span className="text-xs text-slate-500">Cat. {group.categoryLabel}</span></td>
+                      <td className="px-3 py-2">{group.primaryCoachName}</td>
+                      <td className="px-3 py-2"><select name={`tournamentId:${group.id}`} defaultValue="" className="min-h-9 w-56 rounded border border-slate-300 bg-white px-2"><option value="">Omitir grupo</option>{tournamentOptions.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}</select></td>
+                      <td className="px-3 py-2"><input type="date" name={`matchDate:${group.id}`} className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
+                      <td className="px-3 py-2"><input type="time" name={`arrivalTime:${group.id}`} className="min-h-9 w-28 rounded border border-slate-300 px-2" /></td>
+                      <td className="px-3 py-2"><input name={`venue:${group.id}`} placeholder="Sede" className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
+                      <td className="px-3 py-2"><input name={`opponent:${group.id}`} placeholder="Rival" className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
+                      <td className="px-3 py-3 text-center"><input type="checkbox" name={`isRest:${group.id}`} value="yes" className="h-4 w-4" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {visibleGroups.length === 0 ? <p className="p-6 text-center text-sm text-slate-500">No hay grupos activos para esta seleccion.</p> : null}
+            </div>
+            <div className="flex justify-end">
+              <button disabled={visibleGroups.length === 0} className="min-h-11 rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">Preparar convocatoria</button>
+            </div>
           </form>
         </section>
 

@@ -319,6 +319,8 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
         .from("weekly_callup_categories")
         .insert({
           weekly_callup_id: callupId,
+          tournament_id: tournamentId,
+          tournament_name_snapshot: tournament.name,
           training_group_id: group.id,
           category_label: categoryLabel(group),
           birth_year_min: group.birth_year_min,
@@ -384,6 +386,189 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
 
   revalidatePath("/convocatorias");
   redirectResult("ok=snapshot_created");
+}
+
+export async function createWeeklyCallupComposerAction(formData: FormData) {
+  await assertDebugWritesAllowed("/convocatorias");
+  const context = await getPermissionContext();
+  if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) redirect("/unauthorized");
+
+  const campusId = textValue(formData, "campusId");
+  const programValue = textValue(formData, "program");
+  const weekStart = textValue(formData, "weekStart");
+  const campusIds = context.campusAccess?.campusIds ?? [];
+  if (!campusIds.includes(campusId) || !isProgram(programValue) || !isMondayIsoDate(weekStart)) {
+    redirectResult("invalid_composer_settings");
+  }
+
+  const requestedGroupIds = [...new Set(formData.getAll("groupId").map(String).filter(isUuid))];
+  const rowConfigs = requestedGroupIds.map((groupId) => ({
+    groupId,
+    tournamentId: textValue(formData, `tournamentId:${groupId}`),
+    isRest: textValue(formData, `isRest:${groupId}`) === "yes",
+    matchDate: textValue(formData, `matchDate:${groupId}`),
+    arrivalTime: textValue(formData, `arrivalTime:${groupId}`),
+    venue: textValue(formData, `venue:${groupId}`),
+    opponent: textValue(formData, `opponent:${groupId}`),
+  })).filter((row) => row.tournamentId || row.isRest);
+
+  if (rowConfigs.length === 0 || rowConfigs.some((row) => !isUuid(row.tournamentId))) {
+    redirectResult("empty_composer");
+  }
+  for (const row of rowConfigs) {
+    const hasAnyGameValue = Boolean(row.matchDate || row.arrivalTime || row.venue || row.opponent);
+    const hasCompleteGame = Boolean(row.matchDate && row.arrivalTime && row.venue && row.opponent);
+    if (row.isRest ? hasAnyGameValue : !hasCompleteGame || !dateWithinWeek(row.matchDate, weekStart)) {
+      redirectResult("invalid_composer_game");
+    }
+  }
+
+  const admin = createAdminClient();
+  const existingResult = await admin
+    .from("weekly_callups")
+    .select("id")
+    .eq("campus_id", campusId)
+    .eq("program", programValue)
+    .eq("week_start", weekStart)
+    .limit(1);
+  if (existingResult.error) throw existingResult.error;
+  if ((existingResult.data?.length ?? 0) > 0) redirectResult("composer_already_exists");
+
+  const selectedGroupIds = rowConfigs.map((row) => row.groupId);
+  const selectedTournamentIds = [...new Set(rowConfigs.map((row) => row.tournamentId))];
+  const [groupsResult, tournamentsResult] = await Promise.all([
+    admin
+      .from("training_groups")
+      .select("id, campus_id, name, program, birth_year_min, birth_year_max, status")
+      .in("id", selectedGroupIds)
+      .returns<Array<NonNullable<AssignmentRow["training_groups"]>>>(),
+    admin
+      .from("tournaments")
+      .select("id, campus_id, product_id, name, is_active")
+      .in("id", selectedTournamentIds)
+      .returns<TournamentRow[]>(),
+  ]);
+  if (groupsResult.error) throw groupsResult.error;
+  if (tournamentsResult.error) throw tournamentsResult.error;
+
+  const groupById = new Map((groupsResult.data ?? []).map((group) => [group.id, group]));
+  const tournamentById = new Map((tournamentsResult.data ?? []).map((tournament) => [tournament.id, tournament]));
+  const invalidSource = rowConfigs.some((row) => {
+    const group = groupById.get(row.groupId);
+    const tournament = tournamentById.get(row.tournamentId);
+    return !group || group.campus_id !== campusId || group.program !== programValue || group.status !== "active"
+      || !tournament || tournament.campus_id !== campusId || !tournament.is_active;
+  });
+  if (invalidSource) redirectResult("invalid_composer_source");
+
+  type PaidRoster = NonNullable<Awaited<ReturnType<typeof getCompetitionPaidCallupPlayers>>>;
+  const paidByTournament = new Map<string, PaidRoster>();
+  for (const tournamentId of selectedTournamentIds) {
+    const tournament = tournamentById.get(tournamentId)!;
+    const paid = await getCompetitionPaidCallupPlayers({
+      campusId,
+      competitionId: `product:${tournament.product_id}`,
+    });
+    if (!paid) redirectResult("paid_roster_unavailable");
+    paidByTournament.set(tournamentId, paid);
+  }
+
+  const enrollmentIds = [...new Set([...paidByTournament.values()].flat().map((player) => player.enrollmentId))];
+  const assignmentsResult = enrollmentIds.length
+    ? await admin
+        .from("training_group_assignments")
+        .select("enrollment_id, player_id, training_group_id, training_groups(id, campus_id, name, program, birth_year_min, birth_year_max, status)")
+        .in("enrollment_id", enrollmentIds)
+        .is("end_date", null)
+        .returns<AssignmentRow[]>()
+    : { data: [] as AssignmentRow[], error: null };
+  if (assignmentsResult.error) throw assignmentsResult.error;
+  const assignmentByEnrollment = new Map<string, AssignmentRow>();
+  for (const assignment of assignmentsResult.data ?? []) {
+    if (assignmentByEnrollment.has(assignment.enrollment_id)) redirectResult("ambiguous_composer_roster");
+    assignmentByEnrollment.set(assignment.enrollment_id, assignment);
+  }
+
+  const snapshotAt = new Date().toISOString();
+  const primaryTournament = tournamentById.get(rowConfigs[0].tournamentId)!;
+  let callupId: string | null = null;
+  try {
+    const headerResult = await admin.from("weekly_callups").insert({
+      campus_id: campusId,
+      tournament_id: primaryTournament.id,
+      program: programValue,
+      week_start: weekStart,
+      status: "draft",
+      roster_snapshot_at: snapshotAt,
+      created_by: context.user.id,
+      updated_by: context.user.id,
+    }).select("id").single<{ id: string }>();
+    if (headerResult.error || !headerResult.data) throw headerResult.error ?? new Error("composer_header_failed");
+    callupId = headerResult.data.id;
+
+    for (const [sortOrder, row] of rowConfigs.entries()) {
+      const group = groupById.get(row.groupId)!;
+      const tournament = tournamentById.get(row.tournamentId)!;
+      const categoryResult = await admin.from("weekly_callup_categories").insert({
+        weekly_callup_id: callupId,
+        tournament_id: tournament.id,
+        tournament_name_snapshot: tournament.name,
+        training_group_id: group.id,
+        category_label: categoryLabel(group),
+        birth_year_min: group.birth_year_min,
+        birth_year_max: group.birth_year_max,
+        training_group_name_snapshot: group.name,
+        sort_order: sortOrder,
+        is_rest: row.isRest,
+      }).select("id").single<{ id: string }>();
+      if (categoryResult.error || !categoryResult.data) throw categoryResult.error ?? new Error("composer_category_failed");
+
+      const paidPlayers = paidByTournament.get(tournament.id) ?? [];
+      const players = paidPlayers.filter((player) => assignmentByEnrollment.get(player.enrollmentId)?.training_group_id === group.id);
+      if (players.length > 0) {
+        const playerResult = await admin.from("weekly_callup_players").insert(players.map((player) => ({
+          weekly_callup_category_id: categoryResult.data.id,
+          enrollment_id: player.enrollmentId,
+          player_id: player.playerId,
+          player_name_snapshot: player.playerName,
+          birth_year: player.birthYear,
+          training_group_id: group.id,
+          training_group_name_snapshot: group.name,
+          eligibility_source: player.registrationSource,
+          roster_status: "included",
+          source_snapshot_at: snapshotAt,
+        })));
+        if (playerResult.error) throw playerResult.error;
+      }
+      if (!row.isRest) {
+        const gameResult = await admin.from("weekly_callup_games").insert({
+          weekly_callup_category_id: categoryResult.data.id,
+          match_date: row.matchDate,
+          arrival_time: row.arrivalTime,
+          venue: row.venue,
+          opponent: row.opponent,
+          sort_order: 0,
+        });
+        if (gameResult.error) throw gameResult.error;
+      }
+    }
+
+    await writeAuditLog(admin, {
+      actorUserId: context.user.id,
+      actorEmail: context.user.email ?? null,
+      action: "weekly_callups.composer_created",
+      tableName: "weekly_callups",
+      recordId: callupId,
+      afterData: { campus_id: campusId, program: programValue, week_start: weekStart, groups: rowConfigs.length, tournaments: selectedTournamentIds.length },
+    });
+  } catch (error) {
+    if (callupId) await admin.from("weekly_callups").delete().eq("id", callupId);
+    console.error("weekly callup composer failed", error);
+    redirectResult("composer_create_failed");
+  }
+
+  revalidatePath("/convocatorias");
+  redirect(`/convocatorias/${callupId}?ok=composer_created`);
 }
 
 export async function saveWeeklyCallupGameAction(formData: FormData) {
