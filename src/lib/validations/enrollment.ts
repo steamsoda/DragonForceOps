@@ -2,6 +2,8 @@ import { parseDateOnlyInput } from "@/lib/time";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 import { isScholarshipStatus, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 import { DROPOUT_REASON_LABELS, type DropoutReason } from "@/lib/enrollments/dropout-reasons";
+import { TRAINING_GROUP_PROGRAM_OPTIONS } from "@/lib/training-groups/shared";
+import type { EnrollmentTrainingProgram } from "@/lib/training-groups/enrollment-selection";
 
 export type ParsedEnrollmentInput = {
   campusId: string;
@@ -10,6 +12,9 @@ export type ParsedEnrollmentInput = {
   isReturning: boolean;
   returnInscriptionMode: ReturningInscriptionMode | null;
   notes: string | null;
+  trainingProgram: EnrollmentTrainingProgram;
+  trainingGroupId: string;
+  trainingGroupOverrideConfirmed: boolean;
 };
 
 function parseDate(value: string | null): string | null {
@@ -114,9 +119,25 @@ export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInp
     ? returnInscriptionModeRaw
     : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const trainingProgramRaw = String(formData.get("trainingProgram") ?? "").trim();
+  const trainingProgram = TRAINING_GROUP_PROGRAM_OPTIONS.includes(
+    trainingProgramRaw as EnrollmentTrainingProgram,
+  ) ? trainingProgramRaw as EnrollmentTrainingProgram : null;
+  const trainingGroupId = String(formData.get("trainingGroupId") ?? "").trim();
+  const trainingGroupOverrideConfirmed = String(formData.get("trainingGroupOverrideConfirmed") ?? "") === "1";
 
-  if (!campusId || !pricingPlanCode || !startDate) return null;
+  if (!campusId || !pricingPlanCode || !startDate || !trainingProgram || !trainingGroupId) return null;
   if (isReturning && !returnInscriptionMode) return null;
 
-  return { campusId, pricingPlanCode, startDate, isReturning, returnInscriptionMode, notes };
+  return {
+    campusId,
+    pricingPlanCode,
+    startDate,
+    isReturning,
+    returnInscriptionMode,
+    notes,
+    trainingProgram,
+    trainingGroupId,
+    trainingGroupOverrideConfirmed,
+  };
 }

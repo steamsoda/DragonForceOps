@@ -13,7 +13,9 @@ const errorMessages: Record<string, string> = {
   already_enrolled: "El jugador ya tiene una inscripcion activa.",
   config_error: "Error de configuracion: tipos de cargo no encontrados. Contacta al administrador.",
   enrollment_failed: "No se pudo crear la inscripcion. Intenta de nuevo.",
-  charges_failed: "La inscripcion fue creada pero hubo un error al generar los cargos. Contacta al administrador."
+  charges_failed: "No se pudo completar la inscripcion ni generar sus cargos. Intenta de nuevo.",
+  training_group_invalid: "El grupo seleccionado ya no es compatible. Revisa campus, programa, categoria y genero.",
+  training_group_assignment_failed: "No se pudo asignar el grupo. La inscripcion no fue creada; intenta de nuevo.",
 };
 
 export default async function EnrollmentCreatePage({
@@ -77,6 +79,9 @@ export default async function EnrollmentCreatePage({
             defaultStartDate={context.defaultStartDate}
             isReturning={isReturning}
             initialReturnInscriptionMode={initialReturnInscriptionMode}
+            playerBirthDate={context.player.birthDate}
+            playerGender={context.player.gender}
+            trainingGroups={context.trainingGroups}
             action={submit}
           />
         )}

@@ -64,6 +64,7 @@ export type TrialEnrollmentPrefill = {
   guardianFirstName: string;
   guardianLastName: string;
   guardianPhone: string;
+  preferredTrainingGroupId: string;
   preferredGroupName: string;
   visitCount: number;
 };
@@ -504,6 +505,7 @@ export async function getTrialEnrollmentPrefill({
     guardianFirstName: guardian.firstName,
     guardianLastName: guardian.lastName,
     guardianPhone: prospect.guardian_phone,
+    preferredTrainingGroupId: prospect.preferred_training_group_id,
     preferredGroupName: group?.name ?? "Grupo",
     visitCount: count ?? 0,
   };

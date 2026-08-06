@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-08-06 (session 269)
+
+### Enrollment Program and Training-Group Confirmation (v1.17.3 Preview)
+
+- Replaced best-effort B1 auto-assignment with an explicit program and training-group confirmation in both one-page intake and existing-player enrollment/re-enrollment.
+- Added program choices for `Futbol Para Todos`, `Selectivo`, and Linda Vista-only `Little Dragons`; the form ranks active campus/program/gender groups by closest YOB and clearly marks the suggested group.
+- Requires a specific active training group before submission. A group outside the player's configured YOB range requires an explicit operator confirmation, and the server independently revalidates campus, program, gender, YOB, status, and Little Dragons campus rules.
+- Made gender required for new intake so the group decision cannot silently fall back to incomplete player data.
+- Enrollment creation now rolls back the enrollment, charges, group assignment, and new intake records if the mandatory training-group assignment fails. Existing pricing, tutor creation, uniforms, tryout conversion, and Caja redirect behavior remain intact.
+- Removed the dormant B2 competition-team auto-assignment and `players.level = B2` mutation from enrollment. Competition rosters remain separate from training groups; this pass does not assign or modify teams.
+- Trial-class conversion carries its preferred training group into the confirmation UI when available.
+- No database migration or production-data repair is included. Added focused regression coverage and passed typecheck, production build, pricing, tryout, tutor/intake repricing, legacy resolver, and new enrollment group-selection checks.
+
 ## 2026-08-06 (session 268)
 
 ### Efficient Interactive Attendance History (v1.17.2)

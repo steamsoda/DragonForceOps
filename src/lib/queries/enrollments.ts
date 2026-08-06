@@ -9,6 +9,7 @@ import {
   quoteEnrollmentPricingFromVersions,
   type PricingPlanVersionSnapshot,
 } from "@/lib/pricing/plans";
+import type { EnrollmentTrainingGroupOption, EnrollmentTrainingProgram } from "@/lib/training-groups/enrollment-selection";
 
 const PAGE_SIZE = 20;
 
@@ -392,7 +393,13 @@ export async function getEnrollmentDropoutContext(enrollmentId: string): Promise
 
 // ── Enrollment creation form context ─────────────────────────────────────────
 
-type PlayerRow = { id: string; first_name: string; last_name: string };
+type PlayerRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  gender: string | null;
+};
 type CampusRow = { id: string; code: string; name: string };
 type ActiveEnrollmentRow = { id: string };
 
@@ -452,12 +459,13 @@ async function logPricingPlanDiagnostics(
 }
 
 export type EnrollmentCreateFormContext = {
-  player: { id: string; fullName: string };
+  player: { id: string; fullName: string; birthDate: string; gender: string | null };
   hasActiveEnrollment: boolean;
   campuses: Array<{ id: string; code: string; name: string }>;
   planCode: string;
   pricingVersions: PricingPlanVersionSnapshot[];
   defaultStartDate: string;
+  trainingGroups: EnrollmentTrainingGroupOption[];
 };
 
 export type EnrollmentIntakeContext = {
@@ -465,7 +473,42 @@ export type EnrollmentIntakeContext = {
   planCode: string;
   pricingVersions: PricingPlanVersionSnapshot[];
   defaultStartDate: string;
+  trainingGroups: EnrollmentTrainingGroupOption[];
 };
+
+type EnrollmentTrainingGroupRow = {
+  id: string;
+  campus_id: string;
+  name: string;
+  program: EnrollmentTrainingProgram;
+  level_label: string | null;
+  group_code: string | null;
+  gender: string;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: string;
+  campuses: { code: string | null } | null;
+};
+
+function mapEnrollmentTrainingGroups(rows: EnrollmentTrainingGroupRow[]): EnrollmentTrainingGroupOption[] {
+  return rows.map((group) => ({
+    id: group.id,
+    campusId: group.campus_id,
+    campusCode: group.campuses?.code ?? "",
+    name: group.name,
+    program: group.program,
+    levelLabel: group.level_label,
+    groupCode: group.group_code,
+    gender: group.gender,
+    birthYearMin: group.birth_year_min,
+    birthYearMax: group.birth_year_max,
+    startTime: group.start_time,
+    endTime: group.end_time,
+    status: group.status,
+  }));
+}
 
 export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
   const admin = createAdminClient();
@@ -476,6 +519,7 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
       planCode: "standard",
       pricingVersions: [],
       defaultStartDate: getDefaultEnrollmentStartDate(),
+      trainingGroups: [],
     };
   }
   const defaultStartDate = getDefaultEnrollmentStartDate();
@@ -487,13 +531,20 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
     usedAnyActivePlanFallback = pricingVersions.length > 0;
   }
 
-  const [campusResult] = await Promise.all([
+  const [campusResult, trainingGroupResult] = await Promise.all([
     admin
       .from("campuses")
       .select("id, code, name")
       .eq("is_active", true)
       .order("name")
       .returns<CampusRow[]>(),
+    admin
+      .from("training_groups")
+      .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
+      .in("campus_id", campusAccess.campusIds)
+      .eq("status", "active")
+      .order("name")
+      .returns<EnrollmentTrainingGroupRow[]>(),
   ]);
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
@@ -534,6 +585,7 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
     planCode: defaultQuote?.plan.planCode ?? "standard",
     pricingVersions,
     defaultStartDate,
+    trainingGroups: mapEnrollmentTrainingGroups(trainingGroupResult.data ?? []),
   };
 }
 
@@ -552,10 +604,10 @@ export async function getEnrollmentCreateFormContext(
     pricingVersions = await fetchActivePricingPlanVersions(admin);
   }
 
-  const [playerResult, campusResult, activeEnrollmentResult] = await Promise.all([
+  const [playerResult, campusResult, activeEnrollmentResult, trainingGroupResult] = await Promise.all([
     supabase
       .from("players")
-      .select("id, first_name, last_name")
+      .select("id, first_name, last_name, birth_date, gender")
       .eq("id", playerId)
       .maybeSingle()
       .returns<PlayerRow | null>(),
@@ -571,7 +623,14 @@ export async function getEnrollmentCreateFormContext(
       .eq("player_id", playerId)
       .eq("status", "active")
       .maybeSingle()
-      .returns<ActiveEnrollmentRow | null>()
+      .returns<ActiveEnrollmentRow | null>(),
+    admin
+      .from("training_groups")
+      .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
+      .in("campus_id", campusAccess.campusIds)
+      .eq("status", "active")
+      .order("name")
+      .returns<EnrollmentTrainingGroupRow[]>(),
   ]);
 
   if (!playerResult.data) return null;
@@ -579,11 +638,17 @@ export async function getEnrollmentCreateFormContext(
 
   const p = playerResult.data;
   return {
-    player: { id: p.id, fullName: `${p.first_name} ${p.last_name}`.trim() },
+    player: {
+      id: p.id,
+      fullName: `${p.first_name} ${p.last_name}`.trim(),
+      birthDate: p.birth_date,
+      gender: p.gender,
+    },
     hasActiveEnrollment: !!activeEnrollmentResult.data,
     campuses: (campusResult.data ?? []).filter((campus) => canAccessCampus(campusAccess, campus.id)),
     planCode: defaultQuote?.plan.planCode ?? "standard",
     pricingVersions,
-    defaultStartDate
+    defaultStartDate,
+    trainingGroups: mapEnrollmentTrainingGroups(trainingGroupResult.data ?? []),
   };
 }

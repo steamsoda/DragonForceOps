@@ -15,6 +15,8 @@ const errorMessages: Record<string, string> = {
   config_error: "Falta configuracion de cargos o precios para completar la inscripcion.",
   enrollment_failed: "No se pudo crear la inscripcion. Intenta de nuevo.",
   charges_failed: "No se pudieron crear los cargos iniciales. Intenta de nuevo.",
+  training_group_invalid: "El grupo seleccionado ya no es compatible. Revisa campus, programa, categoria y genero.",
+  training_group_assignment_failed: "No se pudo asignar el grupo. No se guardo ningun dato; intenta de nuevo.",
   trial_conversion_invalid: "El prospecto ya no está disponible para inscripción o pertenece a otro campus.",
   trial_conversion_failed: "La inscripción no se completó y el prospecto sigue intacto. Intenta de nuevo.",
 };
@@ -69,6 +71,7 @@ export default async function NewPlayerPage({
           initialIsReturning={isReturning}
           initialReturnInscriptionMode={initialReturnMode}
           trialPrefill={trialPrefill}
+          trainingGroups={intakeContext.trainingGroups}
         /> : null}
       </div>
     </PageShell>

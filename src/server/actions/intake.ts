@@ -11,8 +11,10 @@ import { formatPeriodMonthLabel, getEnrollmentPricingQuote } from "@/lib/pricing
 import { parseEnrollmentFormData } from "@/lib/validations/enrollment";
 import { parsePlayerFormData, parseSecondaryGuardianFormData } from "@/lib/validations/player";
 import { writeAuditLog } from "@/lib/audit";
-import { findB2TeamForAutoAssign } from "@/lib/queries/teams";
-import { assignDefaultB1TrainingGroupForEnrollment } from "@/lib/training-groups/auto-assign";
+import {
+  assignSelectedTrainingGroupForEnrollment,
+  validateEnrollmentTrainingGroupSelection,
+} from "@/lib/training-groups/enrollment-selection";
 import { createPerfTimer } from "@/lib/perf/timing";
 
 type ChargeTypeRow = { id: string; code: string };
@@ -61,7 +63,6 @@ function logIntakeConfigError(details: Record<string, unknown>) {
 async function rollbackIntake(
   admin: ReturnType<typeof createAdminClient>,
   ids: {
-    teamAssignmentId?: string | null;
     enrollmentId?: string | null;
     playerGuardianId?: string | null;
     secondaryPlayerGuardianId?: string | null;
@@ -70,11 +71,9 @@ async function rollbackIntake(
     secondaryGuardianId?: string | null;
   }
 ) {
-  if (ids.teamAssignmentId) {
-    await admin.from("team_assignments").delete().eq("id", ids.teamAssignmentId);
-  }
   if (ids.enrollmentId) {
     await admin.from("charges").delete().eq("enrollment_id", ids.enrollmentId);
+    await admin.from("training_group_assignments").delete().eq("enrollment_id", ids.enrollmentId);
     await admin.from("enrollments").delete().eq("id", ids.enrollmentId);
   }
   if (ids.playerGuardianId) {
@@ -193,7 +192,7 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   const player = parsePlayerFormData(formData);
   const secondaryGuardian = parseSecondaryGuardianFormData(formData);
   const enrollment = parseEnrollmentFormData(formData);
-  if (!player || !enrollment || secondaryGuardian === "invalid") {
+  if (!player || !player.gender || !enrollment || secondaryGuardian === "invalid") {
     return redirectWithError("invalid_form", { isReturning, returnMode, trialProspectId });
   }
   perf.mark("parse_form");
@@ -239,6 +238,25 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   }
   perf.mark("trial_source_guard");
 
+  const birthYear = Number(player.birthDate.slice(0, 4));
+  const trainingGroupSelection = await validateEnrollmentTrainingGroupSelection({
+    admin,
+    campusId: enrollment.campusId,
+    program: enrollment.trainingProgram,
+    trainingGroupId: enrollment.trainingGroupId,
+    birthYear,
+    gender: player.gender ?? null,
+    overrideConfirmed: enrollment.trainingGroupOverrideConfirmed,
+  });
+  if (!trainingGroupSelection.ok) {
+    return redirectWithError("training_group_invalid", {
+      isReturning: enrollment.isReturning,
+      returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
+    });
+  }
+  perf.mark("training_group_validation");
+
   const [pricingQuote, chargeTypesResult] = await Promise.all([
     getEnrollmentPricingQuote(admin, {
       planCode: enrollment.pricingPlanCode || "standard",
@@ -276,7 +294,6 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
   }
 
   const createdIds: {
-    teamAssignmentId?: string | null;
     enrollmentId?: string | null;
     playerGuardianId?: string | null;
     secondaryPlayerGuardianId?: string | null;
@@ -540,54 +557,29 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     });
   }
   perf.mark("game_uniform_charge");
-  // ────────────────────────────────────────────────────────────────────────
 
-  const birthYear = Number(player.birthDate.slice(0, 4));
-  const defaultTrainingGroupResult = await assignDefaultB1TrainingGroupForEnrollment({
+  const trainingGroupAssignment = await assignSelectedTrainingGroupForEnrollment({
     admin,
     actorUserId: user.id,
     actorEmail: user.email ?? null,
     enrollmentId: createdEnrollment.id,
     playerId: createdPlayer.id,
-    campusId: enrollment.campusId,
-    birthYear,
-    gender: player.gender ?? null,
+    trainingGroupId: trainingGroupSelection.group.id,
     assignmentStart: enrollment.startDate,
+    program: enrollment.trainingProgram,
+    birthYearOverrideConfirmed: enrollment.trainingGroupOverrideConfirmed,
   });
-  perf.mark("auto_training_group_write");
-
-  const b2Team = await findB2TeamForAutoAssign(enrollment.campusId, birthYear, player.gender ?? null);
-  perf.mark("auto_assign_lookup");
-  if (b2Team) {
-    const today = new Date().toISOString().split("T")[0];
-    const { data: teamAssignment, error: teamAssignmentError } = await admin
-      .from("team_assignments")
-      .insert({
-        enrollment_id: createdEnrollment.id,
-        team_id: b2Team.id,
-        start_date: today,
-        is_primary: true,
-        role: "regular",
-        is_new_arrival: true,
-      })
-      .select("id")
-      .maybeSingle()
-      .returns<{ id: string } | null>();
-
-    if (teamAssignmentError) {
-      console.error("intake auto team assignment failed", teamAssignmentError);
-      await rollbackIntake(admin, createdIds);
-      return redirectWithError("enrollment_failed", {
-        isReturning: enrollment.isReturning,
-        returnMode: enrollment.returnInscriptionMode,
-        trialProspectId,
-      });
-    }
-
-    createdIds.teamAssignmentId = teamAssignment?.id ?? null;
-    await admin.from("players").update({ level: "B2" }).eq("id", createdPlayer.id);
+  if (!trainingGroupAssignment.ok) {
+    console.error("intake training group assignment failed", trainingGroupAssignment.error);
+    await rollbackIntake(admin, createdIds);
+    return redirectWithError("training_group_assignment_failed", {
+      isReturning: enrollment.isReturning,
+      returnMode: enrollment.returnInscriptionMode,
+      trialProspectId,
+    });
   }
-  perf.mark("auto_assign_write");
+  perf.mark("training_group_assignment");
+  // ────────────────────────────────────────────────────────────────────────
 
   if (trialProspectId) {
     const convertedAt = new Date().toISOString();
@@ -638,6 +630,9 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
       secondary_guardian_created: Boolean(secondaryGuardian),
       intake_mode: "single_page",
       source_trial_prospect_id: trialProspectId,
+      training_program: enrollment.trainingProgram,
+      training_group_id: trainingGroupSelection.group.id,
+      training_group_birth_year_override_confirmed: enrollment.trainingGroupOverrideConfirmed,
     },
   });
   perf.mark("audit_log");
@@ -652,8 +647,8 @@ export async function createEnrollmentIntakeAction(formData: FormData) {
     includesKits,
     extraKit: addExtraKit,
     gameUniform: addGameUniform,
-    autoAssignedB2: Boolean(b2Team),
-    autoAssignedTrainingGroup: defaultTrainingGroupResult.assigned,
+    trainingProgram: enrollment.trainingProgram,
+    trainingGroupId: trainingGroupSelection.group.id,
   });
   redirect(`/caja?enrollmentId=${createdEnrollment.id}`);
 }

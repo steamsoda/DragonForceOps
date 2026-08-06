@@ -18,6 +18,8 @@ import {
   type IntakeMatch,
 } from "@/server/actions/intake";
 import type { TrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
+import { EnrollmentTrainingGroupPicker } from "@/components/enrollments/enrollment-training-group-picker";
+import type { EnrollmentTrainingGroupOption } from "@/lib/training-groups/enrollment-selection";
 
 type EnrollmentIntakeFormProps = {
   campuses: Array<{ id: string; code: string; name: string }>;
@@ -27,6 +29,7 @@ type EnrollmentIntakeFormProps = {
   initialIsReturning?: boolean;
   initialReturnInscriptionMode?: ReturningInscriptionMode;
   trialPrefill?: TrialEnrollmentPrefill | null;
+  trainingGroups: EnrollmentTrainingGroupOption[];
 };
 
 const inputClass =
@@ -118,6 +121,7 @@ export function EnrollmentIntakeForm({
   initialIsReturning = false,
   initialReturnInscriptionMode = "full",
   trialPrefill = null,
+  trainingGroups,
 }: EnrollmentIntakeFormProps) {
   const [isReturning, setIsReturning] = useState(initialIsReturning);
   const [returnInscriptionMode, setReturnInscriptionMode] =
@@ -126,6 +130,7 @@ export function EnrollmentIntakeForm({
   const [firstName, setFirstName] = useState(trialPrefill?.firstName ?? "");
   const [lastName, setLastName] = useState(trialPrefill?.lastName ?? "");
   const [birthDateText, setBirthDateText] = useState(trialPrefill ? formatDateOnlyDdMmYyyy(trialPrefill.birthDate) : "");
+  const [gender, setGender] = useState(trialPrefill?.gender ?? "");
   const [guardianFirstName, setGuardianFirstName] = useState(trialPrefill?.guardianFirstName ?? "");
   const [guardianLastName, setGuardianLastName] = useState(trialPrefill?.guardianLastName ?? "");
   const [addSecondaryGuardian, setAddSecondaryGuardian] = useState(false);
@@ -143,6 +148,7 @@ export function EnrollmentIntakeForm({
   const [gameUniformSize, setGameUniformSize] = useState("");
   const [gameUniformIsGoalkeeper, setGameUniformIsGoalkeeper] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [trainingGroupValid, setTrainingGroupValid] = useState(false);
 
   const birthDate = useMemo(() => parseDateOnlyInput(birthDateText), [birthDateText]);
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -160,7 +166,7 @@ export function EnrollmentIntakeForm({
   const inscriptionAmount = isReturning ? selectedReturnOption.amount : (quote?.inscriptionAmount ?? 0);
   const monthlyAmount = quote?.tuitionAmount ?? 0;
   const startDay = startDate ? Number(startDate.slice(8, 10)) : null;
-  const submitDisabled = !quote || !campusId || !birthDate || !startDate || isSubmitting;
+  const submitDisabled = !quote || !campusId || !birthDate || !gender || !startDate || !trainingGroupValid || isSubmitting;
 
   useEffect(() => {
     if (!deferredFirstName || !deferredLastName || !deferredBirthDate) {
@@ -318,7 +324,13 @@ export function EnrollmentIntakeForm({
           />
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Genero</span>
-            <select name="gender" className={inputClass} defaultValue={trialPrefill?.gender ?? ""}>
+            <select
+              required
+              name="gender"
+              className={inputClass}
+              value={gender}
+              onChange={(event) => setGender(event.target.value)}
+            >
               <option value="">Sin especificar</option>
               <option value="male">Masculino</option>
               <option value="female">Femenino</option>
@@ -553,6 +565,16 @@ export function EnrollmentIntakeForm({
             hint="Escribe por ejemplo: 01052026"
           />
         </div>
+
+        <EnrollmentTrainingGroupPicker
+          campuses={campuses}
+          groups={trainingGroups}
+          campusId={campusId}
+          birthDate={birthDate}
+          gender={gender || null}
+          initialGroupId={trialPrefill?.preferredTrainingGroupId ?? null}
+          onValidityChange={setTrainingGroupValid}
+        />
 
         {isReturning ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">

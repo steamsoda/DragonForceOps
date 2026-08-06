@@ -11,6 +11,8 @@ import {
   type PricingPlanVersionSnapshot,
 } from "@/lib/pricing/plans";
 import { formatDateOnlyDdMmYyyy, parseDateOnlyInput } from "@/lib/time";
+import { EnrollmentTrainingGroupPicker } from "@/components/enrollments/enrollment-training-group-picker";
+import type { EnrollmentTrainingGroupOption } from "@/lib/training-groups/enrollment-selection";
 
 type EnrollmentCreateFormProps = {
   campuses: Array<{ id: string; code: string; name: string }>;
@@ -19,6 +21,9 @@ type EnrollmentCreateFormProps = {
   defaultStartDate: string;
   isReturning: boolean;
   initialReturnInscriptionMode?: ReturningInscriptionMode;
+  playerBirthDate: string;
+  playerGender: string | null;
+  trainingGroups: EnrollmentTrainingGroupOption[];
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -29,12 +34,16 @@ export function EnrollmentCreateForm({
   defaultStartDate,
   isReturning,
   initialReturnInscriptionMode = "full",
+  playerBirthDate,
+  playerGender,
+  trainingGroups,
   action,
 }: EnrollmentCreateFormProps) {
   const [campusId, setCampusId] = useState("");
   const [startDateText, setStartDateText] = useState(formatDateOnlyDdMmYyyy(defaultStartDate));
   const [returnInscriptionMode, setReturnInscriptionMode] =
     useState<ReturningInscriptionMode>(initialReturnInscriptionMode);
+  const [trainingGroupValid, setTrainingGroupValid] = useState(false);
   const calendarInputRef = useRef<HTMLInputElement | null>(null);
 
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -135,6 +144,15 @@ export function EnrollmentCreateForm({
           <p className="text-xs text-slate-500 dark:text-slate-400">Escribe por ejemplo: 01012020</p>
         </label>
       </div>
+
+      <EnrollmentTrainingGroupPicker
+        campuses={campuses}
+        groups={trainingGroups}
+        campusId={campusId}
+        birthDate={playerBirthDate}
+        gender={playerGender}
+        onValidityChange={setTrainingGroupValid}
+      />
 
       {quote ? (
         <div className="grid gap-3 md:grid-cols-2">
@@ -247,7 +265,7 @@ export function EnrollmentCreateForm({
 
       <button
         type="submit"
-        disabled={!quote || !campusId}
+        disabled={!quote || !campusId || !trainingGroupValid}
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
       >
         Crear inscripcion
