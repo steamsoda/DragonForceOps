@@ -1006,14 +1006,21 @@ export async function getRecentPlayerAttendanceByPlayerIds(
   if (uniquePlayerIds.length === 0) return new Map<string, RecentPlayerAttendanceItem[]>();
 
   const supabase = options.supabase ?? createAdminClient();
+  const requestedLimit = options.limit != null && Number.isFinite(options.limit)
+    ? Math.floor(options.limit)
+    : 5;
+  const limit = Math.max(1, Math.min(requestedLimit, 15));
   const rows = await fetchPlayerRpcInChunks<RecentPlayerAttendanceRpcRow>(
     supabase,
     "get_recent_player_attendance",
     {
       p_player_ids: uniquePlayerIds,
-      p_limit: options.limit ?? 5,
+      p_limit: limit,
     },
-    { errorLabel: "recent player attendance" },
+    {
+      errorLabel: "recent player attendance",
+      maxRowsPerPlayer: limit,
+    },
   );
 
   const grouped = new Map<string, RecentPlayerAttendanceItem[]>();

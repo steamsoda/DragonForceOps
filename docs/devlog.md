@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-08-06 (session 267)
+
+### Complete Recent Attendance Batches (v1.17.1)
+
+- Repaired the shared player-RPC batching helper so callers that can return multiple rows per player can declare that row budget and remain below PostgREST's 1,000-row response ceiling.
+- Updated recent attendance to use at most 66 players per 15-record request, preventing valid attendance from disappearing as `Sin registros` on production-sized rosters.
+- Raised the read-only `get_recent_player_attendance` RPC cap from 10 to 15 so grouped rosters and exports receive the complete requested history.
+- Added regression coverage for the safe `[66, 66, 66, 2]` split across 200 players, the attendance caller contract, and the database cap. Attendance records, sessions, statuses, and write behavior are unchanged.
+
+## 2026-08-06 (session 266)
+
+### Production Nivel / Group / Attendance Read-Only Audit (v1.17.0)
+
+- Reran the first `v1.17` model audit against production Supabase project `hjvytfaalnfcqfgbxsmj`; no database or application records were changed.
+- Confirmed 655 active enrollments: 646 with one active training group, 9 without a group, no duplicate active assignments, and 9 active assignments outside their configured YOB range.
+- Confirmed the `Jugadores` `Sin registros` defect is a batching-limit bug rather than missing attendance or bad `Nivel`: 150 players x 15 records can exceed PostgREST's 1,000-row response cap. Production showed 175 players with real attendance receiving no chips and 612 receiving incomplete last-15 histories.
+- Confirmed `DF-0487` has a valid Little Dragons assignment and direct August attendance while receiving zero rows from the truncated batch.
+- Confirmed the hidden generic competition model is dormant in production: 0 teams, 0 team assignments, 0 tournament source-team links, and 0 tournament squads. The live tournament foundation remains 12 tournament rows plus 482 persistent player entries and product/payment eligibility.
+- Accepted the durable model: YOB for Front Desk grouping, training groups for practices/attendance, tournament-specific competition rosters for sporting selection, and synchronized `players.level` values (`B1`, `Selectivo`, or `Little Dragons`).
+- Accepted the ordered passes documented in `docs/planning/training-groups-model-analysis.md`: attendance batch repair, enrollment program/group enforcement, legacy B2 auto-assignment removal plus level synchronization, Contry 2022 eligibility, reviewed production repairs, `Inscripciones Torneos` group view, tournament roster planning, and controlled player promotion/movement.
+
 ## 2026-08-06 (session 265)
 
 ### v1.17 Product Checkpoint and Roadmap Rebaseline (v1.17.0)

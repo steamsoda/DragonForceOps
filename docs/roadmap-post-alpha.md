@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.0`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.1`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.243`
-- Current preview candidate: `v1.17.0` documentation/rebaseline checkpoint
+- Current preview candidate: `v1.17.1` complete recent-attendance batching
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -137,9 +137,12 @@ This checkpoint closes the long `v1.16` delivery wave without deleting its backl
 
 **First `v1.17` Work**
 
-- 🔴 Audit player `Nivel`, operational level, training-group assignment, group labels, and coach/group ownership as separate concepts before changing data.
-- 🔴 Produce a discrepancy inventory by campus/YOB/gender/program, then define deterministic repair rules. No bulk reassignment or backfill should occur until the inventory is reviewed.
-- 🟡 Preserve current group-edit permissions, attendance history, enrollment history, finance records, and tournament eligibility while correcting the model.
+- ✅ Read-only production audit completed on 2026-08-06: 655 active enrollments, 646 with one active training group, 9 without a group, no duplicate active assignments, and 9 YOB-range mismatches. Detailed evidence and accepted rules are recorded in `docs/planning/training-groups-model-analysis.md`.
+- ✅ Preview `v1.17.1` repairs the `Jugadores` recent-attendance batching defect with row-budgeted 66-player chunks and a true 15-record RPC cap. Production promotion remains pending preview verification.
+- 🔴 Harden enrollment around an explicit program and confirmed training group: `Futbol Para Todos`, `Selectivo`, or age-appropriate `Little Dragons`; never complete silently without an assignment.
+- 🔴 Remove competition-team auto-assignment from enrollment. Competition rosters remain a separate sporting concept and must not decide the player's training group.
+- 🟡 Keep `players.level`, but synchronize it from the active training program: `B1` for Futbol Para Todos, `Selectivo` for Selectivo, and `Little Dragons` for Little Dragons.
+- 🟡 Preserve current group-edit permissions, attendance/session history, enrollment history, finance records, and paid tournament eligibility while repairing current assignments.
 
 **Backlog Retained, Not Dropped**
 
@@ -155,11 +158,11 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🔴 | Player `Nivel` / training-group consistency audit | Map the distinct level, operational-level, assignment, label, and coach ownership sources; inventory mismatches before any repair or bulk write. | Jugadores, Sports / Tournaments, `docs/planning/training-groups-model-analysis.md` |
+| ✅ | `Jugadores` attendance batch-cap repair | Preview `v1.17.1` keeps each 15-record RPC below 1,000 rows and regression-tests full batching. Verify on preview before production promotion. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1` devlog |
+| 🔴 | Enrollment program/group hardening | Require Front Desk to confirm program and suggested group; support Little Dragons explicitly and prevent silent `Sin grupo` enrollment completion. | Nueva Inscripcion, training groups, `docs/planning/training-groups-model-analysis.md` |
+| 🟡 | Production assignment review and repair | After enrollment rules are fixed, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
-| 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
-| ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
-| 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
+| 🔴 | Attendance special-day and cancellation workflow | Resume after the attendance display and enrollment/group integrity passes. | Checkpoint 2026-07-11, Asistencia lane |
 
 **How `Now` Works**
 
@@ -174,6 +177,8 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
+| 🔴 | `Inscripciones Torneos` group and roster views | Add `Por grupo` beside the YOB view using current active training groups, then plan tournament-specific competition rosters from paid `tournament_player_entries`. Keep `Sin grupo` visible and do not revive automatic team assignment. |
+| 🟡 | Legacy team/tournament surface containment | Production has 0 teams/assignments/squads but 12 tournaments and 482 player entries. Remove the dormant enrollment B2 hook first; later decide whether hidden `/teams` and `/tournaments` routes are retired or absorbed into `Inscripciones Torneos`. |
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |

@@ -1,7 +1,97 @@
 # Training Groups, Teams, And Attendance Model
 
 Date: 2026-04-22
-Status: historical model analysis; current-state re-audit starts in v1.17.0
+Status: historical model analysis plus accepted v1.17 production-audit decisions
+
+## v1.17 Production Audit And Accepted Direction (2026-08-06)
+
+The read-only audit was rerun against production project `hjvytfaalnfcqfgbxsmj`. No application or database records were changed.
+
+### Production Inventory
+
+- 655 active enrollments.
+- 646 enrollments have exactly one active training-group assignment.
+- 9 active enrollments have no training group: 3 in Contry and 6 in Linda Vista.
+- No enrollment has duplicate active training-group assignments.
+- No active assignment has a campus or gender mismatch.
+- 9 active assignments sit outside the training group's configured YOB range and require individual review.
+- Current assigned program distribution: 485 Futbol Para Todos, 137 Selectivo, and 24 Little Dragons.
+- The active group catalog still contains 23 single-YOB groups and 15 multi-YOB groups. Code must use configured ranges instead of assuming one YOB per group.
+
+Only one of the 9 unassigned players currently resolves to a unique Futbol Para Todos match. Most of the others are YOB 2021/2022 players affected by the fact that enrollment auto-assignment only searches Futbol Para Todos. Contry has no Little Dragons program; Contry `Iniciacion B1` must be updated to include YOB 2022.
+
+### Confirmed `Jugadores` Attendance Defect
+
+The production `Sin registros` cases are not caused by `players.level` or missing attendance records. The recent-attendance helper sends 150 players per RPC chunk while requesting up to 15 records per player. A full chunk can produce 2,250 rows, but PostgREST caps the response at 1,000 rows.
+
+Production evidence:
+
+- every full 150-player chunk stopped at exactly 1,000 rows;
+- 646 active players had direct non-cancelled attendance records;
+- only 471 players appeared in the batched RPC response;
+- 175 players with real attendance received no roster chips;
+- 612 players received fewer than their actual last 15 records;
+- `DF-0487` had a valid Little Dragons assignment and direct attendance on August 3-5, but received zero rows from the truncated batch.
+
+First implementation pass: reduce or dynamically size the recent-attendance chunks below the response ceiling and add a regression test. This is a read-path repair only; it must not rewrite attendance.
+
+### Accepted Canonical Responsibilities
+
+Keep all three sporting concepts, but give each one an authoritative purpose:
+
+| Concept | Authoritative meaning |
+|---|---|
+| Category / YOB | Derived from `players.birth_date`; the simple operational grouping used heavily by Front Desk. |
+| Training group | Current practice roster, campus, schedule, coach ownership, attendance, and operational movement history. |
+| Competition roster/team | Tournament-specific sporting selection; separate from enrollment and training-group assignment. |
+| Level | Retained and synchronized from current training program, not independently used to determine rosters. |
+
+Accepted level synchronization rule:
+
+- Futbol Para Todos -> `B1`
+- Selectivo -> `Selectivo`
+- Little Dragons -> `Little Dragons`
+
+Changing a player's active training group/program should synchronize the current level while preserving time-bounded assignment and attendance history. Competition-team membership must never overwrite the training level.
+
+### Enrollment Direction
+
+- Enrollment must require a training-group assignment before completion.
+- Front Desk chooses or confirms the program: Futbol Para Todos, Selectivo, or age-appropriate Little Dragons.
+- The app suggests the closest compatible active group using campus, program, YOB, and gender.
+- Front Desk sees and confirms the actual group before the existing Caja handoff.
+- A compatible group selector remains available for authorized correction.
+- If the nearest option is outside the configured YOB range, show an explicit warning and require confirmation instead of silently leaving the player unassigned.
+- Do not assign a competition team during enrollment.
+- Remove the dormant B2 team auto-assignment and `players.level = 'B2'` overwrite from both enrollment paths before any competition-team UI is reactivated.
+
+### Hidden Team And Tournament Surfaces
+
+Production currently contains:
+
+- 0 `teams` rows;
+- 0 `team_assignments` rows;
+- 12 active tournament records;
+- 482 persistent tournament player entries;
+- 0 tournament source-team links;
+- 0 tournament squads.
+
+The hidden `/teams` and `/tournaments` routes and their write actions still exist, but the generic team/squad layer is operationally unused. The live paid-registration foundation is `tournaments` plus `tournament_player_entries`, direct/Combo entitlement handling, and `Inscripciones Torneos`.
+
+Recommended direction: evolve `Inscripciones Torneos` into the working tournament-roster surface. Keep the current YOB view, add a current-training-group view with `Sin grupo`, and later add tournament-specific roster selection. Do not revive automatic generic team assignment.
+
+### Ordered v1.17 Passes
+
+1. Repair and regression-test the recent-attendance RPC batching limit.
+2. Add explicit enrollment program selection, deterministic group suggestion, visible confirmation, and a server-enforced no-group boundary.
+3. Remove legacy B2 competition-team auto-assignment and synchronize `players.level` from training program.
+4. Update Contry `Iniciacion B1` eligibility to include YOB 2022.
+5. Review and repair the 9 unassigned production enrollments and 9 YOB-range mismatches individually. Preserve historical assignments and attendance.
+6. Add `Por grupo` to `Inscripciones Torneos`, backed by active training-group assignments and the existing paid-registration truth.
+7. Plan the tournament-specific roster/team workflow inside `Inscripciones Torneos`; explicitly retire or contain the unused hidden team builder.
+8. Add a controlled promotion/movement workflow for Little Dragons -> Futbol Para Todos and Futbol Para Todos -> Selectivo, with effective dates, audit history, and level synchronization.
+
+No bulk data repair is approved until passes 1-4 are implemented and the production discrepancy list is reviewed.
 
 ## v1.17 Re-entry Note (2026-08-06)
 
