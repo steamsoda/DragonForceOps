@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 260)
+
+### Weekly WhatsApp Convocatorias - Direct PNG Pass 3A (v1.16.239)
+
+- Added direct high-resolution PNG download from the saved weekly callup editor. The image uses the frozen packet, includes every currently included player, all games, `Descansa` categories, campus/program/week context, and a visible `BORRADOR` mark when the packet is not final.
+- Kept the export as one adaptive image with compact multi-column category cards so staff can share the complete weekly packet in WhatsApp without assembling screenshots or spreadsheets.
+- Added explicit loading, success, and failure feedback plus draft confirmation before generation. The download is produced locally in the browser and does not upload or mutate data.
+- Stress-rendered a 12-category, 152-player sample in Chrome at 1700px width. All categories, players, game blocks, rest markers, footer text, and the draft watermark rendered without clipping.
+- Added focused regression coverage for included-player filtering, complete game/rest rendering, direct canvas PNG generation, and the no-finance/no-attendance mutation boundary.
+- Remaining image work is deliberately split: Pass 3B will refine category order, vertical fitting, and very-long-roster behavior; Pass 3C will simplify the editor controls after operational feedback. Pass 4 remains role/campus/data-integrity/browser hardening.
+
 ## 2026-08-05 (session 259)
 
 ### Weekly WhatsApp Convocatorias - Controlled Refresh and Exceptions Pass 2B (v1.16.238)

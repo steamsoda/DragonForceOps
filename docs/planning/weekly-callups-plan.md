@@ -41,11 +41,23 @@ Generate one clear weekly WhatsApp image per campus, tournament, and program (`S
 - Added an explicitly confirmed transactional refresh. It preserves games, rest state, category order, packet exclusions, and manual exceptions while synchronizing the paid snapshot and returning the packet to `Borrador`.
 - Added duplicate active-assignment and duplicate roster-payload safeguards so ambiguous source data fails instead of silently duplicating a player.
 
-### Pass 3 - WhatsApp image
+### Pass 3A - Direct WhatsApp PNG (implemented in preview v1.16.239)
 
-- Render a high-resolution, compact image with all categories, players, and games visible at a glance.
-- Preserve readable typography for long rosters and multiple games.
-- Provide direct PNG download and a clear shared/final status.
+- Added one-click, high-resolution PNG download from the frozen packet.
+- The image includes every included player, all configured games, `Descansa` categories, packet context, and a visible draft watermark.
+- Generation happens locally in the browser and does not write to the database.
+- A production-sized 12-category/152-player fixture rendered without clipping.
+
+### Pass 3B - Fitting and visual polish
+
+- Refine category reading order and column balancing.
+- Tune extra-long player names, unusually large rosters, and multiple-game cards while retaining a single image.
+- Validate real Linda Vista and Contry packets at WhatsApp/mobile viewing sizes.
+
+### Pass 3C - Editor simplification
+
+- Reduce visual density in the operational editor after staff test the complete draft-to-image flow.
+- Keep exception, refresh, and status controls understandable without hiding their safeguards.
 
 ### Pass 4 - Hardening
 

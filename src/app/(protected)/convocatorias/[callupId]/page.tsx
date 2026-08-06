@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { WeeklyCallupPngExportButton } from "@/components/weekly-callups/png-export-button";
 import { WeeklyCallupSubmitButton } from "@/components/weekly-callups/submit-button";
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupDetail } from "@/lib/queries/weekly-callups";
@@ -99,6 +100,29 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
   const comparisonChangeTotal = callup.rosterComparison
     ? callup.rosterComparison.added.length + callup.rosterComparison.removed.length + callup.rosterComparison.moved.length
     : 0;
+  const pngData = {
+    tournamentName: callup.tournamentName,
+    campusName: callup.campusName,
+    program: callup.program,
+    weekStart: callup.weekStart,
+    weekEnd: callup.weekEnd,
+    status: callup.status,
+    categories: callup.categories.map((category) => ({
+      id: category.id,
+      categoryLabel: category.categoryLabel,
+      trainingGroupName: category.trainingGroupName,
+      isRest: category.isRest,
+      games: category.games.map((game) => ({
+        matchDate: game.matchDate,
+        arrivalTime: game.arrivalTime,
+        venue: game.venue,
+        opponent: game.opponent,
+      })),
+      players: category.players
+        .filter((player) => player.rosterStatus === "included")
+        .map((player) => ({ id: player.id, playerName: player.playerName })),
+    })),
+  };
 
   return (
     <PageShell
@@ -112,6 +136,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
             Volver a convocatorias
           </Link>
           <div className="flex flex-wrap items-center gap-2">
+            <WeeklyCallupPngExportButton data={pngData} />
             <Link
               href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue"
