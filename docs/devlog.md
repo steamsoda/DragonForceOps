@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-06 (session 265)
+
+### v1.17 Product Checkpoint and Roadmap Rebaseline (v1.17.0)
+
+- Closed the `v1.16` delivery wave at production `v1.16.243` and opened `v1.17.0` as the next preview development line. This checkpoint changes documentation and package version only; it does not change application, database, finance, attendance, or permission behavior.
+- Audited the active roadmap against the recent finance, attendance/reporting, trial-class, tournament, training-workload, and weekly WhatsApp convocatoria releases. Completed work remains traceable in this devlog instead of occupying the active queue.
+- Promoted the player `Nivel` / training-group consistency audit as the first `v1.17` work item. The first pass is read-only: map every source of level/group truth, identify ambiguous or stale assignments, and define safe repair rules before any data mutation.
+- Retained the unfinished backlog, including convocatoria polish/hardening, attendance special-day and cancellation UX, injury/absence v2, enrollment validation, baja re-enrollment, product archive/admin controls, offline mitigation, coach match posting, parent/mobile planning, expenses/nomina, and remaining app-shell polish.
+- Rebased `Now` and `Next` so urgent operational work is separated from parked strategic work and standing finance-sanity monitoring.
+
 ## 2026-08-06 (session 264)
 
 ### Weekly WhatsApp Convocatorias - Preserved Form Validation (v1.16.243)

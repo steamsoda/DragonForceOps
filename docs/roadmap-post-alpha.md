@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-07-11.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.0`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,9 +38,9 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.235`
-- Current preview candidate: `v1.16.243`
-- Training workload status: production `v1.16.235` includes direct session links, weighted official attendance percentage, same-day multi-session preservation, clear staff wording, and direct count-integrity diagnostics. Print-preview refinement remains the next polish pass.
+- Current production line: `v1.16.243`
+- Current preview candidate: `v1.17.0` documentation/rebaseline checkpoint
+- `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -124,26 +124,42 @@ The selected-group attendance wave and first Panel attendance chart are now ship
 - 🟡 Attendance analytics remains open beyond the first Panel pie chart: trends, group comparisons, date ranges, and operational drilldowns are still future work.
 - 🟡 Caja/account-credit monitoring remains a standing safety practice, not an active feature build.
 
+## Checkpoint: 2026-08-06 - v1.17 Rebaseline
+
+This checkpoint closes the long `v1.16` delivery wave without deleting its backlog or implementation history. Detailed shipped notes remain in `docs/devlog.md`; specialized designs remain under `docs/planning/`.
+
+**Stable / Shipped Through Production `v1.16.243`**
+
+- ✅ Finance and Caja: explicit account credit, automatic FIFO application, charge-centric annulment, charge-level cash refunds, ledger traceability, guarded manual repricing, and hardened finance-sanity diagnostics are operational. Finance sanity remains a required validation practice after finance-sensitive changes.
+- ✅ Attendance and reporting: recent-attendance summaries, risk signals, selected-group KPIs, coach/monthly-tuition reports, trial-class reporting, and rolling training-workload views are available without changing official attendance denominators.
+- ✅ Competitions: paid tournament eligibility, product pricing/bundle rules, exports, tournament metadata, and the weekly WhatsApp convocatoria workflow are live. Convocatoria print/editor polish and final role/data-integrity hardening remain open.
+- ✅ Intake and operations: second-tutor intake, Office Admin contact capture, B1 auto-assignment safeguards, trial-class conversion, player notes, and dropout reporting are operational.
+
+**First `v1.17` Work**
+
+- 🔴 Audit player `Nivel`, operational level, training-group assignment, group labels, and coach/group ownership as separate concepts before changing data.
+- 🔴 Produce a discrepancy inventory by campus/YOB/gender/program, then define deterministic repair rules. No bulk reassignment or backfill should occur until the inventory is reviewed.
+- 🟡 Preserve current group-edit permissions, attendance history, enrollment history, finance records, and tournament eligibility while correcting the model.
+
+**Backlog Retained, Not Dropped**
+
+- 🟡 Weekly convocatoria quick exclusions, print polish, and final hardening.
+- 🟡 Attendance special-day/cancellation UX and the finance-sensitive injury/absence v2 workflow.
+- 🔴 Enrollment validation/confirmation and baja re-enrollment/reactivation.
+- 🟡 Product archive/pricing-rule admin, tournament redesign, coach match posting, and offline/outage mitigation.
+- 🧊 Parent/mobile planning, WhatsApp communication expansion, Nutrition vNext, uniforms, favicon/app icon, and the expenses/nomina module.
+
 ## Now
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Weekly WhatsApp convocatorias Pass 1-3C-3 | Preview `v1.16.236`-`v1.16.243` adds the frozen Combo-aware roster, operational editor, controlled exceptions/refresh, direct PNG, large-packet fitting, per-group tournament composer, ready-first editing, coach labels, safe packet deletion, and preserved in-place validation. Inline quick exclusions and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
-| ✅ | Training workload by coach and time block | Production `v1.16.231`-`v1.16.235` provides the four-pass report plus auditable session links, a weighted attendance rate, same-day session preservation, and direct RPC-vs-record count diagnostics. Print-preview refinement remains a separate polish task. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
-| ✅ | J5 San Pedro Agosto 2026 product rules | Production `v1.16.230` adds strict campus/program/YOB pricing, the paid-Polideportivo Femenil discount, both-campus tournament metadata, and Super Admin product-level date configuration without mutating existing charges. | Products / Competencias, `v1.16.230` devlog |
+| 🔴 | Player `Nivel` / training-group consistency audit | Map the distinct level, operational-level, assignment, label, and coach ownership sources; inventory mismatches before any repair or bulk write. | Jugadores, Sports / Tournaments, `docs/planning/training-groups-model-analysis.md` |
+| 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |
 | 🔴 | Enrollment data validation + confirmation | New priority-one request: harden new enrollment data quality with required last name/date of birth/gender validation, proper capitalization guidance, clear field errors, and a confirmation popup before the existing redirect-to-Caja payment workflow. | New Enrollments / Caja, User Feedback Intake 2026-06-27 |
-| 🟢 | Tryout classes Pass 1-4 | Production `v1.16.210`-`v1.16.217` adds isolated intake/check-in/tickets, separate attendance awareness, guarded conversion through normal enrollment/Caja, and range-filtered group/coach/visitor/YOB reporting. Trial visitors remain outside official rosters, attendance metrics, charges, and payments. Pass 5 hardening remains open: explicit closure/decline, controlled fourth-visit override, and stronger duplicate handling. | `docs/planning/trial-classes-plan.md`, `v1.16.210`-`v1.16.217` devlog |
-| ✅ | Enrollment second tutor + durable manual charge override | Production `v1.16.220` adds optional second-tutor capture plus durable Super Admin-only overrides for pending untouched charges. Generation stays unchanged; scheduled repricing and adjacent application paths preserve overrides, and an explicit restore returns to the exact pre-override price/rule. Continue finance-sanity monitoring after real operator use. | New Enrollments / Caja, `v1.16.218`-`v1.16.220` devlog |
-| ✅ | Finance Sanity deep-scan reliability | Production `v1.16.221` replaces unbounded enrollment diagnostics with bounded concurrency, rejects incomplete ledger reads instead of manufacturing `$0.00` balances, and reports incomplete scans explicitly. | Finance Sanity, `v1.16.221` devlog |
-| ✅ | Finance Sanity stale-audit cleanup | Production `v1.16.222` skips deleted historical enrollment references without hiding genuine query failures, and counts only completed live-enrollment diagnostics. | Finance Sanity, `v1.16.222` devlog |
-| ✅ | Charge void to explicit credit | Production `v1.16.226` makes eligible paid-charge annulment transactional, converts only the released allocation into explicit credit, reopens existing credit applications without duplication, keeps paid tuition/inscription protected, and exposes the scoped action to Front Desk. | Front Desk / Caja, `v1.16.226` devlog |
-| ✅ | Charge/payment ledger traceability | Production `v1.16.227` adds charge creation/settlement dates, payment folios, and bidirectional charge-payment allocation detail to the shared player/account ledger without changing financial state. | Player profile / Cargos y cuenta, `v1.16.227` devlog |
-| 🟢 | Automatic explicit-credit FIFO + charge-centric Caja | Preview candidate `v1.16.228` automatically consumes explicit credit FIFO, keeps historical implicit credit untouched, makes Caja totals fixed, replaces recent payments with guarded recent-charge annulment, and leaves reassignment as Super Admin-only correction. | Front Desk / Caja, `v1.16.228` devlog |
-| 🟡 | Attendance analytics expansion | Production `v1.16.208` includes the first dedicated coach monthly participation dashboard; preview `v1.16.231` starts the separate 30-day staffing-capacity report foundation. Broader trends and drilldowns remain. | Reports / Asistencia / Panel |
 
 **How `Now` Works**
 
@@ -154,12 +170,12 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 ## Next
 
-- 🟢 `v1.16.229` charge-level cash refunds are ready for preview validation: selected paid products can be refunded in cash without changing unrelated allocations, and Caja/Corte/credit/diagnostic contracts share the same refund truth. See the `v1.16.229` devlog entry.
-
 Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
+| 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
+| 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🟡 | Coach match posting v1 | Let coaches start posting match info before the parent/mobile app launch, so the habit and data shape can be tested early. |
 | 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
@@ -171,7 +187,6 @@ Important, but not necessarily the next edit.
 | 🟡 | Uniformes follow-up | Compact menu feedback and auto-sync captured uniform size into player technical data. Keep stock/supplier management separate. |
 | 🟡 | Player profile consolidation polish | Continue making `/players/[id]` the single-player hub; remaining polish includes local date formatting and account navigation. |
 | 🧊 | Drag-and-drop group editing | Later UI layer over the existing audited batch group assignment flow. Current dropdown edit mode is usable. |
-| 🔴 | Baja re-enrollment / reactivation workflow | Dedicated next-pass design: create a new enrollment while preserving the prior baja/history; default to preserving old charges, optionally void only eligible fully-unpaid prior charges, never erase payments/allocations/refunds, and keep an auditable Caja handoff. |
 
 ## User Feedback Intake
 
@@ -264,6 +279,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 |---|---|---|
 | ✅ | Grouped roster performance | Main spreadsheet-style roster optimized through `v1.16.106`-`v1.16.109`. |
 | ✅ | Training group emergency edit mode | Dropdown edit, audited batch save, permission hiding, and `Quitar grupo` shipped in `v1.16.116`-`v1.16.117`. |
+| 🔴 | `Nivel` / training-group consistency and repair plan | First `v1.17` lane. Audit `players.level`, enrollment context, operational level, active group assignment, displayed group labels, YOB/gender/program rules, and coach ownership. Produce a read-only discrepancy inventory before approving any data repair or model change. |
 | ✅ | Grouped roster Excel export | Export shipped in `v1.16.129`; category/YOB sheets and black-white print-friendly formatting shipped in `v1.16.130`. |
 | 🟢 | `Bajas` tab polish | Month/date filters, alphabetical archive, categorized reasons, reason KPIs, and copyable summary shipped in `v1.16.123`-`v1.16.126`. `v1.16.181` adds a compact print-only dropout report using all filtered rows and campus/YOB/name/baja-date ordering; `v1.16.182` also shows category/YOB in the visible app list. Keep open for later visual cleanup or deeper analytics. |
 | 🧊 | Bajas confirmation workflow | Lower priority for now because Front Desk/admin have more urgent requested changes. Planned later: Front Desk / Director Deportivo can flag a potential dropout (`Baja potencial`) with reason/context, while director/admin confirmation performs the final enrollment-ending action. |

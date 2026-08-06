@@ -1,7 +1,22 @@
 # Training Groups, Teams, And Attendance Model
 
 Date: 2026-04-22
-Status: planning / analysis
+Status: historical model analysis; current-state re-audit starts in v1.17.0
+
+## v1.17 Re-entry Note (2026-08-06)
+
+This document captured the problem before first-class training groups and the current attendance/group workflows were implemented. It remains useful for domain definitions and original risks, but its statements about the live schema and route behavior must not be treated as current truth.
+
+The `v1.17` Nivel/Grupo pass starts with a read-only audit of the current database and application paths. It must reconcile:
+
+- player `level` and any operational-level labels;
+- active enrollment campus and status;
+- active training-group assignments and group metadata;
+- YOB, gender, program, and combined-year eligibility;
+- coach ownership and historical attendance/session references;
+- competition teams and tournament eligibility, which must remain separate from training groups.
+
+No bulk repair, assignment backfill, or schema rewrite is approved by this note. The audit must first produce a discrepancy inventory and deterministic repair rules that preserve attendance history, enrollment history, finance, permissions, and tournament records.
 
 ## Why This Exists
 
