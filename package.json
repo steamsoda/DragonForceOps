@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.16.233",
+  "version": "1.16.234",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
     "test:training-workload-foundation": "node scripts/assert-training-workload-foundation.mjs",
     "test:training-workload-coach-view": "node scripts/assert-training-workload-coach-view.mjs",
     "test:training-workload-schedule-view": "node scripts/assert-training-workload-schedule-view.mjs",
+    "test:training-workload-role-monitoring": "node scripts/assert-training-workload-role-monitoring.mjs",
     "test:attendance-nomenclature": "node scripts/assert-attendance-nomenclature.mjs",
     "test:weekly-coach-packet": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-weekly-coach-packet.mjs",
     "test:bajas-print-report": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-bajas-print-report.mjs",

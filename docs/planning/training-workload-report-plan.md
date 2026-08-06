@@ -1,6 +1,6 @@
 # Training Workload Report Plan
 
-Status: Passes 1-3 implemented in preview through `v1.16.233`; role/performance validation remains.
+Status: Passes 1-4 implemented in preview through `v1.16.234`; print-layout polish remains parked.
 
 ## Purpose
 
@@ -43,4 +43,12 @@ This is a staffing-capacity report. It does not replace player attendance percen
 1. Coach snapshots plus the aggregated rolling 30-day RPC.
 2. Compact `Por coach` report UI and direct validation against representative groups. Implemented in preview `v1.16.232`.
 3. `Por horario` mode and print layout. Implemented in preview `v1.16.233`.
-4. Role regression, performance validation, and historical-snapshot monitoring.
+4. Role regression, performance validation, and historical-snapshot monitoring. Implemented in preview `v1.16.234`.
+   - Read access remains limited to the established attendance-read roles and their allowed campuses.
+   - The report remains finance-free and uses one aggregated RPC call.
+   - Preview medians on 2026-08-05 were about 220-227 ms for 216 Contry rows and 299 Linda Vista rows.
+   - The page now distinguishes exact creation/completion snapshots, explicit legacy backfill, and missing snapshots.
+
+## Parked Polish
+
+- Refine the browser print-preview layout after the operational report and monitoring behavior have been validated.

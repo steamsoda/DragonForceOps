@@ -39,8 +39,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.230`
-- Current preview candidate: `v1.16.233`
-- Training workload status: `v1.16.231` supplies coach snapshots and the rolling RPC; `v1.16.232` adds `Por coach`; `v1.16.233` adds `Por horario` plus compact printing. Role, performance, and historical-snapshot monitoring remain.
+- Current preview candidate: `v1.16.234`
+- Training workload status: passes 1-4 are implemented through preview `v1.16.234`: coach snapshots, rolling RPC, `Por coach`, `Por horario`, role/data-boundary regression, measured preview performance, and snapshot-quality monitoring. Print-preview refinement remains parked.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -130,7 +130,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟡 | Training workload by coach and time block | Preview candidate `v1.16.231` adds coach snapshots plus a read-only rolling 30-day workload RPC. Next passes add compact `Por coach` and `Por horario` matrices, separate `+P` tryouts, three averages, unregistered-session warnings, and printing. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
+| 🟢 | Training workload by coach and time block | Preview `v1.16.231`-`v1.16.234` now includes coach snapshots, one rolling RPC, compact coach/schedule matrices, separate `+P` tryouts, three averages, role regression, measured query performance, and explicit snapshot-quality monitoring. Print-preview polish is parked. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
 | ✅ | J5 San Pedro Agosto 2026 product rules | Production `v1.16.230` adds strict campus/program/YOB pricing, the paid-Polideportivo Femenil discount, both-campus tournament metadata, and Super Admin product-level date configuration without mutating existing charges. | Products / Competencias, `v1.16.230` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |

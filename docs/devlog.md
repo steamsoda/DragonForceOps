@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 253)
+
+### Training Workload Report - Role, Performance, and Snapshot Monitoring (v1.16.234)
+
+- Completed the Pass 4 regression audit for `Reportes > Carga de entrenamiento`: the route remains limited to established attendance-read roles and every request is constrained to the user's allowed attendance campuses before the service-role RPC runs.
+- Locked the privacy boundary with a focused assertion covering Director/Admin, Director Deportivo, attendance/field staff, Front Desk, and Office Admin navigation/access while rejecting finance-table dependencies.
+- Benchmarked the preview RPC with five reads per campus. Median response time was about `226.5 ms` for 216 Contry rows and `220.3 ms` for 299 Linda Vista rows, so no index or query rewrite was warranted.
+- Added visible coach-history quality monitoring that separates exact creation/completion snapshots, explicit legacy backfill, and missing snapshots. Missing snapshots now produce a stronger warning instead of being silently treated as valid history.
+- All sessions in the current 30-day preview window are expected legacy backfill because the snapshot migration was introduced on 2026-08-05; exact counts will grow as new sessions are generated or completed.
+- This pass is read-only and adds no migration. It does not change attendance counts, tryout counts, coach grouping, campus access, or finance.
+- Print-preview refinement remains parked as a dedicated polish pass after operational validation.
+
 ## 2026-08-05 (session 252)
 
 ### Training Workload Report - Por Horario and Print (v1.16.233)

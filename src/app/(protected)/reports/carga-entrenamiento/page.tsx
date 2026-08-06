@@ -181,11 +181,23 @@ export default async function TrainingWorkloadReportPage({ searchParams }: { sea
           ))}
         </section>
 
-        {data.totals.legacySessions > 0 ? (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200 print:border-black print:bg-white print:px-1 print:py-0.5 print:text-[6px] print:text-black">
-            Las sesiones historicas marcadas como legado usan la asignacion de coaches disponible al crear esta herramienta. Las sesiones nuevas conservan el coach real de la sesion.
+        <section className={`rounded-md border p-3 text-xs print:hidden ${data.totals.missingSnapshotSessions > 0 ? "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold">Calidad del historial de coaches</p>
+            <div className="flex flex-wrap gap-2 tabular-nums">
+              <span className="rounded-full border border-emerald-300 px-2 py-1 text-emerald-800 dark:border-emerald-700 dark:text-emerald-200">Exactas: {data.totals.exactSnapshotSessions}</span>
+              <span className="rounded-full border border-amber-300 px-2 py-1 text-amber-800 dark:border-amber-700 dark:text-amber-200">Legado: {data.totals.legacySessions}</span>
+              <span className={`rounded-full border px-2 py-1 ${data.totals.missingSnapshotSessions > 0 ? "border-red-400 font-semibold text-red-800 dark:border-red-700 dark:text-red-200" : "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"}`}>Sin snapshot: {data.totals.missingSnapshotSessions}</span>
+            </div>
+          </div>
+          <p className="mt-2">
+            {data.totals.missingSnapshotSessions > 0
+              ? "Hay sesiones sin una asignacion historica de coaches. Revisa la captura antes de usar este reporte para decisiones de personal."
+              : data.totals.legacySessions > 0
+                ? "Las sesiones de legado usan la asignacion disponible al crear esta herramienta. Las sesiones nuevas conservan el coach real al crear o completar la sesion."
+                : "Todas las sesiones del periodo conservan una asignacion historica exacta de coaches."}
           </p>
-        ) : null}
+        </section>
 
         <WorkloadMatrix sections={sections} mode={mode} />
       </div>

@@ -93,7 +93,9 @@ export type TrainingWorkloadReportData = {
     officialAverage: number | null;
     tryoutAverage: number | null;
     totalAverage: number | null;
+    exactSnapshotSessions: number;
     legacySessions: number;
+    missingSnapshotSessions: number;
   };
 };
 
@@ -209,7 +211,9 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
     officialAverage: null,
     tryoutAverage: null,
     totalAverage: null,
+    exactSnapshotSessions: 0,
     legacySessions: 0,
+    missingSnapshotSessions: 0,
   };
 
   if (!access || access.campuses.length === 0) {
@@ -343,6 +347,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
   const officialValues = allRows.map((row) => numberValue(row.official_attended_count));
   const tryoutValues = allRows.map((row) => numberValue(row.tryout_count));
   const totalValues = allRows.map((row) => numberValue(row.total_served_count));
+  const exactSnapshotSources = new Set(["creation", "completion"]);
 
   return {
     campuses: access.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
@@ -363,7 +368,9 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
       officialAverage: average(officialValues),
       tryoutAverage: average(tryoutValues),
       totalAverage: average(totalValues),
+      exactSnapshotSessions: rows.filter((row) => exactSnapshotSources.has(row.coach_snapshot_source ?? "")).length,
       legacySessions: rows.filter((row) => row.coach_snapshot_source === "legacy_backfill_current_assignment").length,
+      missingSnapshotSessions: rows.filter((row) => !exactSnapshotSources.has(row.coach_snapshot_source ?? "") && row.coach_snapshot_source !== "legacy_backfill_current_assignment").length,
     },
   };
 }
