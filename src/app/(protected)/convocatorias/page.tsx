@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
+import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-form";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
-import { createWeeklyCallupComposerAction, deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
+import { deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
 
 type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string }>;
 
@@ -109,44 +110,14 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
             </div>
           </div>
 
-          <form action={createWeeklyCallupComposerAction} className="space-y-4">
-            <input type="hidden" name="campusId" value={selectedCampusId} />
-            <input type="hidden" name="program" value={selectedProgram} />
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <label className="space-y-1 text-sm font-medium">
-                <span>Lunes de la semana</span>
-                <input name="weekStart" type="date" defaultValue={data.currentWeekStart} required className="min-h-10 rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950" />
-              </label>
-              <p className="text-xs text-slate-500">Deja Torneo vacio para omitir un grupo esta semana.</p>
-            </div>
-            <div className="overflow-x-auto rounded-md border border-slate-200">
-              <table className="min-w-[1180px] w-full border-collapse text-sm">
-                <thead className="bg-slate-100 text-left text-xs uppercase text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2">Grupo</th><th className="px-3 py-2">Coach principal</th><th className="px-3 py-2">Torneo</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Hora cita</th><th className="px-3 py-2">Sede</th><th className="px-3 py-2">Rival</th><th className="px-3 py-2 text-center">Descansa</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {visibleGroups.map((group) => (
-                    <tr key={group.id} className="align-top odd:bg-white even:bg-slate-50/70">
-                      <td className="px-3 py-2"><input type="hidden" name="groupId" value={group.id} /><strong className="block text-portoBlue">{group.name}</strong><span className="text-xs text-slate-500">Cat. {group.categoryLabel}</span></td>
-                      <td className="px-3 py-2">{group.primaryCoachName}</td>
-                      <td className="px-3 py-2"><select name={`tournamentId:${group.id}`} defaultValue="" className="min-h-9 w-56 rounded border border-slate-300 bg-white px-2"><option value="">Omitir grupo</option>{tournamentOptions.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}</select></td>
-                      <td className="px-3 py-2"><input type="date" name={`matchDate:${group.id}`} className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
-                      <td className="px-3 py-2"><input type="time" name={`arrivalTime:${group.id}`} className="min-h-9 w-28 rounded border border-slate-300 px-2" /></td>
-                      <td className="px-3 py-2"><input name={`venue:${group.id}`} placeholder="Sede" className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
-                      <td className="px-3 py-2"><input name={`opponent:${group.id}`} placeholder="Rival" className="min-h-9 w-36 rounded border border-slate-300 px-2" /></td>
-                      <td className="px-3 py-3 text-center"><input type="checkbox" name={`isRest:${group.id}`} value="yes" className="h-4 w-4" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {visibleGroups.length === 0 ? <p className="p-6 text-center text-sm text-slate-500">No hay grupos activos para esta seleccion.</p> : null}
-            </div>
-            <div className="flex justify-end">
-              <button disabled={visibleGroups.length === 0} className="min-h-11 rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">Preparar convocatoria</button>
-            </div>
-          </form>
+          <WeeklyCallupComposerForm
+            key={`${selectedCampusId}:${selectedProgram}`}
+            campusId={selectedCampusId}
+            program={selectedProgram}
+            currentWeekStart={data.currentWeekStart}
+            groups={visibleGroups}
+            tournaments={tournamentOptions.map((tournament) => ({ id: tournament.id, name: tournament.name }))}
+          />
         </section>
 
         <section className="space-y-3">

@@ -70,6 +70,12 @@ Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or
 - Removed the generated-image footer legend.
 - Inline player exclusion in the quick composer remains a separate optional polish item after staff validation.
 
+### Pass 3C-3 - Preserved composer validation (implemented in preview v1.16.243)
+
+- Validate missing or inconsistent group rows in place with exact messages.
+- Preserve campus, program, tournament, date, time, venue, rival, and rest values after any expected validation failure.
+- Navigate to the saved convocatoria only after successful creation.
+
 ### Pass 4 - Hardening
 
 - Validate role and campus behavior with debug users.

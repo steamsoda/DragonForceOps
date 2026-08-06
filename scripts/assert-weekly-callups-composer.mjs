@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [migration, readyMigration, action, query, page, editor, png] = await Promise.all([
+const [migration, readyMigration, action, query, page, composer, editor, png] = await Promise.all([
   readFile("supabase/migrations/20260806120000_weekly_callup_group_tournaments.sql", "utf8"),
   readFile("supabase/migrations/20260806130000_weekly_callups_ready_coach_snapshots.sql", "utf8"),
   readFile("src/server/actions/weekly-callups.ts", "utf8"),
   readFile("src/lib/queries/weekly-callups.ts", "utf8"),
   readFile("src/app/(protected)/convocatorias/page.tsx", "utf8"),
+  readFile("src/components/weekly-callups/composer-form.tsx", "utf8"),
   readFile("src/app/(protected)/convocatorias/[callupId]/page.tsx", "utf8"),
   readFile("src/lib/weekly-callups/png-layout.ts", "utf8"),
 ]);
@@ -28,12 +29,21 @@ assert.match(action, /assignmentByEnrollment/);
 assert.match(action, /weekly_callups\.composer_created/);
 assert.match(action, /status: "ready"/);
 assert.match(action, /loadCoachSnapshots/);
+assert.match(action, /WeeklyCallupComposerState/);
+assert.match(action, /Revisa los grupos marcados/);
+assert.doesNotMatch(action, /redirectResult\("(?:empty_composer|invalid_composer_game|composer_already_exists|invalid_composer_source|ambiguous_composer_roster|composer_create_failed)"\)/);
 assert.doesNotMatch(action, /from\("(?:charges|payments|payment_allocations)"\)/);
 
 assert.match(page, /Campus/);
-assert.match(page, /Coach principal/);
-assert.match(page, /tournamentId:\$\{group\.id\}/);
+assert.match(page, /WeeklyCallupComposerForm/);
 assert.match(page, /Preparar convocatoria/);
+assert.match(composer, /Coach principal/);
+assert.match(composer, /tournamentId:\$\{group\.id\}/);
+assert.match(composer, /useActionState/);
+assert.match(composer, /Tus datos siguen guardados en esta pantalla/);
+assert.match(composer, /rowErrors/);
+assert.match(composer, /event\.preventDefault\(\)/);
+assert.match(composer, /value=\{row\.tournamentId\}/);
 assert.match(editor, /category\.tournamentName/);
 assert.match(png, /category\.tournamentName/);
 assert.match(png, /category\.coachNames/);

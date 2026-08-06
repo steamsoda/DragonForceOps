@@ -84,6 +84,12 @@ type ManualEnrollmentRow = {
   } | null;
 };
 
+export type WeeklyCallupComposerState = {
+  ok: false;
+  message: string;
+  rowErrors?: Record<string, string>;
+} | null;
+
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -424,7 +430,10 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
   redirectResult("ok=snapshot_created");
 }
 
-export async function createWeeklyCallupComposerAction(formData: FormData) {
+export async function createWeeklyCallupComposerAction(
+  _previousState: WeeklyCallupComposerState,
+  formData: FormData,
+): Promise<WeeklyCallupComposerState> {
   await assertDebugWritesAllowed("/convocatorias");
   const context = await getPermissionContext();
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) redirect("/unauthorized");
@@ -433,12 +442,15 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
   const programValue = textValue(formData, "program");
   const weekStart = textValue(formData, "weekStart");
   const campusIds = context.campusAccess?.campusIds ?? [];
-  if (!campusIds.includes(campusId) || !isProgram(programValue) || !isMondayIsoDate(weekStart)) {
-    redirectResult("invalid_composer_settings");
+  if (!campusIds.includes(campusId) || !isProgram(programValue)) {
+    return { ok: false, message: "El campus o programa seleccionado ya no esta disponible. Vuelve a seleccionarlo." };
+  }
+  if (!isMondayIsoDate(weekStart)) {
+    return { ok: false, message: "Selecciona el lunes que inicia la semana de la convocatoria." };
   }
 
   const requestedGroupIds = [...new Set(formData.getAll("groupId").map(String).filter(isUuid))];
-  const rowConfigs = requestedGroupIds.map((groupId) => ({
+  const submittedRows = requestedGroupIds.map((groupId) => ({
     groupId,
     tournamentId: textValue(formData, `tournamentId:${groupId}`),
     isRest: textValue(formData, `isRest:${groupId}`) === "yes",
@@ -446,17 +458,46 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
     arrivalTime: textValue(formData, `arrivalTime:${groupId}`),
     venue: textValue(formData, `venue:${groupId}`),
     opponent: textValue(formData, `opponent:${groupId}`),
-  })).filter((row) => row.tournamentId || row.isRest);
+  }));
 
-  if (rowConfigs.length === 0 || rowConfigs.some((row) => !isUuid(row.tournamentId))) {
-    redirectResult("empty_composer");
-  }
-  for (const row of rowConfigs) {
+  const rowErrors: Record<string, string> = {};
+  for (const row of submittedRows) {
     const hasAnyGameValue = Boolean(row.matchDate || row.arrivalTime || row.venue || row.opponent);
-    const hasCompleteGame = Boolean(row.matchDate && row.arrivalTime && row.venue && row.opponent);
-    if (row.isRest ? hasAnyGameValue : !hasCompleteGame || !dateWithinWeek(row.matchDate, weekStart)) {
-      redirectResult("invalid_composer_game");
+    if (!row.tournamentId && (row.isRest || hasAnyGameValue)) {
+      rowErrors[row.groupId] = "Selecciona un torneo para este grupo o limpia los datos capturados.";
+      continue;
     }
+    if (!row.tournamentId) continue;
+    if (!isUuid(row.tournamentId)) {
+      rowErrors[row.groupId] = "El torneo seleccionado ya no es valido. Seleccionalo nuevamente.";
+      continue;
+    }
+    const hasCompleteGame = Boolean(row.matchDate && row.arrivalTime && row.venue && row.opponent);
+    if (row.isRest && hasAnyGameValue) {
+      rowErrors[row.groupId] = "Si el grupo descansa, limpia la fecha, hora, sede y rival.";
+      continue;
+    }
+    if (!row.isRest && !hasCompleteGame) {
+      const missing = [
+        !row.matchDate ? "fecha" : "",
+        !row.arrivalTime ? "hora de cita" : "",
+        !row.venue ? "sede" : "",
+        !row.opponent ? "rival" : "",
+      ].filter(Boolean).join(", ");
+      rowErrors[row.groupId] = `Completa: ${missing}.`;
+      continue;
+    }
+    if (!row.isRest && !dateWithinWeek(row.matchDate, weekStart)) {
+      rowErrors[row.groupId] = "La fecha del partido debe estar entre el lunes y domingo de la semana elegida.";
+    }
+  }
+  if (Object.keys(rowErrors).length > 0) {
+    return { ok: false, message: "Revisa los grupos marcados antes de preparar la convocatoria.", rowErrors };
+  }
+
+  const rowConfigs = submittedRows.filter((row) => row.tournamentId);
+  if (rowConfigs.length === 0) {
+    return { ok: false, message: "Selecciona al menos un torneo. Los grupos con 'Omitir grupo' no se incluyen." };
   }
 
   const admin = createAdminClient();
@@ -467,8 +508,13 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
     .eq("program", programValue)
     .eq("week_start", weekStart)
     .limit(1);
-  if (existingResult.error) throw existingResult.error;
-  if ((existingResult.data?.length ?? 0) > 0) redirectResult("composer_already_exists");
+  if (existingResult.error) {
+    console.error("weekly callup duplicate check failed", existingResult.error);
+    return { ok: false, message: "No se pudo validar la semana. Intenta nuevamente." };
+  }
+  if ((existingResult.data?.length ?? 0) > 0) {
+    return { ok: false, message: "Ya existe una convocatoria para este campus, programa y semana. Abrela en Convocatorias guardadas o elige otra semana." };
+  }
 
   const selectedGroupIds = rowConfigs.map((row) => row.groupId);
   const selectedTournamentIds = [...new Set(rowConfigs.map((row) => row.tournamentId))];
@@ -485,8 +531,10 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
       .returns<TournamentRow[]>(),
     loadCoachSnapshots(admin, selectedGroupIds),
   ]);
-  if (groupsResult.error) throw groupsResult.error;
-  if (tournamentsResult.error) throw tournamentsResult.error;
+  if (groupsResult.error || tournamentsResult.error) {
+    console.error("weekly callup source validation failed", groupsResult.error ?? tournamentsResult.error);
+    return { ok: false, message: "No se pudieron validar los grupos y torneos. Intenta nuevamente." };
+  }
 
   const groupById = new Map((groupsResult.data ?? []).map((group) => [group.id, group]));
   const tournamentById = new Map((tournamentsResult.data ?? []).map((tournament) => [tournament.id, tournament]));
@@ -496,7 +544,9 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
     return !group || group.campus_id !== campusId || group.program !== programValue || group.status !== "active"
       || !tournament || tournament.campus_id !== campusId || !tournament.is_active;
   });
-  if (invalidSource) redirectResult("invalid_composer_source");
+  if (invalidSource) {
+    return { ok: false, message: "Un grupo o torneo seleccionado ya no esta activo. Revisa la seleccion e intenta nuevamente." };
+  }
 
   type PaidRoster = NonNullable<Awaited<ReturnType<typeof getCompetitionPaidCallupPlayers>>>;
   const paidByTournament = new Map<string, PaidRoster>();
@@ -506,7 +556,9 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
       campusId,
       competitionId: `product:${tournament.product_id}`,
     });
-    if (!paid) redirectResult("paid_roster_unavailable");
+    if (!paid) {
+      return { ok: false, message: `No se pudo leer el plantel pagado de ${tournament.name}. Intenta nuevamente.` };
+    }
     paidByTournament.set(tournamentId, paid);
   }
 
@@ -519,10 +571,15 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
         .is("end_date", null)
         .returns<AssignmentRow[]>()
     : { data: [] as AssignmentRow[], error: null };
-  if (assignmentsResult.error) throw assignmentsResult.error;
+  if (assignmentsResult.error) {
+    console.error("weekly callup assignments failed", assignmentsResult.error);
+    return { ok: false, message: "No se pudieron validar los grupos actuales de los jugadores. Intenta nuevamente." };
+  }
   const assignmentByEnrollment = new Map<string, AssignmentRow>();
   for (const assignment of assignmentsResult.data ?? []) {
-    if (assignmentByEnrollment.has(assignment.enrollment_id)) redirectResult("ambiguous_composer_roster");
+    if (assignmentByEnrollment.has(assignment.enrollment_id)) {
+      return { ok: false, message: "Hay jugadores con mas de un grupo activo. Corrige esas asignaciones antes de continuar." };
+    }
     assignmentByEnrollment.set(assignment.enrollment_id, assignment);
   }
 
@@ -602,7 +659,7 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
   } catch (error) {
     if (callupId) await admin.from("weekly_callups").delete().eq("id", callupId);
     console.error("weekly callup composer failed", error);
-    redirectResult("composer_create_failed");
+    return { ok: false, message: "No se pudo preparar la convocatoria. Tus datos siguen aqui; revisalos e intenta nuevamente." };
   }
 
   revalidatePath("/convocatorias");

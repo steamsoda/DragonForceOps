@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-06 (session 264)
+
+### Weekly WhatsApp Convocatorias - Preserved Form Validation (v1.16.243)
+
+- Replaced redirect-based composer validation with in-place client and server validation so rejected submissions no longer refresh the page, reset campus/program, or erase tournament and match inputs.
+- Added row-specific messages for missing tournament, date, arrival time, venue, rival, out-of-week dates, and invalid `Descansa` combinations, plus a clear form-level explanation.
+- Kept controlled form values visible after duplicate-week, stale source, roster-read, assignment, and creation errors; navigation now occurs only after a successful convocatoria is created.
+- Added an explicit pending state and focused regression coverage for preserved values, row errors, and the no-redirect validation boundary.
+
 ## 2026-08-06 (session 263)
 
 ### Weekly WhatsApp Convocatorias - Ready-First Cleanup (v1.16.242)
