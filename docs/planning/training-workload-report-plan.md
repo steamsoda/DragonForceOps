@@ -1,6 +1,6 @@
 # Training Workload Report Plan
 
-Status: Passes 1-4 are in production `v1.16.234`; count-clarity follow-up is in preview `v1.16.235`; print-layout polish follows validation.
+Status: Passes 1-4 and the count-clarity follow-up are in production through `v1.16.235`; print-layout polish remains the next dedicated pass.
 
 ## Purpose
 

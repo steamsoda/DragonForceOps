@@ -38,9 +38,9 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.16.234`
-- Current preview candidate: `v1.16.235`
-- Training workload status: production `v1.16.234` contains passes 1-4. Preview `v1.16.235` adds direct session links, weighted official attendance percentage, same-day multi-session preservation, clearer staff wording, and direct count-integrity diagnostics. Print-preview refinement follows validation.
+- Current production line: `v1.16.235`
+- Current preview candidate: `v1.16.235` (promoted)
+- Training workload status: production `v1.16.235` includes direct session links, weighted official attendance percentage, same-day multi-session preservation, clear staff wording, and direct count-integrity diagnostics. Print-preview refinement remains the next polish pass.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
 - Archived full roadmap detail: `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`
@@ -130,7 +130,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Training workload by coach and time block | Production `v1.16.231`-`v1.16.234` provides the four-pass report. Preview `v1.16.235` adds auditable session links, a weighted attendance rate, same-day session preservation, and direct RPC-vs-record count diagnostics. Print-preview refinement follows validation. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
+| ✅ | Training workload by coach and time block | Production `v1.16.231`-`v1.16.235` provides the four-pass report plus auditable session links, a weighted attendance rate, same-day session preservation, and direct RPC-vs-record count diagnostics. Print-preview refinement remains a separate polish task. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
 | ✅ | J5 San Pedro Agosto 2026 product rules | Production `v1.16.230` adds strict campus/program/YOB pricing, the paid-Polideportivo Femenil discount, both-campus tournament metadata, and Super Admin product-level date configuration without mutating existing charges. | Products / Competencias, `v1.16.230` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
 | ⚠️ | Injury/absence workflow v2 | Needs design before edits: injury/absence can affect attendance labels, current-month tuition omission, multi-month omission, and return-to-normal behavior. | Checkpoint 2026-07-08, Asistencia / Caja |

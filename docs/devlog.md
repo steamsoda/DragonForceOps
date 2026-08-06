@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 256)
+
+### Training Workload Count Clarity Production Promotion (v1.16.235)
+
+- Promoted the verified `Promedios de asistencia por coach` count-clarity pass from preview to production.
+- Production now links every visible session count to its attendance session, preserves multiple same-day sessions, and shows the weighted official attendance percentage without exposing internal snapshot terminology to staff.
+- The production migration `20260806010000_training_workload_attendance_rate.sql` applied successfully.
+- The read-only preview integrity diagnostic compared the report RPC with direct attendance records and found zero mismatches across 525 sessions: 220 in Contry and 305 in Linda Vista.
+- TypeScript, production build, focused workload regressions, dependency audit, secret scan, Supabase Preview/Production migrations, and remote branch parity passed before closing the promotion.
+- This release does not mutate attendance, rosters, trial visits, coach assignments, or finance. Print-preview refinement remains a separate polish pass.
+
 ## 2026-08-05 (session 255)
 
 ### Training Workload Count Clarity and Attendance Rate (v1.16.235)
