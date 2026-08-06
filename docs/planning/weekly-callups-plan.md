@@ -33,11 +33,13 @@ Generate one clear weekly WhatsApp image per campus, tournament, and program (`S
 - Require every category to contain a complete game or be marked `Descansa` before the packet can be marked `Lista`.
 - Return a ready packet to `Borrador` after any edit.
 
-### Pass 2B - Controlled exceptions and refresh
+### Pass 2B - Controlled exceptions and refresh (implemented in preview v1.16.238)
 
-- Add director-only manual unpaid exceptions with a required reason and audit event.
-- Add explicit game ordering when a category has multiple games.
-- Add an explicit roster refresh that previews added/removed/moved players before replacing the snapshot.
+- Added director-only manual unpaid exceptions with a required reason and audit event. These exceptions only affect the packet and never create tournament payments or registrations.
+- Added explicit game ordering when a category has multiple games.
+- Added an opt-in paid-roster comparison that lists added, removed, and moved players before any write.
+- Added an explicitly confirmed transactional refresh. It preserves games, rest state, category order, packet exclusions, and manual exceptions while synchronizing the paid snapshot and returning the packet to `Borrador`.
+- Added duplicate active-assignment and duplicate roster-payload safeguards so ambiguous source data fails instead of silently duplicating a player.
 
 ### Pass 3 - WhatsApp image
 

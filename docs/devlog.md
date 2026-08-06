@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 259)
+
+### Weekly WhatsApp Convocatorias - Controlled Refresh and Exceptions Pass 2B (v1.16.238)
+
+- Added an opt-in comparison between a frozen weekly packet and the current fully-paid, Combo-aware tournament roster. Operators see exactly which players would be added, removed, or moved before choosing to refresh; opening the editor does not automatically rewrite the packet.
+- Added a confirmed transactional roster refresh that preserves games, `Descansa`, category/game order, packet-only exclusions, and director exceptions, then returns the packet to `Borrador`. The database RPC is service-only and does not mutate products, charges, payments, allocations, enrollments, attendance, or training-group assignments.
+- Added director-only unpaid-player exceptions with a mandatory reason, active campus/program/group validation, a visible `Excepcion sin pago` label, and an audit event. This inclusion is limited to the weekly packet and does not register the player as paid for the tournament.
+- Added explicit ordering controls for multiple games in one category and visible comparison counts/lists for paid-roster changes.
+- Hardened the live paid source with paged group reads, duplicate-assignment detection, duplicate payload rejection, and all-or-nothing database refresh behavior.
+- Added focused regression coverage for role guards, audit reasons, paid-source reuse, transactional refresh, manual-exception preservation, duplicate protection, game ordering, and the no-finance/no-attendance write boundary.
+- High-resolution WhatsApp PNG generation remains Pass 3. Preview validation should exercise no-change and changed-roster comparisons, a director exception, and multiple-game ordering before production promotion.
+
 ## 2026-08-05 (session 258)
 
 ### Weekly WhatsApp Convocatorias - Operational Editor Pass 2A (v1.16.237)

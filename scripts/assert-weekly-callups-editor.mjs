@@ -19,6 +19,7 @@ for (const actionName of [
   "toggleWeeklyCallupRestAction",
   "toggleWeeklyCallupPlayerAction",
   "moveWeeklyCallupCategoryAction",
+  "moveWeeklyCallupGameAction",
   "setWeeklyCallupStatusAction",
 ]) {
   assert.match(action, new RegExp(`export async function ${actionName}`));

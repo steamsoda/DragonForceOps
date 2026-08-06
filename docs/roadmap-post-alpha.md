@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.16.235`
-- Current preview candidate: `v1.16.237`
+- Current preview candidate: `v1.16.238`
 - Training workload status: production `v1.16.235` includes direct session links, weighted official attendance percentage, same-day multi-session preservation, clear staff wording, and direct count-integrity diagnostics. Print-preview refinement remains the next polish pass.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -130,7 +130,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Weekly WhatsApp convocatorias Pass 1-2A | Preview `v1.16.236`-`v1.16.237` adds the frozen fully-paid Combo-aware roster foundation plus the operational editor for games, rest weeks, category order, packet-only exclusions, and guarded `Lista` status. Director-only unpaid exceptions, roster refresh/diff, and PNG generation remain open. | `docs/planning/weekly-callups-plan.md`, Competencias |
+| 🟢 | Weekly WhatsApp convocatorias Pass 1-2B | Preview `v1.16.236`-`v1.16.238` adds the frozen Combo-aware roster, operational editor, director-only audited unpaid exceptions, explicit game order, paid-roster diff, and confirmed transactional refresh. High-resolution PNG generation remains open. | `docs/planning/weekly-callups-plan.md`, Competencias |
 | ✅ | Training workload by coach and time block | Production `v1.16.231`-`v1.16.235` provides the four-pass report plus auditable session links, a weighted attendance rate, same-day session preservation, and direct RPC-vs-record count diagnostics. Print-preview refinement remains a separate polish task. | `docs/planning/training-workload-report-plan.md`, Reports / Asistencia |
 | ✅ | J5 San Pedro Agosto 2026 product rules | Production `v1.16.230` adds strict campus/program/YOB pricing, the paid-Polideportivo Femenil discount, both-campus tournament metadata, and Super Admin product-level date configuration without mutating existing charges. | Products / Competencias, `v1.16.230` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Simplify creating special sessions and cancelling/rain days; include Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Checkpoint 2026-07-11, Asistencia lane |
@@ -187,7 +187,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟡 | Attendance special-day/cancellation workflow | Improve special training day and rain/cancellation workflows with Office Admin, Field Admin, Director Deportivo, Admin, and Super Admin permissions. | Asistencia |
 | 🟢 | Coach monthly attendance report | Preview `v1.16.205` adds campus/month/coach filters, weighted unique-player participation, zero-session safeguards, charts, grouped detail, and direct printing. | Reports / Asistencia, `v1.16.205` devlog |
 | 🟡 | Attendance analytics panel | Coach monthly participation ships first in preview `v1.16.205`; broader date ranges, best/worst attendance groups, operational drilldowns, and trend views remain. | Reports / Asistencia |
-| 🟢 | WhatsApp weekly convocatoria workflow | Preview `v1.16.236`-`v1.16.237` provides the frozen roster foundation and core operational editor. Controlled unpaid exceptions, explicit roster refresh/diff, and one-image PNG generation remain the next passes. | `docs/planning/weekly-callups-plan.md`, Competencias |
+| 🟢 | WhatsApp weekly convocatoria workflow | Preview `v1.16.236`-`v1.16.238` provides the frozen roster, core editor, controlled unpaid exceptions, game ordering, and explicit paid-roster refresh/diff. One-image PNG generation remains the next pass. | `docs/planning/weekly-callups-plan.md`, Competencias |
 | ✅ | 2026-07-01 tournament product/pricing refresh | Production `v1.16.183` implements the urgent July 2026 product refresh with additive pricing rules and keeps old products manually deactivatable for history safety. | Front Desk / Caja / Products, `v1.16.183` devlog |
 | ✅ | 2026-06-27 priority wave: weekly coach packet | Production `v1.16.180` provides the full campus packet and single-coach reprint, grouped by coach and training group, with new-player, pending-payment, and absence-risk signals. | Asistencia / Reports, `v1.16.180` devlog |
 | 🔴 | Enrollment data validation + confirmation popup | Plan after coach packet. Must preserve the current successful behavior where enrollment opens Caja with inscription/monthly charges staged for payment. | New Enrollments / Caja |

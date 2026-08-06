@@ -8,6 +8,10 @@ import { getPermissionContext } from "@/lib/auth/permissions";
 import { getCompetitionPaidCallupPlayers } from "@/lib/queries/sports-signups";
 import type { WeeklyCallupProgram } from "@/lib/queries/weekly-callups";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  getWeeklyCallupLivePaidRoster,
+  weeklyCallupCategoryLabel,
+} from "@/lib/weekly-callups/live-roster";
 
 type TournamentRow = {
   id: string;
@@ -35,8 +39,12 @@ type AssignmentRow = {
 type EditableCallupRow = {
   id: string;
   campus_id: string;
+  tournament_id: string;
+  program: WeeklyCallupProgram;
   week_start: string;
   status: "draft" | "ready" | "shared";
+  roster_snapshot_at: string;
+  tournaments: { product_id: string } | null;
 };
 
 type EditableCategoryRow = {
@@ -44,6 +52,30 @@ type EditableCategoryRow = {
   weekly_callup_id: string;
   sort_order: number;
   is_rest: boolean;
+};
+
+type SnapshotPlayerRow = {
+  id: string;
+  weekly_callup_category_id: string;
+  enrollment_id: string;
+  player_id: string;
+  training_group_id: string | null;
+  eligibility_source: "direct" | "bundle" | "manual_unpaid";
+  roster_status: "included" | "excluded";
+};
+
+type ManualEnrollmentRow = {
+  id: string;
+  player_id: string;
+  campus_id: string;
+  status: string;
+  players: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    birth_date: string | null;
+    status: string;
+  } | null;
 };
 
 function textValue(formData: FormData, key: string) {
@@ -108,7 +140,7 @@ async function loadEditableCallup(callupId: string, returnPath: string) {
   const admin = createAdminClient();
   const result = await admin
     .from("weekly_callups")
-    .select("id, campus_id, week_start, status")
+    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, tournaments(product_id)")
     .eq("id", callupId)
     .maybeSingle<EditableCallupRow | null>();
   if (result.error) throw result.error;
@@ -116,6 +148,33 @@ async function loadEditableCallup(callupId: string, returnPath: string) {
     redirect("/unauthorized");
   }
   return { admin, context, callup: result.data };
+}
+
+function getBirthYear(value: string | null | undefined) {
+  if (!value) return null;
+  const year = Number(value.slice(0, 4));
+  return Number.isInteger(year) ? year : null;
+}
+
+async function loadSnapshotPlayers(
+  admin: ReturnType<typeof createAdminClient>,
+  categoryIds: string[],
+) {
+  const rows: SnapshotPlayerRow[] = [];
+  if (categoryIds.length === 0) return rows;
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await admin
+      .from("weekly_callup_players")
+      .select("id, weekly_callup_category_id, enrollment_id, player_id, training_group_id, eligibility_source, roster_status")
+      .in("weekly_callup_category_id", categoryIds)
+      .range(offset, offset + pageSize - 1)
+      .returns<SnapshotPlayerRow[]>();
+    if (page.error) throw page.error;
+    rows.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < pageSize) break;
+  }
+  return rows;
 }
 
 async function loadEditableCategory(callupId: string, categoryId: string, returnPath: string) {
@@ -416,6 +475,47 @@ export async function deleteWeeklyCallupGameAction(formData: FormData) {
   redirectEditor(callupId, "ok=game_deleted");
 }
 
+export async function moveWeeklyCallupGameAction(formData: FormData) {
+  const callupId = textValue(formData, "callupId");
+  const categoryId = textValue(formData, "categoryId");
+  const gameId = textValue(formData, "gameId");
+  const direction = textValue(formData, "direction");
+  if (!isUuid(gameId) || (direction !== "up" && direction !== "down")) {
+    redirectEditor(callupId, "invalid_game_move");
+  }
+  const editable = await loadEditableCategory(callupId, categoryId, `/convocatorias/${callupId}`);
+  const games = await editable.admin
+    .from("weekly_callup_games")
+    .select("id, sort_order")
+    .eq("weekly_callup_category_id", categoryId)
+    .order("sort_order")
+    .order("match_date")
+    .returns<Array<{ id: string; sort_order: number }>>();
+  if (games.error) throw games.error;
+  const index = (games.data ?? []).findIndex((game) => game.id === gameId);
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || swapIndex < 0 || swapIndex >= (games.data?.length ?? 0)) {
+    redirectEditor(callupId, "invalid_game_move");
+  }
+  const current = games.data![index];
+  const swap = games.data![swapIndex];
+  const first = await editable.admin.from("weekly_callup_games").update({ sort_order: swap.sort_order }).eq("id", current.id);
+  if (first.error) throw first.error;
+  const second = await editable.admin.from("weekly_callup_games").update({ sort_order: current.sort_order }).eq("id", swap.id);
+  if (second.error) throw second.error;
+  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await writeAuditLog(editable.admin, {
+    actorUserId: editable.context.user.id,
+    actorEmail: editable.context.user.email ?? null,
+    action: "weekly_callups.game_reordered",
+    tableName: "weekly_callup_games",
+    recordId: gameId,
+    afterData: { callup_id: callupId, category_id: categoryId, direction },
+  });
+  revalidateCallup(callupId);
+  redirectEditor(callupId, "ok=game_moved");
+}
+
 export async function toggleWeeklyCallupRestAction(formData: FormData) {
   const callupId = textValue(formData, "callupId");
   const categoryId = textValue(formData, "categoryId");
@@ -562,4 +662,189 @@ export async function setWeeklyCallupStatusAction(formData: FormData) {
   });
   revalidateCallup(callupId);
   redirectEditor(callupId, status === "ready" ? "ok=marked_ready" : "ok=reopened");
+}
+
+export async function addWeeklyCallupManualExceptionAction(formData: FormData) {
+  const callupId = textValue(formData, "callupId");
+  const enrollmentId = textValue(formData, "enrollmentId");
+  const reason = textValue(formData, "reason");
+  const editable = await loadEditableCallup(callupId, `/convocatorias/${callupId}`);
+  if (!editable.context.isSportsDirector) redirect("/unauthorized");
+  if (!isUuid(enrollmentId) || reason.length < 5 || reason.length > 500) {
+    redirectEditor(callupId, "invalid_manual_exception");
+  }
+  if (!editable.callup.tournaments?.product_id) redirectEditor(callupId, "paid_roster_unavailable");
+
+  const paidRoster = await getWeeklyCallupLivePaidRoster({
+    campusId: editable.callup.campus_id,
+    tournamentProductId: editable.callup.tournaments.product_id,
+    program: editable.callup.program,
+  });
+  if (!paidRoster) redirectEditor(callupId, "paid_roster_unavailable");
+  if (paidRoster.some((player) => player.enrollmentId === enrollmentId)) {
+    redirectEditor(callupId, "player_now_paid_refresh_roster");
+  }
+
+  const enrollmentResult = await editable.admin
+    .from("enrollments")
+    .select("id, player_id, campus_id, status, players(id, first_name, last_name, birth_date, status)")
+    .eq("id", enrollmentId)
+    .maybeSingle<ManualEnrollmentRow | null>();
+  if (enrollmentResult.error) throw enrollmentResult.error;
+  const enrollment = enrollmentResult.data;
+  if (
+    !enrollment ||
+    enrollment.campus_id !== editable.callup.campus_id ||
+    enrollment.status !== "active" ||
+    enrollment.players?.status !== "active"
+  ) {
+    redirectEditor(callupId, "invalid_manual_exception_player");
+  }
+
+  const assignmentResult = await editable.admin
+    .from("training_group_assignments")
+    .select("enrollment_id, player_id, training_group_id, training_groups(id, campus_id, name, program, birth_year_min, birth_year_max, status)")
+    .eq("enrollment_id", enrollmentId)
+    .is("end_date", null)
+    .maybeSingle<AssignmentRow | null>();
+  if (assignmentResult.error) throw assignmentResult.error;
+  const assignment = assignmentResult.data;
+  const group = assignment?.training_groups;
+  if (
+    !assignment ||
+    !group ||
+    group.campus_id !== editable.callup.campus_id ||
+    group.program !== editable.callup.program ||
+    group.status !== "active"
+  ) {
+    redirectEditor(callupId, "manual_exception_group_mismatch");
+  }
+
+  const categories = await editable.admin
+    .from("weekly_callup_categories")
+    .select("id, weekly_callup_id, training_group_id, sort_order, is_rest")
+    .eq("weekly_callup_id", callupId)
+    .returns<Array<EditableCategoryRow & { training_group_id: string | null }>>();
+  if (categories.error) throw categories.error;
+  const categoryIds = (categories.data ?? []).map((category) => category.id);
+  const snapshotPlayers = await loadSnapshotPlayers(editable.admin, categoryIds);
+  if (snapshotPlayers.some((player) => player.enrollment_id === enrollmentId)) {
+    redirectEditor(callupId, "player_already_in_callup");
+  }
+
+  let category = (categories.data ?? []).find((candidate) => candidate.training_group_id === group.id) ?? null;
+  if (!category) {
+    const order = (categories.data ?? []).reduce((max, candidate) => Math.max(max, candidate.sort_order), -1) + 1;
+    const categoryInsert = await editable.admin
+      .from("weekly_callup_categories")
+      .insert({
+        weekly_callup_id: callupId,
+        training_group_id: group.id,
+        category_label: weeklyCallupCategoryLabel(group),
+        birth_year_min: group.birth_year_min,
+        birth_year_max: group.birth_year_max,
+        training_group_name_snapshot: group.name,
+        sort_order: order,
+      })
+      .select("id, weekly_callup_id, training_group_id, sort_order, is_rest")
+      .single<EditableCategoryRow & { training_group_id: string | null }>();
+    if (categoryInsert.error || !categoryInsert.data) {
+      throw categoryInsert.error ?? new Error("manual_exception_category_failed");
+    }
+    category = categoryInsert.data;
+  }
+
+  const now = new Date().toISOString();
+  const playerInsert = await editable.admin
+    .from("weekly_callup_players")
+    .insert({
+      weekly_callup_category_id: category.id,
+      enrollment_id: enrollment.id,
+      player_id: enrollment.player_id,
+      player_name_snapshot: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
+      birth_year: getBirthYear(enrollment.players.birth_date),
+      training_group_id: group.id,
+      training_group_name_snapshot: group.name,
+      eligibility_source: "manual_unpaid",
+      roster_status: "included",
+      manual_reason: reason,
+      source_snapshot_at: now,
+      adjusted_by: editable.context.user.id,
+      adjusted_at: now,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (playerInsert.error || !playerInsert.data) throw playerInsert.error ?? new Error("manual_exception_insert_failed");
+
+  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await writeAuditLog(editable.admin, {
+    actorUserId: editable.context.user.id,
+    actorEmail: editable.context.user.email ?? null,
+    action: "weekly_callups.manual_unpaid_added",
+    tableName: "weekly_callup_players",
+    recordId: playerInsert.data.id,
+    afterData: {
+      callup_id: callupId,
+      enrollment_id: enrollmentId,
+      player_id: enrollment.player_id,
+      category_id: category.id,
+      reason,
+    },
+  });
+  revalidateCallup(callupId);
+  redirectEditor(callupId, "ok=manual_exception_added");
+}
+
+export async function refreshWeeklyCallupRosterAction(formData: FormData) {
+  const callupId = textValue(formData, "callupId");
+  const confirmed = textValue(formData, "confirmRefresh") === "yes";
+  if (!confirmed) redirectEditor(callupId, "confirm_roster_refresh");
+  const editable = await loadEditableCallup(callupId, `/convocatorias/${callupId}`);
+  if (!editable.callup.tournaments?.product_id) redirectEditor(callupId, "paid_roster_unavailable");
+
+  const liveRoster = await getWeeklyCallupLivePaidRoster({
+    campusId: editable.callup.campus_id,
+    tournamentProductId: editable.callup.tournaments.product_id,
+    program: editable.callup.program,
+  });
+  if (!liveRoster) redirectEditor(callupId, "paid_roster_unavailable");
+
+  const snapshotAt = new Date().toISOString();
+  const refreshResult = await editable.admin.rpc("refresh_weekly_callup_paid_roster", {
+    p_callup_id: callupId,
+    p_snapshot_at: snapshotAt,
+    p_players: liveRoster.map((player) => ({
+      enrollment_id: player.enrollmentId,
+      player_id: player.playerId,
+      player_name: player.playerName,
+      birth_year: player.birthYear,
+      training_group_id: player.trainingGroupId,
+      training_group_name: player.trainingGroupName,
+      category_label: player.categoryLabel,
+      birth_year_min: player.birthYearMin,
+      birth_year_max: player.birthYearMax,
+      eligibility_source: player.eligibilitySource,
+    })),
+    p_actor_id: editable.context.user.id,
+  });
+  if (refreshResult.error) throw refreshResult.error;
+  const refreshSummary = (refreshResult.data ?? {}) as Record<string, number>;
+  await writeAuditLog(editable.admin, {
+    actorUserId: editable.context.user.id,
+    actorEmail: editable.context.user.email ?? null,
+    action: "weekly_callups.roster_refreshed",
+    tableName: "weekly_callups",
+    recordId: callupId,
+    beforeData: { roster_snapshot_at: editable.callup.roster_snapshot_at },
+    afterData: {
+      roster_snapshot_at: snapshotAt,
+      current_paid_players: refreshSummary.current_paid_players ?? liveRoster.length,
+      added_players: refreshSummary.added_players ?? 0,
+      removed_players: refreshSummary.removed_players ?? 0,
+      moved_players: refreshSummary.moved_players ?? 0,
+      manual_exceptions_preserved: refreshSummary.manual_exceptions_preserved ?? 0,
+    },
+  });
+  revalidateCallup(callupId);
+  redirectEditor(callupId, "ok=roster_refreshed");
 }

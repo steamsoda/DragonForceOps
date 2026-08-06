@@ -1,5 +1,6 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getWeeklyCallupLivePaidRoster } from "@/lib/weekly-callups/live-roster";
 
 export type WeeklyCallupProgram = "selectivo" | "futbol_para_todos";
 
@@ -45,10 +46,41 @@ export type WeeklyCallupDetailGame = {
 
 export type WeeklyCallupDetailPlayer = {
   id: string;
+  enrollmentId: string;
+  playerId: string;
   playerName: string;
   birthYear: number | null;
+  trainingGroupId: string | null;
   eligibilitySource: "direct" | "bundle" | "manual_unpaid";
   rosterStatus: "included" | "excluded";
+  manualReason: string | null;
+};
+
+export type WeeklyCallupRosterDiffPlayer = {
+  enrollmentId: string;
+  playerName: string;
+  categoryLabel: string;
+};
+
+export type WeeklyCallupRosterMove = WeeklyCallupRosterDiffPlayer & {
+  previousCategoryLabel: string;
+};
+
+export type WeeklyCallupRosterComparison = {
+  currentPaidCount: number;
+  added: WeeklyCallupRosterDiffPlayer[];
+  removed: WeeklyCallupRosterDiffPlayer[];
+  moved: WeeklyCallupRosterMove[];
+};
+
+export type WeeklyCallupManualCandidate = {
+  enrollmentId: string;
+  playerId: string;
+  playerName: string;
+  birthYear: number | null;
+  trainingGroupId: string;
+  trainingGroupName: string;
+  categoryLabel: string;
 };
 
 export type WeeklyCallupDetailCategory = {
@@ -70,6 +102,9 @@ export type WeeklyCallupDetailData = {
   weekEnd: string;
   status: "draft" | "ready" | "shared";
   snapshotAt: string;
+  canManageExceptions: boolean;
+  rosterComparison: WeeklyCallupRosterComparison | null;
+  manualCandidates: WeeklyCallupManualCandidate[];
   categories: WeeklyCallupDetailCategory[];
 };
 
@@ -99,7 +134,7 @@ type CategoryRow = { id: string; weekly_callup_id: string };
 type PlayerRow = { weekly_callup_category_id: string };
 
 type DetailCallupRow = Omit<CallupRow, "tournaments"> & {
-  tournaments: { name: string | null } | null;
+  tournaments: { name: string | null; product_id: string } | null;
 };
 
 type DetailCategoryRow = {
@@ -114,10 +149,14 @@ type DetailCategoryRow = {
 type DetailPlayerRow = {
   id: string;
   weekly_callup_category_id: string;
+  enrollment_id: string;
+  player_id: string;
   player_name_snapshot: string;
   birth_year: number | null;
+  training_group_id: string | null;
   eligibility_source: "direct" | "bundle" | "manual_unpaid";
   roster_status: "included" | "excluded";
+  manual_reason: string | null;
 };
 
 type DetailGameRow = {
@@ -129,6 +168,48 @@ type DetailGameRow = {
   opponent: string | null;
   sort_order: number;
 };
+
+type ManualCandidateAssignmentRow = {
+  enrollment_id: string;
+  player_id: string;
+  training_group_id: string;
+  training_groups: {
+    id: string;
+    campus_id: string;
+    name: string;
+    program: string;
+    birth_year_min: number | null;
+    birth_year_max: number | null;
+    status: string;
+  } | null;
+  enrollments: {
+    id: string;
+    campus_id: string;
+    status: string;
+    players: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      birth_date: string | null;
+      status: string;
+    } | null;
+  } | null;
+};
+
+function getBirthYear(value: string | null | undefined) {
+  if (!value) return null;
+  const year = Number(value.slice(0, 4));
+  return Number.isInteger(year) ? year : null;
+}
+
+function detailCategoryLabel(group: NonNullable<ManualCandidateAssignmentRow["training_groups"]>) {
+  if (group.birth_year_min && group.birth_year_max) {
+    return group.birth_year_min === group.birth_year_max
+      ? String(group.birth_year_min)
+      : `${group.birth_year_min}/${group.birth_year_max}`;
+  }
+  return group.name;
+}
 
 export function getMonterreyWeekStart(now = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -246,7 +327,10 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
   };
 }
 
-export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCallupDetailData | null> {
+export async function getWeeklyCallupDetail(
+  callupId: string,
+  options: { includeComparison?: boolean; includeCandidates?: boolean } = {},
+): Promise<WeeklyCallupDetailData | null> {
   const context = await getPermissionContext();
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
   const campusAccess = context.campusAccess;
@@ -255,7 +339,7 @@ export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCal
   const admin = createAdminClient();
   const callupResult = await admin
     .from("weekly_callups")
-    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, tournaments(name)")
+    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, tournaments(name, product_id)")
     .eq("id", callupId)
     .maybeSingle<DetailCallupRow | null>();
   if (callupResult.error) throw callupResult.error;
@@ -279,7 +363,7 @@ export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCal
     for (let offset = 0; ; offset += pageSize) {
       const page = await admin
         .from("weekly_callup_players")
-        .select("id, weekly_callup_category_id, player_name_snapshot, birth_year, eligibility_source, roster_status")
+        .select("id, weekly_callup_category_id, enrollment_id, player_id, player_name_snapshot, birth_year, training_group_id, eligibility_source, roster_status, manual_reason")
         .in("weekly_callup_category_id", categoryIds)
         .order("player_name_snapshot")
         .range(offset, offset + pageSize - 1)
@@ -317,6 +401,100 @@ export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCal
   const weekEndDate = new Date(`${callup.week_start}T12:00:00Z`);
   weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
   const campusName = campusAccess.campuses.find((campus) => campus.id === callup.campus_id)?.name ?? "Campus";
+  const shouldLoadLiveRoster = options.includeComparison || (options.includeCandidates && context.isSportsDirector);
+  const livePaidRoster = shouldLoadLiveRoster && callup.tournaments?.product_id
+    ? await getWeeklyCallupLivePaidRoster({
+        campusId: callup.campus_id,
+        tournamentProductId: callup.tournaments.product_id,
+        program: callup.program,
+      })
+    : null;
+
+  let rosterComparison: WeeklyCallupRosterComparison | null = null;
+  if (options.includeComparison && livePaidRoster) {
+    const categoryById = new Map(categories.map((category) => [category.id, category]));
+    const frozenByEnrollment = new Map(players.map((player) => [player.enrollment_id, player]));
+    const liveByEnrollment = new Map(livePaidRoster.map((player) => [player.enrollmentId, player]));
+    rosterComparison = {
+      currentPaidCount: livePaidRoster.length,
+      added: livePaidRoster
+        .filter((player) => !frozenByEnrollment.has(player.enrollmentId))
+        .map((player) => ({
+          enrollmentId: player.enrollmentId,
+          playerName: player.playerName,
+          categoryLabel: `${player.categoryLabel} - ${player.trainingGroupName}`,
+        })),
+      removed: players
+        .filter((player) => player.eligibility_source !== "manual_unpaid" && !liveByEnrollment.has(player.enrollment_id))
+        .map((player) => {
+          const category = categoryById.get(player.weekly_callup_category_id);
+          return {
+            enrollmentId: player.enrollment_id,
+            playerName: player.player_name_snapshot,
+            categoryLabel: category ? `${category.category_label} - ${category.training_group_name_snapshot}` : "Sin categoria",
+          };
+        }),
+      moved: livePaidRoster
+        .filter((player) => {
+          const frozen = frozenByEnrollment.get(player.enrollmentId);
+          return Boolean(frozen && frozen.training_group_id !== player.trainingGroupId);
+        })
+        .map((player) => {
+          const frozen = frozenByEnrollment.get(player.enrollmentId)!;
+          const previousCategory = categoryById.get(frozen.weekly_callup_category_id);
+          return {
+            enrollmentId: player.enrollmentId,
+            playerName: player.playerName,
+            categoryLabel: `${player.categoryLabel} - ${player.trainingGroupName}`,
+            previousCategoryLabel: previousCategory
+              ? `${previousCategory.category_label} - ${previousCategory.training_group_name_snapshot}`
+              : "Grupo anterior",
+          };
+        }),
+    };
+  }
+
+  let manualCandidates: WeeklyCallupManualCandidate[] = [];
+  if (options.includeCandidates && context.isSportsDirector && livePaidRoster) {
+    const rows: ManualCandidateAssignmentRow[] = [];
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await admin
+        .from("training_group_assignments")
+        .select("enrollment_id, player_id, training_group_id, training_groups!inner(id, campus_id, name, program, birth_year_min, birth_year_max, status), enrollments!inner(id, campus_id, status, players!inner(id, first_name, last_name, birth_date, status))")
+        .is("end_date", null)
+        .eq("training_groups.campus_id", callup.campus_id)
+        .eq("training_groups.program", callup.program)
+        .eq("training_groups.status", "active")
+        .eq("enrollments.campus_id", callup.campus_id)
+        .eq("enrollments.status", "active")
+        .range(offset, offset + pageSize - 1)
+        .returns<ManualCandidateAssignmentRow[]>();
+      if (page.error) throw page.error;
+      rows.push(...(page.data ?? []));
+      if ((page.data?.length ?? 0) < pageSize) break;
+    }
+    const frozenEnrollmentIds = new Set(players.map((player) => player.enrollment_id));
+    const paidEnrollmentIds = new Set(livePaidRoster.map((player) => player.enrollmentId));
+    manualCandidates = rows
+      .filter(
+        (row) =>
+          row.training_groups &&
+          row.enrollments?.players?.status === "active" &&
+          !frozenEnrollmentIds.has(row.enrollment_id) &&
+          !paidEnrollmentIds.has(row.enrollment_id),
+      )
+      .map((row) => ({
+        enrollmentId: row.enrollment_id,
+        playerId: row.player_id,
+        playerName: `${row.enrollments!.players!.first_name} ${row.enrollments!.players!.last_name}`.trim(),
+        birthYear: getBirthYear(row.enrollments!.players!.birth_date),
+        trainingGroupId: row.training_group_id,
+        trainingGroupName: row.training_groups!.name,
+        categoryLabel: detailCategoryLabel(row.training_groups!),
+      }))
+      .sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
+  }
 
   return {
     id: callup.id,
@@ -327,6 +505,9 @@ export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCal
     weekEnd: weekEndDate.toISOString().slice(0, 10),
     status: callup.status,
     snapshotAt: callup.roster_snapshot_at,
+    canManageExceptions: context.isSportsDirector,
+    rosterComparison,
+    manualCandidates,
     categories: categories.map((category) => ({
       id: category.id,
       categoryLabel: category.category_label,
@@ -343,10 +524,14 @@ export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCal
       })),
       players: (playersByCategory.get(category.id) ?? []).map((player) => ({
         id: player.id,
+        enrollmentId: player.enrollment_id,
+        playerId: player.player_id,
         playerName: player.player_name_snapshot,
         birthYear: player.birth_year,
+        trainingGroupId: player.training_group_id,
         eligibilitySource: player.eligibility_source,
         rosterStatus: player.roster_status,
+        manualReason: player.manual_reason,
       })),
     })),
   };

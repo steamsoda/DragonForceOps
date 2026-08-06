@@ -4,8 +4,11 @@ import { WeeklyCallupSubmitButton } from "@/components/weekly-callups/submit-but
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupDetail } from "@/lib/queries/weekly-callups";
 import {
+  addWeeklyCallupManualExceptionAction,
   deleteWeeklyCallupGameAction,
   moveWeeklyCallupCategoryAction,
+  moveWeeklyCallupGameAction,
+  refreshWeeklyCallupRosterAction,
   saveWeeklyCallupGameAction,
   setWeeklyCallupStatusAction,
   toggleWeeklyCallupPlayerAction,
@@ -14,7 +17,7 @@ import {
 
 type PageProps = {
   params: Promise<{ callupId: string }>;
-  searchParams: Promise<{ err?: string; ok?: string }>;
+  searchParams: Promise<{ err?: string; ok?: string; compare?: string; exceptions?: string }>;
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -26,9 +29,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_player: "El jugador no pertenece a esta categoria.",
   invalid_roster_status: "El estado del jugador no es valido.",
   invalid_category_move: "La categoria ya esta en ese extremo.",
+  invalid_game_move: "El partido ya esta en ese extremo.",
   invalid_status: "El estado solicitado no es valido.",
   empty_callup: "La convocatoria no tiene categorias.",
   incomplete_categories: "Cada categoria debe tener al menos un partido completo o estar marcada como Descansa.",
+  invalid_manual_exception: "Selecciona un jugador y captura un motivo de al menos 5 caracteres.",
+  paid_roster_unavailable: "No se pudo consultar el plantel pagado actual. No se hizo ningun cambio.",
+  player_now_paid_refresh_roster: "Este jugador ya aparece como pagado. Actualiza el plantel en lugar de agregar una excepcion.",
+  invalid_manual_exception_player: "El jugador ya no tiene una inscripcion activa valida para este campus.",
+  manual_exception_group_mismatch: "El jugador no tiene un grupo activo compatible con esta convocatoria.",
+  player_already_in_callup: "El jugador ya forma parte de esta convocatoria.",
+  confirm_roster_refresh: "Confirma que revisaste los cambios antes de actualizar el plantel.",
 };
 
 const OK_MESSAGES: Record<string, string> = {
@@ -37,8 +48,11 @@ const OK_MESSAGES: Record<string, string> = {
   rest_updated: "Estado de la categoria actualizado.",
   roster_updated: "Plantel actualizado.",
   category_moved: "Orden de categorias actualizado.",
+  game_moved: "Orden de partidos actualizado.",
   marked_ready: "Convocatoria marcada como lista.",
   reopened: "Convocatoria reabierta como borrador.",
+  manual_exception_added: "Excepcion sin pago agregada y registrada en auditoria.",
+  roster_refreshed: "Plantel pagado actualizado. Partidos, descansos y excepciones manuales se conservaron.",
 };
 
 function formatDate(value: string) {
@@ -70,13 +84,21 @@ function statusLabel(status: string) {
 
 export default async function WeeklyCallupEditorPage({ params, searchParams }: PageProps) {
   const [{ callupId }, query] = await Promise.all([params, searchParams]);
-  const callup = await getWeeklyCallupDetail(callupId);
+  const showComparison = query.compare === "1";
+  const showExceptions = query.exceptions === "1";
+  const callup = await getWeeklyCallupDetail(callupId, {
+    includeComparison: showComparison,
+    includeCandidates: showExceptions,
+  });
   if (!callup) notFound();
 
   const includedTotal = callup.categories.reduce(
     (total, category) => total + category.players.filter((player) => player.rosterStatus === "included").length,
     0,
   );
+  const comparisonChangeTotal = callup.rosterComparison
+    ? callup.rosterComparison.added.length + callup.rosterComparison.removed.length + callup.rosterComparison.moved.length
+    : 0;
 
   return (
     <PageShell
@@ -89,14 +111,30 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
           <Link href="/convocatorias" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-portoBlue">
             Volver a convocatorias
           </Link>
-          <form action={setWeeklyCallupStatusAction}>
-            <input type="hidden" name="callupId" value={callup.id} />
-            <input type="hidden" name="status" value={callup.status === "ready" ? "draft" : "ready"} />
-            <WeeklyCallupSubmitButton
-              label={callup.status === "ready" ? "Reabrir borrador" : "Marcar como lista"}
-              pendingLabel="Validando..."
-            />
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue"
+            >
+              {showComparison ? "Cerrar comparacion" : "Comparar plantel actual"}
+            </Link>
+            {callup.canManageExceptions ? (
+              <Link
+                href={`/convocatorias/${callup.id}${showExceptions ? "" : "?exceptions=1"}`}
+                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
+              >
+                {showExceptions ? "Cerrar excepciones" : "Agregar excepcion"}
+              </Link>
+            ) : null}
+            <form action={setWeeklyCallupStatusAction}>
+              <input type="hidden" name="callupId" value={callup.id} />
+              <input type="hidden" name="status" value={callup.status === "ready" ? "draft" : "ready"} />
+              <WeeklyCallupSubmitButton
+                label={callup.status === "ready" ? "Reabrir borrador" : "Marcar como lista"}
+                pendingLabel="Validando..."
+              />
+            </form>
+          </div>
         </div>
 
         {query.err ? (
@@ -108,6 +146,81 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
           <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {OK_MESSAGES[query.ok] ?? "Cambio guardado."}
           </p>
+        ) : null}
+
+        {showComparison && callup.rosterComparison ? (
+          <section className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+            <div>
+              <h2 className="text-lg font-semibold text-portoBlue">Comparacion con pagos actuales</h2>
+              <p className="text-sm text-slate-600">
+                Esta consulta no cambia pagos ni el borrador. Revisa las diferencias antes de actualizar el plantel congelado.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-md border border-slate-200 bg-white p-3"><p className="text-xs uppercase text-slate-500">Pagados actuales</p><p className="text-xl font-semibold">{callup.rosterComparison.currentPaidCount}</p></div>
+              <div className="rounded-md border border-emerald-200 bg-white p-3"><p className="text-xs uppercase text-slate-500">Nuevos</p><p className="text-xl font-semibold text-emerald-700">{callup.rosterComparison.added.length}</p></div>
+              <div className="rounded-md border border-rose-200 bg-white p-3"><p className="text-xs uppercase text-slate-500">Ya no pagados</p><p className="text-xl font-semibold text-rose-700">{callup.rosterComparison.removed.length}</p></div>
+              <div className="rounded-md border border-amber-200 bg-white p-3"><p className="text-xs uppercase text-slate-500">Cambiaron de grupo</p><p className="text-xl font-semibold text-amber-700">{callup.rosterComparison.moved.length}</p></div>
+            </div>
+            {comparisonChangeTotal === 0 ? (
+              <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">El plantel congelado coincide con los pagos actuales.</p>
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-3">
+                <div className="rounded-md border border-emerald-200 bg-white p-3">
+                  <h3 className="font-semibold text-emerald-800">Agregar</h3>
+                  <ul className="mt-2 space-y-1 text-sm">{callup.rosterComparison.added.map((player) => <li key={player.enrollmentId}>{player.playerName} <span className="text-slate-500">({player.categoryLabel})</span></li>)}</ul>
+                  {callup.rosterComparison.added.length === 0 ? <p className="mt-2 text-sm text-slate-500">Ninguno.</p> : null}
+                </div>
+                <div className="rounded-md border border-rose-200 bg-white p-3">
+                  <h3 className="font-semibold text-rose-800">Retirar del plantel pagado</h3>
+                  <ul className="mt-2 space-y-1 text-sm">{callup.rosterComparison.removed.map((player) => <li key={player.enrollmentId}>{player.playerName} <span className="text-slate-500">({player.categoryLabel})</span></li>)}</ul>
+                  {callup.rosterComparison.removed.length === 0 ? <p className="mt-2 text-sm text-slate-500">Ninguno.</p> : null}
+                </div>
+                <div className="rounded-md border border-amber-200 bg-white p-3">
+                  <h3 className="font-semibold text-amber-800">Mover de categoria</h3>
+                  <ul className="mt-2 space-y-1 text-sm">{callup.rosterComparison.moved.map((move) => <li key={move.enrollmentId}>{move.playerName}: <span className="text-slate-500">{move.previousCategoryLabel} a {move.categoryLabel}</span></li>)}</ul>
+                  {callup.rosterComparison.moved.length === 0 ? <p className="mt-2 text-sm text-slate-500">Ninguno.</p> : null}
+                </div>
+              </div>
+            )}
+            {comparisonChangeTotal > 0 ? (
+              <form action={refreshWeeklyCallupRosterAction} className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
+                <input type="hidden" name="callupId" value={callup.id} />
+                <p className="text-sm text-amber-950">
+                  La actualizacion conserva partidos, descansos, orden, exclusiones existentes y excepciones manuales. Solo sincroniza el plantel pagado y deja la convocatoria como borrador.
+                </p>
+                <label className="flex items-start gap-2 text-sm font-medium text-amber-950">
+                  <input required type="checkbox" name="confirmRefresh" value="yes" className="mt-1 h-4 w-4" />
+                  Revise los jugadores que se agregaran, retiraran o moveran.
+                </label>
+                <WeeklyCallupSubmitButton label="Actualizar plantel congelado" pendingLabel="Actualizando plantel..." />
+              </form>
+            ) : null}
+          </section>
+        ) : null}
+        {showComparison && !callup.rosterComparison ? (
+          <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            No se pudo consultar el plantel pagado actual. El plantel congelado no fue modificado.
+          </p>
+        ) : null}
+
+        {showExceptions && callup.canManageExceptions ? (
+          <section className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <div>
+              <h2 className="text-lg font-semibold text-amber-950">Excepcion sin pago</h2>
+              <p className="text-sm text-amber-900">Solo directores. Incluye al jugador en esta convocatoria sin crear pagos, cargos ni inscripciones de torneo.</p>
+            </div>
+            {callup.manualCandidates.length > 0 ? (
+              <form action={addWeeklyCallupManualExceptionAction} className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+                <input type="hidden" name="callupId" value={callup.id} />
+                <label className="space-y-1 text-sm font-medium"><span>Jugador activo</span><select required name="enrollmentId" defaultValue="" className="min-h-10 w-full rounded-md border border-amber-300 bg-white px-3"><option value="" disabled>Selecciona jugador</option>{callup.manualCandidates.map((player) => <option key={player.enrollmentId} value={player.enrollmentId}>{player.playerName} | Cat. {player.birthYear ?? "-"} | {player.trainingGroupName}</option>)}</select></label>
+                <label className="space-y-1 text-sm font-medium"><span>Motivo obligatorio</span><input required minLength={5} maxLength={500} name="reason" placeholder="Ej. Autorizado por direccion para esta jornada" className="min-h-10 w-full rounded-md border border-amber-300 bg-white px-3" /></label>
+                <WeeklyCallupSubmitButton label="Agregar excepcion" pendingLabel="Agregando..." />
+              </form>
+            ) : (
+              <p className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-slate-600">No hay jugadores activos disponibles para agregar como excepcion.</p>
+            )}
+          </section>
         ) : null}
 
         <section className="grid gap-3 sm:grid-cols-3">
@@ -176,7 +289,25 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                       <>
                         {category.games.map((game, gameIndex) => (
                           <div key={game.id} className="rounded-md border border-slate-200 p-3">
-                            <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Partido {gameIndex + 1}</p>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold uppercase text-slate-500">Partido {gameIndex + 1}</p>
+                              <div className="flex items-center gap-1">
+                                <form action={moveWeeklyCallupGameAction}>
+                                  <input type="hidden" name="callupId" value={callup.id} />
+                                  <input type="hidden" name="categoryId" value={category.id} />
+                                  <input type="hidden" name="gameId" value={game.id} />
+                                  <input type="hidden" name="direction" value="up" />
+                                  <button disabled={gameIndex === 0} title="Subir partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Subir</button>
+                                </form>
+                                <form action={moveWeeklyCallupGameAction}>
+                                  <input type="hidden" name="callupId" value={callup.id} />
+                                  <input type="hidden" name="categoryId" value={category.id} />
+                                  <input type="hidden" name="gameId" value={game.id} />
+                                  <input type="hidden" name="direction" value="down" />
+                                  <button disabled={gameIndex === category.games.length - 1} title="Bajar partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Bajar</button>
+                                </form>
+                              </div>
+                            </div>
                             <form action={saveWeeklyCallupGameAction} className="grid gap-2 sm:grid-cols-2">
                               <input type="hidden" name="callupId" value={callup.id} />
                               <input type="hidden" name="categoryId" value={category.id} />
@@ -218,7 +349,14 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                           <div key={player.id} className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${isIncluded ? "bg-white" : "bg-slate-50 text-slate-400"}`}>
                             <div className="min-w-0">
                               <p className={`truncate font-medium ${isIncluded ? "text-slate-900" : "line-through"}`}>{player.playerName}</p>
-                              <p className="text-xs text-slate-500">Cat. {player.birthYear ?? "-"}{player.eligibilitySource === "bundle" ? " | Combo" : ""}</p>
+                              <p className="text-xs text-slate-500">
+                                Cat. {player.birthYear ?? "-"}
+                                {player.eligibilitySource === "bundle" ? " | Combo" : ""}
+                                {player.eligibilitySource === "manual_unpaid" ? " | Excepcion sin pago" : ""}
+                              </p>
+                              {player.eligibilitySource === "manual_unpaid" && player.manualReason ? (
+                                <p className="mt-1 text-xs text-amber-800">Motivo: {player.manualReason}</p>
+                              ) : null}
                             </div>
                             <form action={toggleWeeklyCallupPlayerAction}>
                               <input type="hidden" name="callupId" value={callup.id} />
