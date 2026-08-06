@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 254)
+
+### Training Workload Report Production Promotion (v1.16.234)
+
+- Promoted the complete four-pass `Reportes > Carga de entrenamiento` workflow from preview to production after operator review.
+- Production now includes the rolling 30-day coach snapshot foundation, compact `Por coach` and `Por horario` matrices, separately identified tryouts, completed-session averages, unregistered-session warnings, and coach-history quality monitoring.
+- The release preserves the established attendance-read role and campus boundaries and does not expose financial data.
+- Preview benchmarking, focused workload assertions, TypeScript, production build, dependency audit, secret scan, Supabase Preview, and Vercel Preview all passed before promotion.
+- The foundation migration is included in the production promotion; the Pass 2-4 UI and monitoring changes add no further database migrations.
+- Browser print-preview refinement remains the next dedicated polish pass after live production review.
+
 ## 2026-08-05 (session 253)
 
 ### Training Workload Report - Role, Performance, and Snapshot Monitoring (v1.16.234)

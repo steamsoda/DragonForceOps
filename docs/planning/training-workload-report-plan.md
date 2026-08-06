@@ -1,6 +1,6 @@
 # Training Workload Report Plan
 
-Status: Passes 1-4 implemented in preview through `v1.16.234`; print-layout polish remains parked.
+Status: Passes 1-4 promoted to production in `v1.16.234`; print-layout polish is next.
 
 ## Purpose
 
