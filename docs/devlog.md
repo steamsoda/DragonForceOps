@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 257)
+
+### Weekly WhatsApp Convocatorias - Frozen Draft Foundation (v1.16.236)
+
+- Added the preview-first `Competencias > Convocatorias` foundation for weekly campus/program packets shared with the academy's four parent WhatsApp groups.
+- Added isolated tables for packet headers, category snapshots, frozen player snapshots, and multiple games per category. Weeks are Monday-to-Sunday and stored by their Monday date.
+- Draft creation reuses the existing `Inscripciones Torneos` fully-paid truth, including direct product payments and Combo/bundle entitlements, then keeps only players whose current active training group matches the selected campus and program.
+- The saved snapshot retains player identity, YOB, group, and eligibility source so later payments or group moves do not silently rewrite a packet being prepared.
+- Super Admin, Director Admin, Director Deportivo, and Front Desk receive campus-scoped read access. All writes stay behind audited server actions, and the schema reserves future `manual_unpaid` inclusions for directors only.
+- This pass does not mutate tournament registrations, products, charges, payments, allocations, attendance, or training-group assignments. The operational editor, explicit refresh/diff flow, and high-resolution WhatsApp PNG remain the next passes.
+- Added a focused regression assertion covering schema/RLS, paid-source reuse, multiple-game support, navigation, audit capture, and the no-finance-write boundary.
+
 ## 2026-08-05 (session 256)
 
 ### Training Workload Count Clarity Production Promotion (v1.16.235)

@@ -37,7 +37,10 @@ const FRONT_DESK_GESTION_SECTION: NavSection = {
 
 const COMPETITION_BASE_SECTION: NavSection = {
   label: "Competencias",
-  items: [{ href: "/sports-signups", label: "Inscripciones Torneos" }],
+  items: [
+    { href: "/sports-signups", label: "Inscripciones Torneos" },
+    { href: "/convocatorias", label: "Convocatorias" },
+  ],
 };
 
 const NUTRITION_BASE_SECTION: NavSection = {
@@ -217,7 +220,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess ? [{ href: "/players", label: "Jugadores" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/caja", label: "Caja" }] : []),
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/trial-classes", label: "Clases de prueba" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : isOfficeAdmin ? [{ href: "/datos-faltantes", label: "Datos faltantes" }] : []),
-    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [{ href: "/sports-signups", label: "Torneos" }] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess
+      ? [{ href: "/sports-signups", label: "Torneos" }, { href: "/convocatorias", label: "Convocatorias" }]
+      : []),
     ...(hasNutritionAccess ? [{ href: "/nutrition", label: "Nutricion" }] : []),
     ...(hasAttendanceReadAccess
       ? [

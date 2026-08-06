@@ -153,6 +153,8 @@ export type CompetitionSignupPlayerRow = {
   registrationSource: "direct" | "bundle";
 };
 
+export type CompetitionPaidCallupPlayer = CompetitionSignupPlayerRow;
+
 export type CompetitionSignupCategoryGroup = {
   key: string;
   label: string;
@@ -1386,6 +1388,67 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
         }
       : undefined,
   };
+}
+
+export async function getCompetitionPaidCallupPlayers(filters: {
+  campusId: string;
+  competitionId: string;
+}): Promise<CompetitionPaidCallupPlayer[] | null> {
+  const baseData = await getCompetitionSignupDetailBaseData({
+    campusId: filters.campusId,
+    competitionId: filters.competitionId,
+  });
+  if (!baseData) return null;
+
+  const {
+    campusAccess,
+    campusId,
+    competitionId,
+    competitionLabel,
+    charges,
+    allocationSummaries,
+    productBucketIds,
+    bundleEntitlements,
+  } = baseData;
+  const campusName =
+    campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
+  const confirmedPlayers = new Map<string, CompetitionPaidCallupPlayer>();
+
+  for (const charge of charges) {
+    if (charge.enrollments?.campus_id !== campusId) continue;
+    const allocation = allocationSummaries.get(charge.id);
+    if (!allocation || allocation.total + 0.009 < charge.amount) continue;
+    if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) {
+      continue;
+    }
+
+    const enrollment = charge.enrollments;
+    if (!enrollment) continue;
+    const resolvedSource =
+      baseData.parsedBucket.type === "product" && charge.product_id === baseData.parsedBucket.productId
+        ? "direct"
+        : "bundle";
+    const existing = confirmedPlayers.get(enrollment.id);
+    if (existing?.registrationSource === "direct") continue;
+
+    confirmedPlayers.set(enrollment.id, {
+      enrollmentId: enrollment.id,
+      playerId: enrollment.player_id,
+      playerName: enrollment.players
+        ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
+        : "Jugador",
+      birthYear: getBirthYear(enrollment.players?.birth_date),
+      campusId,
+      campusName,
+      competitionId,
+      competitionLabel,
+      registrationSource: resolvedSource,
+    });
+  }
+
+  return [...confirmedPlayers.values()].sort((a, b) =>
+    a.playerName.localeCompare(b.playerName, "es-MX"),
+  );
 }
 
 export async function getCompetitionSignupExportData(filters?: {
