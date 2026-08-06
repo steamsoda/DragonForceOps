@@ -9,7 +9,8 @@ const [page, query, layout] = await Promise.all([
 
 assert.match(page, /title="Carga de entrenamiento"/);
 assert.match(page, /showAll=\{false\}/);
-assert.match(page, /Coach \{section\.coachUnitName\}/);
+assert.match(page, /mode === "coach" \? "Coach " : ""/);
+assert.match(page, /data\.coachSections\.map/);
 assert.match(page, /\+\{cell\.tryouts\}P/);
 assert.match(page, />SR</);
 assert.match(page, /Prom\.<br \/>oficial/);

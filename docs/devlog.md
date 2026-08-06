@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 252)
+
+### Training Workload Report - Por Horario and Print (v1.16.233)
+
+- Added the `Por horario` mode to `Reportes > Carga de entrenamiento` while preserving the existing `Por coach` view and its counting rules.
+- Sessions are organized into `Bloque previo`, 16:00-17:10, 17:20-18:30, 18:40-19:50, and 20:00-21:10. Any nonstandard time remains visible under an explicit `Horario especial` section instead of being omitted.
+- Time-block rows show group, category, historical coaching unit, daily official attendance, separately identified `+P` tryouts, `SR` unregistered sessions, and official/tryout/combined averages over completed sessions only.
+- Historical coach changes remain explicit: the same group can appear as separate rows within a block when its coaching unit changed during the 30-day window.
+- Added direct printing for the selected campus and viewing mode with a compact landscape matrix, repeated table headers, and no KPI/control clutter.
+- This pass is read-only and reuses the `v1.16.231` RPC; it adds no migration and does not mutate attendance, trial visits, rosters, or finance.
+
 ## 2026-08-05 (session 251)
 
 ### Training Workload Report - Por Coach (v1.16.232)

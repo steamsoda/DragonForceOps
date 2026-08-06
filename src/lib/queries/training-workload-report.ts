@@ -60,6 +60,20 @@ export type TrainingWorkloadCoachSection = {
   groups: TrainingWorkloadGroupRow[];
 };
 
+export type TrainingWorkloadScheduleRow = TrainingWorkloadGroupRow & {
+  coachUnitKey: string;
+  coachUnitName: string;
+};
+
+export type TrainingWorkloadScheduleSection = {
+  blockKey: string;
+  blockName: string;
+  blockOrder: number;
+  legacySessions: number;
+  sessionColumns: Array<{ key: string; date: string }>;
+  groups: TrainingWorkloadScheduleRow[];
+};
+
 export type TrainingWorkloadReportData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string | null;
@@ -67,6 +81,7 @@ export type TrainingWorkloadReportData = {
   periodStart: string;
   periodEnd: string;
   coachSections: TrainingWorkloadCoachSection[];
+  scheduleSections: TrainingWorkloadScheduleSection[];
   totals: {
     coachUnits: number;
     groups: number;
@@ -133,6 +148,52 @@ function sessionKey(row: WorkloadRpcRow) {
   return row.session_date;
 }
 
+function buildGroupRow(rowKey: string, rows: WorkloadRpcRow[]): TrainingWorkloadGroupRow {
+  const completed = rows.filter((row) => row.session_status === "completed");
+  const cells: Record<string, TrainingWorkloadSessionCell> = Object.fromEntries(rows.map((row) => {
+    const key = sessionKey(row);
+    const officialAttended = numberValue(row.official_attended_count);
+    const tryouts = numberValue(row.tryout_count);
+    return [key, {
+      sessionId: row.session_id,
+      sessionKey: key,
+      sessionDate: row.session_date,
+      startTime: normalizeTime(row.start_time),
+      status: row.session_status === "completed" ? "completed" as const : "unregistered" as const,
+      officialAttended,
+      tryouts,
+      totalServed: officialAttended + tryouts,
+    }];
+  }));
+  const first = rows[0];
+  return {
+    rowKey,
+    trainingGroupId: first.training_group_id,
+    trainingGroupName: first.training_group_name,
+    birthYearLabel: birthYearLabel(first.birth_year_min, first.birth_year_max),
+    scheduleLabel: `${normalizeTime(first.start_time)}-${normalizeTime(first.end_time)}`,
+    completedSessions: completed.length,
+    unregisteredSessions: rows.length - completed.length,
+    officialAverage: average(completed.map((row) => numberValue(row.official_attended_count))),
+    tryoutAverage: average(completed.map((row) => numberValue(row.tryout_count))),
+    totalAverage: average(completed.map((row) => numberValue(row.total_served_count))),
+    cells,
+  };
+}
+
+function timeBlock(row: WorkloadRpcRow) {
+  const start = normalizeTime(row.start_time);
+  const end = normalizeTime(row.end_time);
+  const standard = new Map([
+    ["16:00", { key: "16:00", name: "Bloque 16:00-17:10", order: 1 }],
+    ["17:20", { key: "17:20", name: "Bloque 17:20-18:30", order: 2 }],
+    ["18:40", { key: "18:40", name: "Bloque 18:40-19:50", order: 3 }],
+    ["20:00", { key: "20:00", name: "Bloque 20:00-21:10", order: 4 }],
+  ]);
+  if (start < "16:00") return { key: "previous", name: `Bloque previo ${start}-${end}`, order: 0 };
+  return standard.get(start) ?? { key: `special:${start}:${end}`, name: `Horario especial ${start}-${end}`, order: 10 };
+}
+
 export async function getTrainingWorkloadReport(filters: { campusId?: string }): Promise<TrainingWorkloadReportData> {
   const access = await getAttendanceCampusAccess();
   const periodEnd = getMonterreyDateString();
@@ -159,6 +220,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
       periodStart,
       periodEnd,
       coachSections: [],
+      scheduleSections: [],
       totals: emptyTotals,
     };
   }
@@ -176,6 +238,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
       periodStart,
       periodEnd,
       coachSections: [],
+      scheduleSections: [],
       totals: emptyTotals,
     };
   }
@@ -214,38 +277,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
       }
 
       const groups = [...groupMap.entries()]
-        .map(([rowKey, rows]): TrainingWorkloadGroupRow => {
-          const completed = rows.filter((row) => row.session_status === "completed");
-          const cells: Record<string, TrainingWorkloadSessionCell> = Object.fromEntries(rows.map((row) => {
-            const key = sessionKey(row);
-            const officialAttended = numberValue(row.official_attended_count);
-            const tryouts = numberValue(row.tryout_count);
-            return [key, {
-              sessionId: row.session_id,
-              sessionKey: key,
-              sessionDate: row.session_date,
-              startTime: normalizeTime(row.start_time),
-              status: row.session_status === "completed" ? "completed" as const : "unregistered" as const,
-              officialAttended,
-              tryouts,
-              totalServed: officialAttended + tryouts,
-            }];
-          }));
-          const first = rows[0];
-          return {
-            rowKey,
-            trainingGroupId: first.training_group_id,
-            trainingGroupName: first.training_group_name,
-            birthYearLabel: birthYearLabel(first.birth_year_min, first.birth_year_max),
-            scheduleLabel: `${normalizeTime(first.start_time)}-${normalizeTime(first.end_time)}`,
-            completedSessions: completed.length,
-            unregisteredSessions: rows.length - completed.length,
-            officialAverage: average(completed.map((row) => numberValue(row.official_attended_count))),
-            tryoutAverage: average(completed.map((row) => numberValue(row.tryout_count))),
-            totalAverage: average(completed.map((row) => numberValue(row.total_served_count))),
-            cells,
-          };
-        })
+        .map(([rowKey, groupRows]) => buildGroupRow(rowKey, groupRows))
         .sort((a, b) => a.scheduleLabel.localeCompare(b.scheduleLabel) || a.birthYearLabel.localeCompare(b.birthYearLabel, "es-MX") || a.trainingGroupName.localeCompare(b.trainingGroupName, "es-MX"));
 
       return {
@@ -257,6 +289,54 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
       };
     })
     .sort((a, b) => a.coachUnitName.localeCompare(b.coachUnitName, "es-MX"));
+
+  const scheduleMap = new Map<string, {
+    name: string;
+    order: number;
+    legacySessions: number;
+    sessions: WorkloadRpcRow[];
+  }>();
+  for (const row of rows) {
+    const block = timeBlock(row);
+    const section = scheduleMap.get(block.key) ?? { name: block.name, order: block.order, legacySessions: 0, sessions: [] };
+    section.sessions.push(row);
+    if (row.coach_snapshot_source === "legacy_backfill_current_assignment") section.legacySessions += 1;
+    scheduleMap.set(block.key, section);
+  }
+
+  const scheduleSections = [...scheduleMap.entries()]
+    .map(([blockKey, section]): TrainingWorkloadScheduleSection => {
+      const columnMap = new Map<string, { key: string; date: string }>();
+      const groupMap = new Map<string, WorkloadRpcRow[]>();
+      for (const row of section.sessions) {
+        const key = sessionKey(row);
+        columnMap.set(key, { key, date: row.session_date });
+        const unit = coachUnit(row.coach_snapshot);
+        const groupKey = `${row.training_group_id}:${normalizeTime(row.start_time)}:${normalizeTime(row.end_time)}:${unit.key}`;
+        groupMap.set(groupKey, [...(groupMap.get(groupKey) ?? []), row]);
+      }
+
+      const groups = [...groupMap.entries()]
+        .map(([rowKey, groupRows]): TrainingWorkloadScheduleRow => {
+          const unit = coachUnit(groupRows[0]?.coach_snapshot ?? null);
+          return {
+            ...buildGroupRow(rowKey, groupRows),
+            coachUnitKey: unit.key,
+            coachUnitName: unit.name,
+          };
+        })
+        .sort((a, b) => a.scheduleLabel.localeCompare(b.scheduleLabel) || a.birthYearLabel.localeCompare(b.birthYearLabel, "es-MX") || a.trainingGroupName.localeCompare(b.trainingGroupName, "es-MX") || a.coachUnitName.localeCompare(b.coachUnitName, "es-MX"));
+
+      return {
+        blockKey,
+        blockName: section.name,
+        blockOrder: section.order,
+        legacySessions: section.legacySessions,
+        sessionColumns: [...columnMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+        groups,
+      };
+    })
+    .sort((a, b) => a.blockOrder - b.blockOrder || a.blockName.localeCompare(b.blockName, "es-MX"));
 
   const allRows = rows.filter((row) => row.session_status === "completed");
   const uniqueGroups = new Set(rows.map((row) => row.training_group_id));
@@ -271,6 +351,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
     periodStart,
     periodEnd,
     coachSections,
+    scheduleSections,
     totals: {
       coachUnits: coachSections.length,
       groups: uniqueGroups.size,

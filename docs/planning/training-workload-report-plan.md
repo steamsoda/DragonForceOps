@@ -1,6 +1,6 @@
 # Training Workload Report Plan
 
-Status: Pass 1 data foundation and Pass 2 `Por coach` UI in preview through `v1.16.232`.
+Status: Passes 1-3 implemented in preview through `v1.16.233`; role/performance validation remains.
 
 ## Purpose
 
@@ -42,5 +42,5 @@ This is a staffing-capacity report. It does not replace player attendance percen
 
 1. Coach snapshots plus the aggregated rolling 30-day RPC.
 2. Compact `Por coach` report UI and direct validation against representative groups. Implemented in preview `v1.16.232`.
-3. `Por horario` mode and print layout.
+3. `Por horario` mode and print layout. Implemented in preview `v1.16.233`.
 4. Role regression, performance validation, and historical-snapshot monitoring.
