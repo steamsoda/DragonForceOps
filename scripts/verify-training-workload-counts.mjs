@@ -16,10 +16,16 @@ function parseEnv(source) {
 }
 
 const localEnv = parseEnv(await readFile(".env.local", "utf8"));
-const connectionString = process.env.SUPABASE_PREVIEW_DB_URL ?? localEnv.SUPABASE_PREVIEW_DB_URL;
-if (!connectionString) throw new Error("SUPABASE_PREVIEW_DB_URL is required. This diagnostic is preview-only.");
+const rawConnectionString = process.env.SUPABASE_PREVIEW_DB_URL ?? localEnv.SUPABASE_PREVIEW_DB_URL;
+if (!rawConnectionString) throw new Error("SUPABASE_PREVIEW_DB_URL is required. This diagnostic is preview-only.");
 
-const client = new pg.Client({ connectionString });
+const connectionUrl = new URL(rawConnectionString);
+connectionUrl.searchParams.delete("sslmode");
+
+const client = new pg.Client({
+  connectionString: connectionUrl.toString(),
+  ssl: { rejectUnauthorized: false },
+});
 await client.connect();
 
 try {
