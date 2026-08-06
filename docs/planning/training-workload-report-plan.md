@@ -1,6 +1,6 @@
 # Training Workload Report Plan
 
-Status: Passes 1-4 promoted to production in `v1.16.234`; print-layout polish is next.
+Status: Passes 1-4 are in production `v1.16.234`; count-clarity follow-up is in preview `v1.16.235`; print-layout polish follows validation.
 
 ## Purpose
 
@@ -52,3 +52,11 @@ This is a staffing-capacity report. It does not replace player attendance percen
 ## Parked Polish
 
 - Refine the browser print-preview layout after the operational report and monitoring behavior have been validated.
+
+## Count-Clarity Follow-up
+
+- Preview `v1.16.235` links each visible value to its source attendance session.
+- The official attendance rate uses all saved official roster records for completed sessions: total `A Asistio` divided by total saved roster records. Tryouts remain excluded.
+- Multiple sessions for the same group on one date remain independently visible and clickable inside the shared date cell.
+- Snapshot-source terminology is retained only internally; staff-facing screens do not expose implementation labels.
+- `npm run diagnose:training-workload-counts` performs a preview-only, read-only comparison of RPC counts against direct attendance records.

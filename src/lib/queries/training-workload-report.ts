@@ -23,6 +23,7 @@ type WorkloadRpcRow = {
   coach_snapshot: CoachSnapshot[] | null;
   coach_snapshot_source: string | null;
   official_attended_count: number | string;
+  official_roster_count: number | string;
   tryout_count: number | string;
   total_served_count: number | string;
 };
@@ -34,6 +35,7 @@ export type TrainingWorkloadSessionCell = {
   startTime: string;
   status: "completed" | "unregistered";
   officialAttended: number;
+  officialRoster: number;
   tryouts: number;
   totalServed: number;
 };
@@ -47,9 +49,10 @@ export type TrainingWorkloadGroupRow = {
   completedSessions: number;
   unregisteredSessions: number;
   officialAverage: number | null;
+  attendanceRate: number | null;
   tryoutAverage: number | null;
   totalAverage: number | null;
-  cells: Record<string, TrainingWorkloadSessionCell>;
+  cells: Record<string, TrainingWorkloadSessionCell[]>;
 };
 
 export type TrainingWorkloadCoachSection = {
@@ -152,22 +155,28 @@ function sessionKey(row: WorkloadRpcRow) {
 
 function buildGroupRow(rowKey: string, rows: WorkloadRpcRow[]): TrainingWorkloadGroupRow {
   const completed = rows.filter((row) => row.session_status === "completed");
-  const cells: Record<string, TrainingWorkloadSessionCell> = Object.fromEntries(rows.map((row) => {
+  const cells: Record<string, TrainingWorkloadSessionCell[]> = {};
+  for (const row of rows) {
     const key = sessionKey(row);
     const officialAttended = numberValue(row.official_attended_count);
+    const officialRoster = numberValue(row.official_roster_count);
     const tryouts = numberValue(row.tryout_count);
-    return [key, {
+    const cell = {
       sessionId: row.session_id,
       sessionKey: key,
       sessionDate: row.session_date,
       startTime: normalizeTime(row.start_time),
       status: row.session_status === "completed" ? "completed" as const : "unregistered" as const,
       officialAttended,
+      officialRoster,
       tryouts,
       totalServed: officialAttended + tryouts,
-    }];
-  }));
+    };
+    cells[key] = [...(cells[key] ?? []), cell].sort((a, b) => a.startTime.localeCompare(b.startTime) || a.sessionId.localeCompare(b.sessionId));
+  }
   const first = rows[0];
+  const attendedTotal = completed.reduce((sum, row) => sum + numberValue(row.official_attended_count), 0);
+  const rosterTotal = completed.reduce((sum, row) => sum + numberValue(row.official_roster_count), 0);
   return {
     rowKey,
     trainingGroupId: first.training_group_id,
@@ -177,6 +186,7 @@ function buildGroupRow(rowKey: string, rows: WorkloadRpcRow[]): TrainingWorkload
     completedSessions: completed.length,
     unregisteredSessions: rows.length - completed.length,
     officialAverage: average(completed.map((row) => numberValue(row.official_attended_count))),
+    attendanceRate: rosterTotal > 0 ? Math.round((attendedTotal / rosterTotal) * 1000) / 10 : null,
     tryoutAverage: average(completed.map((row) => numberValue(row.tryout_count))),
     totalAverage: average(completed.map((row) => numberValue(row.total_served_count))),
     cells,

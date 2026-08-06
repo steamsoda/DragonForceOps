@@ -16,7 +16,6 @@ type DisplaySection = {
   key: string;
   name: string;
   detail: string;
-  legacySessions: number;
   sessionColumns: Array<{ key: string; date: string }>;
   groups: DisplayRow[];
 };
@@ -45,22 +44,26 @@ function modeHref(mode: ReportMode, campusId: string | null) {
   return `/reports/carga-entrenamiento?${search.toString()}`;
 }
 
-function SessionValue({ cell }: { cell?: TrainingWorkloadSessionCell }) {
-  if (!cell) return <span className="text-slate-300 dark:text-slate-700 print:text-slate-400">-</span>;
+function SessionValue({ cell }: { cell: TrainingWorkloadSessionCell }) {
   if (cell.status === "unregistered") {
     return (
-      <span className="inline-flex min-w-10 flex-col items-center rounded border border-amber-300 bg-amber-50 px-1 py-0.5 font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 print:min-w-0 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black" title="Sesion pasada sin asistencia registrada">
+      <Link href={`/attendance/sessions/${cell.sessionId}`} prefetch={false} className="inline-flex min-w-10 flex-col items-center rounded border border-amber-300 bg-amber-50 px-1 py-0.5 font-semibold text-amber-800 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/50 print:min-w-0 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black" title="Abrir sesion sin asistencia registrada">
         <span>SR</span>
         {cell.tryouts > 0 ? <span className="text-[9px] print:text-[5px]">+{cell.tryouts}P</span> : null}
-      </span>
+      </Link>
     );
   }
   return (
-    <span className="inline-flex min-w-10 flex-col items-center rounded border border-emerald-200 bg-emerald-50 px-1 py-0.5 font-semibold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200 print:min-w-0 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black" title={`${cell.officialAttended} oficiales${cell.tryouts ? ` + ${cell.tryouts} prueba` : ""}`}>
+    <Link href={`/attendance/sessions/${cell.sessionId}`} prefetch={false} className="inline-flex min-w-10 flex-col items-center rounded border border-emerald-200 bg-emerald-50 px-1 py-0.5 font-semibold text-emerald-800 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200 dark:hover:bg-emerald-900/40 print:min-w-0 print:rounded-none print:border-0 print:bg-white print:p-0 print:text-black" title={`${cell.officialAttended} de ${cell.officialRoster} jugadores asistieron${cell.tryouts ? ` + ${cell.tryouts} prueba` : ""}. Abrir sesion.`}>
       <span>{cell.officialAttended}</span>
       {cell.tryouts > 0 ? <span className="text-[9px] text-blue-700 dark:text-blue-300 print:text-[5px] print:text-black">+{cell.tryouts}P</span> : null}
-    </span>
+    </Link>
   );
+}
+
+function SessionValues({ cells }: { cells?: TrainingWorkloadSessionCell[] }) {
+  if (!cells?.length) return <span className="text-slate-300 dark:text-slate-700 print:text-slate-400">-</span>;
+  return <div className="flex flex-wrap justify-center gap-1 print:gap-0.5">{cells.map((cell) => <SessionValue key={cell.sessionId} cell={cell} />)}</div>;
 }
 
 function WorkloadMatrix({ sections, mode }: { sections: DisplaySection[]; mode: ReportMode }) {
@@ -73,7 +76,6 @@ function WorkloadMatrix({ sections, mode }: { sections: DisplaySection[]; mode: 
               <h2 className="font-semibold print:text-[9px]">{mode === "coach" ? "Coach " : ""}{section.name}</h2>
               <p className="text-xs text-slate-500 print:text-[6px] print:text-black">{section.detail}</p>
             </div>
-            {section.legacySessions > 0 ? <span className="rounded-full border border-amber-300 px-2 py-1 text-[10px] font-semibold text-amber-800 dark:border-amber-700 dark:text-amber-200 print:rounded-none print:border-0 print:p-0 print:text-[6px] print:text-black">Historial legado</span> : null}
           </header>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="min-w-max border-collapse text-xs print:w-full print:min-w-0 print:table-fixed print:text-[6px]">
@@ -86,6 +88,7 @@ function WorkloadMatrix({ sections, mode }: { sections: DisplaySection[]; mode: 
                     <th key={column.key} className="min-w-14 border-b border-r border-slate-200 px-1 py-1 text-center dark:border-slate-700 print:w-5 print:border-black print:p-0" title={fullDate(column.date)}>{compactDate(column.date)}</th>
                   ))}
                   <th className="min-w-20 border-b border-r border-slate-200 bg-emerald-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-emerald-950/20 print:w-8 print:border-black print:bg-white print:p-0">Prom.<br />oficial</th>
+                  <th className="min-w-20 border-b border-r border-slate-200 bg-cyan-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-cyan-950/20 print:w-8 print:border-black print:bg-white print:p-0">%<br />asistencia</th>
                   <th className="min-w-20 border-b border-r border-slate-200 bg-blue-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-blue-950/20 print:w-8 print:border-black print:bg-white print:p-0">Prom.<br />pruebas</th>
                   <th className="min-w-20 border-b border-slate-200 bg-slate-100 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-900 print:w-8 print:border-black print:bg-white print:p-0">Prom.<br />total</th>
                 </tr>
@@ -97,9 +100,10 @@ function WorkloadMatrix({ sections, mode }: { sections: DisplaySection[]; mode: 
                     <td className="border-r border-slate-200 px-2 py-2 text-center dark:border-slate-700 print:border-black print:p-0.5">{group.birthYearLabel}</td>
                     <td className="border-r border-slate-200 px-2 py-2 text-center tabular-nums dark:border-slate-700 print:border-black print:p-0.5">{mode === "coach" ? group.scheduleLabel : group.coachUnitName}</td>
                     {section.sessionColumns.map((column) => (
-                      <td key={column.key} className="border-r border-slate-200 px-1 py-1 text-center tabular-nums dark:border-slate-700 print:border-black print:p-0"><SessionValue cell={group.cells[column.key]} /></td>
+                      <td key={column.key} className="border-r border-slate-200 px-1 py-1 text-center tabular-nums dark:border-slate-700 print:border-black print:p-0"><SessionValues cells={group.cells[column.key]} /></td>
                     ))}
                     <td className="border-r border-slate-200 bg-emerald-50/50 px-2 py-2 text-center font-semibold tabular-nums dark:border-slate-700 dark:bg-emerald-950/10 print:border-black print:bg-white print:p-0">{averageLabel(group.officialAverage)}</td>
+                    <td className="border-r border-slate-200 bg-cyan-50/50 px-2 py-2 text-center font-semibold tabular-nums dark:border-slate-700 dark:bg-cyan-950/10 print:border-black print:bg-white print:p-0">{group.attendanceRate == null ? "-" : `${averageLabel(group.attendanceRate)}%`}</td>
                     <td className="border-r border-slate-200 bg-blue-50/50 px-2 py-2 text-center font-semibold tabular-nums dark:border-slate-700 dark:bg-blue-950/10 print:border-black print:bg-white print:p-0">{averageLabel(group.tryoutAverage)}</td>
                     <td className="bg-slate-50 px-2 py-2 text-center font-semibold tabular-nums dark:bg-slate-900 print:bg-white print:p-0">{averageLabel(group.totalAverage)}</td>
                   </tr>
@@ -124,7 +128,6 @@ export default async function TrainingWorkloadReportPage({ searchParams }: { sea
         key: section.coachUnitKey,
         name: section.coachUnitName,
         detail: `${section.groups.length} grupo(s) | ${section.sessionColumns.length} dia(s) con sesion`,
-        legacySessions: section.legacySessions,
         sessionColumns: section.sessionColumns,
         groups: section.groups,
       }))
@@ -132,14 +135,13 @@ export default async function TrainingWorkloadReportPage({ searchParams }: { sea
         key: section.blockKey,
         name: section.blockName,
         detail: `${section.groups.length} grupo/coaching unit(s) | ${section.sessionColumns.length} dia(s) con sesion`,
-        legacySessions: section.legacySessions,
         sessionColumns: section.sessionColumns,
         groups: section.groups,
       }));
 
   return (
     <PageShell
-      title="Carga de entrenamiento"
+      title="Promedios de asistencia por coach"
       subtitle={`Jugadores atendidos por coach y grupo en los ultimos 30 dias naturales | ${data.selectedCampusName ?? "Sin campus"}`}
       breadcrumbs={[{ label: "Reportes" }, { label: "Carga de entrenamiento" }]}
       wide
@@ -179,24 +181,6 @@ export default async function TrainingWorkloadReportPage({ searchParams }: { sea
               <p className="mt-1 text-xl font-semibold">{value}</p>
             </article>
           ))}
-        </section>
-
-        <section className={`rounded-md border p-3 text-xs print:hidden ${data.totals.missingSnapshotSessions > 0 ? "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold">Calidad del historial de coaches</p>
-            <div className="flex flex-wrap gap-2 tabular-nums">
-              <span className="rounded-full border border-emerald-300 px-2 py-1 text-emerald-800 dark:border-emerald-700 dark:text-emerald-200">Exactas: {data.totals.exactSnapshotSessions}</span>
-              <span className="rounded-full border border-amber-300 px-2 py-1 text-amber-800 dark:border-amber-700 dark:text-amber-200">Legado: {data.totals.legacySessions}</span>
-              <span className={`rounded-full border px-2 py-1 ${data.totals.missingSnapshotSessions > 0 ? "border-red-400 font-semibold text-red-800 dark:border-red-700 dark:text-red-200" : "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300"}`}>Sin snapshot: {data.totals.missingSnapshotSessions}</span>
-            </div>
-          </div>
-          <p className="mt-2">
-            {data.totals.missingSnapshotSessions > 0
-              ? "Hay sesiones sin una asignacion historica de coaches. Revisa la captura antes de usar este reporte para decisiones de personal."
-              : data.totals.legacySessions > 0
-                ? "Las sesiones de legado usan la asignacion disponible al crear esta herramienta. Las sesiones nuevas conservan el coach real al crear o completar la sesion."
-                : "Todas las sesiones del periodo conservan una asignacion historica exacta de coaches."}
-          </p>
         </section>
 
         <WorkloadMatrix sections={sections} mode={mode} />

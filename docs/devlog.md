@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-05 (session 255)
+
+### Training Workload Count Clarity and Attendance Rate (v1.16.235)
+
+- Renamed the report page to `Promedios de asistencia por coach` while retaining the existing role-aware Reports navigation.
+- Every visible session value and `SR` marker now links directly to that attendance session for operator verification.
+- Extended the read-only workload RPC with the complete saved official roster count for each completed session. The new rolling attendance percentage is weighted as total `A Asistio` records divided by total official roster records across the period; tryouts remain separate and do not affect the percentage.
+- Preserved multiple sessions for the same group on the same date inside one date cell instead of allowing a later session to overwrite an earlier one.
+- Removed coach-snapshot implementation terminology from the staff UI. Snapshot-source monitoring remains internal for regression diagnostics without alarming operational users.
+- Added a preview-only count diagnostic that compares every RPC session against direct `attendance_records` totals, plus focused assertions for the roster denominator, percentage, session links, same-day preservation, permissions, and finance-free data boundary.
+- This reporting pass does not mutate attendance, rosters, trial visits, coach assignments, or finance.
+
 ## 2026-08-05 (session 254)
 
 ### Training Workload Report Production Promotion (v1.16.234)

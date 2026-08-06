@@ -22,8 +22,7 @@ assert.match(query, /getAttendanceCampusAccess\(\)/);
 assert.match(query, /canAccessAttendanceCampus\(access, filters\.campusId\)/);
 assert.match(query, /exactSnapshotSessions/);
 assert.match(query, /missingSnapshotSessions/);
-assert.match(page, /Calidad del historial de coaches/);
-assert.match(page, /Sin snapshot:/);
+assert.doesNotMatch(page, /Historial legado|Calidad del historial de coaches|Sin snapshot|Exactas:/);
 
 for (const source of [page, query, migration]) {
   assert.doesNotMatch(

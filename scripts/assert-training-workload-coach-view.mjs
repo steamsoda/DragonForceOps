@@ -7,13 +7,14 @@ const [page, query, layout] = await Promise.all([
   readFile("src/app/(protected)/layout.tsx", "utf8"),
 ]);
 
-assert.match(page, /title="Carga de entrenamiento"/);
+assert.match(page, /title="Promedios de asistencia por coach"/);
 assert.match(page, /showAll=\{false\}/);
 assert.match(page, /mode === "coach" \? "Coach " : ""/);
 assert.match(page, /data\.coachSections\.map/);
 assert.match(page, /\+\{cell\.tryouts\}P/);
 assert.match(page, />SR</);
 assert.match(page, /Prom\.<br \/>oficial/);
+assert.match(page, /%<br \/>asistencia/);
 assert.match(page, /Prom\.<br \/>pruebas/);
 assert.match(page, /Prom\.<br \/>total/);
 
