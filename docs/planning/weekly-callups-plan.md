@@ -25,12 +25,18 @@ Generate one clear weekly WhatsApp image per campus, tournament, and program (`S
 - Reuse the existing fully-paid and bundle-aware tournament signup source.
 - Save only paid players whose current active training group matches the selected campus/program.
 
-### Pass 2 - Operational editor
+### Pass 2A - Core operational editor (implemented in preview v1.16.237)
 
 - Open a saved draft and edit category ordering/rest state.
-- Add, edit, remove, and reorder multiple games per category.
+- Add, edit, and remove multiple games per category.
 - Review the frozen player roster and explicitly exclude a player.
-- Add a director-only manual unpaid exception with a required reason and audit event.
+- Require every category to contain a complete game or be marked `Descansa` before the packet can be marked `Lista`.
+- Return a ready packet to `Borrador` after any edit.
+
+### Pass 2B - Controlled exceptions and refresh
+
+- Add director-only manual unpaid exceptions with a required reason and audit event.
+- Add explicit game ordering when a category has multiple games.
 - Add an explicit roster refresh that previews added/removed/moved players before replacing the snapshot.
 
 ### Pass 3 - WhatsApp image

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
@@ -120,6 +121,9 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
                     <div><dt className="text-xs uppercase text-slate-500">Categorias</dt><dd className="font-medium">{callup.categoryCount}</dd></div>
                     <div><dt className="text-xs uppercase text-slate-500">Jugadores</dt><dd className="font-medium">{callup.playerCount}</dd></div>
                   </dl>
+                  <Link href={`/convocatorias/${callup.id}`} className="block min-h-10 rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-semibold text-white">
+                    Abrir borrador
+                  </Link>
                 </article>
               ))}
             </div>

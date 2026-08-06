@@ -34,6 +34,45 @@ export type WeeklyCallupsFoundationData = {
   callups: WeeklyCallupListRow[];
 };
 
+export type WeeklyCallupDetailGame = {
+  id: string;
+  matchDate: string;
+  arrivalTime: string;
+  venue: string;
+  opponent: string;
+  sortOrder: number;
+};
+
+export type WeeklyCallupDetailPlayer = {
+  id: string;
+  playerName: string;
+  birthYear: number | null;
+  eligibilitySource: "direct" | "bundle" | "manual_unpaid";
+  rosterStatus: "included" | "excluded";
+};
+
+export type WeeklyCallupDetailCategory = {
+  id: string;
+  categoryLabel: string;
+  trainingGroupName: string;
+  sortOrder: number;
+  isRest: boolean;
+  games: WeeklyCallupDetailGame[];
+  players: WeeklyCallupDetailPlayer[];
+};
+
+export type WeeklyCallupDetailData = {
+  id: string;
+  campusName: string;
+  tournamentName: string;
+  program: WeeklyCallupProgram;
+  weekStart: string;
+  weekEnd: string;
+  status: "draft" | "ready" | "shared";
+  snapshotAt: string;
+  categories: WeeklyCallupDetailCategory[];
+};
+
 type TournamentRow = {
   id: string;
   campus_id: string;
@@ -58,6 +97,38 @@ type CallupRow = {
 
 type CategoryRow = { id: string; weekly_callup_id: string };
 type PlayerRow = { weekly_callup_category_id: string };
+
+type DetailCallupRow = Omit<CallupRow, "tournaments"> & {
+  tournaments: { name: string | null } | null;
+};
+
+type DetailCategoryRow = {
+  id: string;
+  weekly_callup_id: string;
+  category_label: string;
+  training_group_name_snapshot: string;
+  sort_order: number;
+  is_rest: boolean;
+};
+
+type DetailPlayerRow = {
+  id: string;
+  weekly_callup_category_id: string;
+  player_name_snapshot: string;
+  birth_year: number | null;
+  eligibility_source: "direct" | "bundle" | "manual_unpaid";
+  roster_status: "included" | "excluded";
+};
+
+type DetailGameRow = {
+  id: string;
+  weekly_callup_category_id: string;
+  match_date: string;
+  arrival_time: string | null;
+  venue: string | null;
+  opponent: string | null;
+  sort_order: number;
+};
 
 export function getMonterreyWeekStart(now = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -172,5 +243,111 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
         ),
       };
     }),
+  };
+}
+
+export async function getWeeklyCallupDetail(callupId: string): Promise<WeeklyCallupDetailData | null> {
+  const context = await getPermissionContext();
+  if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
+  const campusAccess = context.campusAccess;
+  if (!campusAccess || campusAccess.campusIds.length === 0) return null;
+
+  const admin = createAdminClient();
+  const callupResult = await admin
+    .from("weekly_callups")
+    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, tournaments(name)")
+    .eq("id", callupId)
+    .maybeSingle<DetailCallupRow | null>();
+  if (callupResult.error) throw callupResult.error;
+  const callup = callupResult.data;
+  if (!callup || !campusAccess.campusIds.includes(callup.campus_id)) return null;
+
+  const categoriesResult = await admin
+    .from("weekly_callup_categories")
+    .select("id, weekly_callup_id, category_label, training_group_name_snapshot, sort_order, is_rest")
+    .eq("weekly_callup_id", callup.id)
+    .order("sort_order")
+    .order("category_label")
+    .returns<DetailCategoryRow[]>();
+  if (categoriesResult.error) throw categoriesResult.error;
+  const categories = categoriesResult.data ?? [];
+  const categoryIds = categories.map((category) => category.id);
+
+  const players: DetailPlayerRow[] = [];
+  if (categoryIds.length > 0) {
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await admin
+        .from("weekly_callup_players")
+        .select("id, weekly_callup_category_id, player_name_snapshot, birth_year, eligibility_source, roster_status")
+        .in("weekly_callup_category_id", categoryIds)
+        .order("player_name_snapshot")
+        .range(offset, offset + pageSize - 1)
+        .returns<DetailPlayerRow[]>();
+      if (page.error) throw page.error;
+      players.push(...(page.data ?? []));
+      if ((page.data?.length ?? 0) < pageSize) break;
+    }
+  }
+
+  const gamesResult = categoryIds.length
+    ? await admin
+        .from("weekly_callup_games")
+        .select("id, weekly_callup_category_id, match_date, arrival_time, venue, opponent, sort_order")
+        .in("weekly_callup_category_id", categoryIds)
+        .order("match_date")
+        .order("sort_order")
+        .returns<DetailGameRow[]>()
+    : { data: [] as DetailGameRow[], error: null };
+  if (gamesResult.error) throw gamesResult.error;
+
+  const playersByCategory = new Map<string, DetailPlayerRow[]>();
+  for (const player of players) {
+    const current = playersByCategory.get(player.weekly_callup_category_id) ?? [];
+    current.push(player);
+    playersByCategory.set(player.weekly_callup_category_id, current);
+  }
+  const gamesByCategory = new Map<string, DetailGameRow[]>();
+  for (const game of gamesResult.data ?? []) {
+    const current = gamesByCategory.get(game.weekly_callup_category_id) ?? [];
+    current.push(game);
+    gamesByCategory.set(game.weekly_callup_category_id, current);
+  }
+
+  const weekEndDate = new Date(`${callup.week_start}T12:00:00Z`);
+  weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+  const campusName = campusAccess.campuses.find((campus) => campus.id === callup.campus_id)?.name ?? "Campus";
+
+  return {
+    id: callup.id,
+    campusName,
+    tournamentName: callup.tournaments?.name ?? "Torneo",
+    program: callup.program,
+    weekStart: callup.week_start,
+    weekEnd: weekEndDate.toISOString().slice(0, 10),
+    status: callup.status,
+    snapshotAt: callup.roster_snapshot_at,
+    categories: categories.map((category) => ({
+      id: category.id,
+      categoryLabel: category.category_label,
+      trainingGroupName: category.training_group_name_snapshot,
+      sortOrder: category.sort_order,
+      isRest: category.is_rest,
+      games: (gamesByCategory.get(category.id) ?? []).map((game) => ({
+        id: game.id,
+        matchDate: game.match_date,
+        arrivalTime: game.arrival_time?.slice(0, 5) ?? "",
+        venue: game.venue ?? "",
+        opponent: game.opponent ?? "",
+        sortOrder: game.sort_order,
+      })),
+      players: (playersByCategory.get(category.id) ?? []).map((player) => ({
+        id: player.id,
+        playerName: player.player_name_snapshot,
+        birthYear: player.birth_year,
+        eligibilitySource: player.eligibility_source,
+        rosterStatus: player.roster_status,
+      })),
+    })),
   };
 }

@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 258)
+
+### Weekly WhatsApp Convocatorias - Operational Editor Pass 2A (v1.16.237)
+
+- Added the saved-draft editor for weekly WhatsApp callups. Operators can now open a frozen packet, reorder categories, mark a category as `Descansa`, add/edit/remove multiple games, and explicitly exclude or restore players without changing tournament registrations, payments, attendance, or training groups.
+- Each game requires a date inside the selected Monday-to-Sunday week plus arrival time, venue, and opponent. A category with games cannot be marked as resting until those games are deliberately removed.
+- Added a readiness gate: a packet can only be marked `Lista` when every category either has at least one complete game or is explicitly marked `Descansa`. Any later edit returns it to `Borrador` so staff cannot mistake stale output for a final packet.
+- Kept the frozen paid roster paginated and campus-scoped. Roster exclusions are packet-only, retain the original eligibility source, and are audited with the acting user.
+- Added focused editor assertions for campus boundaries, paged roster reads, game/rest/roster/status actions, readiness validation, and the no-finance/no-attendance mutation boundary.
+- Director-only unpaid exceptions, explicit paid-roster refresh/diff, and high-resolution WhatsApp PNG generation remain separate follow-up passes.
+
 ## 2026-08-05 (session 257)
 
 ### Weekly WhatsApp Convocatorias - Frozen Draft Foundation (v1.16.236)
