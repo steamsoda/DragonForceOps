@@ -22,7 +22,9 @@ async function svgToPngBlob(svg: string, width: number, height: number) {
     image.src = svgUrl;
   });
 
-  const scale = height > 5200 ? 1.25 : height > 3600 ? 1.5 : 2;
+  const maxCanvasPixels = 32_000_000;
+  const maxCanvasDimension = 16_000;
+  const scale = Math.min(2, maxCanvasDimension / height, Math.sqrt(maxCanvasPixels / (width * height)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(width * scale);
   canvas.height = Math.round(height * scale);

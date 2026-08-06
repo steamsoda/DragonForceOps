@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-05 (session 261)
+
+### Weekly WhatsApp Convocatorias - PNG Fitting and Visual Polish Pass 3B (v1.16.240)
+
+- Reworked the one-image convocatoria layout so categories retain their configured order in contiguous year/category ranges while a bounded partitioning pass balances total column height. This removes the confusing order from first-pass shortest-column packing without creating large blank areas.
+- Added adaptive five-column density for large packets, compact player typography, wrap-aware height estimates for long names/venues/opponents, and smaller category/game typography only when roster volume requires it.
+- Added dynamic tournament-title sizing and explicit wrapping for long tournament, group, venue, and opponent names.
+- Replaced fixed export scaling thresholds with canvas pixel/dimension limits. Large images now use the highest safe scale available instead of risking browser canvas failure.
+- Browser-rendered two fixtures in Chrome: a realistic 12-category/152-player packet at `1700x1522`, and a 16-category/roughly-300-player stress packet with long names and multiple games at `1700x3386`. Both retained every category, player, rest marker, game, header, and footer without clipping.
+- Pass 3C remains the editor-simplification pass. Pass 4 remains role/campus/data-integrity and authenticated browser hardening.
+
 ## 2026-08-05 (session 260)
 
 ### Weekly WhatsApp Convocatorias - Direct PNG Pass 3A (v1.16.239)

@@ -48,11 +48,12 @@ Generate one clear weekly WhatsApp image per campus, tournament, and program (`S
 - Generation happens locally in the browser and does not write to the database.
 - A production-sized 12-category/152-player fixture rendered without clipping.
 
-### Pass 3B - Fitting and visual polish
+### Pass 3B - Fitting and visual polish (implemented in preview v1.16.240)
 
-- Refine category reading order and column balancing.
-- Tune extra-long player names, unusually large rosters, and multiple-game cards while retaining a single image.
-- Validate real Linda Vista and Contry packets at WhatsApp/mobile viewing sizes.
+- Categories keep their configured order in contiguous ranges while columns are height-balanced.
+- Large packets use adaptive density, wrap-aware sizing, and browser-safe canvas scaling.
+- Browser fixtures cover a realistic 12-category/152-player packet plus a 16-category/roughly-300-player stress packet with long names and multiple games.
+- Real Linda Vista and Contry packet review remains part of operational preview validation.
 
 ### Pass 3C - Editor simplification
 

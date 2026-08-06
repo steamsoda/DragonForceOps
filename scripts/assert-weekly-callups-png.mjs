@@ -12,10 +12,18 @@ assert.match(layout, /BORRADOR/);
 assert.match(layout, /DESCANSA/);
 assert.match(layout, /PARTIDO PENDIENTE DE CAPTURAR/);
 assert.match(layout, /category\.players\.length/);
-assert.match(layout, /category\.games\.map\(renderGame\)/);
+assert.match(layout, /category\.games\.map\(\(game\) => renderGame\(game, density\.compact\)\)/);
+assert.match(layout, /distributeCategoriesInReadingOrder/);
+assert.match(layout, /partitionStarts/);
+assert.match(layout, /categories\.slice\(range\.start, range\.end\)/);
+assert.match(layout, /categoryCount >= 11 \? 5/);
+assert.match(layout, /estimateLineCount/);
+assert.match(layout, /totalPlayers > 180/);
 
 assert.match(exportButton, /canvas\.toBlob/);
 assert.match(exportButton, /URL\.createObjectURL/);
+assert.match(exportButton, /maxCanvasPixels = 32_000_000/);
+assert.match(exportButton, /maxCanvasDimension = 16_000/);
 assert.match(exportButton, /Descargar imagen/);
 assert.match(exportButton, /data\.status === "draft"/);
 
