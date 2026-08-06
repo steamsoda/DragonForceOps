@@ -40,7 +40,7 @@ assert.doesNotMatch(query, /from\("(?:charges|payments|payment_allocations)"\)/)
 
 assert.match(page, /title="Convocatorias"/);
 assert.match(page, /Preparar convocatoria semanal/);
-assert.match(page, /plantel pagado congelado/);
+assert.match(page, /plantel pagado/);
 assert.match(nav, /href: "\/convocatorias", label: "Convocatorias"/);
 
 console.log("weekly callups foundation assertions passed");

@@ -20,7 +20,7 @@ for (const actionName of [
   "toggleWeeklyCallupPlayerAction",
   "moveWeeklyCallupCategoryAction",
   "moveWeeklyCallupGameAction",
-  "setWeeklyCallupStatusAction",
+  "deleteWeeklyCallupAction",
 ]) {
   assert.match(action, new RegExp(`export async function ${actionName}`));
 }
@@ -29,18 +29,18 @@ assert.match(action, /context\.campusAccess\?\.campusIds/);
 assert.match(action, /dateWithinWeek\(matchDate, editable\.callup\.week_start\)/);
 assert.match(action, /remove_games_before_rest/);
 assert.match(action, /roster_status: rosterStatus/);
-assert.match(action, /completeGameCategories/);
-assert.match(action, /incomplete_categories/);
-assert.match(action, /markCallupDraft/);
-assert.match(action, /weekly_callups\.marked_ready/);
+assert.match(action, /keepCallupReady/);
+assert.match(action, /weekly_callups\.deleted/);
+assert.match(action, /context\.isSportsDirector/);
 assert.doesNotMatch(action, /from\("(?:charges|payments|payment_allocations|attendance_records)"\)/);
 assert.doesNotMatch(query, /from\("(?:charges|payments|payment_allocations|attendance_records)"\)/);
 
-assert.match(editorPage, /Marcar como lista/);
+assert.doesNotMatch(editorPage, /Borrador|borrador|Reabrir/);
 assert.match(editorPage, /Plantel congelado/);
 assert.match(editorPage, /Agregar partido/);
 assert.match(editorPage, /Marcar Descansa/);
 assert.match(editorPage, /Excluir/);
-assert.match(listPage, /Abrir borrador/);
+assert.match(listPage, /Abrir convocatoria/);
+assert.match(listPage, /WeeklyCallupDeleteButton/);
 
 console.log("weekly callups editor assertions passed");

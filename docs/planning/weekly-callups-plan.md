@@ -8,7 +8,7 @@ Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or
 
 - The normal roster source is every active player in the selected program who is fully paid for the selected tournament.
 - Direct tournament payments and Combo/bundle entitlements use the same truth as `Inscripciones Torneos`.
-- A saved draft freezes player name, YOB, current training group, and eligibility source. Later payment or group changes do not silently rewrite an already prepared packet.
+- A saved convocatoria freezes player name, YOB, current training group, eligibility source, and assigned coaches. Later payment, group, or coach changes do not silently rewrite an already prepared packet.
 - A category may have zero, one, or several games in the same week.
 - Super Admin, Director Admin, Director Deportivo, and Front Desk can create and edit weekly packets within their campus scope.
 - Only Super Admin, Director Admin, and Director Deportivo may manually include an unpaid player.
@@ -62,10 +62,13 @@ Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or
 - Captures the first game or `Descansa` in the table, then opens the existing editor for exclusions, extra games, ordering, and PNG export.
 - Mixed packets intentionally do not expose legacy single-tournament comparison/refresh or unpaid-exception controls.
 
-### Pass 3C-2 - Final editor simplification
+### Pass 3C-2 - Ready-first editor cleanup (implemented in preview v1.16.242)
 
-- Add inline player exclusion to the quick composer and reduce visual density after staff test the new flow.
-- Keep exception, refresh, and status controls understandable without hiding their safeguards.
+- New packets are immediately ready and remain editable; the draft/reopen workflow and PNG watermark were removed.
+- Added frozen principal/auxiliary coach names to each group and the generated image.
+- Added a confirmed director-only packet delete action with cascading cleanup limited to the operational snapshot tables.
+- Removed the generated-image footer legend.
+- Inline player exclusion in the quick composer remains a separate optional polish item after staff validation.
 
 ### Pass 4 - Hardening
 

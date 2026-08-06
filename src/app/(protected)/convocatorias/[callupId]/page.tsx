@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { WeeklyCallupPngExportButton } from "@/components/weekly-callups/png-export-button";
+import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { WeeklyCallupSubmitButton } from "@/components/weekly-callups/submit-button";
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupDetail } from "@/lib/queries/weekly-callups";
 import {
   addWeeklyCallupManualExceptionAction,
+  deleteWeeklyCallupAction,
   deleteWeeklyCallupGameAction,
   moveWeeklyCallupCategoryAction,
   moveWeeklyCallupGameAction,
   refreshWeeklyCallupRosterAction,
   saveWeeklyCallupGameAction,
-  setWeeklyCallupStatusAction,
   toggleWeeklyCallupPlayerAction,
   toggleWeeklyCallupRestAction,
 } from "@/server/actions/weekly-callups";
@@ -50,8 +51,6 @@ const OK_MESSAGES: Record<string, string> = {
   roster_updated: "Plantel actualizado.",
   category_moved: "Orden de categorias actualizado.",
   game_moved: "Orden de partidos actualizado.",
-  marked_ready: "Convocatoria marcada como lista.",
-  reopened: "Convocatoria reabierta como borrador.",
   manual_exception_added: "Excepcion sin pago agregada y registrada en auditoria.",
   roster_refreshed: "Plantel pagado actualizado. Partidos, descansos y excepciones manuales se conservaron.",
   composer_created: "Convocatoria preparada. Revisa jugadores, agrega partidos adicionales y genera la imagen.",
@@ -79,9 +78,8 @@ function programLabel(program: string) {
 }
 
 function statusLabel(status: string) {
-  if (status === "ready") return "Lista";
   if (status === "shared") return "Compartida";
-  return "Borrador";
+  return "Lista";
 }
 
 export default async function WeeklyCallupEditorPage({ params, searchParams }: PageProps) {
@@ -110,12 +108,12 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
     program: callup.program,
     weekStart: callup.weekStart,
     weekEnd: callup.weekEnd,
-    status: callup.status,
     categories: callup.categories.map((category) => ({
       id: category.id,
       categoryLabel: category.categoryLabel,
       trainingGroupName: category.trainingGroupName,
       tournamentName: category.tournamentName,
+      coachNames: category.coachNames,
       isRest: category.isRest,
       games: category.games.map((game) => ({
         matchDate: game.matchDate,
@@ -151,14 +149,12 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                 {showExceptions ? "Cerrar excepciones" : "Agregar excepcion"}
               </Link>
             ) : null}
-            <form action={setWeeklyCallupStatusAction}>
-              <input type="hidden" name="callupId" value={callup.id} />
-              <input type="hidden" name="status" value={callup.status === "ready" ? "draft" : "ready"} />
-              <WeeklyCallupSubmitButton
-                label={callup.status === "ready" ? "Reabrir borrador" : "Marcar como lista"}
-                pendingLabel="Validando..."
-              />
-            </form>
+            {callup.canDeleteCallup ? (
+              <form action={deleteWeeklyCallupAction}>
+                <input type="hidden" name="callupId" value={callup.id} />
+                <WeeklyCallupDeleteButton />
+              </form>
+            ) : null}
           </div>
         </div>
 
@@ -178,7 +174,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
             <div>
               <h2 className="text-lg font-semibold text-portoBlue">Comparacion con pagos actuales</h2>
               <p className="text-sm text-slate-600">
-                Esta consulta no cambia pagos ni el borrador. Revisa las diferencias antes de actualizar el plantel congelado.
+                Esta consulta no cambia pagos ni la convocatoria. Revisa las diferencias antes de actualizar el plantel guardado.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-4">
@@ -212,7 +208,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
               <form action={refreshWeeklyCallupRosterAction} className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
                 <input type="hidden" name="callupId" value={callup.id} />
                 <p className="text-sm text-amber-950">
-                  La actualizacion conserva partidos, descansos, orden, exclusiones existentes y excepciones manuales. Solo sincroniza el plantel pagado y deja la convocatoria como borrador.
+                  La actualizacion conserva partidos, descansos, orden, exclusiones existentes y excepciones manuales. Solo sincroniza el plantel pagado.
                 </p>
                 <label className="flex items-start gap-2 text-sm font-medium text-amber-950">
                   <input required type="checkbox" name="confirmRefresh" value="yes" className="mt-1 h-4 w-4" />
@@ -277,6 +273,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                   <div>
                     <h2 className="text-lg font-semibold text-portoBlue">{category.categoryLabel} - {category.trainingGroupName}</h2>
                     <p className="text-sm font-medium text-slate-700">{category.tournamentName}</p>
+                    <p className="text-sm text-slate-600">Coach: {category.coachNames}</p>
                     <p className="text-sm text-slate-500">{included.length} incluidos | {excluded.length} excluidos | {category.games.length} partidos</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

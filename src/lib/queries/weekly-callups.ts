@@ -40,6 +40,7 @@ export type WeeklyCallupsFoundationData = {
     categoryLabel: string;
     primaryCoachName: string;
   }>;
+  canDeleteCallups: boolean;
   callups: WeeklyCallupListRow[];
 };
 
@@ -96,6 +97,7 @@ export type WeeklyCallupDetailCategory = {
   categoryLabel: string;
   trainingGroupName: string;
   tournamentName: string;
+  coachNames: string;
   sortOrder: number;
   isRest: boolean;
   games: WeeklyCallupDetailGame[];
@@ -111,6 +113,7 @@ export type WeeklyCallupDetailData = {
   weekEnd: string;
   status: "draft" | "ready" | "shared";
   snapshotAt: string;
+  canDeleteCallup: boolean;
   canManageExceptions: boolean;
   rosterComparison: WeeklyCallupRosterComparison | null;
   manualCandidates: WeeklyCallupManualCandidate[];
@@ -152,6 +155,7 @@ type DetailCategoryRow = {
   category_label: string;
   training_group_name_snapshot: string;
   tournament_name_snapshot: string | null;
+  coach_names_snapshot: string | null;
   sort_order: number;
   is_rest: boolean;
 };
@@ -371,6 +375,7 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
         primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin coach",
       };
     }),
+    canDeleteCallups: context.isSportsDirector,
     callups: (callupsResult.data ?? []).map((row) => {
       const categories = categoriesByCallup.get(row.id) ?? [];
       return {
@@ -415,7 +420,7 @@ export async function getWeeklyCallupDetail(
 
   const categoriesResult = await admin
     .from("weekly_callup_categories")
-    .select("id, weekly_callup_id, category_label, training_group_name_snapshot, tournament_name_snapshot, sort_order, is_rest")
+    .select("id, weekly_callup_id, category_label, training_group_name_snapshot, tournament_name_snapshot, coach_names_snapshot, sort_order, is_rest")
     .eq("weekly_callup_id", callup.id)
     .order("sort_order")
     .order("category_label")
@@ -574,6 +579,7 @@ export async function getWeeklyCallupDetail(
     weekEnd: weekEndDate.toISOString().slice(0, 10),
     status: callup.status,
     snapshotAt: callup.roster_snapshot_at,
+    canDeleteCallup: context.isSportsDirector,
     canManageExceptions: context.isSportsDirector && !hasMixedTournaments,
     rosterComparison,
     manualCandidates,
@@ -582,6 +588,7 @@ export async function getWeeklyCallupDetail(
       categoryLabel: category.category_label,
       trainingGroupName: category.training_group_name_snapshot,
       tournamentName: category.tournament_name_snapshot ?? callup.tournaments?.name ?? "Torneo",
+      coachNames: category.coach_names_snapshot ?? "Sin coach",
       sortOrder: category.sort_order,
       isRest: category.is_rest,
       games: (gamesByCategory.get(category.id) ?? []).map((game) => ({

@@ -10,6 +10,7 @@ export type WeeklyCallupPngCategory = {
   categoryLabel: string;
   trainingGroupName: string;
   tournamentName: string;
+  coachNames: string;
   isRest: boolean;
   players: Array<{ id: string; playerName: string }>;
   games: WeeklyCallupPngGame[];
@@ -21,7 +22,6 @@ export type WeeklyCallupPngData = {
   program: "selectivo" | "futbol_para_todos";
   weekStart: string;
   weekEnd: string;
-  status: "draft" | "ready" | "shared";
   categories: WeeklyCallupPngCategory[];
 };
 
@@ -83,7 +83,7 @@ function estimateCategoryHeight(category: WeeklyCallupPngCategory, density: Layo
           return height + 54 + (detailLines + opponentLines) * 18;
         }, 0)
       : 56;
-  return 102 + playerHeight + gamesHeight;
+  return 122 + playerHeight + gamesHeight;
 }
 
 function distributeCategoriesInReadingOrder(categories: SizedCategory[], columnCount: number) {
@@ -153,6 +153,7 @@ function renderCategory(category: SizedCategory, density: LayoutDensity) {
         <div style="font-size:${categoryFontSize}px;font-weight:900;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(category.categoryLabel)}</div>
         <div style="margin-top:1px;font-size:13px;font-weight:700;color:#475569;overflow-wrap:anywhere;">${escapeHtml(category.trainingGroupName)}</div>
         <div style="margin-top:3px;font-size:12px;font-weight:800;color:#9a3412;overflow-wrap:anywhere;">${escapeHtml(category.tournamentName ?? "")}</div>
+        <div style="margin-top:3px;font-size:12px;font-weight:700;color:#334155;overflow-wrap:anywhere;">Coach: ${escapeHtml(category.coachNames || "Sin coach")}</div>
       </div>
       ${
         category.isRest
@@ -193,7 +194,7 @@ function renderCategory(category: SizedCategory, density: LayoutDensity) {
 export function buildWeeklyCallupPngSvg(data: WeeklyCallupPngData) {
   const width = 1700;
   const headerHeight = 142;
-  const footerHeight = 44;
+  const footerHeight = 0;
   const outerPadding = 32;
   const gap = 16;
   const categoryCount = Math.max(data.categories.length, 1);
@@ -227,7 +228,6 @@ export function buildWeeklyCallupPngSvg(data: WeeklyCallupPngData) {
             <div style="margin-top:5px;max-width:1280px;font-size:${titleFontSize}px;font-weight:900;line-height:1.05;overflow-wrap:anywhere;">${escapeHtml(data.tournamentName)}</div>
             <div style="margin-top:9px;font-size:17px;color:#e2e8f0;">${escapeHtml(data.campusName)} | ${escapeHtml(programLabel(data.program))} | ${escapeHtml(formatDate(data.weekStart))} al ${escapeHtml(formatDate(data.weekEnd))}</div>
           </div>
-          ${data.status === "draft" ? `<div style="border:2px solid #fdba74;background:#7c2d12;padding:8px 14px;font-size:18px;font-weight:900;letter-spacing:0.08em;">BORRADOR</div>` : ""}
         </div>
       </header>
       <main style="display:grid;grid-template-columns:repeat(${columnCount},minmax(0,1fr));gap:${gap}px;align-items:start;padding:${outerPadding}px;box-sizing:border-box;">
@@ -241,7 +241,6 @@ export function buildWeeklyCallupPngSvg(data: WeeklyCallupPngData) {
           )
           .join("")}
       </main>
-      <footer style="height:${footerHeight}px;padding:0 ${outerPadding}px;box-sizing:border-box;font-size:13px;color:#64748b;">Lista generada desde INVICTA. Confirma sede, rival y horario antes de compartir.</footer>
     </div>
   `;
 

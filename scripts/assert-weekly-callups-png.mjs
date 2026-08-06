@@ -8,7 +8,7 @@ const [layout, exportButton, editorPage] = await Promise.all([
 ]);
 
 assert.match(layout, /export function buildWeeklyCallupPngSvg/);
-assert.match(layout, /BORRADOR/);
+assert.doesNotMatch(layout, /BORRADOR|Lista generada desde INVICTA/);
 assert.match(layout, /DESCANSA/);
 assert.match(layout, /PARTIDO PENDIENTE DE CAPTURAR/);
 assert.match(layout, /category\.players\.length/);
@@ -25,12 +25,13 @@ assert.match(exportButton, /URL\.createObjectURL/);
 assert.match(exportButton, /maxCanvasPixels = 32_000_000/);
 assert.match(exportButton, /maxCanvasDimension = 16_000/);
 assert.match(exportButton, /Descargar imagen/);
-assert.match(exportButton, /data\.status === "draft"/);
+assert.doesNotMatch(exportButton, /data\.status|borrador/i);
 
 assert.match(editorPage, /WeeklyCallupPngExportButton/);
 assert.match(editorPage, /player\.rosterStatus === "included"/);
 assert.match(editorPage, /tournamentName: packetTitle/);
 assert.match(editorPage, /tournamentName: category\.tournamentName/);
+assert.match(editorPage, /coachNames: category\.coachNames/);
 assert.match(editorPage, /games: category\.games\.map/);
 
 for (const source of [layout, exportButton, editorPage]) {

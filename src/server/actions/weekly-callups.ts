@@ -36,6 +36,12 @@ type AssignmentRow = {
   } | null;
 };
 
+type CoachAssignmentRow = {
+  training_group_id: string;
+  is_primary: boolean;
+  coaches: { first_name: string | null; last_name: string | null; is_active: boolean } | null;
+};
+
 type EditableCallupRow = {
   id: string;
   campus_id: string;
@@ -191,14 +197,42 @@ async function loadEditableCategory(callupId: string, categoryId: string, return
   return { ...editable, category: result.data };
 }
 
-async function markCallupDraft(
+async function loadCoachSnapshots(
+  admin: ReturnType<typeof createAdminClient>,
+  groupIds: string[],
+) {
+  const result = await admin
+    .from("training_group_coaches")
+    .select("training_group_id, is_primary, coaches(first_name, last_name, is_active)")
+    .in("training_group_id", groupIds)
+    .returns<CoachAssignmentRow[]>();
+  if (result.error) throw result.error;
+
+  const rowsByGroup = new Map<string, CoachAssignmentRow[]>();
+  for (const row of result.data ?? []) {
+    if (!row.coaches?.is_active) continue;
+    const rows = rowsByGroup.get(row.training_group_id) ?? [];
+    rows.push(row);
+    rowsByGroup.set(row.training_group_id, rows);
+  }
+
+  return new Map(groupIds.map((groupId) => {
+    const names = (rowsByGroup.get(groupId) ?? [])
+      .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+      .map((row) => [row.coaches?.first_name, row.coaches?.last_name].filter(Boolean).join(" ").trim())
+      .filter(Boolean);
+    return [groupId, names.join(", ") || "Sin coach"];
+  }));
+}
+
+async function keepCallupReady(
   admin: ReturnType<typeof createAdminClient>,
   callupId: string,
   userId: string,
 ) {
   const result = await admin
     .from("weekly_callups")
-    .update({ status: "draft", updated_by: userId, updated_at: new Date().toISOString() })
+    .update({ status: "ready", updated_by: userId, updated_at: new Date().toISOString() })
     .eq("id", callupId);
   if (result.error) throw result.error;
 }
@@ -289,7 +323,7 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
         tournament_id: tournamentId,
         program: programValue,
         week_start: weekStart,
-        status: "draft",
+        status: "ready",
         roster_snapshot_at: snapshotAt,
         created_by: context.user.id,
         updated_by: context.user.id,
@@ -313,6 +347,7 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
         const yearDiff = (b.birth_year_max ?? 0) - (a.birth_year_max ?? 0);
         return yearDiff || a.name.localeCompare(b.name, "es-MX");
       });
+    const coachSnapshots = await loadCoachSnapshots(admin, groups.map((group) => group.id));
 
     for (const [sortOrder, group] of groups.entries()) {
       const categoryResult = await admin
@@ -326,6 +361,7 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
           birth_year_min: group.birth_year_min,
           birth_year_max: group.birth_year_max,
           training_group_name_snapshot: group.name,
+          coach_names_snapshot: coachSnapshots.get(group.id) ?? "Sin coach",
           sort_order: sortOrder,
         })
         .select("id")
@@ -436,7 +472,7 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
 
   const selectedGroupIds = rowConfigs.map((row) => row.groupId);
   const selectedTournamentIds = [...new Set(rowConfigs.map((row) => row.tournamentId))];
-  const [groupsResult, tournamentsResult] = await Promise.all([
+  const [groupsResult, tournamentsResult, coachSnapshots] = await Promise.all([
     admin
       .from("training_groups")
       .select("id, campus_id, name, program, birth_year_min, birth_year_max, status")
@@ -447,6 +483,7 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
       .select("id, campus_id, product_id, name, is_active")
       .in("id", selectedTournamentIds)
       .returns<TournamentRow[]>(),
+    loadCoachSnapshots(admin, selectedGroupIds),
   ]);
   if (groupsResult.error) throw groupsResult.error;
   if (tournamentsResult.error) throw tournamentsResult.error;
@@ -498,7 +535,7 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
       tournament_id: primaryTournament.id,
       program: programValue,
       week_start: weekStart,
-      status: "draft",
+      status: "ready",
       roster_snapshot_at: snapshotAt,
       created_by: context.user.id,
       updated_by: context.user.id,
@@ -518,6 +555,7 @@ export async function createWeeklyCallupComposerAction(formData: FormData) {
         birth_year_min: group.birth_year_min,
         birth_year_max: group.birth_year_max,
         training_group_name_snapshot: group.name,
+        coach_names_snapshot: coachSnapshots.get(group.id) ?? "Sin coach",
         sort_order: sortOrder,
         is_rest: row.isRest,
       }).select("id").single<{ id: string }>();
@@ -622,7 +660,7 @@ export async function saveWeeklyCallupGameAction(formData: FormData) {
     });
     if (result.error) throw result.error;
   }
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -647,7 +685,7 @@ export async function deleteWeeklyCallupGameAction(formData: FormData) {
     .eq("id", gameId)
     .eq("weekly_callup_category_id", categoryId);
   if (result.error) throw result.error;
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -688,7 +726,7 @@ export async function moveWeeklyCallupGameAction(formData: FormData) {
   if (first.error) throw first.error;
   const second = await editable.admin.from("weekly_callup_games").update({ sort_order: current.sort_order }).eq("id", swap.id);
   if (second.error) throw second.error;
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -719,7 +757,7 @@ export async function toggleWeeklyCallupRestAction(formData: FormData) {
     .update({ is_rest: isRest, updated_at: new Date().toISOString() })
     .eq("id", categoryId);
   if (result.error) throw result.error;
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -751,7 +789,7 @@ export async function toggleWeeklyCallupPlayerAction(formData: FormData) {
     .eq("id", playerRowId)
     .eq("weekly_callup_category_id", categoryId);
   if (result.error) throw result.error;
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -789,7 +827,7 @@ export async function moveWeeklyCallupCategoryAction(formData: FormData) {
   if (first.error) throw first.error;
   const second = await editable.admin.from("weekly_callup_categories").update({ sort_order: current.sort_order }).eq("id", swap.id);
   if (second.error) throw second.error;
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -802,51 +840,28 @@ export async function moveWeeklyCallupCategoryAction(formData: FormData) {
   redirectEditor(callupId, "ok=category_moved");
 }
 
-export async function setWeeklyCallupStatusAction(formData: FormData) {
+export async function deleteWeeklyCallupAction(formData: FormData) {
   const callupId = textValue(formData, "callupId");
-  const status = textValue(formData, "status");
-  if (status !== "draft" && status !== "ready") redirectEditor(callupId, "invalid_status");
   const editable = await loadEditableCallup(callupId, `/convocatorias/${callupId}`);
-  if (status === "ready") {
-    const categories = await editable.admin
-      .from("weekly_callup_categories")
-      .select("id, is_rest")
-      .eq("weekly_callup_id", callupId)
-      .returns<Array<{ id: string; is_rest: boolean }>>();
-    if (categories.error) throw categories.error;
-    if ((categories.data?.length ?? 0) === 0) redirectEditor(callupId, "empty_callup");
-    const categoryIds = (categories.data ?? []).map((category) => category.id);
-    const games = await editable.admin
-      .from("weekly_callup_games")
-      .select("weekly_callup_category_id, match_date, arrival_time, venue, opponent")
-      .in("weekly_callup_category_id", categoryIds)
-      .returns<Array<{ weekly_callup_category_id: string; match_date: string; arrival_time: string | null; venue: string | null; opponent: string | null }>>();
-    if (games.error) throw games.error;
-    const completeGameCategories = new Set(
-      (games.data ?? [])
-        .filter((game) => game.match_date && game.arrival_time && game.venue?.trim() && game.opponent?.trim())
-        .map((game) => game.weekly_callup_category_id),
-    );
-    const incomplete = (categories.data ?? []).some(
-      (category) => !category.is_rest && !completeGameCategories.has(category.id),
-    );
-    if (incomplete) redirectEditor(callupId, "incomplete_categories");
-  }
-  const result = await editable.admin
-    .from("weekly_callups")
-    .update({ status, updated_by: editable.context.user.id, updated_at: new Date().toISOString() })
-    .eq("id", callupId);
+  if (!editable.context.isSportsDirector) redirect("/unauthorized");
+
+  const result = await editable.admin.from("weekly_callups").delete().eq("id", callupId);
   if (result.error) throw result.error;
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
-    action: status === "ready" ? "weekly_callups.marked_ready" : "weekly_callups.reopened",
+    action: "weekly_callups.deleted",
     tableName: "weekly_callups",
     recordId: callupId,
-    afterData: { status },
+    beforeData: {
+      campus_id: editable.callup.campus_id,
+      program: editable.callup.program,
+      week_start: editable.callup.week_start,
+      roster_snapshot_at: editable.callup.roster_snapshot_at,
+    },
   });
-  revalidateCallup(callupId);
-  redirectEditor(callupId, status === "ready" ? "ok=marked_ready" : "ok=reopened");
+  revalidatePath("/convocatorias");
+  redirectResult("ok=callup_deleted");
 }
 
 export async function addWeeklyCallupManualExceptionAction(formData: FormData) {
@@ -920,6 +935,7 @@ export async function addWeeklyCallupManualExceptionAction(formData: FormData) {
   let category = (categories.data ?? []).find((candidate) => candidate.training_group_id === group.id) ?? null;
   if (!category) {
     const order = (categories.data ?? []).reduce((max, candidate) => Math.max(max, candidate.sort_order), -1) + 1;
+    const coachSnapshots = await loadCoachSnapshots(editable.admin, [group.id]);
     const categoryInsert = await editable.admin
       .from("weekly_callup_categories")
       .insert({
@@ -929,6 +945,7 @@ export async function addWeeklyCallupManualExceptionAction(formData: FormData) {
         birth_year_min: group.birth_year_min,
         birth_year_max: group.birth_year_max,
         training_group_name_snapshot: group.name,
+        coach_names_snapshot: coachSnapshots.get(group.id) ?? "Sin coach",
         sort_order: order,
       })
       .select("id, weekly_callup_id, training_group_id, sort_order, is_rest")
@@ -961,7 +978,7 @@ export async function addWeeklyCallupManualExceptionAction(formData: FormData) {
     .single<{ id: string }>();
   if (playerInsert.error || !playerInsert.data) throw playerInsert.error ?? new Error("manual_exception_insert_failed");
 
-  await markCallupDraft(editable.admin, callupId, editable.context.user.id);
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,
     actorEmail: editable.context.user.email ?? null,
@@ -1013,6 +1030,7 @@ export async function refreshWeeklyCallupRosterAction(formData: FormData) {
     p_actor_id: editable.context.user.id,
   });
   if (refreshResult.error) throw refreshResult.error;
+  await keepCallupReady(editable.admin, callupId, editable.context.user.id);
   const refreshSummary = (refreshResult.data ?? {}) as Record<string, number>;
   await writeAuditLog(editable.admin, {
     actorUserId: editable.context.user.id,

@@ -42,9 +42,6 @@ export function WeeklyCallupPngExportButton({ data }: { data: WeeklyCallupPngDat
   const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
 
   async function handleDownload() {
-    if (data.status === "draft" && !window.confirm("Esta convocatoria sigue en borrador. La imagen mostrara la marca BORRADOR. Deseas continuar?")) {
-      return;
-    }
     setState("working");
     try {
       const exportImage = buildWeeklyCallupPngSvg(data);

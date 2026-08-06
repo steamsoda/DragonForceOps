@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-06 (session 263)
+
+### Weekly WhatsApp Convocatorias - Ready-First Cleanup (v1.16.242)
+
+- Removed the operational draft step. New packets are immediately `Lista`, remain editable, and edits or paid-roster refreshes keep them ready instead of reopening a draft state.
+- Converted existing draft packets to ready and removed all `Borrador` wording, image warnings, and draft watermark behavior.
+- Added a director-only confirmed delete action. Deleting a packet cascades only through its frozen categories, players, and games; tournament registrations, products, charges, payments, and allocations remain untouched.
+- Added frozen principal/auxiliary coach names per group and displayed them in the editor and generated WhatsApp image.
+- Removed the generated-image footer legend so the shared artifact contains only the operational convocatoria content.
+- Added migration `20260806130000_weekly_callups_ready_coach_snapshots.sql` and updated focused composer/editor/PNG regressions.
+
 ## 2026-08-05 (session 262)
 
 ### Weekly WhatsApp Convocatorias - Quick Group Composer Pass 3C-1 (v1.16.241)
