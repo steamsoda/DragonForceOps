@@ -10,8 +10,8 @@ const COLUMNS = [
   { header: "Jugador", width: 38 },
   { header: "Categoria", width: 13 },
   { header: "Campus", width: 18 },
-  { header: "Nivel", width: 20 },
-  { header: "Equipo base", width: 28 },
+  { header: "Programa", width: 22 },
+  { header: "Grupo de entrenamiento", width: 34 },
 ];
 
 function applyGridBorder(row: ExcelJS.Row) {
@@ -142,8 +142,8 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
           player.playerName,
           player.birthYear ?? "-",
           player.campusName,
-          player.level || "-",
-          player.teamName || "-",
+          player.programLabel || "-",
+          player.trainingGroupName || "Sin grupo",
         ]);
         row.getCell(1).alignment = { horizontal: "center" };
         row.getCell(3).alignment = { horizontal: "center" };

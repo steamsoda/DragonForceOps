@@ -12,6 +12,7 @@ import {
   TRAINING_GROUP_GENDER_LABELS,
   TRAINING_GROUP_PROGRAM_LABELS,
   formatTrainingGroupBirthYearRange,
+  formatTrainingGroupDisplayName,
 } from "@/lib/training-groups/shared";
 
 const PAGE_SIZE = 1000;
@@ -202,7 +203,7 @@ function stripGroupTitlePrefix(value: string) {
 }
 
 function formatGroupDisplayName(group: TrainingGroupRow) {
-  const groupName = stripGroupTitlePrefix(group.name) || group.level_label?.trim() || group.group_code?.trim() || "Grupo";
+  const groupName = stripGroupTitlePrefix(formatTrainingGroupDisplayName(group)) || "Grupo";
   const parts = [groupCategoryLabel(group)];
   if (group.gender === "female") parts.push("Femenil");
   parts.push(groupName);
@@ -214,17 +215,6 @@ function programRank(program: string | null) {
   if (program === "futbol_para_todos") return 1;
   if (program === "little_dragons") return 2;
   return 9;
-}
-
-function levelRank(value: string) {
-  const normalized = value.trim().toLowerCase();
-  if (normalized.includes("selectivo") || normalized === "sel") return 0;
-  if (normalized === "b1") return 1;
-  if (normalized === "b2") return 2;
-  if (normalized === "b3") return 3;
-  if (normalized.includes("little")) return 4;
-  if (normalized === "sin nivel") return 9;
-  return 5;
 }
 
 function normalizeGenderFilter(value: string | null | undefined): "male" | "female" | "" {
@@ -395,12 +385,9 @@ export async function getPlayerRosterGroupsData(
     const canonicalGroup = row.training_group_id ? groupsById.get(row.training_group_id) ?? null : null;
     const targetSection = canonicalGroup?.id ? sectionMap.get(canonicalGroup.id) ?? unassignedSection : unassignedSection;
     const fullName = row.full_name?.replace(/\s+/g, " ").trim() || "Jugador";
-    const levelGroup =
-      canonicalGroup?.level_label?.trim() ||
-      canonicalGroup?.group_code?.trim() ||
-      row.player_level?.trim() ||
-      canonicalGroup?.name ||
-      "Sin nivel";
+    const levelGroup = canonicalGroup
+      ? TRAINING_GROUP_PROGRAM_LABELS[canonicalGroup.program] ?? canonicalGroup.program
+      : "Sin grupo";
 
     targetSection.rows.push({
       enrollmentId: row.enrollment_id,
@@ -428,8 +415,6 @@ export async function getPlayerRosterGroupsData(
     .map((section) => ({
       ...section,
       rows: [...section.rows].sort((a, b) => {
-        const levelDiff = levelRank(a.levelGroup) - levelRank(b.levelGroup);
-        if (levelDiff !== 0) return levelDiff;
         const yearDiff = (a.birthYear ?? 9999) - (b.birthYear ?? 9999);
         if (yearDiff !== 0) return yearDiff;
         return a.fullName.localeCompare(b.fullName, "es-MX");

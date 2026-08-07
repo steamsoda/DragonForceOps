@@ -52,13 +52,30 @@ export function formatTrainingGroupBirthYearRange(min: number | null | undefined
   return String(min ?? max);
 }
 
+export function formatTrainingGroupDisplayName(group: {
+  name: string;
+  program?: string | null;
+}) {
+  const name = group.name.replace(/\s+/g, " ").trim();
+  if (group.program !== "futbol_para_todos") return name;
+
+  const withoutLegacyLevel = name
+    .replace(/\bB[123]\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (/f[uú]tbol\s+para\s+todos/i.test(withoutLegacyLevel)) return withoutLegacyLevel;
+  return withoutLegacyLevel ? `${withoutLegacyLevel} - Futbol Para Todos` : "Futbol Para Todos";
+}
+
 export function formatTrainingGroupLabel(group: {
   name: string;
+  program?: string | null;
   birthYearMin?: number | null;
   birthYearMax?: number | null;
   gender?: string | null;
 }) {
-  const parts = [group.name];
+  const parts = [formatTrainingGroupDisplayName(group)];
   const range = formatTrainingGroupBirthYearRange(group.birthYearMin ?? null, group.birthYearMax ?? null);
   if (range !== "Sin categoria") parts.push(range);
   if (group.gender) parts.push(TRAINING_GROUP_GENDER_LABELS[group.gender] ?? group.gender);

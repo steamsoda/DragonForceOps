@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type {
   CompetitionSignupCategoryGroup,
   CompetitionSignupDashboardData,
+  CompetitionSignupTrainingGroup,
 } from "@/lib/queries/sports-signups";
 
 type Props = {
@@ -219,6 +220,7 @@ export function SportsSignupsBoard({
 }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
+  const [viewMode, setViewMode] = useState<"category" | "group">("category");
   const [feedbackByCategoryKey, setFeedbackByCategoryKey] = useState<Record<string, CategoryActionFeedback>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -474,11 +476,32 @@ export function SportsSignupsBoard({
             </div>
           </div>
 
-          {selectedCompetition.categories.length === 0 ? (
+          <div className="mb-5 flex flex-wrap gap-2" aria-label="Organizar inscripciones">
+            <button
+              type="button"
+              onClick={() => setViewMode("category")}
+              className={viewMode === "category"
+                ? "rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white"
+                : "rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"}
+            >
+              Por categoria
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("group")}
+              className={viewMode === "group"
+                ? "rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white"
+                : "rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"}
+            >
+              Por grupo
+            </button>
+          </div>
+
+          {viewMode === "category" && selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
               No hay categorias activas o jugadores pagados para esta competencia en el campus seleccionado.
             </div>
-          ) : (
+          ) : viewMode === "category" ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
               {selectedCompetition.categories.map((category) => {
                 const detailHref = `/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`;
@@ -535,7 +558,7 @@ export function SportsSignupsBoard({
 
                     <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-portoBlue">Ver por nivel</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-portoBlue">Ver detalle</p>
                         {feedback ? (
                           <p
                             className={[
@@ -592,6 +615,21 @@ export function SportsSignupsBoard({
                 );
               })}
             </div>
+          ) : selectedCompetition.trainingGroups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
+              No hay grupos activos o jugadores pagados para esta competencia en el campus seleccionado.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {selectedCompetition.trainingGroups.map((group) => (
+                <TrainingGroupSignupCard
+                  key={`${selectedCompetition.id}-${group.key}`}
+                  group={group}
+                  detailHref={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&trainingGroup=${encodeURIComponent(group.key)}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`}
+                  onOpen={(href) => router.push(href)}
+                />
+              ))}
+            </div>
           )}
         </section>
       ) : (
@@ -604,5 +642,65 @@ export function SportsSignupsBoard({
         Fuente de verdad: cargos positivos, no anulados, con asignaciones de pago suficientes para cubrir el monto completo.
       </p>
     </div>
+  );
+}
+
+function TrainingGroupSignupCard({
+  group,
+  detailHref,
+  onOpen,
+}: {
+  group: CompetitionSignupTrainingGroup;
+  detailHref: string;
+  onOpen: (href: string) => void;
+}) {
+  const nameColumns = getNameColumns(group.players);
+
+  return (
+    <article
+      role="link"
+      tabIndex={0}
+      onClick={() => onOpen(detailHref)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onOpen(detailHref);
+      }}
+      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-portoBlue hover:shadow-md focus:outline-none focus:ring-2 focus:ring-portoBlue/40 dark:border-slate-700 dark:bg-slate-950/70"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{group.label}</h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{group.subtitle}</p>
+        </div>
+        <p className="shrink-0 text-2xl font-semibold text-slate-950 dark:text-slate-50">
+          {group.confirmedCount}/{group.activeCount}
+        </p>
+      </div>
+
+      <div className="mt-4 text-sm text-slate-700 dark:text-slate-200">
+        {group.players.length > 0 ? (
+          <div className={nameColumns.length > 1 ? "grid gap-x-5 gap-y-1 sm:grid-cols-2" : "grid grid-cols-1 gap-y-1"}>
+            {nameColumns.map((column, columnIndex) => (
+              <div key={`${group.key}-column-${columnIndex}`} className="space-y-1">
+                {column.map((player) => <p key={player.enrollmentId}>{player.playerName}</p>)}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="italic text-slate-400 dark:text-slate-500">Sin jugadores pagados.</p>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+        <Link
+          href={detailHref}
+          onClick={(event) => event.stopPropagation()}
+          className="text-sm font-medium text-portoBlue hover:underline"
+        >
+          Ver detalle
+        </Link>
+      </div>
+    </article>
   );
 }

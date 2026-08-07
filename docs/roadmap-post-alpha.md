@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-06 (`v1.17.2`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-07 (`v1.17.7`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.2`
-- Current preview candidate: `v1.17.4` enrollment program/group confirmation plus pre-creation group/derived-level review; awaiting preview validation
+- Current preview candidate: `v1.17.7` adds `Inscripciones Torneos > Por grupo`, removes the legacy B1/B2 detail presentation, and preserves existing paid/Combo-aware registration truth; awaiting preview validation
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -153,6 +153,31 @@ This checkpoint closes the long `v1.16` delivery wave without deleting its backl
 - 🟡 Product archive/pricing-rule admin, tournament redesign, coach match posting, and offline/outage mitigation.
 - 🧊 Parent/mobile planning, WhatsApp communication expansion, Nutrition vNext, uniforms, favicon/app icon, and the expenses/nomina module.
 
+## Checkpoint: 2026-08-07 - Program And Tournament-Squad Rebaseline
+
+Staff approved a simpler sporting model and superseded the prior `Futbol Para Todos -> B1` synchronization plan.
+
+**Approved Direction**
+
+- 🔴 Academy-facing programs are only `Futbol Para Todos`, `Selectivo`, and `Little Dragons`.
+- 🔴 B1/B2/B3 is retired from new enrollment, player profiles, ordinary editing, tournament detail grouping, and future operational logic.
+- 🔴 Existing level columns and metadata remain temporarily as dormant legacy data until all read/write dependencies are replaced. Do not bulk-null or delete historical values.
+- 🔴 Training groups remain the source for practice rosters, attendance, schedules, and coaches. Preserve IDs and history; remove B1/B2/B3 from visible FPT names through a reviewed mapping.
+- 🔴 Existing paid/confirmed tournament entries remain registration truth. Most registered players form one team from their training group without extra setup.
+- 🔴 `Azul` and `Blanco` are tournament-specific squads used only when a category needs two teams. They may change per tournament and never become a permanent player level.
+- 🔴 Tournament squads must support combined source groups, multi-squad players, rare explicit paid-player exclusions, and later registrations awaiting assignment after a split.
+- 🔴 Future coach access is scoped to assigned groups/squads: coaches prepare convocatorias, while directors/admins review and generate WhatsApp images.
+
+**Ordered Work**
+
+1. ✅ `v1.17.5` dependency audit and safe Nivel deprecation from enrollment/player surfaces.
+2. 🟢 `v1.17.6` removes B1/B2/B3 from the new-enrollment contract/ranking and applies reviewed FPT labels in enrollment and `Jugadores` without changing group identity/history. The historical assignment-review matcher remains contained for a separate safe replacement.
+3. 🟢 `v1.17.7` adds `Por grupo` to `Inscripciones Torneos`, keeps `Sin grupo` visible, and quietly sunsets the B1/B2 detailed segmentation without creating competition squads.
+4. 🔴 Add tournament-specific single/Azul/Blanco squad management and exception audit history.
+5. 🔴 Add scoped coach convocatoria preparation and director/admin final review.
+
+Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
+
 ## Now
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
@@ -160,8 +185,9 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
-| 🟢 | Enrollment program/group hardening | Preview `v1.17.3` requires program and active group confirmation, validates the selection again on the server, rolls back incomplete enrollment writes, and removes the dormant B2 team hook. | Nueva Inscripcion, training groups, `docs/planning/training-groups-model-analysis.md`, `v1.17.3` devlog |
-| 🟡 | Production assignment review and repair | After enrollment rules are fixed, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
+| 🟢 | Program/Nivel deprecation and tournament-view containment | `v1.17.5` hides Nivel; `v1.17.6` removes B1 priority from new enrollment; `v1.17.7` replaces the B1/B2 tournament detail presentation with current training-group context. Validate before promotion. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
+| 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
+| 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
 | 🔴 | Attendance special-day and cancellation workflow | Resume after the attendance display and enrollment/group integrity passes. | Checkpoint 2026-07-11, Asistencia lane |
 
@@ -178,8 +204,8 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🔴 | `Inscripciones Torneos` group and roster views | Add `Por grupo` beside the YOB view using current active training groups, then plan tournament-specific competition rosters from paid `tournament_player_entries`. Keep `Sin grupo` visible and do not revive automatic team assignment. |
-| 🟡 | Legacy team/tournament surface containment | Preview `v1.17.3` removes the dormant enrollment B2 hook. Later decide whether hidden `/teams` and `/tournaments` routes are retired or absorbed into `Inscripciones Torneos`. |
+| 🟡 | `Inscripciones Torneos` tournament-squad workflow | `v1.17.7` completed the current-training-group view and B1/B2 presentation sunset. Next, plan normal and optional Azul/Blanco squads, combined source groups, rare exclusions, and audit history without changing paid-registration truth. |
+| 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |

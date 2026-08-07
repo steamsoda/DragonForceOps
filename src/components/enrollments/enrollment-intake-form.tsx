@@ -23,7 +23,7 @@ import {
   type EnrollmentTrainingGroupSelection,
 } from "@/components/enrollments/enrollment-training-group-picker";
 import type { EnrollmentTrainingGroupOption } from "@/lib/training-groups/enrollment-selection";
-import { derivePlayerLevelFromTrainingProgram } from "@/lib/training-groups/shared";
+import { TRAINING_GROUP_PROGRAM_LABELS } from "@/lib/training-groups/shared";
 
 type EnrollmentIntakeFormProps = {
   campuses: Array<{ id: string; code: string; name: string }>;
@@ -908,8 +908,8 @@ export function EnrollmentIntakeForm({
               {trainingGroupSelection?.group?.name ?? "Grupo pendiente"}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Nivel: {trainingGroupSelection
-                ? derivePlayerLevelFromTrainingProgram(trainingGroupSelection.program)
+              Programa: {trainingGroupSelection
+                ? TRAINING_GROUP_PROGRAM_LABELS[trainingGroupSelection.program] ?? trainingGroupSelection.program
                 : "Pendiente"}
             </p>
           </div>

@@ -12,7 +12,8 @@ assert.match(route, /application\/vnd\.openxmlformats-officedocument\.spreadshee
 assert.match(route, /\.xlsx`/);
 assert.match(route, /hasOperationalAccess && !permissionContext\.hasSportsAccess/);
 assert.match(workbook, /paidDateFilter/);
-assert.match(workbook, /Equipo base/);
+assert.match(workbook, /Grupo de entrenamiento/);
+assert.match(workbook, /player\.trainingGroupName/);
 assert.match(workbook, /groupRowsByCampusAndBirthYear/);
 assert.match(workbook, /Categoria \$\{birthYearKey\}/);
 assert.match(workbook, /playerA\.playerName\.localeCompare\(playerB\.playerName, "es-MX"\)/);
@@ -21,5 +22,7 @@ assert.match(board, /paidFilterQuery/);
 assert.match(page, /hasOperationalAccess \|\| permissionContext\.hasSportsAccess/);
 assert.match(query, /confirmedChargeByEnrollment = new Map/);
 assert.match(query, /getCompetitionBucketIds\(charge, productBucketIds, bundleEntitlements\)/);
+assert.match(query, /loadActiveTrainingGroupAssignments/);
+assert.doesNotMatch(query, /loadPrimaryTeamAssignments/);
 
 console.log("Sports signups Excel export assertions passed.");

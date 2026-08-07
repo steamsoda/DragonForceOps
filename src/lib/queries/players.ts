@@ -7,6 +7,7 @@ import {
   getDropoutReasonLabel,
   type DropoutReason,
 } from "@/lib/enrollments/dropout-reasons";
+import { formatTrainingGroupDisplayName } from "@/lib/training-groups/shared";
 
 const PAGE_SIZE = 20;
 const POSTGREST_PAGE_SIZE = 1000;
@@ -918,7 +919,7 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
     activeTrainingGroup: trainingGroup
       ? {
           id: trainingGroup.id,
-          name: trainingGroup.name,
+          name: formatTrainingGroupDisplayName(trainingGroup),
           program: trainingGroup.program,
           levelLabel: trainingGroup.level_label,
           groupCode: trainingGroup.group_code,

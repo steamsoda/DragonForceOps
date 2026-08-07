@@ -6,7 +6,11 @@ import {
   type ProductBundleEntitlementInput,
 } from "@/lib/products/bundle-entitlements";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BASE_TEAM_LEVELS } from "@/lib/teams/shared";
+import {
+  formatTrainingGroupBirthYearRange,
+  formatTrainingGroupDisplayName,
+  TRAINING_GROUP_PROGRAM_LABELS,
+} from "@/lib/training-groups/shared";
 
 type SupabaseQueryClient = SupabaseClient;
 
@@ -68,7 +72,6 @@ type ChargeRow = {
       last_name: string;
       birth_date: string | null;
       gender: string | null;
-      level: string | null;
     } | null;
   } | null;
 };
@@ -97,16 +100,31 @@ type ActiveEnrollmentRow = {
     last_name: string;
     birth_date: string | null;
     gender: string | null;
-    level: string | null;
   } | null;
 };
 
-type TeamAssignmentRow = {
+type TrainingGroupAssignmentRow = {
   enrollment_id: string;
-  teams: {
+  training_group_id: string;
+  training_groups: {
+    id: string;
     name: string | null;
-    level: string | null;
+    program: string | null;
+    gender: string | null;
+    birth_year_min: number | null;
+    birth_year_max: number | null;
+    status: string | null;
   } | null;
+};
+
+type TrainingGroupSummary = {
+  id: string;
+  name: string;
+  label: string;
+  subtitle: string;
+  program: string | null;
+  birthYearMin: number | null;
+  birthYearMax: number | null;
 };
 
 type LegacyBucketConfig = {
@@ -151,6 +169,9 @@ export type CompetitionSignupPlayerRow = {
   competitionId: string;
   competitionLabel: string;
   registrationSource: "direct" | "bundle";
+  trainingGroupId: string | null;
+  trainingGroupLabel: string;
+  trainingGroupSubtitle: string;
 };
 
 export type CompetitionPaidCallupPlayer = CompetitionSignupPlayerRow;
@@ -159,6 +180,16 @@ export type CompetitionSignupCategoryGroup = {
   key: string;
   label: string;
   birthYear: number | null;
+  confirmedCount: number;
+  activeCount: number;
+  players: CompetitionSignupPlayerRow[];
+};
+
+export type CompetitionSignupTrainingGroup = {
+  key: string;
+  trainingGroupId: string | null;
+  label: string;
+  subtitle: string;
   confirmedCount: number;
   activeCount: number;
   players: CompetitionSignupPlayerRow[];
@@ -177,6 +208,7 @@ export type CompetitionSignupCompetitionGroup = {
   bundleConfirmedCount: number;
   totalActive: number;
   categories: CompetitionSignupCategoryGroup[];
+  trainingGroups: CompetitionSignupTrainingGroup[];
 };
 
 export type CompetitionSignupCampusBoard = {
@@ -212,14 +244,9 @@ export type CompetitionSignupDetailPlayerRow = {
   enrollmentId: string;
   playerId: string;
   playerName: string;
-  level: string;
-  teamName: string;
-};
-
-export type CompetitionSignupDetailLevelGroup = {
-  level: string;
-  playerCount: number;
-  players: CompetitionSignupDetailPlayerRow[];
+  trainingGroupId: string | null;
+  trainingGroupLabel: string;
+  trainingGroupSubtitle: string;
 };
 
 export type CompetitionSignupCategoryDetailData = {
@@ -228,12 +255,13 @@ export type CompetitionSignupCategoryDetailData = {
   campusId: string;
   campusName: string;
   paidDateFilter: CompetitionSignupPaidDateFilter;
+  viewMode: "category" | "group";
   birthYear: number | null;
-  categoryLabel: string;
+  filterLabel: string;
   totalConfirmed: number;
   totalUnpaid: number;
-  paidLevelGroups: CompetitionSignupDetailLevelGroup[];
-  unpaidLevelGroups: CompetitionSignupDetailLevelGroup[];
+  paidPlayers: CompetitionSignupDetailPlayerRow[];
+  unpaidPlayers: CompetitionSignupDetailPlayerRow[];
   perf?: {
     totalMs: number;
     steps: Array<{ label: string; durationMs: number }>;
@@ -244,8 +272,8 @@ export type CompetitionSignupExportRow = {
   playerName: string;
   birthYear: number | null;
   campusName: string;
-  level: string;
-  teamName: string;
+  trainingGroupName: string;
+  programLabel: string;
 };
 
 export type CompetitionSignupExportData = {
@@ -272,11 +300,6 @@ function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.getUTCFullYear();
-}
-
-function normalizeLevel(value: string | null | undefined) {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "Sin nivel";
 }
 
 function roundMoney(value: number) {
@@ -405,23 +428,31 @@ function sortCategoryGroups(categories: CompetitionSignupCategoryGroup[]) {
   });
 }
 
-function compareLevels(left: string, right: string) {
-  const leftIndex = BASE_TEAM_LEVELS.indexOf(left as (typeof BASE_TEAM_LEVELS)[number]);
-  const rightIndex = BASE_TEAM_LEVELS.indexOf(right as (typeof BASE_TEAM_LEVELS)[number]);
-
-  if (leftIndex === -1 && rightIndex === -1) {
-    if (left === "Sin nivel" && right === "Sin nivel") return 0;
-    if (left === "Sin nivel") return 1;
-    if (right === "Sin nivel") return -1;
-    return left.localeCompare(right, "es-MX");
-  }
-  if (leftIndex === -1) return left === "Sin nivel" ? 1 : BASE_TEAM_LEVELS.length;
-  if (rightIndex === -1) return right === "Sin nivel" ? -1 : -BASE_TEAM_LEVELS.length;
-  return leftIndex - rightIndex;
+function getTrainingGroupSummary(row: TrainingGroupAssignmentRow["training_groups"]): TrainingGroupSummary | null {
+  if (!row?.id || !row.name) return null;
+  const birthYearLabel = formatTrainingGroupBirthYearRange(row.birth_year_min, row.birth_year_max);
+  const programLabel = TRAINING_GROUP_PROGRAM_LABELS[row.program ?? ""] ?? "Programa sin definir";
+  return {
+    id: row.id,
+    name: row.name,
+    label: formatTrainingGroupDisplayName({ name: row.name, program: row.program }),
+    subtitle: `${programLabel} | ${birthYearLabel}`,
+    program: row.program,
+    birthYearMin: row.birth_year_min,
+    birthYearMax: row.birth_year_max,
+  };
 }
 
-function sortLevelGroups(groups: CompetitionSignupDetailLevelGroup[]) {
-  return [...groups].sort((a, b) => compareLevels(a.level, b.level));
+function getPlayerTrainingGroup(
+  trainingGroupByEnrollment: Map<string, TrainingGroupSummary>,
+  enrollmentId: string,
+) {
+  const group = trainingGroupByEnrollment.get(enrollmentId) ?? null;
+  return {
+    trainingGroupId: group?.id ?? null,
+    trainingGroupLabel: group?.label ?? "Sin grupo",
+    trainingGroupSubtitle: group?.subtitle ?? "Sin asignacion activa",
+  };
 }
 
 function startPerf(enabled: boolean) {
@@ -517,7 +548,7 @@ async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
     const { data, error } = await admin
       .from("charges")
       .select(
-        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
       )
       .neq("status", "void")
       .gt("amount", 0)
@@ -549,7 +580,7 @@ async function loadBoardCompetitionChargeRows(
       const { data, error } = await admin
         .from("charges")
         .select(
-          "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+          "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
         )
         .neq("status", "void")
         .gt("amount", 0)
@@ -576,7 +607,7 @@ async function loadBoardCompetitionChargeRows(
         const { data, error } = await admin
           .from("charges")
           .select(
-            "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+            "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
           )
           .neq("status", "void")
           .gt("amount", 0)
@@ -614,7 +645,7 @@ async function loadChargeRowsForCampus(
     let query = admin
       .from("charges")
       .select(
-        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender, level))"
+        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
       )
       .neq("status", "void")
       .gt("amount", 0)
@@ -646,7 +677,7 @@ async function loadActiveEnrollments(admin: SupabaseQueryClient, campusIds: stri
     const to = from + pageSize - 1;
     const { data, error } = await admin
       .from("enrollments")
-      .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender, level)")
+      .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender)")
       .eq("status", "active")
       .in("campus_id", campusIds)
       .order("start_date", { ascending: false })
@@ -670,7 +701,7 @@ async function loadActiveEnrollmentsForCampus(admin: SupabaseQueryClient, campus
     const to = from + pageSize - 1;
     const { data, error } = await admin
       .from("enrollments")
-      .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender, level)")
+      .select("id, player_id, campus_id, players!inner(first_name, last_name, birth_date, gender)")
       .eq("status", "active")
       .eq("campus_id", campusId)
       .order("start_date", { ascending: false })
@@ -713,30 +744,35 @@ async function loadAllocationSummaries(admin: SupabaseQueryClient, chargeIds: st
   return allocationSummaries;
 }
 
-async function loadPrimaryTeamAssignments(admin: SupabaseQueryClient, enrollmentIds: string[]) {
-  if (enrollmentIds.length === 0) return new Map<string, TeamAssignmentRow["teams"]>();
+async function loadActiveTrainingGroupAssignments(admin: SupabaseQueryClient, enrollmentIds: string[]) {
+  if (enrollmentIds.length === 0) return new Map<string, TrainingGroupSummary>();
 
-  const chunkSize = 500;
-  const teamByEnrollment = new Map<string, TeamAssignmentRow["teams"]>();
+  const chunkSize = 300;
+  const groupByEnrollment = new Map<string, TrainingGroupSummary>();
 
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const chunk = enrollmentIds.slice(index, index + chunkSize);
     const { data, error } = await admin
-      .from("team_assignments")
-      .select("enrollment_id, teams(name, level)")
+      .from("training_group_assignments")
+      .select("enrollment_id, training_group_id, training_groups(id, name, program, gender, birth_year_min, birth_year_max, status)")
       .in("enrollment_id", chunk)
       .is("end_date", null)
-      .eq("is_primary", true)
-      .returns<TeamAssignmentRow[]>();
+      .returns<TrainingGroupAssignmentRow[]>();
 
     if (error) throw error;
 
     for (const row of data ?? []) {
-      teamByEnrollment.set(row.enrollment_id, row.teams ?? null);
+      const group = getTrainingGroupSummary(row.training_groups);
+      if (!group) continue;
+
+      const existing = groupByEnrollment.get(row.enrollment_id);
+      if (!existing || group.label.localeCompare(existing.label, "es-MX") < 0) {
+        groupByEnrollment.set(row.enrollment_id, group);
+      }
     }
   }
 
-  return teamByEnrollment;
+  return groupByEnrollment;
 }
 
 function buildCompetitionBuckets(
@@ -783,6 +819,7 @@ function buildEmptyCompetitions(buckets: CompetitionSignupBucket[]): Competition
     bundleConfirmedCount: 0,
     totalActive: 0,
     categories: [],
+    trainingGroups: [],
   }));
 }
 
@@ -796,6 +833,7 @@ function buildCampusBoard(
   buckets: CompetitionSignupBucket[],
   productBucketIds: Set<string>,
   bundleEntitlements: ProductBundleEntitlementInput[],
+  trainingGroupByEnrollment: Map<string, TrainingGroupSummary>,
 ): CompetitionSignupCampusBoard {
   const competitions = buckets
     .filter((bucket) => !bucket.campusId || bucket.campusId === campusId)
@@ -835,10 +873,12 @@ function buildCampusBoard(
         competitionId: bucket.id,
         competitionLabel: bucket.label,
         registrationSource,
+        ...getPlayerTrainingGroup(trainingGroupByEnrollment, enrollment.id),
       });
     }
 
     const categoryMap = new Map<string, CompetitionSignupCategoryGroup>();
+    const trainingGroupMap = new Map<string, CompetitionSignupTrainingGroup>();
 
     for (const enrollment of campusActiveEnrollments) {
       const birthYear = getBirthYear(enrollment.players?.birth_date);
@@ -857,6 +897,20 @@ function buildCampusBoard(
 
       category.activeCount += 1;
       categoryMap.set(categoryKey, category);
+
+      const group = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+      const trainingGroupKey = group?.id ?? "sin_grupo";
+      const trainingGroup = trainingGroupMap.get(trainingGroupKey) ?? {
+        key: trainingGroupKey,
+        trainingGroupId: group?.id ?? null,
+        label: group?.label ?? "Sin grupo",
+        subtitle: group?.subtitle ?? "Sin asignacion activa",
+        confirmedCount: 0,
+        activeCount: 0,
+        players: [],
+      };
+      trainingGroup.activeCount += 1;
+      trainingGroupMap.set(trainingGroupKey, trainingGroup);
     }
 
     for (const player of confirmedPlayers.values()) {
@@ -876,6 +930,20 @@ function buildCampusBoard(
       category.confirmedCount += 1;
       category.players.push(player);
       categoryMap.set(categoryKey, category);
+
+      const trainingGroupKey = player.trainingGroupId ?? "sin_grupo";
+      const trainingGroup = trainingGroupMap.get(trainingGroupKey) ?? {
+        key: trainingGroupKey,
+        trainingGroupId: player.trainingGroupId,
+        label: player.trainingGroupLabel,
+        subtitle: player.trainingGroupSubtitle,
+        confirmedCount: 0,
+        activeCount: 0,
+        players: [],
+      };
+      trainingGroup.confirmedCount += 1;
+      trainingGroup.players.push(player);
+      trainingGroupMap.set(trainingGroupKey, trainingGroup);
     }
 
     return {
@@ -896,6 +964,14 @@ function buildCampusBoard(
           players: sortPlayerRows(category.players),
         })),
       ),
+      trainingGroups: Array.from(trainingGroupMap.values())
+        .map((group) => ({ ...group, players: sortPlayerRows(group.players) }))
+        .sort((a, b) => {
+          if (a.trainingGroupId === null && b.trainingGroupId === null) return 0;
+          if (a.trainingGroupId === null) return 1;
+          if (b.trainingGroupId === null) return -1;
+          return a.label.localeCompare(b.label, "es-MX");
+        }),
     };
   });
 
@@ -959,6 +1035,15 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
   }
 
+  const trainingGroupsStartedAt = Date.now();
+  const trainingGroupByEnrollment = await loadActiveTrainingGroupAssignments(
+    admin,
+    activeEnrollments.map((enrollment) => enrollment.id),
+  );
+  if (perf) {
+    recordPerfStep(perf, "load training groups", trainingGroupsStartedAt);
+  }
+
   const allocationsStartedAt = Date.now();
   const allocationSummaries = await loadAllocationSummaries(
     admin,
@@ -978,6 +1063,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     campusAccess,
     charges,
     activeEnrollments,
+    trainingGroupByEnrollment,
     allocationSummaries,
     competitionOptions,
     productBucketIds,
@@ -1070,6 +1156,16 @@ async function getCompetitionSignupDetailBaseData(filters: {
   recordPerfStep(perf, "load charges", chargesStartedAt);
   recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
 
+  const trainingGroupsStartedAt = Date.now();
+  const trainingGroupByEnrollment = await loadActiveTrainingGroupAssignments(
+    admin,
+    Array.from(new Set([
+      ...activeEnrollments.map((enrollment) => enrollment.id),
+      ...charges.map((charge) => charge.enrollment_id),
+    ])),
+  );
+  recordPerfStep(perf, "load training groups", trainingGroupsStartedAt);
+
   const allocationsStartedAt = Date.now();
   const allocationSummaries = await loadAllocationSummaries(
     admin,
@@ -1086,6 +1182,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
     parsedBucket,
     charges,
     activeEnrollments,
+    trainingGroupByEnrollment,
     allocationSummaries,
     paidDateFilter: normalizePaidDateFilter(filters),
     productBucketIds,
@@ -1110,6 +1207,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
     campusAccess,
     charges,
     activeEnrollments,
+    trainingGroupByEnrollment,
     allocationSummaries,
     competitionOptions,
     productBucketIds,
@@ -1179,6 +1277,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
         competitionOptions,
         productBucketIds,
         bundleEntitlements,
+        trainingGroupByEnrollment,
       ),
     );
     recordPerfStep(perf, "build campus boards", campusBoardsStartedAt);
@@ -1213,6 +1312,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   campusId?: string | null;
   competitionId?: string | null;
   birthYear?: string | null;
+  trainingGroupId?: string | null;
   paidFrom?: string | null;
   paidTo?: string | null;
   perf?: boolean;
@@ -1227,13 +1327,13 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   if (!baseData) return null;
 
   const {
-    admin,
     campusAccess,
     campusId,
     competitionId,
     competitionLabel,
     charges,
     activeEnrollments,
+    trainingGroupByEnrollment,
     allocationSummaries,
     paidDateFilter,
     productBucketIds,
@@ -1248,7 +1348,19 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
       : /^\d{4}$/.test(birthYearValue)
         ? Number.parseInt(birthYearValue, 10)
         : null;
-  const categoryLabel = birthYear === null ? "Sin categoria" : `CAT ${birthYear}`;
+  const requestedTrainingGroupId = (filters.trainingGroupId ?? "").trim();
+  const viewMode = requestedTrainingGroupId ? "group" : "category";
+  const selectedTrainingGroup =
+    requestedTrainingGroupId === "sin_grupo"
+      ? null
+      : [...trainingGroupByEnrollment.values()].find((group) => group.id === requestedTrainingGroupId) ?? null;
+  if (viewMode === "group" && requestedTrainingGroupId !== "sin_grupo" && !selectedTrainingGroup) return null;
+  const filterLabel =
+    viewMode === "group"
+      ? selectedTrainingGroup?.label ?? "Sin grupo"
+      : birthYear === null
+        ? "Sin categoria"
+        : `CAT ${birthYear}`;
 
   const matchingChargesAllDates = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
@@ -1267,97 +1379,64 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     }
   }
 
-  const filteredEntries = [...confirmedChargeByEnrollment.values()].filter((charge) => {
-    const rowBirthYear = getBirthYear(charge.enrollments?.players?.birth_date);
+  const matchesCurrentFilter = (enrollmentId: string, rowBirthYear: number | null) => {
+    if (viewMode === "group") {
+      const groupId = trainingGroupByEnrollment.get(enrollmentId)?.id ?? "sin_grupo";
+      return groupId === requestedTrainingGroupId;
+    }
     return rowBirthYear === birthYear;
-  });
+  };
 
-  const categoryActiveEnrollments = activeEnrollments.filter((enrollment) => {
-    if (enrollment.campus_id !== campusId) return false;
-    return getBirthYear(enrollment.players?.birth_date) === birthYear;
-  });
-
-  const levelResolutionStartedAt = Date.now();
-  const enrollmentIds = Array.from(
-    new Set([
-      ...filteredEntries.map((charge) => charge.enrollment_id),
-      ...categoryActiveEnrollments.map((enrollment) => enrollment.id),
-    ]),
+  const filteredEntries = [...confirmedChargeByEnrollment.values()].filter((charge) =>
+    matchesCurrentFilter(
+      charge.enrollment_id,
+      getBirthYear(charge.enrollments?.players?.birth_date),
+    ),
   );
-  const teamByEnrollment = await loadPrimaryTeamAssignments(admin, enrollmentIds);
-  recordPerfStep(perf, "load team assignments", levelResolutionStartedAt);
+
+  const filteredActiveEnrollments = activeEnrollments.filter((enrollment) => {
+    if (enrollment.campus_id !== campusId) return false;
+    return matchesCurrentFilter(enrollment.id, getBirthYear(enrollment.players?.birth_date));
+  });
 
   const groupingStartedAt = Date.now();
-  const paidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
-
-  for (const charge of filteredEntries) {
+  const paidPlayers = filteredEntries.flatMap<CompetitionSignupDetailPlayerRow>((charge) => {
     const enrollment = charge.enrollments;
-    if (!enrollment) continue;
-
-    const team = teamByEnrollment.get(enrollment.id) ?? null;
-    const level = normalizeLevel(team?.level ?? enrollment.players?.level);
+    if (!enrollment) return [];
     const playerName = enrollment.players
       ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
       : "Jugador";
-
-    const group =
-      paidLevelMap.get(level) ??
-      {
-        level,
-        playerCount: 0,
-        players: [],
-      };
-
-    group.playerCount += 1;
-    group.players.push({
+    return [{
       enrollmentId: enrollment.id,
       playerId: enrollment.player_id,
       playerName,
-      level,
-      teamName: team?.name?.trim() || "-",
-    });
-
-    paidLevelMap.set(level, group);
-  }
+      ...getPlayerTrainingGroup(trainingGroupByEnrollment, enrollment.id),
+    }];
+  });
 
   const paidEnrollmentIdsAllDates = new Set(
     matchingChargesAllDates
-      .filter((charge) => getBirthYear(charge.enrollments?.players?.birth_date) === birthYear)
+      .filter((charge) =>
+        matchesCurrentFilter(
+          charge.enrollment_id,
+          getBirthYear(charge.enrollments?.players?.birth_date),
+        ),
+      )
       .map((charge) => charge.enrollment_id),
   );
-  const unpaidLevelMap = new Map<string, CompetitionSignupDetailLevelGroup>();
-
-  for (const enrollment of categoryActiveEnrollments) {
-    if (paidEnrollmentIdsAllDates.has(enrollment.id)) continue;
-
-    const team = teamByEnrollment.get(enrollment.id) ?? null;
-    const level = normalizeLevel(team?.level ?? enrollment.players?.level);
-    const playerName = enrollment.players
-      ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
-      : "Jugador";
-
-    const group =
-      unpaidLevelMap.get(level) ??
-      {
-        level,
-        playerCount: 0,
-        players: [],
-      };
-
-    group.playerCount += 1;
-    group.players.push({
+  const unpaidPlayers = filteredActiveEnrollments
+    .filter((enrollment) => !paidEnrollmentIdsAllDates.has(enrollment.id))
+    .map<CompetitionSignupDetailPlayerRow>((enrollment) => ({
       enrollmentId: enrollment.id,
       playerId: enrollment.player_id,
-      playerName,
-      level,
-      teamName: team?.name?.trim() || "-",
-    });
-
-    unpaidLevelMap.set(level, group);
-  }
+      playerName: enrollment.players
+        ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
+        : "Jugador",
+      ...getPlayerTrainingGroup(trainingGroupByEnrollment, enrollment.id),
+    }));
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
-  recordPerfStep(perf, "build level groups", groupingStartedAt);
+  recordPerfStep(perf, "build roster lists", groupingStartedAt);
 
   return {
     competitionId,
@@ -1365,22 +1444,13 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     campusId,
     campusName,
     paidDateFilter,
+    viewMode,
     birthYear,
-    categoryLabel,
+    filterLabel,
     totalConfirmed: filteredEntries.length,
-    totalUnpaid: categoryActiveEnrollments.length - paidEnrollmentIdsAllDates.size,
-    paidLevelGroups: sortLevelGroups(
-      Array.from(paidLevelMap.values()).map((group) => ({
-        ...group,
-        players: sortPlayerRows(group.players),
-      })),
-    ),
-    unpaidLevelGroups: sortLevelGroups(
-      Array.from(unpaidLevelMap.values()).map((group) => ({
-        ...group,
-        players: sortPlayerRows(group.players),
-      })),
-    ),
+    totalUnpaid: unpaidPlayers.length,
+    paidPlayers: sortPlayerRows(paidPlayers),
+    unpaidPlayers: sortPlayerRows(unpaidPlayers),
     perf: perf.enabled
       ? {
           totalMs: Date.now() - perf.startedAt,
@@ -1406,6 +1476,7 @@ export async function getCompetitionPaidCallupPlayers(filters: {
     competitionId,
     competitionLabel,
     charges,
+    trainingGroupByEnrollment,
     allocationSummaries,
     productBucketIds,
     bundleEntitlements,
@@ -1443,6 +1514,7 @@ export async function getCompetitionPaidCallupPlayers(filters: {
       competitionId,
       competitionLabel,
       registrationSource: resolvedSource,
+      ...getPlayerTrainingGroup(trainingGroupByEnrollment, enrollment.id),
     });
   }
 
@@ -1466,12 +1538,12 @@ export async function getCompetitionSignupExportData(filters?: {
   if (!baseData) return null;
 
   const {
-    admin,
     campusAccess,
     campusId,
     competitionId,
     competitionLabel,
     charges,
+    trainingGroupByEnrollment,
     allocationSummaries,
     paidDateFilter,
     productBucketIds,
@@ -1495,13 +1567,10 @@ export async function getCompetitionSignupExportData(filters?: {
     }
   }
 
-  const enrollmentIds = [...confirmedChargeByEnrollment.keys()];
-  const teamByEnrollment = await loadPrimaryTeamAssignments(admin, enrollmentIds);
-
   const rows = [...confirmedChargeByEnrollment.values()]
     .map((charge) => {
       const enrollment = charge.enrollments;
-      const team = enrollment ? (teamByEnrollment.get(enrollment.id) ?? null) : null;
+      const trainingGroup = enrollment ? (trainingGroupByEnrollment.get(enrollment.id) ?? null) : null;
       const playerName = enrollment?.players
         ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
         : "Jugador";
@@ -1510,16 +1579,16 @@ export async function getCompetitionSignupExportData(filters?: {
         playerName,
         birthYear: getBirthYear(enrollment?.players?.birth_date),
         campusName,
-        level: normalizeLevel(team?.level ?? enrollment?.players?.level),
-        teamName: team?.name?.trim() || "-",
+        trainingGroupName: trainingGroup?.label ?? "Sin grupo",
+        programLabel: TRAINING_GROUP_PROGRAM_LABELS[trainingGroup?.program ?? ""] ?? "Sin programa",
       };
     })
     .sort((a, b) => {
       const yearA = a.birthYear ?? 0;
       const yearB = b.birthYear ?? 0;
       if (yearA !== yearB) return yearB - yearA;
-      const levelDiff = compareLevels(a.level, b.level);
-      if (levelDiff !== 0) return levelDiff;
+      const groupDiff = a.trainingGroupName.localeCompare(b.trainingGroupName, "es-MX");
+      if (groupDiff !== 0) return groupDiff;
       return a.playerName.localeCompare(b.playerName, "es-MX");
     });
 

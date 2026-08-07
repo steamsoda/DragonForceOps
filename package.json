@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.4",
+  "version": "1.17.7",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -40,10 +40,12 @@
     "test:charge-cash-refund": "node scripts/assert-charge-cash-refund.mjs",
     "test:ledger-cross-references": "node scripts/assert-ledger-cross-references.mjs",
     "test:sports-signups-excel": "node scripts/assert-sports-signups-excel-export.mjs",
+    "test:sports-signups-group-view": "node scripts/assert-sports-signups-training-group-view.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
     "test:enrollment-training-group-selection": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-enrollment-training-group-selection.mjs",
     "test:player-rpc-batching": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-player-rpc-batching.mjs",
+    "test:program-model-deprecation": "node scripts/assert-program-model-deprecation.mjs",
     "test:pricing": "node scripts/assert-enrollment-pricing-rules.mjs && node scripts/assert-returning-enrollment-pricing.mjs",
     "diagnose:finance": "node scripts/export-finance-anomaly-report.mjs",
     "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs",

@@ -1,9 +1,82 @@
 # Training Groups, Teams, And Attendance Model
 
 Date: 2026-04-22
-Status: historical model analysis plus accepted v1.17 production-audit decisions
+Status: active v1.17 program, training-group, and tournament-squad transition plan
+
+## Approved Program And Tournament-Squad Model (2026-08-07)
+
+Staff retired B1/B2/B3 as academy-facing player levels. The previous proposal to synchronize Futbol Para Todos players to `B1` is superseded by this decision.
+
+### Canonical Responsibilities
+
+| Concept | Authoritative meaning |
+|---|---|
+| Category / YOB | Derived from `players.birth_date`; the simple operational grouping used heavily by Front Desk. |
+| Program | Exactly `Futbol Para Todos`, `Selectivo`, or `Little Dragons`. Enrollment confirms this through the selected training group. |
+| Training group | Current practice roster, campus, schedule, coach ownership, attendance, and operational movement history. Existing IDs and history remain intact. |
+| Tournament registration | Existing paid or explicitly confirmed eligibility in `tournament_player_entries`. Registration does not assign a permanent team. |
+| Tournament squad | Tournament-specific sporting selection. Most registrations form one squad automatically; exceptional categories can split into `Azul` and `Blanco`. |
+| Legacy level | Existing `players.level`, `teams.level`, `training_groups.level_label`, and `training_groups.group_code` values are retained temporarily for compatibility but are not future roster truth. |
+
+### Approved Operational Rules
+
+- New enrollment requires campus, program, and a confirmed active training group.
+- New enrollment does not assign B1, B2, B3, Azul, Blanco, or a competition team.
+- Ordinary one-squad tournament categories use the registered players from the relevant training group.
+- Azul/Blanco exists only inside a specific tournament and may change in the next tournament.
+- A player may belong to multiple tournament squads, including helping another YOB.
+- A paid player may be excluded from a final roster, but this is exceptional and must be explicit and auditable.
+- Several training groups may feed one tournament squad, including combined female competition rosters.
+- New registrations join a normal single squad automatically while registration remains open. In an Azul/Blanco split, later registrations remain pending until assigned.
+- Coaches may eventually prepare convocatorias for assigned squads. Directors/admins retain review and final WhatsApp-image generation.
+
+### Safe Legacy Containment
+
+- Do not delete or bulk-null legacy level data during the transition.
+- Remove level from enrollment and ordinary player profile/editing first.
+- Stop new ordinary writes to `players.level`.
+- Replace every active read dependency before removing the column or metadata.
+- Preserve historical migrations and audit records.
+- Rename academy-facing Futbol Para Todos group labels through a reviewed mapping. Preserve group IDs, assignments, schedules, sessions, attendance, and coach links.
+- Do not revive the dormant generic `teams` model. Build tournament-specific squads from the live tournament-registration foundation.
+
+### Dependency Audit And Replacement Map
+
+The first repository audit found these active dependency classes:
+
+| Dependency | Current behavior | Replacement / containment |
+|---|---|---|
+| Enrollment review | Displays a program-derived B1/Selectivo/Little Dragons level | Show confirmed program and training group only. |
+| Player profile/edit | Displays and edits `players.level` | Hide the field and preserve its legacy stored value during ordinary edits. |
+| Enrollment group ranking | Prefers FPT groups with `group_code = B1` | Replace with campus + program + YOB + gender + reviewed group priority; do not change until duplicate-group rules are reviewed. |
+| Training-group suggestions | Parses B1/B2/B3 from player/team level | Resolve by explicit program and current group assignment. |
+| `Inscripciones Torneos` detail | Groups paid/unpaid players by team/player level | Sunset quietly; replace with YOB, training-group, and later tournament-squad views. |
+| Exports and operational tables | Several surfaces label or sort by Nivel | Replace with program or training-group label according to the surface. |
+| Legacy team actions | Can overwrite `players.level` | Contain/retire writes before any hidden team route is reused. |
+| Training-group metadata | Names, `level_label`, and `group_code` contain B1/B2/B3 | Keep internally until matching no longer depends on them; use reviewed FPT-facing labels. |
+
+### Ordered Transition Passes
+
+1. Record the approved model, complete the B1/B2/B3 dependency map, hide Nivel from enrollment/player surfaces, and stop ordinary player edits from overwriting legacy level.
+2. Replace level-dependent enrollment/group matching, then apply reviewed Futbol Para Todos display names without changing group identity or history.
+3. Completed in `v1.17.7`: add `Por grupo` to `Inscripciones Torneos`, backed by current active training-group assignments and existing paid-registration truth. Keep `Sin grupo` visible.
+4. Add tournament-specific squads: normal single squad, optional Azul/Blanco split, combined source groups, multi-squad players, exceptional exclusions, and audit history.
+5. Scope coach access to assigned groups/squads and let coaches save prepared convocatorias; directors/admins review and generate the final image.
+6. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
+
+No bulk production data repair, group rename, or tournament-roster rewrite is approved in Pass 1.
+
+### Transition Progress
+
+- `v1.17.5` completed Pass 1: dependency map, safe Nivel removal from enrollment/player surfaces, and preservation of legacy stored values.
+- `v1.17.6` completed the new-enrollment portion of Pass 2: the intake contract and ranking no longer read or prefer B1/B2/B3 metadata. FPT-facing labels are mapped at read time in enrollment and `Jugadores`; database group names and identities are unchanged.
+- The historical assignment-review tool under attendance settings still derives suggestions from legacy level/group codes. It is intentionally contained until its replacement can be reviewed separately because it can write existing assignments.
+- `v1.17.7` completed `Inscripciones Torneos > Por grupo`, using active training-group assignments plus existing paid/confirmed tournament truth. It also removed the B1/B2 detail segmentation and exports legacy `Nivel`/`Equipo base` no longer appear on this surface.
+- Next implementation pass: plan tournament-specific normal/Azul/Blanco squads and the remaining contained historical assignment-review matcher. Neither is part of the group-view pass.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
+
+> Historical decision note: the level-synchronization direction in this section was accepted on 2026-08-06 and superseded by the staff decision above on 2026-08-07. It remains here to preserve decision history.
 
 The read-only audit was rerun against production project `hjvytfaalnfcqfgbxsmj`. No application or database records were changed.
 

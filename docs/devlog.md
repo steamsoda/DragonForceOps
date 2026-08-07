@@ -1,5 +1,37 @@
 # Devlog
 
+## 2026-08-07 (session 273)
+
+### Inscripciones Torneos By Training Group (v1.17.7 Preview)
+
+- Added `Por categoria` and `Por grupo` modes to `Inscripciones Torneos`. The new group view uses each active enrollment's current open `training_group_assignments` row and keeps `Sin grupo` visible instead of silently dropping unmatched players.
+- Preserved the existing paid-registration truth unchanged: positive non-voided tournament charges must be fully covered by allocations, direct and Combo entitlements remain supported, paid-date filters still apply, and enrollment/charge reads remain complete rather than relying on a first-page result.
+- Replaced the legacy B1/B2 detail segmentation with flat paid and unpaid rosters that show the player's current training group and approved program context.
+- Updated the Excel roster to export `Programa` and `Grupo de entrenamiento` instead of legacy `Nivel` and `Equipo base` columns.
+- No migration, database mutation, finance write, training-group reassignment, or tournament-squad creation. Active assignment lookup is chunked, and focused regression coverage prevents the old level/team presentation from returning to this surface.
+
+## 2026-08-07 (session 272)
+
+### Enrollment Matching Without B1 And FPT-Facing Labels (v1.17.6 Preview)
+
+- Removed `level_label` and `group_code` from the new-enrollment training-group option contract. Enrollment suggestions no longer prefer `B1` and instead rank active matches by campus, confirmed program, YOB distance and specificity, gender, schedule, and stable name/ID order.
+- Added a non-destructive academy-facing group-name formatter. Futbol Para Todos labels hide standalone `B1`/`B2`/`B3` tokens and append `Futbol Para Todos`, while stored `training_groups.name`, IDs, assignments, schedules, sessions, attendance, and coach links remain unchanged.
+- Applied the reviewed label to new enrollment, the player profile's active training-group chip, and `Jugadores` grouped-roster sections/options. The grouped roster's visible `Nivel/Grupo` cell now shows one of the three approved programs instead of legacy level metadata.
+- Preserved the separate attendance-settings assignment review tool unchanged. It still contains legacy-level matching for historical repair and must be replaced deliberately before any existing assignment suggestions are auto-applied.
+- No migration and no production-data mutation. Added regression assertions proving B1/B2 codes cannot influence new-enrollment ranking and FPT labels do not affect Selectivo names.
+
+## 2026-08-07 (session 271)
+
+### Program Model Rebaseline And Safe Nivel Deprecation (v1.17.5 Preview)
+
+- Recorded the staff-approved sporting model: player-facing programs are only Futbol Para Todos, Selectivo, and Little Dragons; Azul/Blanco will be tournament-specific squad assignments rather than permanent player levels.
+- Marked the prior Futbol Para Todos -> B1 synchronization direction as superseded while preserving the historical decision and existing database values.
+- Added the first full dependency map covering enrollment ranking, training-group suggestions, player profile/editing, Inscripciones Torneos detail grouping, exports, legacy team writes, and B1/B2/B3 training-group metadata.
+- Enrollment review now shows the confirmed program and training group, not a derived legacy level.
+- Removed Nivel from the player profile and ordinary player-edit form. The update action no longer writes `players.level`, so editing names, contact-adjacent player data, gender, uniform, or medical notes preserves the legacy value instead of clearing or changing it.
+- This pass does not rename groups, modify assignments, rewrite attendance, alter paid tournament entries, create squads, or migrate production data. Remaining B1-dependent matching and tournament detail grouping are explicitly deferred to their replacement passes.
+- Added a focused program-model regression assertion. Verification target: focused assertion, typecheck, build, and diff checks.
+
 ## 2026-08-06 (session 270)
 
 ### Enrollment Group and Level Review (v1.17.4 Preview)

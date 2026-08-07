@@ -6,7 +6,6 @@ const {
   trainingGroupMatchesBirthYear,
   trainingGroupMatchesGender,
 } = await import("../src/lib/training-groups/enrollment-selection-ranking.ts");
-const { derivePlayerLevelFromTrainingProgram } = await import("../src/lib/training-groups/shared.ts");
 
 const baseGroup = {
   id: "fpt-2015",
@@ -41,6 +40,19 @@ const nearby2016 = {
   birthYearMax: 2016,
 };
 
+const alphabeticB2 = {
+  ...baseGroup,
+  id: "fpt-alpha-b2",
+  name: "Alpha B2 2015",
+  groupCode: "B2",
+};
+
+const alphabeticB1 = {
+  ...baseGroup,
+  id: "fpt-zulu-b1",
+  name: "Zulu B1 2015",
+};
+
 const selectivo2015 = {
   ...baseGroup,
   id: "selectivo-2015",
@@ -53,10 +65,6 @@ assert.equal(trainingGroupMatchesGender("mixed", "female"), true);
 assert.equal(trainingGroupMatchesGender("male", "female"), false);
 assert.equal(trainingGroupMatchesBirthYear(femaleCombined, 2015), true);
 assert.equal(trainingGroupMatchesBirthYear(femaleCombined, 2016), false);
-assert.equal(derivePlayerLevelFromTrainingProgram("futbol_para_todos"), "B1");
-assert.equal(derivePlayerLevelFromTrainingProgram("selectivo"), "Selectivo");
-assert.equal(derivePlayerLevelFromTrainingProgram("little_dragons"), "Little Dragons");
-
 assert.deepEqual(
   rankEnrollmentTrainingGroups({
     groups: [nearby2016, femaleCombined, baseGroup, selectivo2015],
@@ -90,6 +98,18 @@ assert.deepEqual(
   ["fpt-2016"],
 );
 
+assert.deepEqual(
+  rankEnrollmentTrainingGroups({
+    groups: [alphabeticB1, alphabeticB2],
+    campusId: "campus-lv",
+    program: "futbol_para_todos",
+    birthYear: 2015,
+    gender: "male",
+  }).map((group) => group.id),
+  ["fpt-alpha-b2", "fpt-zulu-b1"],
+  "Legacy B1/B2 codes must not influence new-enrollment ranking",
+);
+
 const [enrollmentAction, intakeAction, existingForm, intakeForm] = await Promise.all([
   readFile(new URL("../src/server/actions/enrollments.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/server/actions/intake.ts", import.meta.url), "utf8"),
@@ -111,6 +131,10 @@ for (const source of [existingForm, intakeForm]) {
 
 assert.match(intakeForm, /onSelectionChange=\{setTrainingGroupSelection\}/);
 assert.match(intakeForm, /Grupo de entrenamiento/);
-assert.match(intakeForm, /derivePlayerLevelFromTrainingProgram/);
+assert.match(intakeForm, /TRAINING_GROUP_PROGRAM_LABELS/);
+assert.doesNotMatch(intakeForm, /derivePlayerLevelFromTrainingProgram/);
+
+const rankingSource = await readFile(new URL("../src/lib/training-groups/enrollment-selection-ranking.ts", import.meta.url), "utf8");
+assert.doesNotMatch(rankingSource, /B1Rank|groupCode/, "Enrollment ranking must not depend on legacy level codes");
 
 console.log("Enrollment training-group selection assertions passed.");

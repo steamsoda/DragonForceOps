@@ -10,6 +10,7 @@ import {
   type PricingPlanVersionSnapshot,
 } from "@/lib/pricing/plans";
 import type { EnrollmentTrainingGroupOption, EnrollmentTrainingProgram } from "@/lib/training-groups/enrollment-selection";
+import { formatTrainingGroupDisplayName } from "@/lib/training-groups/shared";
 
 const PAGE_SIZE = 20;
 
@@ -481,8 +482,6 @@ type EnrollmentTrainingGroupRow = {
   campus_id: string;
   name: string;
   program: EnrollmentTrainingProgram;
-  level_label: string | null;
-  group_code: string | null;
   gender: string;
   birth_year_min: number | null;
   birth_year_max: number | null;
@@ -497,10 +496,8 @@ function mapEnrollmentTrainingGroups(rows: EnrollmentTrainingGroupRow[]): Enroll
     id: group.id,
     campusId: group.campus_id,
     campusCode: group.campuses?.code ?? "",
-    name: group.name,
+    name: formatTrainingGroupDisplayName(group),
     program: group.program,
-    levelLabel: group.level_label,
-    groupCode: group.group_code,
     gender: group.gender,
     birthYearMin: group.birth_year_min,
     birthYearMax: group.birth_year_max,
@@ -540,7 +537,7 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
       .returns<CampusRow[]>(),
     admin
       .from("training_groups")
-      .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
+      .select("id, campus_id, name, program, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
       .in("campus_id", campusAccess.campusIds)
       .eq("status", "active")
       .order("name")
@@ -626,7 +623,7 @@ export async function getEnrollmentCreateFormContext(
       .returns<ActiveEnrollmentRow | null>(),
     admin
       .from("training_groups")
-      .select("id, campus_id, name, program, level_label, group_code, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
+      .select("id, campus_id, name, program, gender, birth_year_min, birth_year_max, start_time, end_time, status, campuses(code)")
       .in("campus_id", campusAccess.campusIds)
       .eq("status", "active")
       .order("name")

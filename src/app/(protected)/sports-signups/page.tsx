@@ -57,7 +57,7 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
   return (
     <PageShell
       title="Inscripciones Torneos"
-      subtitle="Vista operativa por campus y por producto de torneo pagado. Solo muestra jugadores confirmados y avance por categoria."
+      subtitle="Vista operativa por campus, categoria o grupo de entrenamiento. Solo muestra jugadores confirmados por pagos completos."
       breadcrumbs={[{ label: "Inscripciones Torneos" }]}
       wide
     >

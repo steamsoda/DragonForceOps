@@ -6,8 +6,6 @@ export type EnrollmentTrainingGroupOption = {
   campusCode: string;
   name: string;
   program: EnrollmentTrainingProgram;
-  levelLabel: string | null;
-  groupCode: string | null;
   gender: string;
   birthYearMin: number | null;
   birthYearMax: number | null;
@@ -41,6 +39,13 @@ function trainingGroupBirthYearDistance(
   return Number.MAX_SAFE_INTEGER;
 }
 
+function trainingGroupBirthYearSpan(
+  group: Pick<EnrollmentTrainingGroupOption, "birthYearMin" | "birthYearMax">,
+) {
+  if (group.birthYearMin == null || group.birthYearMax == null) return Number.MAX_SAFE_INTEGER;
+  return Math.abs(group.birthYearMax - group.birthYearMin);
+}
+
 export function rankEnrollmentTrainingGroups(params: {
   groups: EnrollmentTrainingGroupOption[];
   campusId: string;
@@ -66,10 +71,12 @@ export function rankEnrollmentTrainingGroups(params: {
       const rightGenderRank = right.gender === params.gender ? 0 : 1;
       if (leftGenderRank !== rightGenderRank) return leftGenderRank - rightGenderRank;
 
-      const leftB1Rank = params.program === "futbol_para_todos" && left.groupCode?.toUpperCase() === "B1" ? 0 : 1;
-      const rightB1Rank = params.program === "futbol_para_todos" && right.groupCode?.toUpperCase() === "B1" ? 0 : 1;
-      if (leftB1Rank !== rightB1Rank) return leftB1Rank - rightB1Rank;
+      const spanDifference = trainingGroupBirthYearSpan(left) - trainingGroupBirthYearSpan(right);
+      if (spanDifference !== 0) return spanDifference;
 
-      return left.name.localeCompare(right.name, "es");
+      const startTimeDifference = (left.startTime ?? "99:99").localeCompare(right.startTime ?? "99:99");
+      if (startTimeDifference !== 0) return startTimeDifference;
+
+      return left.name.localeCompare(right.name, "es") || left.id.localeCompare(right.id);
     });
 }
