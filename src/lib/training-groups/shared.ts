@@ -75,3 +75,9 @@ export function deriveTrainingGroupProgramFromLevel(level: string | null | undef
   if (level === "Little Dragons") return "little_dragons";
   return "futbol_para_todos";
 }
+
+export function derivePlayerLevelFromTrainingProgram(program: string | null | undefined) {
+  if (program === "selectivo") return "Selectivo";
+  if (program === "little_dragons") return "Little Dragons";
+  return "B1";
+}

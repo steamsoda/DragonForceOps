@@ -6,6 +6,7 @@ const {
   trainingGroupMatchesBirthYear,
   trainingGroupMatchesGender,
 } = await import("../src/lib/training-groups/enrollment-selection-ranking.ts");
+const { derivePlayerLevelFromTrainingProgram } = await import("../src/lib/training-groups/shared.ts");
 
 const baseGroup = {
   id: "fpt-2015",
@@ -52,6 +53,9 @@ assert.equal(trainingGroupMatchesGender("mixed", "female"), true);
 assert.equal(trainingGroupMatchesGender("male", "female"), false);
 assert.equal(trainingGroupMatchesBirthYear(femaleCombined, 2015), true);
 assert.equal(trainingGroupMatchesBirthYear(femaleCombined, 2016), false);
+assert.equal(derivePlayerLevelFromTrainingProgram("futbol_para_todos"), "B1");
+assert.equal(derivePlayerLevelFromTrainingProgram("selectivo"), "Selectivo");
+assert.equal(derivePlayerLevelFromTrainingProgram("little_dragons"), "Little Dragons");
 
 assert.deepEqual(
   rankEnrollmentTrainingGroups({
@@ -104,5 +108,9 @@ for (const source of [existingForm, intakeForm]) {
   assert.match(source, /EnrollmentTrainingGroupPicker/);
   assert.match(source, /trainingGroupValid/);
 }
+
+assert.match(intakeForm, /onSelectionChange=\{setTrainingGroupSelection\}/);
+assert.match(intakeForm, /Grupo de entrenamiento/);
+assert.match(intakeForm, /derivePlayerLevelFromTrainingProgram/);
 
 console.log("Enrollment training-group selection assertions passed.");

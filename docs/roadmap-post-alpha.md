@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.2`
-- Current preview candidate: `v1.17.3` enrollment program/group confirmation; awaiting preview validation
+- Current preview candidate: `v1.17.4` enrollment program/group confirmation plus pre-creation group/derived-level review; awaiting preview validation
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -141,6 +141,7 @@ This checkpoint closes the long `v1.16` delivery wave without deleting its backl
 - ✅ Production `v1.17.2` repairs the `Jugadores` recent-attendance batching defect, keeps the interactive page at five records, retains 15 for exports, and leaves risk tags on their independent full-history calculation.
 - 🟢 Preview `v1.17.3` hardens enrollment around an explicit program and confirmed training group: `Futbol Para Todos`, `Selectivo`, or Linda Vista-only `Little Dragons`; enrollment cannot complete silently without an assignment.
 - 🟢 Preview `v1.17.3` removes competition-team auto-assignment from enrollment. Competition rosters remain a separate sporting concept and no longer decide the player's training group.
+- 🟢 Preview `v1.17.4` shows the confirmed training group and program-derived level in `Resumen antes de crear`; stored `players.level` synchronization remains the next model-hardening pass.
 - 🟡 Keep `players.level`, but synchronize it from the active training program: `B1` for Futbol Para Todos, `Selectivo` for Selectivo, and `Little Dragons` for Little Dragons.
 - 🟡 Preserve current group-edit permissions, attendance/session history, enrollment history, finance records, and paid tournament eligibility while repairing current assignments.
 

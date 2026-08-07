@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-06 (session 270)
+
+### Enrollment Group and Level Review (v1.17.4 Preview)
+
+- Added the confirmed training group to `Resumen antes de crear` in the full new-enrollment workflow so staff can verify the assignment before creating the player and opening Caja.
+- Added the program-derived operational level beside the group: `B1` for Futbol Para Todos, `Selectivo` for Selectivo, and `Little Dragons` for Little Dragons.
+- The summary reads the picker selection directly and updates as staff changes program or group. Enrollment validation, pricing, tutor creation, charges, Caja redirect, and competition rosters are unchanged.
+- This is a display and model-helper pass only: the selected training group is persisted by the existing `v1.17.3` flow, while synchronization of the stored `players.level` field remains a separate hardening pass.
+- No database migration. Focused enrollment assertions, TypeScript validation, and diff checks pass.
+
 ## 2026-08-06 (session 269)
 
 ### Enrollment Program and Training-Group Confirmation (v1.17.3 Preview)

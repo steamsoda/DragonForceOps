@@ -21,6 +21,12 @@ type Props = {
   gender: string | null;
   initialGroupId?: string | null;
   onValidityChange?: (valid: boolean) => void;
+  onSelectionChange?: (selection: EnrollmentTrainingGroupSelection) => void;
+};
+
+export type EnrollmentTrainingGroupSelection = {
+  program: EnrollmentTrainingProgram;
+  group: EnrollmentTrainingGroupOption | null;
 };
 
 const PROGRAMS: EnrollmentTrainingProgram[] = ["futbol_para_todos", "selectivo", "little_dragons"];
@@ -37,6 +43,7 @@ export function EnrollmentTrainingGroupPicker({
   gender,
   initialGroupId = null,
   onValidityChange,
+  onSelectionChange,
 }: Props) {
   const initialGroup = initialGroupId ? groups.find((group) => group.id === initialGroupId) ?? null : null;
   const [program, setProgram] = useState<EnrollmentTrainingProgram>(initialGroup?.program ?? "futbol_para_todos");
@@ -77,6 +84,10 @@ export function EnrollmentTrainingGroupPicker({
   useEffect(() => {
     onValidityChange?.(valid);
   }, [onValidityChange, valid]);
+
+  useEffect(() => {
+    onSelectionChange?.({ program, group: selectedGroup });
+  }, [onSelectionChange, program, selectedGroup]);
 
   return (
     <section className="space-y-4 rounded-md border border-sky-200 bg-sky-50 p-4">

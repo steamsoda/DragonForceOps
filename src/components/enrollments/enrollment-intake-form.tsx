@@ -18,8 +18,12 @@ import {
   type IntakeMatch,
 } from "@/server/actions/intake";
 import type { TrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
-import { EnrollmentTrainingGroupPicker } from "@/components/enrollments/enrollment-training-group-picker";
+import {
+  EnrollmentTrainingGroupPicker,
+  type EnrollmentTrainingGroupSelection,
+} from "@/components/enrollments/enrollment-training-group-picker";
 import type { EnrollmentTrainingGroupOption } from "@/lib/training-groups/enrollment-selection";
+import { derivePlayerLevelFromTrainingProgram } from "@/lib/training-groups/shared";
 
 type EnrollmentIntakeFormProps = {
   campuses: Array<{ id: string; code: string; name: string }>;
@@ -149,6 +153,7 @@ export function EnrollmentIntakeForm({
   const [gameUniformIsGoalkeeper, setGameUniformIsGoalkeeper] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [trainingGroupValid, setTrainingGroupValid] = useState(false);
+  const [trainingGroupSelection, setTrainingGroupSelection] = useState<EnrollmentTrainingGroupSelection | null>(null);
 
   const birthDate = useMemo(() => parseDateOnlyInput(birthDateText), [birthDateText]);
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
@@ -574,6 +579,7 @@ export function EnrollmentIntakeForm({
           gender={gender || null}
           initialGroupId={trialPrefill?.preferredTrainingGroupId ?? null}
           onValidityChange={setTrainingGroupValid}
+          onSelectionChange={setTrainingGroupSelection}
         />
 
         {isReturning ? (
@@ -894,6 +900,17 @@ export function EnrollmentIntakeForm({
             </p>
             <p className="mt-1 text-xs text-slate-500">
               {selectedCampus ? `Campus: ${selectedCampus.name}` : "Campus pendiente"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm">
+            <p className="font-semibold text-slate-800">Grupo de entrenamiento</p>
+            <p className="mt-1 text-slate-600">
+              {trainingGroupSelection?.group?.name ?? "Grupo pendiente"}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Nivel: {trainingGroupSelection
+                ? derivePlayerLevelFromTrainingProgram(trainingGroupSelection.program)
+                : "Pendiente"}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
