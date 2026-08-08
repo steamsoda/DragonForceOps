@@ -41,32 +41,33 @@ function paidDateLabel(data: CompetitionSignupExportData) {
   return "Todos los pagos confirmados";
 }
 
-function groupRowsByCampusAndBirthYear(data: CompetitionSignupExportData) {
-  const campusGroups = new Map<string, Map<string, typeof data.rows>>();
+function groupRowsByCampusProgramAndTrainingGroup(data: CompetitionSignupExportData) {
+  const campusGroups = new Map<string, Map<string, Map<string, typeof data.rows>>>();
 
   for (const player of data.rows) {
-    const campusRows = campusGroups.get(player.campusName) ?? new Map<string, typeof data.rows>();
-    const birthYearKey = player.birthYear == null ? "sin-categoria" : String(player.birthYear);
-    campusRows.set(birthYearKey, [...(campusRows.get(birthYearKey) ?? []), player]);
-    campusGroups.set(player.campusName, campusRows);
+    const campusPrograms = campusGroups.get(player.campusName) ?? new Map<string, Map<string, typeof data.rows>>();
+    const programGroups = campusPrograms.get(player.programLabel) ?? new Map<string, typeof data.rows>();
+    programGroups.set(player.trainingGroupName, [...(programGroups.get(player.trainingGroupName) ?? []), player]);
+    campusPrograms.set(player.programLabel, programGroups);
+    campusGroups.set(player.campusName, campusPrograms);
   }
 
   return [...campusGroups.entries()]
     .sort(([campusA], [campusB]) => campusA.localeCompare(campusB, "es-MX"))
-    .map(([campusName, birthYearGroups]) => ({
+    .map(([campusName, programGroups]) => ({
       campusName,
-      birthYearGroups: [...birthYearGroups.entries()]
-        .sort(([yearA], [yearB]) => {
-          if (yearA === "sin-categoria") return 1;
-          if (yearB === "sin-categoria") return -1;
-          return Number(yearB) - Number(yearA);
-        })
-        .map(([birthYearKey, players]) => ({
-          birthYearKey,
-          label: birthYearKey === "sin-categoria" ? "Sin categoria" : `Categoria ${birthYearKey}`,
-          players: [...players].sort((playerA, playerB) =>
-            playerA.playerName.localeCompare(playerB.playerName, "es-MX"),
-          ),
+      programGroups: [...programGroups.entries()]
+        .sort(([programA], [programB]) => programA.localeCompare(programB, "es-MX"))
+        .map(([programLabel, trainingGroups]) => ({
+          programLabel,
+          trainingGroups: [...trainingGroups.entries()]
+            .sort(([groupA], [groupB]) => groupA.localeCompare(groupB, "es-MX"))
+            .map(([trainingGroupName, players]) => ({
+              trainingGroupName,
+              players: [...players].sort((playerA, playerB) =>
+                playerA.playerName.localeCompare(playerB.playerName, "es-MX"),
+              ),
+            })),
         })),
     }));
 }
@@ -96,7 +97,9 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
   title.height = 26;
   applyGridBorder(title);
 
-  const scope = worksheet.addRow([`${data.campusName} | ${paidDateLabel(data)} | ${data.rows.length} jugadores`]);
+  const scope = worksheet.addRow([
+    `${data.campusName} | ${data.selectedProgramLabel} | ${paidDateLabel(data)} | ${data.rows.length} jugadores`,
+  ]);
   worksheet.mergeCells(scope.number, 1, scope.number, COLUMNS.length);
   scope.font = { bold: true, color: { argb: BLACK } };
   scope.alignment = { horizontal: "center", vertical: "middle" };
@@ -112,43 +115,50 @@ export async function buildSportsSignupsWorkbook(data: CompetitionSignupExportDa
     return workbook;
   }
 
-  for (const campusGroup of groupRowsByCampusAndBirthYear(data)) {
+  for (const campusGroup of groupRowsByCampusProgramAndTrainingGroup(data)) {
     worksheet.addRow([]);
     const campusTitle = worksheet.addRow([
-      `${campusGroup.campusName} (${campusGroup.birthYearGroups.reduce((total, group) => total + group.players.length, 0)} jugadores)`,
+      `${campusGroup.campusName} (${campusGroup.programGroups.reduce((campusTotal, program) => campusTotal + program.trainingGroups.reduce((programTotal, group) => programTotal + group.players.length, 0), 0)} jugadores)`,
     ]);
     worksheet.mergeCells(campusTitle.number, 1, campusTitle.number, COLUMNS.length);
     campusTitle.font = { bold: true, size: 12, color: { argb: BLACK } };
     campusTitle.alignment = { vertical: "middle" };
     applyGridBorder(campusTitle);
 
-    for (const birthYearGroup of campusGroup.birthYearGroups) {
-      const categoryTitle = worksheet.addRow([
-        `${birthYearGroup.label} (${birthYearGroup.players.length} jugadores)`,
-      ]);
-      worksheet.mergeCells(categoryTitle.number, 1, categoryTitle.number, COLUMNS.length);
-      categoryTitle.font = { bold: true, color: { argb: BLACK } };
-      categoryTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GRAY } };
-      applyGridBorder(categoryTitle);
+    for (const programGroup of campusGroup.programGroups) {
+      const programTitle = worksheet.addRow([programGroup.programLabel]);
+      worksheet.mergeCells(programTitle.number, 1, programTitle.number, COLUMNS.length);
+      programTitle.font = { bold: true, size: 11, color: { argb: BLACK } };
+      programTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GRAY } };
+      applyGridBorder(programTitle);
 
-      const header = worksheet.addRow(COLUMNS.map((column) => column.header));
-      header.font = { bold: true, color: { argb: BLACK } };
-      header.alignment = { horizontal: "center", vertical: "middle" };
-      applyGridBorder(header);
-
-      birthYearGroup.players.forEach((player, index) => {
-        const row = worksheet.addRow([
-          index + 1,
-          player.playerName,
-          player.birthYear ?? "-",
-          player.campusName,
-          player.programLabel || "-",
-          player.trainingGroupName || "Sin grupo",
+      for (const trainingGroup of programGroup.trainingGroups) {
+        const groupTitle = worksheet.addRow([
+          `${trainingGroup.trainingGroupName} (${trainingGroup.players.length} jugadores)`,
         ]);
-        row.getCell(1).alignment = { horizontal: "center" };
-        row.getCell(3).alignment = { horizontal: "center" };
-        applyGridBorder(row);
-      });
+        worksheet.mergeCells(groupTitle.number, 1, groupTitle.number, COLUMNS.length);
+        groupTitle.font = { bold: true, color: { argb: BLACK } };
+        applyGridBorder(groupTitle);
+
+        const header = worksheet.addRow(COLUMNS.map((column) => column.header));
+        header.font = { bold: true, color: { argb: BLACK } };
+        header.alignment = { horizontal: "center", vertical: "middle" };
+        applyGridBorder(header);
+
+        trainingGroup.players.forEach((player, index) => {
+          const row = worksheet.addRow([
+            index + 1,
+            player.playerName,
+            player.birthYear ?? "-",
+            player.campusName,
+            player.programLabel || "-",
+            player.trainingGroupName || "Sin grupo",
+          ]);
+          row.getCell(1).alignment = { horizontal: "center" };
+          row.getCell(3).alignment = { horizontal: "center" };
+          applyGridBorder(row);
+        });
+      }
     }
   }
 

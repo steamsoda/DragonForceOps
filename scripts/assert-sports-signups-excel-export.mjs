@@ -14,8 +14,9 @@ assert.match(route, /hasOperationalAccess && !permissionContext\.hasSportsAccess
 assert.match(workbook, /paidDateFilter/);
 assert.match(workbook, /Grupo de entrenamiento/);
 assert.match(workbook, /player\.trainingGroupName/);
-assert.match(workbook, /groupRowsByCampusAndBirthYear/);
-assert.match(workbook, /Categoria \$\{birthYearKey\}/);
+assert.match(workbook, /groupRowsByCampusProgramAndTrainingGroup/);
+assert.match(workbook, /programGroup\.trainingGroups/);
+assert.match(workbook, /data\.selectedProgramLabel/);
 assert.match(workbook, /playerA\.playerName\.localeCompare\(playerB\.playerName, "es-MX"\)/);
 assert.match(board, /Exportar Excel/);
 assert.match(board, /paidFilterQuery/);

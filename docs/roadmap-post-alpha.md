@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-07 (`v1.17.8`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-07 (`v1.17.9`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.7`
-- Current preview candidate: `v1.17.8` makes `Inscripciones Torneos` honor existing invited-group and strict pricing-rule eligibility, adds program filters, preserves eligible zero-registration groups, and flags paid records requiring eligibility review; awaiting preview validation
+- Current production line: `v1.17.8`
+- Current preview candidate: `v1.17.9` adds full filtered Excel/PNG tournament-roster packets grouped by current program and training group; awaiting preview validation
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -174,8 +174,9 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 2. 🟢 `v1.17.6` removes B1/B2/B3 from the new-enrollment contract/ranking and applies reviewed FPT labels in enrollment and `Jugadores` without changing group identity/history. The historical assignment-review matcher remains contained for a separate safe replacement.
 3. 🟢 `v1.17.7` adds `Por grupo` to `Inscripciones Torneos`, keeps `Sin grupo` visible, and quietly sunsets the B1/B2 detailed segmentation without creating competition squads.
 4. 🟢 `v1.17.8` reuses product invited-group and strict pricing-rule eligibility, adds FPT/Selectivo program filters, keeps eligible zero-payment groups visible, and flags paid eligibility exceptions without changing finance writes.
-5. 🔴 Add tournament-specific single/Azul/Blanco squad management and exception audit history.
-6. 🔴 Add scoped coach convocatoria preparation and director/admin final review.
+5. 🟢 `v1.17.9` adds complete filtered Excel/PNG roster packets grouped by current program and training group without changing paid-registration truth.
+6. 🔴 Add tournament-specific single/Azul/Blanco squad management and exception audit history.
+7. 🔴 Add scoped coach convocatoria preparation and director/admin final review.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
@@ -186,7 +187,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
-| 🟢 | Program/Nivel deprecation and tournament-view containment | `v1.17.5` hides Nivel; `v1.17.6` removes B1 priority from new enrollment; `v1.17.7` replaces B1/B2 tournament detail with current groups; `v1.17.8` applies invited-group/rule eligibility plus program filters. Validate before promotion. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
+| 🟢 | Program/Nivel deprecation and tournament-view containment | Production through `v1.17.8` hides Nivel, removes B1 intake priority, replaces B1/B2 tournament detail, and applies invited-group/rule eligibility. Preview `v1.17.9` adds complete roster packets. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
@@ -205,7 +206,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🟡 | `Inscripciones Torneos` tournament-squad workflow | `v1.17.8` completed current-group eligibility and FPT/Selectivo filtering. Next: full filtered Excel/PNG packets, then normal and optional Azul/Blanco squads, combined source groups, rare exclusions, roster snapshots, and audit history without changing paid-registration truth. |
+| 🟡 | `Inscripciones Torneos` tournament-squad workflow | Preview `v1.17.9` completes full filtered Excel/PNG roster packets. Next: normal and optional Azul/Blanco squads, combined source groups, rare exclusions, roster snapshots, and audit history without changing paid-registration truth. |
 | 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |

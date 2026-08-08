@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-07 (session 275)
+
+### Full Tournament Roster Excel And PNG Packets (v1.17.9 Preview)
+
+- Added a one-click `Exportar PNG completo` action to `Inscripciones Torneos`. The generated WhatsApp-ready image contains every confirmed paid player in the selected campus, tournament, program, and paid-date scope, grouped by current training program and training group.
+- Kept eligible groups with zero registrations visible in the operational page, but omitted empty groups from the exported packet so the staff-facing roster stays compact and actionable.
+- Reorganized the existing Excel export from campus/YOB sections into campus/program/training-group sections. Players remain alphabetical inside each group, with YOB, campus, program, and current training group retained in the rows.
+- Both formats consume the already-filtered paid-registration result, including direct and Combo entitlements, current invitation eligibility, and complete paginated reads. The PNG performs no second database query.
+- No migration, finance write, registration mutation, training-group assignment, or competition-squad creation is included. Added focused packet-export regression coverage and retained the independent single/Azul/Blanco squad model, roster snapshots, and legacy-team retirement as subsequent passes.
+
 ## 2026-08-07 (session 274)
 
 ### Tournament Eligibility And Program Filters (v1.17.8 Preview)

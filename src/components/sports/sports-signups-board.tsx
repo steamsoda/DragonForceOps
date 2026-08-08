@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { SportsSignupsPacketExport } from "@/components/sports/sports-signups-packet-export";
 import type {
   CompetitionSignupCategoryGroup,
   CompetitionSignupDashboardData,
@@ -45,6 +46,13 @@ function formatPaidFilterLabel(from: string | null, to: string | null) {
   if (from) return `Mostrando pagos desde ${from}`;
   if (to) return `Mostrando pagos hasta ${to}`;
   return null;
+}
+
+function formatProgramLabel(program: string | null) {
+  if (program === "futbol_para_todos") return "Futbol Para Todos";
+  if (program === "selectivo") return "Selectivos";
+  if (program === "little_dragons") return "Little Dragons";
+  return "Todos los programas";
 }
 
 function formatDeadlineStatus(deadline: string | null) {
@@ -333,13 +341,21 @@ export function SportsSignupsBoard({
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
             Campus
           </p>
-          {canExportExcel && selectedCompetition ? (
-            <a
-              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${programQuery}${paidFilterQuery}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Exportar Excel
-            </a>
+          {canExportExcel && selectedCompetition && selectedBoard ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <a
+                href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${programQuery}${paidFilterQuery}`}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Exportar Excel completo
+              </a>
+              <SportsSignupsPacketExport
+                competition={selectedCompetition}
+                campusName={selectedBoard.campusName}
+                programLabel={formatProgramLabel(dashboard.selectedProgram)}
+                paidFilterLabel={paidFilterLabel ?? "Todos los pagos confirmados"}
+              />
+            </div>
           ) : null}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
