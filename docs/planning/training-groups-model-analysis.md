@@ -72,7 +72,10 @@ No bulk production data repair, group rename, or tournament-roster rewrite is ap
 - `v1.17.6` completed the new-enrollment portion of Pass 2: the intake contract and ranking no longer read or prefer B1/B2/B3 metadata. FPT-facing labels are mapped at read time in enrollment and `Jugadores`; database group names and identities are unchanged.
 - The historical assignment-review tool under attendance settings still derives suggestions from legacy level/group codes. It is intentionally contained until its replacement can be reviewed separately because it can write existing assignments.
 - `v1.17.7` completed `Inscripciones Torneos > Por grupo`, using active training-group assignments plus existing paid/confirmed tournament truth. It also removed the B1/B2 detail segmentation and exports legacy `Nivel`/`Equipo base` no longer appear on this surface.
-- Next implementation pass: plan tournament-specific normal/Azul/Blanco squads and the remaining contained historical assignment-review matcher. Neither is part of the group-view pass.
+- `v1.17.8` applied current product invitation and strict pricing-rule eligibility to the group view, while `v1.17.9` added complete Excel/PNG packets grouped by current program and training group.
+- `v1.17.10` adds the independent `competition_roster_*` foundation. It supports one or several source training groups, single/Azul/Blanco/custom squads, multi-squad players, manual helper players, explicit paid-player exclusions, immutable snapshots, and append-only audit events without referencing legacy `teams`.
+- Paid/confirmed `tournament_player_entries` remain the candidate pool. A typed read model identifies assigned candidates, excluded candidates, and later paid registrations still awaiting assignment after a split.
+- Next implementation pass: add the practical organizer and transactional write/snapshot actions inside `Inscripciones Torneos`, then connect approved squads to exports and `Convocatorias`.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
 

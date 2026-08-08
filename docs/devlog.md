@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-07 (session 276)
+
+### Independent Tournament Squad Foundation (v1.17.10 Preview)
+
+- Added an independent competition-roster schema for tournament-specific `Equipo unico`, `Azul`, `Blanco`, and custom squads. The model references the existing tournament configuration, current training groups, and enrollments directly; it does not reference or revive the dormant generic `teams` system.
+- Added combined source-group support, multi-squad player membership, exceptional paid-player exclusions, manual helper-player membership, and explicit planning/ready/archive states.
+- Added immutable roster snapshot tables and append-only sporting audit events so later roster edits can preserve what a tournament team looked like at a specific checkpoint.
+- Added database validation that rejects cross-campus source groups or players and prevents a registration from being simultaneously assigned and explicitly excluded in the same tournament.
+- Kept paid `tournament_player_entries` as candidate truth. The typed read model reports assigned paid candidates, pending late registrations, manual additions, exclusions, and the latest snapshot without reading or mutating charges, payments, allocations, attendance, training assignments, or legacy teams.
+- Added campus-scoped read policies for operational staff and stricter director/sports-director write policies. Snapshot and event rows are immutable from normal authenticated clients.
+- This is a foundation pass only. The next pass adds the practical organizer inside `Inscripciones Torneos`; no current registrations or production rosters are backfilled automatically.
+
 ## 2026-08-07 (session 275)
 
 ### Full Tournament Roster Excel And PNG Packets (v1.17.9 Preview)
