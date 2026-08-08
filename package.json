@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.10",
+  "version": "1.17.11",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -44,6 +44,7 @@
     "test:sports-signups-eligibility": "node scripts/assert-sports-signups-eligibility.mjs",
     "test:sports-signups-packet-export": "node scripts/assert-sports-signups-packet-export.mjs",
     "test:competition-roster-foundation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-competition-roster-foundation.mjs",
+    "test:competition-roster-organizer": "node scripts/assert-competition-roster-organizer.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
     "test:enrollment-training-group-selection": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-enrollment-training-group-selection.mjs",

@@ -75,7 +75,8 @@ No bulk production data repair, group rename, or tournament-roster rewrite is ap
 - `v1.17.8` applied current product invitation and strict pricing-rule eligibility to the group view, while `v1.17.9` added complete Excel/PNG packets grouped by current program and training group.
 - `v1.17.10` adds the independent `competition_roster_*` foundation. It supports one or several source training groups, single/Azul/Blanco/custom squads, multi-squad players, manual helper players, explicit paid-player exclusions, immutable snapshots, and append-only audit events without referencing legacy `teams`.
 - Paid/confirmed `tournament_player_entries` remain the candidate pool. A typed read model identifies assigned candidates, excluded candidates, and later paid registrations still awaiting assignment after a split.
-- Next implementation pass: add the practical organizer and transactional write/snapshot actions inside `Inscripciones Torneos`, then connect approved squads to exports and `Convocatorias`.
+- `v1.17.11` adds the practical default organizer inside `Inscripciones Torneos`. Directors can transactionally create or synchronize the ordinary one-source-group / one-squad case from confirmed entries without changing finance, registration, attendance, or training-group truth; operational users can inspect it read-only.
+- Next implementation pass: add the explicit Azul/Blanco and combined-source editor with manual helper/exclusion controls, then capture approved snapshots and connect them to exports and `Convocatorias`.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
 

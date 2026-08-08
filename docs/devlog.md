@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-08 (session 277)
+
+### Default Tournament Squad Organizer (v1.17.11 Preview)
+
+- Added `Organizar equipos` inside `Inscripciones Torneos` for the ordinary one-training-group / one-competition-team case. The page shows every confirmed paid tournament entry in the selected campus and program, grouped by the player's current active training group.
+- Added one transactional `security invoker` RPC that creates or synchronizes the default competition squad. It adds later confirmed registrations, removes paid memberships whose tournament entry is no longer confirmed, respects explicit exclusions, and records append-only sporting events.
+- Kept the workflow isolated from charges, payments, payment allocations, tournament registrations, attendance, training-group assignments, and dormant generic `teams`. It organizes references only; it does not move players or change financial truth.
+- Limited writes to Super Admin, Director Admin, and campus-scoped Director Deportivo. Other operational roles receive a read-only organizer view.
+- Paginated confirmed-entry reads and chunked active-assignment reads so production-sized rosters are not truncated by PostgREST response limits.
+- Added focused organizer regression coverage. Azul/Blanco splits, combined source groups, manual helpers/exclusions, snapshot capture, and export/Convocatorias handoff remain subsequent passes.
+
 ## 2026-08-07 (session 276)
 
 ### Independent Tournament Squad Foundation (v1.17.10 Preview)

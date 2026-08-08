@@ -515,12 +515,26 @@ export function SportsSignupsBoard({
               </p>
               <h2 className="text-2xl font-semibold text-slate-950 dark:text-slate-50">{selectedCompetition.label}</h2>
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold text-slate-950 dark:text-slate-100">
-                {selectedCompetition.totalConfirmed.toLocaleString("es-MX")}
-              </span>{" "}
-              inscripciones confirmadas · Pago directo {selectedCompetition.directConfirmedCount} · Via Combo{" "}
-              {selectedCompetition.bundleConfirmedCount}
+            <div className="flex flex-col items-start gap-2 md:items-end">
+              <div className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold text-slate-950 dark:text-slate-100">
+                  {selectedCompetition.totalConfirmed.toLocaleString("es-MX")}
+                </span>{" "}
+                inscripciones confirmadas · Pago directo {selectedCompetition.directConfirmedCount} · Via Combo{" "}
+                {selectedCompetition.bundleConfirmedCount}
+              </div>
+              {selectedCompetition.tournamentId && dashboard.selectedProgram ? (
+                <Link
+                  href={`/sports-signups/squads?tournament=${encodeURIComponent(selectedCompetition.tournamentId)}&campus=${encodeURIComponent(selectedCampusId)}&program=${encodeURIComponent(dashboard.selectedProgram)}`}
+                  className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark"
+                >
+                  Organizar equipos
+                </Link>
+              ) : selectedCompetition.tournamentId ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Selecciona un programa para organizar equipos.
+                </p>
+              ) : null}
             </div>
           </div>
 
