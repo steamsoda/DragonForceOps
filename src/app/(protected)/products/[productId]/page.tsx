@@ -180,6 +180,7 @@ export default async function ProductDetailPage({
               <TrainingGroupRestrictionChecklist
                 options={restrictionOptions}
                 selectedIds={product.allowedTrainingGroupIds}
+                tournamentMode={isCompetitionProduct}
               />
             </div>
 
@@ -611,9 +612,11 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function TrainingGroupRestrictionChecklist({
   options,
   selectedIds,
+  tournamentMode = false,
 }: {
   options: ProductTrainingGroupOption[];
   selectedIds: string[];
+  tournamentMode?: boolean;
 }) {
   if (options.length === 0) {
     return (
@@ -628,10 +631,12 @@ function TrainingGroupRestrictionChecklist({
   return (
     <details className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2" open={selectedIds.length > 0}>
       <summary className="cursor-pointer list-none text-xs font-semibold text-amber-800">
-        Disponibilidad por grupo de entrenamiento
+        {tournamentMode ? "Grupos invitados al torneo" : "Disponibilidad por grupo de entrenamiento"}
       </summary>
       <p className="mt-2 text-xs text-amber-800">
-        Sin grupos seleccionados = producto disponible para todos. Con grupos seleccionados = Caja solo lo muestra y permite cobrarlo a alumnos asignados a esos grupos.
+        {tournamentMode
+          ? "Los grupos seleccionados son los invitados: Caja limita el cobro y la vista de Inscripciones Torneos conserva esos grupos aunque tengan cero pagos. Sin seleccion, se usan las reglas estrictas del producto o queda disponible para todos."
+          : "Sin grupos seleccionados = producto disponible para todos. Con grupos seleccionados = Caja solo lo muestra y permite cobrarlo a alumnos asignados a esos grupos."}
       </p>
       <div className="mt-3 max-h-64 space-y-1 overflow-auto rounded-md border border-amber-200 bg-white p-2">
         {options.map((option) => (

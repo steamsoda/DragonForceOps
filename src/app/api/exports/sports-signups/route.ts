@@ -47,11 +47,12 @@ export async function GET(request: Request) {
   const competitionId = searchParams.get("competition")?.trim() ?? "";
   const paidFrom = searchParams.get("paidFrom")?.trim() ?? "";
   const paidTo = searchParams.get("paidTo")?.trim() ?? "";
+  const program = searchParams.get("program")?.trim() ?? "";
   if (!campusId || !competitionId) {
     return NextResponse.json({ message: "Faltan filtros requeridos." }, { status: 400 });
   }
 
-  const exportData = await getCompetitionSignupExportData({ campusId, competitionId, paidFrom, paidTo });
+  const exportData = await getCompetitionSignupExportData({ campusId, competitionId, paidFrom, paidTo, program });
   if (!exportData) {
     return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }

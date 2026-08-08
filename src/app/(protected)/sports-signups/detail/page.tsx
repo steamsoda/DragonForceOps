@@ -9,6 +9,7 @@ type SearchParams = Promise<{
   competition?: string;
   birthYear?: string;
   trainingGroup?: string;
+  program?: string;
   paidFrom?: string;
   paidTo?: string;
   perf?: string;
@@ -29,6 +30,7 @@ export default async function SportsSignupsDetailPage({ searchParams }: { search
     competitionId: params.competition ?? "",
     birthYear: params.birthYear ?? "",
     trainingGroupId: params.trainingGroup ?? "",
+    program: params.program ?? "",
     paidFrom: params.paidFrom ?? "",
     paidTo: params.paidTo ?? "",
     perf: permissionContext?.isSuperAdmin === true && params.perf === "1",
@@ -37,6 +39,7 @@ export default async function SportsSignupsDetailPage({ searchParams }: { search
   if (!detail || !permissionContext) redirect("/unauthorized");
 
   const paidDateQuery = `${detail.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(detail.paidDateFilter.from)}` : ""}${detail.paidDateFilter.to ? `&paidTo=${encodeURIComponent(detail.paidDateFilter.to)}` : ""}`;
+  const programQuery = params.program ? `&program=${encodeURIComponent(params.program)}` : "";
   const paidFilterLabel = formatPaidFilterLabel(detail.paidDateFilter.from, detail.paidDateFilter.to);
 
   return (
@@ -63,7 +66,7 @@ export default async function SportsSignupsDetailPage({ searchParams }: { search
             {paidFilterLabel ? <p className="text-sm font-medium text-portoBlue">{paidFilterLabel}</p> : null}
           </div>
           <Link
-            href={`/sports-signups?campus=${encodeURIComponent(detail.campusId)}&competition=${encodeURIComponent(detail.competitionId)}${paidDateQuery}`}
+            href={`/sports-signups?campus=${encodeURIComponent(detail.campusId)}&competition=${encodeURIComponent(detail.competitionId)}${programQuery}${paidDateQuery}`}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Volver al tablero

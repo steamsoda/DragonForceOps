@@ -5,6 +5,7 @@ import {
   resolveEntitledProductIds,
   type ProductBundleEntitlementInput,
 } from "@/lib/products/bundle-entitlements";
+import type { ProductPricingRuleInput } from "@/lib/products/pricing-rules";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   formatTrainingGroupBirthYearRange,
@@ -18,6 +19,7 @@ type CompetitionProductRow = {
   id: string;
   name: string;
   is_active?: boolean;
+  requires_pricing_rule_match?: boolean | null;
   charge_types: {
     code: string | null;
   } | null;
@@ -43,6 +45,7 @@ type SignupTournamentRow = {
     id: string;
     name: string | null;
     is_active: boolean | null;
+    requires_pricing_rule_match: boolean | null;
     charge_types: {
       code: string | null;
     } | null;
@@ -117,6 +120,25 @@ type TrainingGroupAssignmentRow = {
   } | null;
 };
 
+type ProductRestrictionRow = {
+  product_id: string;
+  training_group_id: string;
+};
+
+type ProductPricingRuleRow = {
+  product_id: string;
+  amount: number;
+  starts_on: string;
+  ends_on: string | null;
+  campus_id: string | null;
+  training_program: string | null;
+  gender: string | null;
+  birth_year_min: number | null;
+  birth_year_max: number | null;
+  required_paid_product_id: string | null;
+  priority: number;
+};
+
 type TrainingGroupSummary = {
   id: string;
   name: string;
@@ -157,6 +179,7 @@ export type CompetitionSignupBucket = {
   startDate: string | null;
   endDate: string | null;
   signupDeadline: string | null;
+  requiresPricingRuleMatch: boolean;
 };
 
 export type CompetitionSignupPlayerRow = {
@@ -172,6 +195,7 @@ export type CompetitionSignupPlayerRow = {
   trainingGroupId: string | null;
   trainingGroupLabel: string;
   trainingGroupSubtitle: string;
+  trainingProgram: string | null;
 };
 
 export type CompetitionPaidCallupPlayer = CompetitionSignupPlayerRow;
@@ -190,6 +214,7 @@ export type CompetitionSignupTrainingGroup = {
   trainingGroupId: string | null;
   label: string;
   subtitle: string;
+  program: string | null;
   confirmedCount: number;
   activeCount: number;
   players: CompetitionSignupPlayerRow[];
@@ -207,6 +232,8 @@ export type CompetitionSignupCompetitionGroup = {
   directConfirmedCount: number;
   bundleConfirmedCount: number;
   totalActive: number;
+  availablePrograms: string[];
+  eligibilityReviewPlayers: CompetitionSignupPlayerRow[];
   categories: CompetitionSignupCategoryGroup[];
   trainingGroups: CompetitionSignupTrainingGroup[];
 };
@@ -220,6 +247,7 @@ export type CompetitionSignupCampusBoard = {
 export type CompetitionSignupDashboardData = {
   campuses: Array<{ id: string; name: string }>;
   selectedCampusId: string;
+  selectedProgram: string | null;
   paidDateFilter: CompetitionSignupPaidDateFilter;
   competitionOptions: CompetitionSignupBucket[];
   configurableProducts: Array<{ id: string; name: string }>;
@@ -452,6 +480,7 @@ function getPlayerTrainingGroup(
     trainingGroupId: group?.id ?? null,
     trainingGroupLabel: group?.label ?? "Sin grupo",
     trainingGroupSubtitle: group?.subtitle ?? "Sin asignacion activa",
+    trainingProgram: group?.program ?? null,
   };
 }
 
@@ -482,7 +511,7 @@ async function loadCompetitionProducts(admin: SupabaseQueryClient) {
     const to = from + pageSize - 1;
     const { data, error } = await admin
       .from("products")
-      .select("id, name, is_active, charge_types(code)")
+      .select("id, name, is_active, requires_pricing_rule_match, charge_types(code)")
       .eq("is_active", true)
       .order("name", { ascending: true })
       .range(from, to)
@@ -519,7 +548,7 @@ async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: stri
 
   const { data, error } = await admin
     .from("tournaments")
-    .select("id, name, campus_id, product_id, start_date, end_date, signup_deadline, is_active, products(id, name, is_active, charge_types(code))")
+    .select("id, name, campus_id, product_id, start_date, end_date, signup_deadline, is_active, products(id, name, is_active, requires_pricing_rule_match, charge_types(code))")
     .in("campus_id", campusIds)
     .eq("is_active", true)
     .not("product_id", "is", null)
@@ -781,6 +810,7 @@ function buildCompetitionBuckets(
 ): CompetitionSignupBucket[] {
   const buckets = new Map<string, CompetitionSignupBucket>();
   const productNameById = new Map(products.map((product) => [product.id, product.name]));
+  const productById = new Map(products.map((product) => [product.id, product]));
 
   for (const tournament of tournaments) {
     const productName = productNameById.get(tournament.product_id) ?? tournament.products?.name ?? tournament.name;
@@ -794,6 +824,9 @@ function buildCompetitionBuckets(
       startDate: tournament.start_date,
       endDate: tournament.end_date,
       signupDeadline: tournament.signup_deadline,
+      requiresPricingRuleMatch:
+        productById.get(tournament.product_id)?.requires_pricing_rule_match === true ||
+        tournament.products?.requires_pricing_rule_match === true,
     });
   }
 
@@ -818,9 +851,126 @@ function buildEmptyCompetitions(buckets: CompetitionSignupBucket[]): Competition
     directConfirmedCount: 0,
     bundleConfirmedCount: 0,
     totalActive: 0,
+    availablePrograms: [],
+    eligibilityReviewPlayers: [],
     categories: [],
     trainingGroups: [],
   }));
+}
+
+const SPORTS_SIGNUP_PROGRAMS = new Set(["futbol_para_todos", "selectivo", "little_dragons"]);
+
+function normalizeProgramFilter(value: string | null | undefined) {
+  const normalized = (value ?? "").trim();
+  return SPORTS_SIGNUP_PROGRAMS.has(normalized) ? normalized : null;
+}
+
+function normalizeEligibilityGender(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "femenino") return "female";
+  if (normalized === "varonil" || normalized === "masculino") return "male";
+  return normalized;
+}
+
+function pricingRuleDefinesEligibility(
+  rule: ProductPricingRuleInput,
+  enrollment: ActiveEnrollmentRow,
+  trainingGroup: TrainingGroupSummary | null,
+) {
+  if (rule.campusId && rule.campusId !== enrollment.campus_id) return false;
+  if (rule.trainingProgram && rule.trainingProgram !== trainingGroup?.program) return false;
+  const ruleGender = normalizeEligibilityGender(rule.gender);
+  const playerGender = normalizeEligibilityGender(enrollment.players?.gender);
+  if (ruleGender && ruleGender !== playerGender) return false;
+  const birthYear = getBirthYear(enrollment.players?.birth_date);
+  if (rule.birthYearMin !== null && (birthYear === null || birthYear < rule.birthYearMin)) return false;
+  if (rule.birthYearMax !== null && (birthYear === null || birthYear > rule.birthYearMax)) return false;
+  return true;
+}
+
+function isEnrollmentEligibleForBucket({
+  enrollment,
+  bucket,
+  trainingGroup,
+  restrictionsByProduct,
+  pricingRulesByProduct,
+}: {
+  enrollment: ActiveEnrollmentRow;
+  bucket: CompetitionSignupBucket;
+  trainingGroup: TrainingGroupSummary | null;
+  restrictionsByProduct: Map<string, Set<string>>;
+  pricingRulesByProduct: Map<string, ProductPricingRuleInput[]>;
+}) {
+  if (!bucket.productId) return true;
+
+  const restrictedGroupIds = restrictionsByProduct.get(bucket.productId);
+  if (restrictedGroupIds && restrictedGroupIds.size > 0) {
+    return Boolean(trainingGroup?.id && restrictedGroupIds.has(trainingGroup.id));
+  }
+
+  if (!bucket.requiresPricingRuleMatch) return true;
+
+  return (pricingRulesByProduct.get(bucket.productId) ?? []).some((rule) =>
+    pricingRuleDefinesEligibility(rule, enrollment, trainingGroup),
+  );
+}
+
+async function loadProductRestrictions(admin: SupabaseQueryClient, productIds: string[]) {
+  if (productIds.length === 0) return [] as ProductRestrictionRow[];
+
+  const { data, error } = await admin
+    .from("product_training_group_restrictions")
+    .select("product_id, training_group_id")
+    .in("product_id", productIds)
+    .returns<ProductRestrictionRow[]>();
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function loadProductPricingRules(admin: SupabaseQueryClient, productIds: string[]) {
+  if (productIds.length === 0) return [] as ProductPricingRuleRow[];
+
+  const { data, error } = await admin
+    .from("product_pricing_rules")
+    .select("product_id, amount, starts_on, ends_on, campus_id, training_program, gender, birth_year_min, birth_year_max, required_paid_product_id, priority")
+    .in("product_id", productIds)
+    .returns<ProductPricingRuleRow[]>();
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+function groupProductRestrictions(rows: ProductRestrictionRow[]) {
+  const restrictionsByProduct = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const groupIds = restrictionsByProduct.get(row.product_id) ?? new Set<string>();
+    groupIds.add(row.training_group_id);
+    restrictionsByProduct.set(row.product_id, groupIds);
+  }
+  return restrictionsByProduct;
+}
+
+function groupProductPricingRules(rows: ProductPricingRuleRow[]) {
+  const rulesByProduct = new Map<string, ProductPricingRuleInput[]>();
+  for (const row of rows) {
+    const rules = rulesByProduct.get(row.product_id) ?? [];
+    rules.push({
+      amount: Number(row.amount),
+      startsOn: row.starts_on,
+      endsOn: row.ends_on,
+      campusId: row.campus_id,
+      trainingProgram: row.training_program,
+      gender: row.gender,
+      birthYearMin: row.birth_year_min,
+      birthYearMax: row.birth_year_max,
+      requiredPaidProductId: row.required_paid_product_id,
+      priority: row.priority,
+    });
+    rulesByProduct.set(row.product_id, rules);
+  }
+  return rulesByProduct;
 }
 
 function buildCampusBoard(
@@ -834,11 +984,31 @@ function buildCampusBoard(
   productBucketIds: Set<string>,
   bundleEntitlements: ProductBundleEntitlementInput[],
   trainingGroupByEnrollment: Map<string, TrainingGroupSummary>,
+  restrictionsByProduct: Map<string, Set<string>>,
+  pricingRulesByProduct: Map<string, ProductPricingRuleInput[]>,
+  selectedProgram: string | null,
 ): CompetitionSignupCampusBoard {
   const competitions = buckets
     .filter((bucket) => !bucket.campusId || bucket.campusId === campusId)
     .map<CompetitionSignupCompetitionGroup>((bucket) => {
     const confirmedPlayers = new Map<string, CompetitionSignupPlayerRow>();
+    const eligibilityReviewPlayers = new Map<string, CompetitionSignupPlayerRow>();
+    const eligibleActiveEnrollmentIds = new Set<string>();
+    const availablePrograms = new Set<string>();
+
+    for (const enrollment of campusActiveEnrollments) {
+      const group = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+      if (!isEnrollmentEligibleForBucket({
+        enrollment,
+        bucket,
+        trainingGroup: group,
+        restrictionsByProduct,
+        pricingRulesByProduct,
+      })) continue;
+      if (group?.program) availablePrograms.add(group.program);
+      if (selectedProgram && group?.program !== selectedProgram) continue;
+      eligibleActiveEnrollmentIds.add(enrollment.id);
+    }
 
     for (const charge of campusCharges) {
       const allocation = allocationSummaries.get(charge.id);
@@ -851,19 +1021,11 @@ function buildCampusBoard(
       const enrollment = charge.enrollments;
       if (!enrollment) continue;
       const registrationSource = charge.product_id === bucket.productId ? "direct" : "bundle";
-      const existingPlayer = confirmedPlayers.get(enrollment.id);
-      if (existingPlayer) {
-        if (existingPlayer.registrationSource === "bundle" && registrationSource === "direct") {
-          confirmedPlayers.set(enrollment.id, { ...existingPlayer, registrationSource: "direct" });
-        }
-        continue;
-      }
-
       const playerName = enrollment.players
         ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
         : "Jugador";
-
-      confirmedPlayers.set(enrollment.id, {
+      const trainingGroup = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+      const playerRow: CompetitionSignupPlayerRow = {
         enrollmentId: enrollment.id,
         playerId: enrollment.player_id,
         playerName,
@@ -874,13 +1036,37 @@ function buildCampusBoard(
         competitionLabel: bucket.label,
         registrationSource,
         ...getPlayerTrainingGroup(trainingGroupByEnrollment, enrollment.id),
+      };
+
+      const isEligible = isEnrollmentEligibleForBucket({
+        enrollment,
+        bucket,
+        trainingGroup,
+        restrictionsByProduct,
+        pricingRulesByProduct,
       });
+      if (selectedProgram && trainingGroup?.program !== selectedProgram) continue;
+      if (!isEligible) {
+        eligibilityReviewPlayers.set(enrollment.id, playerRow);
+        continue;
+      }
+
+      const existingPlayer = confirmedPlayers.get(enrollment.id);
+      if (existingPlayer) {
+        if (existingPlayer.registrationSource === "bundle" && registrationSource === "direct") {
+          confirmedPlayers.set(enrollment.id, { ...existingPlayer, registrationSource: "direct" });
+        }
+        continue;
+      }
+
+      confirmedPlayers.set(enrollment.id, playerRow);
     }
 
     const categoryMap = new Map<string, CompetitionSignupCategoryGroup>();
     const trainingGroupMap = new Map<string, CompetitionSignupTrainingGroup>();
 
     for (const enrollment of campusActiveEnrollments) {
+      if (!eligibleActiveEnrollmentIds.has(enrollment.id)) continue;
       const birthYear = getBirthYear(enrollment.players?.birth_date);
       const categoryKey = birthYear !== null ? String(birthYear) : "sin_categoria";
       const categoryLabel = birthYear !== null ? `CAT ${birthYear}` : "Sin categoria";
@@ -905,6 +1091,7 @@ function buildCampusBoard(
         trainingGroupId: group?.id ?? null,
         label: group?.label ?? "Sin grupo",
         subtitle: group?.subtitle ?? "Sin asignacion activa",
+        program: group?.program ?? null,
         confirmedCount: 0,
         activeCount: 0,
         players: [],
@@ -937,6 +1124,7 @@ function buildCampusBoard(
         trainingGroupId: player.trainingGroupId,
         label: player.trainingGroupLabel,
         subtitle: player.trainingGroupSubtitle,
+        program: player.trainingProgram,
         confirmedCount: 0,
         activeCount: 0,
         players: [],
@@ -957,7 +1145,9 @@ function buildCampusBoard(
       totalConfirmed: confirmedPlayers.size,
       directConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "direct").length,
       bundleConfirmedCount: [...confirmedPlayers.values()].filter((player) => player.registrationSource === "bundle").length,
-      totalActive: campusActiveEnrollments.length,
+      totalActive: eligibleActiveEnrollmentIds.size,
+      availablePrograms: [...availablePrograms].sort((a, b) => a.localeCompare(b, "es-MX")),
+      eligibilityReviewPlayers: sortPlayerRows([...eligibilityReviewPlayers.values()]),
       categories: sortCategoryGroups(
         Array.from(categoryMap.values()).map((category) => ({
           ...category,
@@ -1026,13 +1216,19 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const chargesPromise = loadBoardCompetitionChargeRows(admin, campusIds, relevantProductIds);
   const enrollmentsStartedAt = Date.now();
   const activeEnrollmentsPromise = loadActiveEnrollments(admin, campusIds);
-  const [charges, activeEnrollments] = await Promise.all([
+  const eligibilityStartedAt = Date.now();
+  const restrictionsPromise = loadProductRestrictions(admin, competitionProductIds);
+  const pricingRulesPromise = loadProductPricingRules(admin, competitionProductIds);
+  const [charges, activeEnrollments, restrictionRows, pricingRuleRows] = await Promise.all([
     chargesPromise,
     activeEnrollmentsPromise,
+    restrictionsPromise,
+    pricingRulesPromise,
   ]);
   if (perf) {
     recordPerfStep(perf, "load competition charges", chargesStartedAt);
     recordPerfStep(perf, "load active enrollments", enrollmentsStartedAt);
+    recordPerfStep(perf, "load tournament eligibility", eligibilityStartedAt);
   }
 
   const trainingGroupsStartedAt = Date.now();
@@ -1068,6 +1264,8 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     competitionOptions,
     productBucketIds,
     bundleEntitlements,
+    restrictionsByProduct: groupProductRestrictions(restrictionRows),
+    pricingRulesByProduct: groupProductPricingRules(pricingRuleRows),
     configurableProducts: products
       .filter((product) => !allBundleSourceProductIds.includes(product.id))
       .map((product) => ({ id: product.id, name: product.name })),
@@ -1086,7 +1284,7 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
 async function loadCompetitionProductById(admin: SupabaseQueryClient, productId: string) {
   const { data, error } = await admin
     .from("products")
-    .select("id, name, charge_types(code)")
+    .select("id, name, requires_pricing_rule_match, charge_types(code)")
     .eq("id", productId)
     .maybeSingle<CompetitionProductRow | null>();
 
@@ -1124,6 +1322,18 @@ async function getCompetitionSignupDetailBaseData(filters: {
   const productBucketIds = new Set<string>();
   let bundleEntitlements: ProductBundleEntitlementInput[] = [];
   let relatedSourceProductIds: string[] = [];
+  let eligibilityBucket: CompetitionSignupBucket = {
+    id: (filters.competitionId ?? "").trim(),
+    label: competitionLabel,
+    productId: null,
+    legacyKey: null,
+    tournamentId: null,
+    campusId,
+    startDate: null,
+    endDate: null,
+    signupDeadline: null,
+    requiresPricingRuleMatch: false,
+  };
 
   if (parsedBucket.type === "product") {
     const productStartedAt = Date.now();
@@ -1135,6 +1345,12 @@ async function getCompetitionSignupDetailBaseData(filters: {
     if (!product || !isCompetitionProduct(product)) return null;
     competitionLabel = product.name;
     productBucketIds.add(product.id);
+    eligibilityBucket = {
+      ...eligibilityBucket,
+      label: product.name,
+      productId: product.id,
+      requiresPricingRuleMatch: product.requires_pricing_rule_match === true,
+    };
     bundleEntitlements = entitlementRows;
     relatedSourceProductIds = entitlementRows
       .filter((row) => row.targetProductId === product.id)
@@ -1173,6 +1389,13 @@ async function getCompetitionSignupDetailBaseData(filters: {
   );
   recordPerfStep(perf, "load allocation summaries", allocationsStartedAt);
 
+  const [restrictionRows, pricingRuleRows] = eligibilityBucket.productId
+    ? await Promise.all([
+        loadProductRestrictions(admin, [eligibilityBucket.productId]),
+        loadProductPricingRules(admin, [eligibilityBucket.productId]),
+      ])
+    : [[], []];
+
   return {
     admin,
     campusAccess,
@@ -1187,6 +1410,9 @@ async function getCompetitionSignupDetailBaseData(filters: {
     paidDateFilter: normalizePaidDateFilter(filters),
     productBucketIds,
     bundleEntitlements,
+    eligibilityBucket,
+    restrictionsByProduct: groupProductRestrictions(restrictionRows),
+    pricingRulesByProduct: groupProductPricingRules(pricingRuleRows),
     perf,
   };
 }
@@ -1194,6 +1420,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
 export async function getCompetitionSignupDashboardData(filters?: {
   campusId?: string | null;
   competitionId?: string | null;
+  program?: string | null;
   paidFrom?: string | null;
   paidTo?: string | null;
   perf?: boolean;
@@ -1212,6 +1439,8 @@ export async function getCompetitionSignupDashboardData(filters?: {
     competitionOptions,
     productBucketIds,
     bundleEntitlements,
+    restrictionsByProduct,
+    pricingRulesByProduct,
     configurableProducts,
     activeTournamentSettings,
   } = baseData;
@@ -1222,10 +1451,12 @@ export async function getCompetitionSignupDashboardData(filters?: {
       : (campusAccess.defaultCampusId ?? campusAccess.campuses[0]?.id ?? "");
 
   if (!selectedCampusId) return null;
+  const selectedProgram = normalizeProgramFilter(filters?.program);
 
   const emptyDashboard: CompetitionSignupDashboardData = {
     campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     selectedCampusId,
+    selectedProgram,
     paidDateFilter,
     competitionOptions,
     configurableProducts,
@@ -1278,6 +1509,9 @@ export async function getCompetitionSignupDashboardData(filters?: {
         productBucketIds,
         bundleEntitlements,
         trainingGroupByEnrollment,
+        restrictionsByProduct,
+        pricingRulesByProduct,
+        selectedProgram,
       ),
     );
     recordPerfStep(perf, "build campus boards", campusBoardsStartedAt);
@@ -1313,6 +1547,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   competitionId?: string | null;
   birthYear?: string | null;
   trainingGroupId?: string | null;
+  program?: string | null;
   paidFrom?: string | null;
   paidTo?: string | null;
   perf?: boolean;
@@ -1338,8 +1573,12 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     paidDateFilter,
     productBucketIds,
     bundleEntitlements,
+    eligibilityBucket,
+    restrictionsByProduct,
+    pricingRulesByProduct,
     perf,
   } = baseData;
+  const selectedProgram = normalizeProgramFilter(filters.program);
 
   const birthYearValue = (filters.birthYear ?? "").trim();
   const birthYear =
@@ -1366,7 +1605,18 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
     if (charge.enrollments?.campus_id !== campusId) return false;
     const allocation = allocationSummaries.get(charge.id);
     if (!allocation || allocation.total + 0.009 < charge.amount) return false;
-    return getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId);
+    if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) return false;
+    const enrollment = charge.enrollments;
+    if (!enrollment) return false;
+    const trainingGroup = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+    if (selectedProgram && trainingGroup?.program !== selectedProgram) return false;
+    return isEnrollmentEligibleForBucket({
+      enrollment,
+      bucket: eligibilityBucket,
+      trainingGroup,
+      restrictionsByProduct,
+      pricingRulesByProduct,
+    });
   });
   const matchingCharges = matchingChargesAllDates.filter((charge) =>
     isPaidDateInFilter(allocationSummaries.get(charge.id)?.paidAt ?? null, paidDateFilter),
@@ -1396,6 +1646,15 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
 
   const filteredActiveEnrollments = activeEnrollments.filter((enrollment) => {
     if (enrollment.campus_id !== campusId) return false;
+    const trainingGroup = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+    if (selectedProgram && trainingGroup?.program !== selectedProgram) return false;
+    if (!isEnrollmentEligibleForBucket({
+      enrollment,
+      bucket: eligibilityBucket,
+      trainingGroup,
+      restrictionsByProduct,
+      pricingRulesByProduct,
+    })) return false;
     return matchesCurrentFilter(enrollment.id, getBirthYear(enrollment.players?.birth_date));
   });
 
@@ -1528,6 +1787,7 @@ export async function getCompetitionSignupExportData(filters?: {
   competitionId?: string | null;
   paidFrom?: string | null;
   paidTo?: string | null;
+  program?: string | null;
 }): Promise<CompetitionSignupExportData | null> {
   const baseData = await getCompetitionSignupDetailBaseData({
     campusId: filters?.campusId,
@@ -1548,7 +1808,11 @@ export async function getCompetitionSignupExportData(filters?: {
     paidDateFilter,
     productBucketIds,
     bundleEntitlements,
+    eligibilityBucket,
+    restrictionsByProduct,
+    pricingRulesByProduct,
   } = baseData;
+  const selectedProgram = normalizeProgramFilter(filters?.program);
   const campusName =
     campusAccess.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus";
 
@@ -1557,7 +1821,18 @@ export async function getCompetitionSignupExportData(filters?: {
     const allocation = allocationSummaries.get(charge.id);
     if (!allocation || allocation.total + 0.009 < charge.amount) return false;
     if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) return false;
-    return getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId);
+    if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) return false;
+    const enrollment = charge.enrollments;
+    if (!enrollment) return false;
+    const trainingGroup = trainingGroupByEnrollment.get(enrollment.id) ?? null;
+    if (selectedProgram && trainingGroup?.program !== selectedProgram) return false;
+    return isEnrollmentEligibleForBucket({
+      enrollment,
+      bucket: eligibilityBucket,
+      trainingGroup,
+      restrictionsByProduct,
+      pricingRulesByProduct,
+    });
   });
 
   const confirmedChargeByEnrollment = new Map<string, ChargeRow>();

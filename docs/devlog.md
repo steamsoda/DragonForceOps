@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-07 (session 274)
+
+### Tournament Eligibility And Program Filters (v1.17.8 Preview)
+
+- Made `Inscripciones Torneos` reuse the product configuration already enforced by Caja. Explicit `product_training_group_restrictions` are authoritative; products without explicit groups remain broad unless `requires_pricing_rule_match` is enabled, in which case the existing campus/program/gender/YOB pricing-rule dimensions define the invited roster.
+- Eligible training groups stay visible even with zero paid registrations. Groups proven ineligible no longer produce irrelevant blank cards, while paid records that no longer match the current invitation rules surface as a review warning instead of disappearing silently.
+- Added `Todos`, `Futbol Para Todos`, `Selectivos`, and context-aware `Little Dragons` program controls below Campus. The selected program is preserved through paid-date filters, category/group detail pages, and Excel export.
+- Renamed the tournament product restriction control to `Grupos invitados al torneo` and clarified that it controls both Caja availability and the tournament-signup roster denominator.
+- Preserved direct and Combo-aware paid-registration truth, complete paginated reads, current training-group context, and all finance writes unchanged. No migration or data mutation is included.
+- Added focused eligibility regression coverage alongside the existing pricing-rule and training-group-view checks. Independent Azul/Blanco squads, roster snapshots, full filtered PNG/Excel packets, and legacy team retirement remain subsequent passes.
+
 ## 2026-08-07 (session 273)
 
 ### Inscripciones Torneos By Training Group (v1.17.7 Preview)

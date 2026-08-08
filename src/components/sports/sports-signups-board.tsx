@@ -227,6 +227,7 @@ export function SportsSignupsBoard({
   const perfEnabled = canUsePerfDebug && searchParams.get("perf") === "1";
   const paidFilterLabel = formatPaidFilterLabel(dashboard.paidDateFilter.from, dashboard.paidDateFilter.to);
   const paidFilterQuery = `${dashboard.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(dashboard.paidDateFilter.from)}` : ""}${dashboard.paidDateFilter.to ? `&paidTo=${encodeURIComponent(dashboard.paidDateFilter.to)}` : ""}`;
+  const programQuery = dashboard.selectedProgram ? `&program=${encodeURIComponent(dashboard.selectedProgram)}` : "";
 
   const selectedBoard = useMemo(
     () =>
@@ -255,6 +256,12 @@ export function SportsSignupsBoard({
         return next;
       });
     }, 2200);
+  }
+
+  function selectProgram(program: string | null) {
+    const competitionQuery = selectedCompetition ? `&competition=${encodeURIComponent(selectedCompetition.id)}` : "";
+    const nextProgramQuery = program ? `&program=${encodeURIComponent(program)}` : "";
+    router.push(`/sports-signups?campus=${encodeURIComponent(selectedCampusId)}${competitionQuery}${nextProgramQuery}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`);
   }
 
   async function handleCopyCategoryText(category: CompetitionSignupCategoryGroup) {
@@ -328,7 +335,7 @@ export function SportsSignupsBoard({
           </p>
           {canExportExcel && selectedCompetition ? (
             <a
-              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${paidFilterQuery}`}
+              href={`/api/exports/sports-signups?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}${programQuery}${paidFilterQuery}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Exportar Excel
@@ -355,12 +362,37 @@ export function SportsSignupsBoard({
             );
           })}
         </div>
+        <div className="flex flex-wrap gap-2" aria-label="Filtrar por programa">
+          {[
+            { value: null, label: "Todos" },
+            { value: "futbol_para_todos", label: "Futbol Para Todos" },
+            { value: "selectivo", label: "Selectivos" },
+            ...(selectedCompetition?.availablePrograms.includes("little_dragons")
+              ? [{ value: "little_dragons", label: "Little Dragons" }]
+              : []),
+          ].map((option) => {
+            const isSelected = dashboard.selectedProgram === option.value;
+            return (
+              <button
+                key={option.value ?? "all"}
+                type="button"
+                onClick={() => selectProgram(option.value)}
+                className={isSelected
+                  ? "rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white"
+                  : "rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <form action="/sports-signups" className="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
           <input type="hidden" name="campus" value={selectedCampusId} />
           {selectedCompetition ? <input type="hidden" name="competition" value={selectedCompetition.id} /> : null}
+          {dashboard.selectedProgram ? <input type="hidden" name="program" value={dashboard.selectedProgram} /> : null}
           {perfEnabled ? <input type="hidden" name="perf" value="1" /> : null}
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">Pagado desde</span>
@@ -387,7 +419,7 @@ export function SportsSignupsBoard({
             Aplicar fechas
           </button>
           <Link
-            href={`/sports-signups?campus=${encodeURIComponent(selectedCampusId)}${selectedCompetition ? `&competition=${encodeURIComponent(selectedCompetition.id)}` : ""}${perfEnabled ? "&perf=1" : ""}`}
+            href={`/sports-signups?campus=${encodeURIComponent(selectedCampusId)}${selectedCompetition ? `&competition=${encodeURIComponent(selectedCompetition.id)}` : ""}${programQuery}${perfEnabled ? "&perf=1" : ""}`}
             className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Limpiar
@@ -497,6 +529,12 @@ export function SportsSignupsBoard({
             </button>
           </div>
 
+          {selectedCompetition.eligibilityReviewPlayers.length > 0 ? (
+            <div className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+              {selectedCompetition.eligibilityReviewPlayers.length} registro(s) pagado(s) requieren revision porque el grupo actual ya no coincide con los grupos invitados o las reglas del torneo.
+            </div>
+          ) : null}
+
           {viewMode === "category" && selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
               No hay categorias activas o jugadores pagados para esta competencia en el campus seleccionado.
@@ -504,7 +542,7 @@ export function SportsSignupsBoard({
           ) : viewMode === "category" ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
               {selectedCompetition.categories.map((category) => {
-                const detailHref = `/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`;
+                const detailHref = `/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&birthYear=${encodeURIComponent(category.key)}${programQuery}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`;
                 const nameColumns = getNameColumns(category.players);
                 const feedback = feedbackByCategoryKey[category.key];
 
@@ -625,7 +663,7 @@ export function SportsSignupsBoard({
                 <TrainingGroupSignupCard
                   key={`${selectedCompetition.id}-${group.key}`}
                   group={group}
-                  detailHref={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&trainingGroup=${encodeURIComponent(group.key)}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`}
+                  detailHref={`/sports-signups/detail?campus=${encodeURIComponent(selectedCampusId)}&competition=${encodeURIComponent(selectedCompetition.id)}&trainingGroup=${encodeURIComponent(group.key)}${programQuery}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`}
                   onOpen={(href) => router.push(href)}
                 />
               ))}
