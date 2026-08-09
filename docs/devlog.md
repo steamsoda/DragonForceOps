@@ -2,7 +2,7 @@
 
 ## 2026-08-09 (session 278)
 
-### Default Tournament Squad Organizer Conflict Fix (v1.17.12 Preview)
+### Default Tournament Squad Organizer Conflict Fix (v1.17.12 Production)
 
 - Fixed the production `Crear equipo` failure caused by a PL/pgSQL name collision between the organizer RPC's `squad_id` output field and the `competition_roster_squad_members.squad_id` conflict target.
 - Added a follow-up migration that changes only the conflict target to the table's existing unique constraint. The RPC remains transactional and still does not mutate tournament registrations, finance, attendance, enrollments, or training-group assignments.
