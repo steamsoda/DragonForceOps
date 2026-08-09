@@ -35,6 +35,21 @@ function organizerPath(params: {
   return `/sports-signups/squads?${query.toString()}`;
 }
 
+function squadSyncErrorCode(error: { code?: string; message: string }) {
+  const message = error.message.toLowerCase();
+  if (message.includes("advanced_squad")) return "advanced_squad_requires_editor";
+  if (message.includes("manager_required") || message.includes("auth_required") || message.includes("row-level security")) {
+    return "squad_permission_denied";
+  }
+  if (message.includes("not_found") || message.includes("mismatch") || message.includes("invalid_program")) {
+    return "invalid_squad_scope";
+  }
+  if (error.code === "42702" || message.includes("column reference") && message.includes("ambiguous")) {
+    return "squad_database_conflict";
+  }
+  return "squad_sync_failed";
+}
+
 export async function createOrSyncDefaultCompetitionSquadAction(formData: FormData) {
   const tournamentId = clean(formData.get("tournamentId"));
   const campusId = clean(formData.get("campusId"));
@@ -85,10 +100,16 @@ export async function createOrSyncDefaultCompetitionSquadAction(formData: FormDa
   });
 
   if (result.error) {
-    console.error("default competition squad sync failed", result.error);
-    const code = result.error.message.includes("advanced_squad")
-      ? "advanced_squad_requires_editor"
-      : "squad_sync_failed";
+    console.error("default competition squad sync failed", {
+      code: result.error.code,
+      message: result.error.message,
+      details: result.error.details,
+      hint: result.error.hint,
+      tournamentId,
+      trainingGroupId,
+      program,
+    });
+    const code = squadSyncErrorCode(result.error);
     redirect(organizerPath({ tournamentId, campusId, program, result: `err=${code}` }));
   }
 

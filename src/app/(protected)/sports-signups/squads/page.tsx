@@ -21,6 +21,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_squad_settings: "Faltan datos para organizar este equipo.",
   invalid_squad_scope: "El torneo y el grupo seleccionado no pertenecen al mismo campus o programa.",
   advanced_squad_requires_editor: "Este grupo ya usa una estructura especial. Se administrara en el siguiente pase.",
+  squad_permission_denied: "Tu usuario no tiene permiso para organizar equipos en este campus.",
+  squad_database_conflict: "La configuracion del organizador necesita actualizarse. No se guardo ningun cambio.",
   squad_sync_failed: "No se pudo guardar el equipo. No se modificaron inscripciones ni grupos de entrenamiento.",
 };
 
