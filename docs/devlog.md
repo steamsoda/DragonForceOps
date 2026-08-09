@@ -2,7 +2,7 @@
 
 ## 2026-08-08 (session 277)
 
-### Default Tournament Squad Organizer (v1.17.11 Preview)
+### Default Tournament Squad Organizer (v1.17.11 Production)
 
 - Added `Organizar equipos` inside `Inscripciones Torneos` for the ordinary one-training-group / one-competition-team case. The page shows every confirmed paid tournament entry in the selected campus and program, grouped by the player's current active training group.
 - Added one transactional `security invoker` RPC that creates or synchronizes the default competition squad. It adds later confirmed registrations, removes paid memberships whose tournament entry is no longer confirmed, respects explicit exclusions, and records append-only sporting events.
@@ -13,7 +13,7 @@
 
 ## 2026-08-07 (session 276)
 
-### Independent Tournament Squad Foundation (v1.17.10 Preview)
+### Independent Tournament Squad Foundation (v1.17.10 Production)
 
 - Added an independent competition-roster schema for tournament-specific `Equipo unico`, `Azul`, `Blanco`, and custom squads. The model references the existing tournament configuration, current training groups, and enrollments directly; it does not reference or revive the dormant generic `teams` system.
 - Added combined source-group support, multi-squad player membership, exceptional paid-player exclusions, manual helper-player membership, and explicit planning/ready/archive states.
