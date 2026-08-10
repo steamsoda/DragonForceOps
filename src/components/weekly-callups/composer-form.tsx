@@ -27,6 +27,14 @@ type ComposerRow = {
   isRest: boolean;
 };
 
+type CoachScheduleDefault = {
+  tournamentId: string;
+  isRest: boolean;
+  notes: string;
+  coachName: string;
+  games: Array<{ matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
+};
+
 type ClientError = NonNullable<WeeklyCallupComposerState>;
 
 function isMonday(value: string) {
@@ -91,23 +99,29 @@ export function WeeklyCallupComposerForm({
   currentWeekStart,
   groups,
   tournaments,
+  coachScheduleDefaults = {},
 }: {
   campusId: string;
   program: "selectivo" | "futbol_para_todos";
   currentWeekStart: string;
   groups: ComposerGroup[];
   tournaments: ComposerTournament[];
+  coachScheduleDefaults?: Record<string, CoachScheduleDefault>;
 }) {
   const initialRows = useMemo(
-    () => Object.fromEntries(groups.map((group) => [group.id, {
-      tournamentId: "",
-      matchDate: "",
-      arrivalTime: "",
-      venue: "",
-      opponent: "",
-      isRest: false,
-    }])),
-    [groups],
+    () => Object.fromEntries(groups.map((group) => {
+      const reported = coachScheduleDefaults[group.id];
+      const firstGame = reported?.games[0];
+      return [group.id, {
+        tournamentId: reported?.tournamentId ?? "",
+        matchDate: firstGame?.matchDate ?? "",
+        arrivalTime: firstGame?.arrivalTime ?? "",
+        venue: firstGame?.venue ?? "",
+        opponent: firstGame?.opponent ?? "",
+        isRest: reported?.isRest ?? false,
+      }];
+    })),
+    [coachScheduleDefaults, groups],
   );
   const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [rows, setRows] = useState<Record<string, ComposerRow>>(initialRows);
@@ -179,7 +193,15 @@ export function WeeklyCallupComposerForm({
                     <span className="text-xs text-slate-500">Cat. {group.categoryLabel}</span>
                     {rowError ? <p className="mt-2 max-w-52 text-xs font-semibold text-rose-700">{rowError}</p> : null}
                   </td>
-                  <td className="px-3 py-2">{group.primaryCoachName}</td>
+                  <td className="px-3 py-2">
+                    {group.primaryCoachName}
+                    {coachScheduleDefaults[group.id] ? (
+                      <span className="mt-1 block text-xs font-semibold text-emerald-700">
+                        Reportado por {coachScheduleDefaults[group.id].coachName}
+                        {coachScheduleDefaults[group.id].games.length > 1 ? ` | ${coachScheduleDefaults[group.id].games.length} partidos (el primero se precarga)` : ""}
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2">
                     <select
                       name={`tournamentId:${group.id}`}

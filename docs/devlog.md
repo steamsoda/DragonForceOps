@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 286)
+
+### Scoped Coach Schedule Reporting (v1.17.20 Preview)
+
+- Added an explicit, Super Admin-managed link from a Supabase login account to one active `coaches` record. The login email identifies the auth account; authorization never guesses coach identity from names or matching email text.
+- Added a coach-only `Mis horarios` view under `Convocatorias`. Coaches see only active groups linked through `training_group_coaches` and may report tournament, rest status, up to three games, and an optional note for a Monday-Sunday week.
+- Kept coach writes in separate schedule-report tables. Coaches cannot edit paid registrations, competition squads, roster exceptions, final convocatoria players, attendance, enrollment, or finance data.
+- Added an admin handoff: the existing convocatoria composer flags coach-reported schedules and preloads the first reported game. Additional reported games remain visible by count for the existing detailed editor instead of being silently discarded.
+- Added RLS/helper functions, atomic schedule replacement, audit logging, explicit account unlinking, and focused role-boundary regression coverage. Typecheck, production build, migration dry run, and diff checks pass before preview deployment.
+
 ## 2026-08-10 (session 285)
 
 ### Live Split Placement And Roster Exception Controls (v1.17.19 Preview)

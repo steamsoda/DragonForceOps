@@ -32,6 +32,8 @@ export type PermissionContext = {
   isAttendanceAdmin: boolean;
   isOfficeAdmin: boolean;
   isFrontDesk: boolean;
+  isCoach: boolean;
+  coachId: string | null;
   hasPlayerRosterAccess: boolean;
   hasPlayerDataAccess: boolean;
   hasOperationalAccess: boolean;
@@ -40,6 +42,7 @@ export type PermissionContext = {
   hasAttendanceReadAccess: boolean;
   hasAttendanceWriteAccess: boolean;
   hasTuitionStatusReportAccess: boolean;
+  hasCoachScheduleAccess: boolean;
 };
 
 export async function getPermissionContext(): Promise<PermissionContext | null> {
@@ -60,6 +63,17 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
   const isAttendanceAdmin = roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN);
   const isOfficeAdmin = roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const isCoach = roleCodes.includes(APP_ROLES.COACH);
+  const coachResult = isCoach
+    ? await supabase
+        .from("coaches")
+        .select("id")
+        .eq("user_id", debugContext.effective.id)
+        .eq("is_active", true)
+        .maybeSingle<{ id: string }>()
+    : { data: null, error: null };
+  if (coachResult.error) throw coachResult.error;
+  const coachId = coachResult.data?.id ?? null;
 
   return {
     supabase,
@@ -75,6 +89,8 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     isAttendanceAdmin,
     isOfficeAdmin,
     isFrontDesk,
+    isCoach,
+    coachId,
     hasPlayerRosterAccess: isDirector || isFrontDesk || isOfficeAdmin || isSportsDirector,
     hasPlayerDataAccess: isDirector || isFrontDesk || isOfficeAdmin,
     hasOperationalAccess: isDirector || isFrontDesk,
@@ -83,6 +99,7 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
     hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin || isOfficeAdmin,
     hasTuitionStatusReportAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
+    hasCoachScheduleAccess: isCoach && Boolean(coachId),
   };
 }
 

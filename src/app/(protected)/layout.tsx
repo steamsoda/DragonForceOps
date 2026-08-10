@@ -133,7 +133,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const hasAttendanceReadAccess = hasAttendanceWriteAccess || roleCodes.includes(APP_ROLES.FRONT_DESK);
   const canManageAttendanceSetup = isDirectorOrAbove || hasSportsAccess;
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const canAccess = isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess;
+  const isCoach = roleCodes.includes(APP_ROLES.COACH);
+  const canAccess = isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess || isCoach;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -181,6 +182,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         : []),
     ],
   };
+  const coachCompetitionSection: NavSection = {
+    label: "Competencias",
+    items: [{ href: "/convocatorias", label: "Mis horarios" }],
+  };
 
   const nutritionSection: NavSection = {
     ...NUTRITION_BASE_SECTION,
@@ -204,7 +209,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const sections: NavSection[] = [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess ? [sportsStaffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
-    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : []),
+    ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : isCoach ? [coachCompetitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
     ...(hasAttendanceReadAccess ? [attendanceSection] : []),
     ...(isDirectorOrAbove
@@ -222,7 +227,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     ...(isDirectorOrAbove || isFrontDesk ? [{ href: "/pending", label: "Pendientes" }, { href: "/llamadas", label: "Llamadas" }, { href: "/trial-classes", label: "Clases de prueba" }, { href: "/datos-faltantes", label: "Datos faltantes" }] : isOfficeAdmin ? [{ href: "/datos-faltantes", label: "Datos faltantes" }] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess
       ? [{ href: "/sports-signups", label: "Torneos" }, { href: "/convocatorias", label: "Convocatorias" }]
-      : []),
+      : isCoach ? [{ href: "/convocatorias", label: "Mis horarios" }] : []),
     ...(hasNutritionAccess ? [{ href: "/nutrition", label: "Nutricion" }] : []),
     ...(hasAttendanceReadAccess
       ? [

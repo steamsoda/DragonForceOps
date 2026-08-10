@@ -41,6 +41,13 @@ export type WeeklyCallupsFoundationData = {
     primaryCoachName: string;
   }>;
   canDeleteCallups: boolean;
+  coachScheduleDefaults: Record<string, {
+    tournamentId: string;
+    isRest: boolean;
+    notes: string;
+    coachName: string;
+    games: Array<{ matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
+  }>;
   callups: WeeklyCallupListRow[];
 };
 
@@ -177,6 +184,24 @@ type ComposerCoachRow = {
   coaches: { first_name: string | null; last_name: string | null } | null;
 };
 
+type CoachScheduleReportRow = {
+  id: string;
+  training_group_id: string;
+  tournament_id: string;
+  is_rest: boolean;
+  notes: string | null;
+  coaches: { first_name: string | null; last_name: string | null } | null;
+};
+
+type CoachScheduleGameRow = {
+  report_id: string;
+  match_date: string;
+  arrival_time: string;
+  venue: string;
+  opponent: string;
+  sort_order: number;
+};
+
 type DetailPlayerRow = {
   id: string;
   weekly_callup_category_id: string;
@@ -302,6 +327,28 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
   if (groupsResult.error) throw groupsResult.error;
   if (coachesResult.error) throw coachesResult.error;
 
+  const currentWeekStart = getMonterreyWeekStart();
+  const groupIds = (groupsResult.data ?? []).map((group) => group.id);
+  const coachReportsResult = groupIds.length
+    ? await admin
+        .from("coach_weekly_schedule_reports")
+        .select("id, training_group_id, tournament_id, is_rest, notes, coaches(first_name, last_name)")
+        .eq("week_start", currentWeekStart)
+        .in("training_group_id", groupIds)
+        .returns<CoachScheduleReportRow[]>()
+    : { data: [] as CoachScheduleReportRow[], error: null };
+  if (coachReportsResult.error) throw coachReportsResult.error;
+  const coachReportIds = (coachReportsResult.data ?? []).map((report) => report.id);
+  const coachGamesResult = coachReportIds.length
+    ? await admin
+        .from("coach_weekly_schedule_games")
+        .select("report_id, match_date, arrival_time, venue, opponent, sort_order")
+        .in("report_id", coachReportIds)
+        .order("sort_order")
+        .returns<CoachScheduleGameRow[]>()
+    : { data: [] as CoachScheduleGameRow[], error: null };
+  if (coachGamesResult.error) throw coachGamesResult.error;
+
   const coachRowsByGroup = new Map<string, ComposerCoachRow[]>();
   for (const row of coachesResult.data ?? []) {
     const current = coachRowsByGroup.get(row.training_group_id) ?? [];
@@ -349,7 +396,7 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
   return {
     campuses: campusAccess.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     defaultCampusId: campusAccess.defaultCampusId ?? campusAccess.campusIds[0],
-    currentWeekStart: getMonterreyWeekStart(),
+    currentWeekStart,
     tournaments: (tournamentsResult.data ?? []).map((row) => ({
       id: row.id,
       campusId: row.campus_id,
@@ -378,6 +425,18 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
       };
     }),
     canDeleteCallups: context.isSportsDirector,
+    coachScheduleDefaults: Object.fromEntries((coachReportsResult.data ?? []).map((report) => {
+      const coach = report.coaches;
+      return [report.training_group_id, {
+        tournamentId: report.tournament_id,
+        isRest: report.is_rest,
+        notes: report.notes ?? "",
+        coachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Coach",
+        games: (coachGamesResult.data ?? [])
+          .filter((game) => game.report_id === report.id)
+          .map((game) => ({ matchDate: game.match_date, arrivalTime: game.arrival_time.slice(0, 5), venue: game.venue, opponent: game.opponent })),
+      }];
+    })),
     callups: (callupsResult.data ?? []).map((row) => {
       const categories = categoriesByCallup.get(row.id) ?? [];
       return {

@@ -3,7 +3,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { formatRoleWithCampus } from "@/lib/auth/role-display";
 import { createClient } from "@/lib/supabase/server";
-import { grantRoleAction, revokeRoleAction } from "@/server/actions/users";
+import { grantRoleAction, linkCoachUserAction, revokeRoleAction, unlinkCoachUserAction } from "@/server/actions/users";
 
 const ALL_ROLES = [
   { code: "superadmin", label: "Super Admin" },
@@ -12,15 +12,19 @@ const ALL_ROLES = [
   { code: "nutritionist", label: "Nutricionista" },
   { code: "attendance_admin", label: "Admin de Campo" },
   { code: "admin_oficina", label: "Admin Oficina" },
-  { code: "front_desk", label: "Recepcion / Caja" },
-  { code: "coach", label: "Coach" }
+  { code: "front_desk", label: "Recepcion / Caja" }
 ] as const;
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_form: "Datos invalidos.",
   role_not_found: "Rol no encontrado.",
   grant_failed: "No se pudo asignar el rol.",
-  revoke_failed: "No se pudo revocar el rol."
+  revoke_failed: "No se pudo revocar el rol.",
+  invalid_coach_link: "Selecciona una cuenta y un coach activo.",
+  coach_already_linked: "Ese coach ya esta vinculado a otra cuenta.",
+  user_already_linked: "Esa cuenta ya esta vinculada a otro coach.",
+  coach_link_failed: "No se pudo vincular la cuenta del coach.",
+  coach_unlink_failed: "No se pudo desvincular la cuenta del coach."
 };
 
 type AuthUserRow = { id: string; email: string | null; last_sign_in_at: string | null; created_at: string | null };
@@ -37,6 +41,7 @@ type RoleAssignment = {
   campusName: string | null;
 };
 type SearchParams = Promise<{ ok?: string; err?: string }>;
+type CoachRow = { id: string; user_id: string | null; first_name: string; last_name: string; campus_id: string | null; campuses: { name: string | null } | null };
 
 export default async function UsersAdminPage({ searchParams }: { searchParams: SearchParams }) {
   await requireSuperAdminContext("/unauthorized");
@@ -47,7 +52,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
 
   if (!user) redirect("/");
 
-  const [{ data: authUsersRaw, error: usersError }, { data: allRoleRows }, { data: campuses }] = await Promise.all([
+  const [{ data: authUsersRaw, error: usersError }, { data: allRoleRows }, { data: campuses }, { data: coaches }] = await Promise.all([
     supabase.rpc("list_auth_users"),
     supabase
       .from("user_roles")
@@ -58,7 +63,14 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
       .select("id, name, code")
       .eq("is_active", true)
       .order("name")
-      .returns<CampusRow[]>()
+      .returns<CampusRow[]>(),
+    supabase
+      .from("coaches")
+      .select("id, user_id, first_name, last_name, campus_id, campuses(name)")
+      .eq("is_active", true)
+      .order("first_name")
+      .order("last_name")
+      .returns<CoachRow[]>()
   ]);
 
   const authUsers = (authUsersRaw ?? []) as AuthUserRow[];
@@ -78,7 +90,15 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   const activeUsers = authUsers.filter((authUser) => rolesByUser[authUser.id]?.length);
 
   const query = await searchParams;
-  const successMessage = query.ok === "granted" ? "Rol asignado." : query.ok === "revoked" ? "Rol revocado." : null;
+  const successMessage = query.ok === "granted"
+    ? "Rol asignado."
+    : query.ok === "revoked"
+      ? "Rol revocado."
+      : query.ok === "coach_linked"
+        ? "Cuenta vinculada al coach. Solo vera sus grupos asignados."
+        : query.ok === "coach_unlinked"
+          ? "Cuenta de coach desvinculada."
+          : null;
   const errorMessage = query.err ? ERROR_MESSAGES[query.err] ?? "Error desconocido." : null;
 
   function formatDate(value: string | null) {
@@ -89,10 +109,13 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   function RoleBadges({ userId, roles }: { userId: string; roles: RoleAssignment[] }) {
     return (
       <div className="flex flex-wrap gap-1">
-        {roles.map((role) => (
-          <form key={`${role.code}-${role.campusId ?? "all"}`} action={revokeRoleAction}>
+        {roles.map((role) => {
+          const linkedCoach = role.code === "coach" ? (coaches ?? []).find((coach) => coach.user_id === userId) : null;
+          return (
+          <form key={`${role.code}-${role.campusId ?? "all"}`} action={role.code === "coach" ? unlinkCoachUserAction : revokeRoleAction}>
             <input type="hidden" name="user_id" value={userId} />
             <input type="hidden" name="role_code" value={role.code} />
+            {linkedCoach ? <input type="hidden" name="coach_id" value={linkedCoach.id} /> : null}
             {role.campusId ? <input type="hidden" name="campus_id" value={role.campusId} /> : null}
             <button
               type="submit"
@@ -103,7 +126,8 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
               <span className="opacity-60">x</span>
             </button>
           </form>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -179,6 +203,40 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
     );
   }
 
+  function CoachLinkForm({ userId }: { userId: string }) {
+    const linkedCoach = (coaches ?? []).find((coach) => coach.user_id === userId);
+    if (linkedCoach) {
+      return (
+        <form action={unlinkCoachUserAction} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="user_id" value={userId} />
+          <input type="hidden" name="coach_id" value={linkedCoach.id} />
+          <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+            Coach: {linkedCoach.first_name} {linkedCoach.last_name} | {linkedCoach.campuses?.name ?? "Sin campus"}
+          </span>
+          <button type="submit" className="rounded border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50">
+            Desvincular
+          </button>
+        </form>
+      );
+    }
+    const availableCoaches = (coaches ?? []).filter((coach) => !coach.user_id);
+    if (availableCoaches.length === 0) return <p className="text-xs text-slate-400">No hay coaches activos sin cuenta.</p>;
+    return (
+      <form action={linkCoachUserAction} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="user_id" value={userId} />
+        <select name="coach_id" defaultValue="" required className="rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-800">
+          <option value="" disabled>Vincular coach...</option>
+          {availableCoaches.map((coach) => (
+            <option key={coach.id} value={coach.id}>
+              {coach.first_name} {coach.last_name} | {coach.campuses?.name ?? "Sin campus"}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="rounded bg-portoBlue px-2 py-1 text-xs font-medium text-white hover:bg-portoDark">Vincular</button>
+      </form>
+    );
+  }
+
   return (
     <PageShell title="Usuarios y Permisos" subtitle="Gestiona el acceso del personal">
       <div className="space-y-6">
@@ -214,7 +272,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                   <tr>
                     <th className="px-4 py-2">Email</th>
                     <th className="px-4 py-2">Primer acceso</th>
-                    <th className="px-4 py-2">Asignar rol</th>
+                    <th className="px-4 py-2">Asignar acceso</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-amber-50 dark:divide-amber-900/50">
@@ -223,7 +281,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{authUser.email}</td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(authUser.created_at)}</td>
                       <td className="px-4 py-3">
-                        <GrantForm userId={authUser.id} existingRoles={[]} />
+                        <div className="space-y-2"><GrantForm userId={authUser.id} existingRoles={[]} /><CoachLinkForm userId={authUser.id} /></div>
                       </td>
                     </tr>
                   ))}
@@ -242,7 +300,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                   <th className="px-4 py-2">Email</th>
                   <th className="px-4 py-2">Ultimo acceso</th>
                   <th className="px-4 py-2">Roles</th>
-                  <th className="px-4 py-2">Asignar rol</th>
+                  <th className="px-4 py-2">Asignar acceso</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -271,7 +329,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                           <RoleBadges userId={authUser.id} roles={roles} />
                         </td>
                         <td className="px-4 py-3">
-                          <GrantForm userId={authUser.id} existingRoles={roles} />
+                          <div className="space-y-2"><GrantForm userId={authUser.id} existingRoles={roles} /><CoachLinkForm userId={authUser.id} /></div>
                         </td>
                       </tr>
                     );

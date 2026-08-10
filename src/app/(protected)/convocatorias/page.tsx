@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-form";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
+import { CoachScheduleForm } from "@/components/weekly-callups/coach-schedule-form";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
 import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
 import { deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
 
-type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string }>;
+type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string; week?: string }>;
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_snapshot_settings: "Selecciona campus, torneo, programa y un lunes valido.",
@@ -44,6 +47,29 @@ function formatDate(value: string) {
 
 export default async function WeeklyCallupsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const permission = await getPermissionContext();
+  if (permission?.isCoach && !permission.isDirector && !permission.isSportsDirector && !permission.isFrontDesk) {
+    const coachData = await getCoachSchedulePageData(params.week);
+    if (!coachData) redirect("/unauthorized");
+    return (
+      <PageShell wide title="Mis horarios" subtitle="Reporta los partidos de la semana solo para tus grupos asignados.">
+        <div className="space-y-5">
+          <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><h2 className="font-semibold">Coach {coachData.coachName}</h2><p className="text-sm text-slate-500">No modifica planteles, pagos, asistencias ni inscripciones.</p></div>
+              <form className="flex items-end gap-2">
+                <label className="text-sm font-medium">Lunes de la semana<input name="week" type="date" defaultValue={coachData.selectedWeekStart} className="mt-1 block min-h-10 rounded-md border border-slate-300 px-3" /></label>
+                <button className="min-h-10 rounded-md border border-portoBlue px-4 py-2 text-sm font-semibold text-portoBlue">Ver semana</button>
+              </form>
+            </div>
+          </section>
+          {coachData.groups.length ? coachData.groups.map((group) => (
+            <CoachScheduleForm key={`${coachData.selectedWeekStart}:${group.id}`} group={group} weekStart={coachData.selectedWeekStart} tournaments={coachData.tournaments} />
+          )) : <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No tienes grupos activos asignados. Un Super Admin debe revisar tu vinculacion y los coaches del grupo.</p>}
+        </div>
+      </PageShell>
+    );
+  }
   const data = await getWeeklyCallupsFoundationData();
   if (!data) redirect("/unauthorized");
   const selectedCampusId = data.campuses.some((campus) => campus.id === params.campus)
@@ -117,6 +143,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
             currentWeekStart={data.currentWeekStart}
             groups={visibleGroups}
             tournaments={tournamentOptions.map((tournament) => ({ id: tournament.id, name: tournament.name }))}
+            coachScheduleDefaults={data.coachScheduleDefaults}
           />
         </section>
 
