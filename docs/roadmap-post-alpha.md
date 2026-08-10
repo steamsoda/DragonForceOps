@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.20`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.21`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.18`
-- Current preview candidate: `v1.17.20` adds explicit coach-account linking plus assigned-group-only weekly schedule reporting and admin convocatoria handoff
+- Current preview candidate: `v1.17.21` adds explicit coach-account linking, assigned-group-only weekly schedule reporting, visible/editable submission status, and admin convocatoria handoff
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -180,7 +180,7 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 8. 🟢 `v1.17.17` makes confirmed paid registration lifecycle changes maintain ordinary and combined live squads automatically; split destinations remain pending and existing placements are never silently moved after a training-group change.
 9. 🟢 `v1.17.18` adds `Equipos` beside the category/group views, exports current squads directly, removes manual approval ceremony, and captures the immutable snapshot automatically inside one-step convocatoria creation.
 10. 🟢 `v1.17.19` adds compact direct pending Azul/Blanco placement and audited exclusion/reinstatement/helper controls inside the live `Equipos` view.
-11. 🟢 `v1.17.20` adds explicit coach-account linking and assigned-group-only schedule reporting; directors/admins retain paid-roster control, exceptions, deletion, and final WhatsApp-image generation.
+11. 🟢 `v1.17.20`-`v1.17.21` add explicit coach-account linking, assigned-group-only schedule reporting, visible/editable submitted games, and admin handoff; directors/admins retain paid-roster control, exceptions, deletion, and final WhatsApp-image generation.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
@@ -215,7 +215,7 @@ Important, but not necessarily the next edit.
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
-| 🟢 | Coach match posting v1 | Preview `v1.17.20` links one auth account to one coach and allows schedule-only reporting for assigned groups. Validate real coach links and multi-game handoff before production. |
+| 🟢 | Coach match posting v1 | Preview `v1.17.20`-`v1.17.21` links one auth account to one coach, allows schedule-only reporting for assigned groups, and keeps submitted games visibly editable. Validate a real coach link and multi-game handoff before production. |
 | 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
 | 🟡 | Torneos workflow redesign | Larger planning item after urgent ops polish; needs confirmed team, signup, payment, and roster behavior. |
 | 🔴 | Regularización competition-charge guardrails | Reduce accidental tournament/competition charges without matching historical payment. Scope should be workflow guardrails, not a finance model rewrite. |

@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 (session 287)
+
+### Coach Schedule Submission Visibility (v1.17.21 Preview)
+
+- Fixed the coach schedule form so a successful report immediately refreshes persisted server data instead of leaving the page visually unchanged until a manual reload.
+- Added a clear `Reporte enviado a administracion` summary with tournament, last update time, and every reported game (or rest status). Existing values remain populated and editable, and the action changes to `Actualizar reporte` after the first save.
+- Kept the existing authorization boundary unchanged: coaches still see and edit only schedules for their currently assigned training groups, with no roster, registration, attendance, enrollment, or finance access.
+- Extended the focused coach-convocatoria regression check and reran typecheck/build before preview publication.
+
 ## 2026-08-10 (session 286)
 
 ### Scoped Coach Schedule Reporting (v1.17.20 Preview)

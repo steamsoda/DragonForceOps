@@ -13,6 +13,7 @@ const permissions = read("src/lib/auth/permissions.ts");
 const layout = read("src/app/(protected)/layout.tsx");
 const coachQuery = read("src/lib/queries/coach-schedules.ts");
 const coachAction = read("src/server/actions/coach-schedules.ts");
+const coachForm = read("src/components/weekly-callups/coach-schedule-form.tsx");
 const usersAction = read("src/server/actions/users.ts");
 const callupPage = read("src/app/(protected)/convocatorias/page.tsx");
 
@@ -26,6 +27,8 @@ assert(layout.includes('items: [{ href: "/convocatorias", label: "Mis horarios" 
 assert(coachQuery.includes('.eq("coach_id", context.coachId)'), "Coach query must filter by the linked coach.");
 assert(coachQuery.includes("training_group_coaches"), "Coach query must use current group assignments.");
 assert(coachAction.includes('rpc("save_coach_weekly_schedule_report"'), "Coach writes must use the scoped database function.");
+assert(coachForm.includes("router.refresh()"), "A successful coach report must refresh persisted server state.");
+assert(coachForm.includes("Reporte enviado a administracion") && coachForm.includes("Actualizar reporte"), "Coaches must see and edit their submitted schedule.");
 assert(usersAction.includes("linkCoachUserAction") && usersAction.includes("coach.account_linked"), "Super Admin must explicitly link and audit coach accounts.");
 assert(callupPage.includes("permission?.isCoach") && callupPage.includes("getCoachSchedulePageData"), "Coach route must render the scoped view.");
 assert(!coachAction.includes("weekly_callup_players") && !coachAction.includes("competition_roster"), "Coach actions must not edit roster membership.");

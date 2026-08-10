@@ -1,12 +1,30 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { CoachScheduleGroup } from "@/lib/queries/coach-schedules";
 import { saveCoachScheduleAction } from "@/server/actions/coach-schedules";
 
 type GameDraft = { matchDate: string; arrivalTime: string; venue: string; opponent: string };
 
 const EMPTY_GAME: GameDraft = { matchDate: "", arrivalTime: "", venue: "", opponent: "" };
+
+function formatSavedAt(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Monterrey",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatMatchDate(value: string) {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(`${value}T12:00:00Z`));
+}
 
 export function CoachScheduleForm({
   group,
@@ -17,12 +35,20 @@ export function CoachScheduleForm({
   weekStart: string;
   tournaments: Array<{ id: string; campusId: string; name: string }>;
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(saveCoachScheduleAction, null);
   const [tournamentId, setTournamentId] = useState(group.report?.tournamentId ?? "");
   const [isRest, setIsRest] = useState(group.report?.isRest ?? false);
   const [notes, setNotes] = useState(group.report?.notes ?? "");
   const [games, setGames] = useState<GameDraft[]>(group.report?.games.length ? group.report.games : [{ ...EMPTY_GAME }]);
   const options = tournaments.filter((tournament) => tournament.campusId === group.campusId);
+  const savedReport = state?.ok ? state.report : group.report;
+  const savedAt = state?.ok ? state.savedAt : group.report?.updatedAt;
+  const savedTournament = options.find((tournament) => tournament.id === savedReport?.tournamentId);
+
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [router, state]);
 
   function updateGame(index: number, patch: Partial<GameDraft>) {
     setGames((current) => current.map((game, gameIndex) => gameIndex === index ? { ...game, ...patch } : game));
@@ -38,8 +64,34 @@ export function CoachScheduleForm({
           <h2 className="font-semibold text-portoBlue">{group.name}</h2>
           <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.categoryLabel} | {group.program === "selectivo" ? "Selectivo" : "Futbol Para Todos"}</p>
         </div>
-        {group.report ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Horario reportado</span> : <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}
+        {savedReport ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Horario reportado</span> : <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}
       </div>
+      {savedReport ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-semibold">Reporte enviado a administracion</p>
+              <p className="text-xs text-emerald-800">
+                {savedTournament?.name ?? "Torneo reportado"}
+                {savedAt ? ` | Actualizado ${formatSavedAt(savedAt)}` : ""}
+              </p>
+            </div>
+            <span className="text-xs font-medium text-emerald-800">Puedes corregirlo y volver a guardar.</span>
+          </div>
+          {savedReport.isRest ? (
+            <p className="mt-2 font-medium">Descansa esta semana.</p>
+          ) : (
+            <ul className="mt-2 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
+              {savedReport.games.map((game, index) => (
+                <li key={`${game.matchDate}:${game.arrivalTime}:${index}`} className="rounded border border-emerald-200 bg-white/70 px-2 py-1.5">
+                  <span className="font-medium">{formatMatchDate(game.matchDate)} | {game.arrivalTime}</span>
+                  <span className="block text-xs">{game.venue} | vs {game.opponent}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_auto] sm:items-end">
         <label className="text-sm font-medium">Torneo
           <select name="tournamentId" value={tournamentId} onChange={(event) => setTournamentId(event.target.value)} required className="mt-1 block min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950">
@@ -69,8 +121,7 @@ export function CoachScheduleForm({
         <textarea name="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} rows={2} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Indicacion breve para administracion" />
       </label>
       {state ? <p className={`rounded-md border px-3 py-2 text-sm ${state.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{state.message}</p> : null}
-      <div className="flex justify-end"><button disabled={pending || !tournamentId} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : group.report ? "Actualizar horario" : "Reportar horario"}</button></div>
+      <div className="flex justify-end"><button disabled={pending || !tournamentId} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : savedReport ? "Actualizar reporte" : "Reportar horario"}</button></div>
     </form>
   );
 }
-

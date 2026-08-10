@@ -6,7 +6,25 @@ import { getPermissionContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type CoachScheduleActionState = { ok: boolean; message: string } | null;
+export type CoachScheduleActionState =
+  | { ok: false; message: string }
+  | {
+      ok: true;
+      message: string;
+      savedAt: string;
+      report: {
+        tournamentId: string;
+        isRest: boolean;
+        notes: string;
+        games: Array<{
+          matchDate: string;
+          arrivalTime: string;
+          venue: string;
+          opponent: string;
+        }>;
+      };
+    }
+  | null;
 
 type SubmittedGame = {
   match_date: string;
@@ -93,6 +111,20 @@ export async function saveCoachScheduleAction(
     afterData: { training_group_id: trainingGroupId, week_start: weekStart, tournament_id: tournamentId, is_rest: isRest, game_count: games.length },
   });
   revalidatePath("/convocatorias");
-  return { ok: true, message: "Horario reportado. Administracion ya puede usarlo en la convocatoria." };
+  return {
+    ok: true,
+    message: "Horario reportado. Administracion ya puede usarlo en la convocatoria.",
+    savedAt: new Date().toISOString(),
+    report: {
+      tournamentId,
+      isRest,
+      notes,
+      games: games.map((game) => ({
+        matchDate: game.match_date,
+        arrivalTime: game.arrival_time.slice(0, 5),
+        venue: game.venue,
+        opponent: game.opponent,
+      })),
+    },
+  };
 }
-
