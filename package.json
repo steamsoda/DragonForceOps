@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.18",
+  "version": "1.17.19",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -51,6 +51,7 @@
     "test:competition-roster-snapshot-handoff": "node scripts/assert-competition-roster-snapshot-handoff.mjs",
     "test:competition-roster-dynamic-routing": "node scripts/assert-dynamic-competition-roster-routing.mjs",
     "test:competition-roster-live-workflow": "node scripts/assert-competition-roster-live-workflow.mjs",
+    "test:competition-roster-live-controls": "node scripts/assert-competition-roster-live-controls.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
     "test:enrollment-training-group-selection": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-enrollment-training-group-selection.mjs",

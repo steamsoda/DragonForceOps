@@ -62,8 +62,9 @@ The first repository audit found these active dependency classes:
 3. Completed in `v1.17.7`: add `Por grupo` to `Inscripciones Torneos`, backed by current active training-group assignments and existing paid-registration truth. Keep `Sin grupo` visible.
 4. Completed through `v1.17.17`: add tournament-specific squads, practical organization, audited exceptions, snapshots, and dynamic routing from confirmed registration truth.
 5. Completed in `v1.17.18`: add the live `Equipos` view, remove manual approval ceremony, export live squads directly, and capture a hidden immutable snapshot transactionally when a convocatoria is generated.
-6. Polish the pending split decisions and exception controls, then scope coach access to assigned groups/squads while directors/admins retain final image generation.
-7. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
+6. Completed in `v1.17.19`: polish pending split decisions and exception controls directly in the live `Equipos` view.
+7. Scope coach access to assigned groups/squads while directors/admins retain final image generation.
+8. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
 
 No bulk production data repair, group rename, or tournament-roster rewrite is approved in Pass 1.
 
@@ -84,7 +85,8 @@ No bulk production data repair, group rename, or tournament-roster rewrite is ap
 - `v1.17.17` adds queue-backed dynamic roster routing. Confirmed registrations automatically create/join an ordinary one-group squad or join the single combined-source destination; refunds, voids, baja/inactive enrollment, and exclusions remove active paid-origin membership while preserving history.
 - If one training group maps to Azul and Blanco, later registrations remain pending until assigned. Existing competition placement also remains stable after a training-group move and is flagged for review instead of being silently moved.
 - `v1.17.18` adds `Inscripciones Torneos > Equipos`, a live squad Excel export, and one-step convocatoria preparation. The audit snapshot is still immutable, but it is now captured automatically in the same transaction rather than requiring staff approval and naming first.
-- Next implementation pass: compact the pending Azul/Blanco and exception controls, then add scoped coach preparation. Legacy level/team containment remains separate.
+- `v1.17.19` adds direct pending Azul/Blanco placement plus compact audited exclusion, reinstatement, helper-add, and helper-removal controls to the live `Equipos` view. These operations remain isolated from finance, registration, enrollment, training-group, and attendance truth.
+- Next implementation pass: scoped coach preparation. Legacy level/team containment remains separate.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
 

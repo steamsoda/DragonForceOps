@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
 
 type Props = {
@@ -23,32 +24,33 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(async (signal?: AbortSignal) => {
     if (!active || !tournamentId || !program) return;
-    const controller = new AbortController();
     const query = new URLSearchParams({ tournament: tournamentId, campus: campusId, program });
     setLoading(true);
     setError(null);
-
-    void fetch(`/api/sports-signups/teams?${query.toString()}`, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("No se pudieron cargar los equipos.");
-        return response.json() as Promise<CompetitionRosterLiveViewData>;
-      })
-      .then((nextData) => setData(nextData))
-      .catch((nextError: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(nextError instanceof Error ? nextError.message : "No se pudieron cargar los equipos.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+    try {
+      const response = await fetch(`/api/sports-signups/teams?${query.toString()}`, {
+        cache: "no-store",
+        signal,
       });
+      if (!response.ok) throw new Error("No se pudieron cargar los equipos.");
+      setData(await response.json() as CompetitionRosterLiveViewData);
+    } catch (nextError) {
+      if (signal?.aborted) return;
+      setError(nextError instanceof Error ? nextError.message : "No se pudieron cargar los equipos.");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [active, tournamentId, campusId, program]);
+
+  useEffect(() => {
+    if (!active || !tournamentId || !program) return;
+    const controller = new AbortController();
+    void loadData(controller.signal);
 
     return () => controller.abort();
-  }, [active, tournamentId, campusId, program]);
+  }, [active, tournamentId, program, loadData]);
 
   if (!active) return null;
   if (!program) {
@@ -131,7 +133,9 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
         </div>
       )}
 
-      {data.pendingPlayers.length > 0 ? (
+      {data.canManage ? (
+        <CompetitionRosterLiveControls data={data} onChanged={() => loadData()} />
+      ) : data.pendingPlayers.length > 0 ? (
         <section className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
           <h3 className="font-semibold">Pendientes por asignar</h3>
           <p className="mt-1 text-sm">Estos jugadores requieren una decisión Azul/Blanco o una revisión de grupo.</p>

@@ -204,6 +204,7 @@ export type CompetitionRosterOrganizerPlayer = {
   playerName: string;
   publicPlayerId: string | null;
   birthYear: number | null;
+  trainingGroupId: string | null;
   trainingGroupName: string | null;
   assignedSquadNames: string[];
   assignedSquads: Array<{ id: string; name: string; kind: CompetitionSquadKind }>;
@@ -304,6 +305,7 @@ export type CompetitionRosterLiveSquad = {
   kind: CompetitionSquadKind;
   status: CompetitionSquadStatus;
   categoryLabel: string | null;
+  sourceGroupIds: string[];
   sourceGroupNames: string[];
   members: CompetitionRosterLiveMember[];
 };
@@ -315,6 +317,7 @@ export type CompetitionRosterLiveViewData = {
   campusName: string;
   program: string;
   programLabel: string;
+  canManage: boolean;
   totalConfirmed: number;
   totalAssigned: number;
   totalPending: number;
@@ -323,8 +326,28 @@ export type CompetitionRosterLiveViewData = {
     enrollmentId: string;
     playerName: string;
     birthYear: number | null;
+    trainingGroupId: string | null;
+    trainingGroupName: string | null;
+    eligibleSquads: Array<{
+      id: string;
+      name: string;
+      kind: "azul" | "blanco";
+    }>;
+  }>;
+  exceptionCandidates: Array<{
+    enrollmentId: string;
+    playerName: string;
+    birthYear: number | null;
     trainingGroupName: string | null;
   }>;
+  excludedPlayers: Array<{
+    enrollmentId: string;
+    playerName: string;
+    birthYear: number | null;
+    exclusionReason: string | null;
+  }>;
+  helperCandidates: CompetitionRosterHelperCandidate[];
+  manualHelpers: CompetitionRosterManualHelper[];
 };
 
 export type CompetitionRosterSnapshotExportData = {
@@ -544,6 +567,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
       playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
       publicPlayerId: enrollment.players.public_player_id,
       birthYear: getBirthYear(enrollment.players.birth_date),
+      trainingGroupId: assignment?.training_group_id ?? null,
       trainingGroupName: assignment?.training_groups
         ? formatTrainingGroupDisplayName({
             name: assignment.training_groups.name ?? "Grupo",
@@ -720,6 +744,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
       kind: squad.kind,
       status: squad.status,
       categoryLabel: squad.categoryLabel,
+      sourceGroupIds: squad.sourceGroups.map((group) => group.id),
       sourceGroupNames: squad.sourceGroups.map((group) => group.name),
       members: squad.members.flatMap<CompetitionRosterLiveMember>((member) => {
         const player = playerByEnrollment.get(member.enrollmentId);
@@ -800,9 +825,22 @@ export async function getCompetitionRosterLiveViewData(filters: {
         enrollmentId: player.enrollmentId,
         playerName: player.playerName,
         birthYear: player.birthYear,
+        trainingGroupId: player.trainingGroupId,
         trainingGroupName: player.trainingGroupName,
+        eligibleSquads: organizer.liveSquads
+          .filter((squad) =>
+            player.trainingGroupId !== null
+            && squad.sourceGroupIds.includes(player.trainingGroupId)
+            && (squad.kind === "azul" || squad.kind === "blanco"),
+          )
+          .map((squad) => ({ id: squad.id, name: squad.name, kind: squad.kind as "azul" | "blanco" })),
       })),
   );
+
+  const visiblePlayers = [
+    ...organizer.groups.flatMap((group) => group.candidates),
+    ...organizer.withoutGroup,
+  ];
 
   return {
     tournamentId: organizer.tournamentId,
@@ -811,11 +849,30 @@ export async function getCompetitionRosterLiveViewData(filters: {
     campusName: organizer.campusName,
     program: organizer.program,
     programLabel: organizer.programLabel,
+    canManage: organizer.canManage,
     totalConfirmed: organizer.totalConfirmed,
     totalAssigned: organizer.totalAssigned,
     totalPending: organizer.totalPending,
     squads: organizer.liveSquads,
     pendingPlayers,
+    exceptionCandidates: organizer.canManage
+      ? sortOrganizerPlayers(visiblePlayers.filter((player) => !player.isExcluded)).map((player) => ({
+          enrollmentId: player.enrollmentId,
+          playerName: player.playerName,
+          birthYear: player.birthYear,
+          trainingGroupName: player.trainingGroupName,
+        }))
+      : [],
+    excludedPlayers: organizer.canManage
+      ? organizer.excludedPlayers.map((player) => ({
+          enrollmentId: player.enrollmentId,
+          playerName: player.playerName,
+          birthYear: player.birthYear,
+          exclusionReason: player.exclusionReason,
+        }))
+      : [],
+    helperCandidates: organizer.canManage ? organizer.helperCandidates : [],
+    manualHelpers: organizer.canManage ? organizer.manualHelpers : [],
   };
 }
 

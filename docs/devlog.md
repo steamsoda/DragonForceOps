@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 285)
+
+### Live Split Placement And Roster Exception Controls (v1.17.19 Preview)
+
+- Added direct Azul/Blanco placement beside later confirmed registrations in `Inscripciones Torneos > Equipos`. A manager can place one pending player without reopening and resubmitting the complete split roster.
+- Added one collapsed exceptions panel to the live view for the already approved exceptional operations: exclude or reinstate a confirmed registration and add or remove a same-campus manual helper.
+- Kept every operation role- and campus-scoped, confirmation-guarded where destructive, reason-backed, and auditable. The new split RPC also verifies one Azul plus one Blanco destination, the player's current source training group, active enrollment, confirmed tournament registration, and absence of another active squad membership.
+- The pass writes only competition-roster memberships, squad status, exclusions/helpers through the existing guarded RPCs, and roster audit events. It does not modify finance, tournament registrations, enrollments, training-group assignments, or attendance.
+- Added focused regression coverage for the live controls, SQL invariants, grants, and prohibited write surfaces. Scoped coach preparation remains the next tournament-squad workflow pass.
+
 ## 2026-08-10 (session 284)
 
 ### Live Tournament Teams View And One-Step Convocatoria (v1.17.18 Preview)

@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.18`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.19`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.12`
-- Current preview candidate: `v1.17.18` adds the inline live `Equipos` view, live Excel roster export, and one-step convocatoria preparation with an automatic immutable audit snapshot
+- Current production line: `v1.17.18`
+- Current preview candidate: `v1.17.19` adds direct pending Azul/Blanco placement and compact audited exclusion/reinstatement/helper controls inside the live `Equipos` view
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -179,7 +179,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 7. 🟢 `v1.17.16` captures immutable approved snapshots, exports the frozen roster to Excel, and hands approved Futbol Para Todos/Selectivo squads to ready weekly `Convocatorias` without rebuilding from the live paid roster.
 8. 🟢 `v1.17.17` makes confirmed paid registration lifecycle changes maintain ordinary and combined live squads automatically; split destinations remain pending and existing placements are never silently moved after a training-group change.
 9. 🟢 `v1.17.18` adds `Equipos` beside the category/group views, exports current squads directly, removes manual approval ceremony, and captures the immutable snapshot automatically inside one-step convocatoria creation.
-10. 🔴 Polish the compact pending split-placement and exception controls, then add scoped coach convocatoria preparation while directors/admins retain final WhatsApp-image generation.
+10. 🟢 `v1.17.19` adds compact direct pending Azul/Blanco placement and audited exclusion/reinstatement/helper controls inside the live `Equipos` view.
+11. 🔴 Add scoped coach convocatoria preparation while directors/admins retain final WhatsApp-image generation.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
@@ -190,7 +191,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
-| 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.12` contains legacy Nivel and the safe default organizer. Preview `v1.17.13`-`v1.17.18` completes split/combined organization, audited exceptions, dynamic routing, the live `Equipos` view/export, and automatic convocatoria snapshots. Split-control polish, coach scope, and legacy containment remain open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
+| 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.18` contains legacy Nivel, independent live squads, dynamic routing, live `Equipos` export, and automatic convocatoria snapshots. Preview `v1.17.19` completes direct split-pending and exception control polish. Coach scope and legacy containment remain open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
@@ -209,7 +210,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
-| 🟡 | `Inscripciones Torneos` tournament-squad workflow | Production `v1.17.10` establishes the independent model, `v1.17.11` ships the default organizer, and `v1.17.12` fixes its first-write conflict. Preview `v1.17.13`-`v1.17.18` adds Azul/Blanco, combined sources, audited exceptions, automatic routing, the live `Equipos` view/export, and hidden convocatoria snapshots. Next: split-pending control polish and scoped coach preparation. |
+| 🟡 | `Inscripciones Torneos` tournament-squad workflow | Production through `v1.17.18` includes Azul/Blanco, combined sources, audited exceptions, automatic routing, the live `Equipos` view/export, and hidden convocatoria snapshots. Preview `v1.17.19` adds direct split-pending placement and compact exception controls. Next: scoped coach preparation. |
 | 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
