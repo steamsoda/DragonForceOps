@@ -5,6 +5,7 @@ import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-f
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { CoachScheduleForm } from "@/components/weekly-callups/coach-schedule-form";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
 import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
 import { deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
@@ -49,11 +50,17 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
   const params = await searchParams;
   const permission = await getPermissionContext();
   if (permission?.isCoach && !permission.isDirector && !permission.isSportsDirector && !permission.isFrontDesk) {
+    const debugContext = await getDebugViewContext();
     const coachData = await getCoachSchedulePageData(params.week);
     if (!coachData) redirect("/unauthorized");
     return (
       <PageShell wide title="Mis horarios" subtitle="Reporta los partidos de la semana solo para tus grupos asignados.">
         <div className="space-y-5">
+          {debugContext?.isReadOnly ? (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              Modo de prueba de coach: en Preview puedes guardar y actualizar solamente estos horarios. El resto del modo Ver como permanece en solo lectura.
+            </p>
+          ) : null}
           <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div><h2 className="font-semibold">Coach {coachData.coachName}</h2><p className="text-sm text-slate-500">No modifica planteles, pagos, asistencias ni inscripciones.</p></div>

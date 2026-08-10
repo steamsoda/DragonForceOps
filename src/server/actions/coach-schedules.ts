@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
+import { getDebugViewContext, isPreviewDebugEnabled } from "@/lib/auth/debug-view";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,10 +51,20 @@ export async function saveCoachScheduleAction(
   _previous: CoachScheduleActionState,
   formData: FormData,
 ): Promise<CoachScheduleActionState> {
-  await assertDebugWritesAllowed("/convocatorias");
+  const debugContext = await getDebugViewContext();
   const context = await getPermissionContext();
   if (!context?.hasCoachScheduleAccess || !context.coachId) {
     return { ok: false, message: "Tu cuenta no esta vinculada a un coach activo." };
+  }
+  const isWritableCoachPreview = Boolean(
+    isPreviewDebugEnabled()
+      && debugContext?.isReadOnly
+      && debugContext.actor.isSuperAdmin
+      && debugContext.activeView?.userId === context.user.id
+      && context.isCoach,
+  );
+  if (debugContext?.isReadOnly && !isWritableCoachPreview) {
+    return { ok: false, message: "El modo Ver como es de solo lectura para esta accion." };
   }
   const trainingGroupId = clean(formData, "trainingGroupId");
   const weekStart = clean(formData, "weekStart");
@@ -89,26 +99,47 @@ export async function saveCoachScheduleAction(
     return { ok: false, message: "Cada partido necesita fecha, hora de cita, sede y rival." };
   }
 
-  const result = await context.supabase.rpc("save_coach_weekly_schedule_report", {
-    p_week_start: weekStart,
-    p_training_group_id: trainingGroupId,
-    p_tournament_id: tournamentId,
-    p_is_rest: isRest,
-    p_notes: notes || null,
-    p_games: games,
-  });
+  const admin = createAdminClient();
+  const result = isWritableCoachPreview
+    ? await admin.rpc("save_debug_coach_weekly_schedule_report", {
+        p_actor_user_id: debugContext!.actor.id,
+        p_effective_user_id: context.user.id,
+        p_coach_id: context.coachId,
+        p_week_start: weekStart,
+        p_training_group_id: trainingGroupId,
+        p_tournament_id: tournamentId,
+        p_is_rest: isRest,
+        p_notes: notes || null,
+        p_games: games,
+      })
+    : await context.supabase.rpc("save_coach_weekly_schedule_report", {
+        p_week_start: weekStart,
+        p_training_group_id: trainingGroupId,
+        p_tournament_id: tournamentId,
+        p_is_rest: isRest,
+        p_notes: notes || null,
+        p_games: games,
+      });
   if (result.error) {
     console.error("[coach-schedule] save failed", result.error);
     return { ok: false, message: "No se pudo guardar. Confirma que el grupo siga asignado a tu cuenta y que las fechas pertenezcan a esa semana." };
   }
-  const admin = createAdminClient();
   await writeAuditLog(admin, {
-    actorUserId: context.user.id,
-    actorEmail: context.user.email,
+    actorUserId: isWritableCoachPreview ? debugContext!.actor.id : context.user.id,
+    actorEmail: isWritableCoachPreview ? debugContext!.actor.email : context.user.email,
     action: "coach_schedule.report_saved",
     tableName: "coach_weekly_schedule_reports",
     recordId: typeof result.data === "string" ? result.data : null,
-    afterData: { training_group_id: trainingGroupId, week_start: weekStart, tournament_id: tournamentId, is_rest: isRest, game_count: games.length },
+    afterData: {
+      training_group_id: trainingGroupId,
+      week_start: weekStart,
+      tournament_id: tournamentId,
+      coach_id: context.coachId,
+      effective_user_id: context.user.id,
+      debug_impersonation: isWritableCoachPreview,
+      is_rest: isRest,
+      game_count: games.length,
+    },
   });
   revalidatePath("/convocatorias");
   return {

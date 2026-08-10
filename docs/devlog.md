@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 (session 288)
+
+### Writable Preview Coach Test Profile (v1.17.22 Preview)
+
+- Added a narrowly scoped Preview exception so a Super Admin using `Ver como` on an explicitly linked coach account can save and update only that coach's weekly schedule reports. General impersonation remains read-only across finance, attendance, enrollment, rosters, and every other workflow.
+- Added a service-role-only SQL helper that independently verifies the real actor is Super Admin, the simulated account is explicitly linked to the active coach, the training group is currently assigned to that coach, and the tournament/game payload remains valid. Normal authenticated and anonymous roles cannot execute the helper.
+- Audit entries now preserve the real Super Admin actor, effective coach account, linked coach, and `debug_impersonation` marker. The coach page clearly explains the limited Preview write mode.
+- Fixed coach names with a missing last name displaying the literal word `null`. Typecheck, focused security assertions, migration dry run, build, and Preview migration history passed. A temporary service-role smoke report for the linked Coach Ailin profile passed write/read verification and was deleted successfully, leaving no test schedule behind.
+
 ## 2026-08-10 (session 287)
 
 ### Coach Schedule Submission Visibility (v1.17.21 Preview)

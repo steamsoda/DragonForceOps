@@ -87,7 +87,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
   const selectedWeekStart = validMonday(week) ?? getMonterreyWeekStart();
   const admin = createAdminClient();
   const [coachResult, linksResult] = await Promise.all([
-    admin.from("coaches").select("id, first_name, last_name").eq("id", context.coachId).eq("is_active", true).maybeSingle<{ id: string; first_name: string; last_name: string }>(),
+    admin.from("coaches").select("id, first_name, last_name").eq("id", context.coachId).eq("is_active", true).maybeSingle<{ id: string; first_name: string | null; last_name: string | null }>(),
     admin
       .from("training_group_coaches")
       .select("training_group_id, training_groups(id, campus_id, name, program, birth_year_min, birth_year_max, status, campuses(name))")
@@ -130,7 +130,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
 
   return {
     coachId: context.coachId,
-    coachName: `${coachResult.data.first_name} ${coachResult.data.last_name}`.trim(),
+    coachName: [coachResult.data.first_name, coachResult.data.last_name].filter(Boolean).join(" ") || "Coach",
     selectedWeekStart,
     tournaments: (tournamentsResult.data ?? []).map((row: any) => ({
       id: row.id,
@@ -168,4 +168,3 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
       .sort((a, b) => a.campusName.localeCompare(b.campusName, "es") || b.categoryLabel.localeCompare(a.categoryLabel, "es") || a.name.localeCompare(b.name, "es")),
   };
 }
-
