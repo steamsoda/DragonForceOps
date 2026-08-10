@@ -60,9 +60,10 @@ The first repository audit found these active dependency classes:
 1. Record the approved model, complete the B1/B2/B3 dependency map, hide Nivel from enrollment/player surfaces, and stop ordinary player edits from overwriting legacy level.
 2. Replace level-dependent enrollment/group matching, then apply reviewed Futbol Para Todos display names without changing group identity or history.
 3. Completed in `v1.17.7`: add `Por grupo` to `Inscripciones Torneos`, backed by current active training-group assignments and existing paid-registration truth. Keep `Sin grupo` visible.
-4. Completed through `v1.17.16`: add tournament-specific squads, practical organization, audited exceptions, immutable approval snapshots, frozen Excel export, and a controlled `Convocatorias` handoff.
-5. Scope coach access to assigned groups/squads and let coaches save prepared convocatorias; directors/admins review and generate the final image. Add snapshot history/selection polish without reopening approved rosters.
-6. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
+4. Completed through `v1.17.17`: add tournament-specific squads, practical organization, audited exceptions, snapshots, and dynamic routing from confirmed registration truth.
+5. Simplify the operational surface around the live roster: remove manual approval ceremony, export live squads directly, capture a hidden immutable snapshot when a convocatoria is generated, and expose only the pending split decisions that require a human.
+6. Scope coach access to assigned groups/squads and let coaches prepare convocatorias; directors/admins retain final image generation.
+7. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
 
 No bulk production data repair, group rename, or tournament-roster rewrite is approved in Pass 1.
 
@@ -80,7 +81,9 @@ No bulk production data repair, group rename, or tournament-roster rewrite is ap
 - `v1.17.14` adds combined-source squads. Directors can combine two or more ordinary source groups into one competition team, re-edit its source groups, and preserve absorbed ordinary squads as archived audit history. Split/custom/manual/conflicting structures remain guarded.
 - `v1.17.15` adds audited manual helpers and explicit paid-player exclusions. Exclusion leaves the confirmed registration intact, removes only active squad membership, and reinstatement returns the player as pending; helper operations remain same-campus and never alter finance or training assignments.
 - `v1.17.16` adds immutable approved roster capture, a compact Excel export from frozen snapshot data, and a controlled handoff into ready weekly `Convocatorias`. Snapshot-backed packets retain their approved Azul/Blanco/combined structure and cannot use the old live paid-roster refresh path.
-- Next implementation pass: snapshot history/selection polish and scoped coach preparation with director/admin review. Legacy level/team containment remains separate.
+- `v1.17.17` adds queue-backed dynamic roster routing. Confirmed registrations automatically create/join an ordinary one-group squad or join the single combined-source destination; refunds, voids, baja/inactive enrollment, and exclusions remove active paid-origin membership while preserving history.
+- If one training group maps to Azul and Blanco, later registrations remain pending until assigned. Existing competition placement also remains stable after a training-group move and is flagged for review instead of being silently moved.
+- Next implementation pass: simplify the organizer to a live roster, remove manual approval ceremony, export the current roster directly, and create the immutable snapshot automatically when a convocatoria is generated. Legacy level/team containment remains separate.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
 

@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-10 (session 283)
+
+### Dynamic Tournament Squad Routing Foundation (v1.17.17 Preview)
+
+- Added a queue-backed competition-roster synchronizer that treats confirmed `tournament_player_entries` as registration truth without coupling sporting routing to the finance transaction that created or changed the entry.
+- Ordinary registrations now create the default one-group squad when needed and join it automatically. Existing combined-source squads also receive later confirmed registrations from any mapped source group automatically.
+- Azul/Blanco or other multi-destination source groups remain deliberately unassigned for manual sporting placement; the synchronizer records the pending split instead of guessing a team.
+- Refunds, voids, inactive enrollments, and explicit exclusions remove active paid-origin squad membership while preserving registration, roster-event, and snapshot history. Existing squad placement remains stable when a player changes training group and is flagged for review rather than moved silently.
+- Added lifecycle triggers for tournament entries, enrollment status, training-group assignments, and exclusions, plus a one-minute retry worker. Preview verification drained the queue with zero failures, created 10 ordinary squads, routed 11 players, and retained 2 ambiguous split registrations as pending.
+- Added focused routing regression coverage and verified the linked preview migration. This pass does not modify charges, payments, allocations, enrollments, training-group assignments, or attendance records; simplified live-roster UI and automatic hidden snapshots remain the next pass.
+
 ## 2026-08-10 (session 282)
 
 ### Approved Tournament Roster Snapshot And Convocatorias Handoff (v1.17.16 Preview)

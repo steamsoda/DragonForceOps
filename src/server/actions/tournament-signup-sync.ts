@@ -172,5 +172,18 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
     }
   }
 
+  if (affectedTournamentIds.size > 0) {
+    const { error: rosterSyncError } = await admin.rpc("process_competition_roster_sync_queue", {
+      p_limit: 50,
+      p_enrollment_id: enrollmentId,
+    });
+    if (rosterSyncError) {
+      console.error("Competition roster immediate sync deferred to queue", {
+        enrollmentId,
+        error: rosterSyncError.message,
+      });
+    }
+  }
+
   return Array.from(affectedTournamentIds);
 }
