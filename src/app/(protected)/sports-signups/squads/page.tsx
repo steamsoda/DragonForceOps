@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CompetitionRosterCombinedEditor } from "@/components/sports/competition-roster-combined-editor";
+import { CompetitionRosterExceptionsEditor } from "@/components/sports/competition-roster-exceptions-editor";
 import { CompetitionRosterSubmitButton } from "@/components/sports/competition-roster-submit-button";
 import { CompetitionRosterSplitEditor } from "@/components/sports/competition-roster-split-editor";
 import { PageShell } from "@/components/ui/page-shell";
@@ -19,6 +20,10 @@ const OK_MESSAGES: Record<string, string> = {
   squad_synced: "Equipo actualizado con las inscripciones confirmadas.",
   split_synced: "Division Azul y Blanco guardada correctamente.",
   combined_synced: "Equipo combinado guardado correctamente.",
+  player_excluded: "Jugador excluido del roster. Su inscripcion pagada permanece intacta.",
+  player_reinstated: "Jugador reintegrado como pendiente. Asignalo al equipo correspondiente.",
+  helper_added: "Refuerzo manual agregado al equipo.",
+  helper_removed: "Refuerzo manual retirado del equipo.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -39,6 +44,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   combined_no_players: "Los grupos seleccionados no tienen jugadores confirmados para este torneo.",
   combined_name_conflict: "Ya existe otro equipo de este torneo con ese nombre.",
   combined_player_conflict: "Un jugador confirmado ya pertenece a otra estructura especial. No se guardaron cambios.",
+  invalid_exception_reason: "Escribe un motivo de 3 a 240 caracteres para dejar registro del cambio.",
+  confirmed_player_not_found: "El jugador ya no tiene una inscripcion confirmada y activa para este torneo.",
+  exclusion_not_found: "La exclusion ya no existe. Actualiza la pagina e intenta de nuevo.",
+  manual_scope_not_found: "El equipo o jugador ya no esta activo en este campus.",
+  member_already_paid: "Ese jugador ya pertenece al equipo por su inscripcion pagada; no necesita agregarse como refuerzo.",
+  manual_member_not_found: "El refuerzo manual ya no pertenece a ese equipo.",
+  member_is_excluded: "El jugador esta excluido del roster. Reintegralo antes de agregarlo como refuerzo.",
   squad_sync_failed: "No se pudo guardar el equipo. No se modificaron inscripciones ni grupos de entrenamiento.",
 };
 
@@ -129,6 +141,26 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
           />
         ) : null}
 
+        {data.canManage ? (
+          <CompetitionRosterExceptionsEditor
+            tournamentId={data.tournamentId}
+            campusId={data.campusId}
+            program={data.program}
+            paidCandidates={[...data.groups.flatMap((group) => group.candidates), ...data.withoutGroup]}
+            excludedPlayers={data.excludedPlayers}
+            activeSquads={data.activeSquads}
+            helperCandidates={data.helperCandidates}
+            manualHelpers={data.manualHelpers}
+          />
+        ) : data.excludedPlayers.length > 0 || data.manualHelpers.length > 0 ? (
+          <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="font-semibold text-slate-950 dark:text-slate-50">Excepciones del roster</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              {data.manualHelpers.length} refuerzos manuales y {data.excludedPlayers.length} jugadores confirmados excluidos.
+            </p>
+          </section>
+        ) : null}
+
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Grupos con inscripciones confirmadas</h2>
@@ -202,7 +234,9 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
                           <td className="px-4 py-2 font-medium text-slate-950 dark:text-slate-50">{player.playerName}</td>
                           <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{player.birthYear ?? "-"}</td>
                           <td className="px-4 py-2">
-                            {player.assignedSquadNames.length > 0 ? (
+                            {player.isExcluded ? (
+                              <span className="text-rose-700 dark:text-rose-300">Excluido · {player.exclusionReason}</span>
+                            ) : player.assignedSquadNames.length > 0 ? (
                               <span className="text-emerald-700 dark:text-emerald-300">{player.assignedSquadNames.join(", ")}</span>
                             ) : (
                               <span className="text-amber-700 dark:text-amber-300">Pendiente por asignar</span>

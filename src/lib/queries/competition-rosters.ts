@@ -43,7 +43,7 @@ type MemberRow = {
 };
 
 type CandidateRow = { enrollment_id: string };
-type ExclusionRow = { enrollment_id: string };
+type ExclusionRow = { enrollment_id: string; reason: string };
 type SnapshotRow = { id: string; label: string; captured_at: string };
 
 export async function getCompetitionRosterFoundation(
@@ -80,7 +80,7 @@ export async function getCompetitionRosterFoundation(
       .returns<CandidateRow[]>(),
     admin
       .from("competition_roster_exclusions")
-      .select("enrollment_id")
+      .select("enrollment_id, reason")
       .eq("tournament_id", tournamentId)
       .returns<ExclusionRow[]>(),
     admin
@@ -157,6 +157,10 @@ export async function getCompetitionRosterFoundation(
     campusId: tournament.campus_id,
     squads,
     candidateEnrollmentIds,
+    exclusions: (exclusionsResult.data ?? []).map((row) => ({
+      enrollmentId: row.enrollment_id,
+      reason: row.reason,
+    })),
     excludedEnrollmentIds,
     ...summary,
     latestSnapshot: latestSnapshot
@@ -200,6 +204,26 @@ export type CompetitionRosterOrganizerPlayer = {
   birthYear: number | null;
   assignedSquadNames: string[];
   assignedSquads: Array<{ id: string; name: string; kind: CompetitionSquadKind }>;
+  isExcluded: boolean;
+  exclusionReason: string | null;
+};
+
+export type CompetitionRosterHelperCandidate = {
+  enrollmentId: string;
+  playerName: string;
+  birthYear: number | null;
+  trainingGroupName: string;
+  programLabel: string;
+  assignedSquadIds: string[];
+};
+
+export type CompetitionRosterManualHelper = {
+  squadId: string;
+  squadName: string;
+  enrollmentId: string;
+  playerName: string;
+  birthYear: number | null;
+  reason: string | null;
 };
 
 export type CompetitionRosterOrganizerGroup = {
@@ -254,6 +278,10 @@ export type CompetitionRosterOrganizerData = {
   groups: CompetitionRosterOrganizerGroup[];
   combinedSquads: CompetitionRosterCombinedSquad[];
   withoutGroup: CompetitionRosterOrganizerPlayer[];
+  activeSquads: Array<{ id: string; name: string }>;
+  helperCandidates: CompetitionRosterHelperCandidate[];
+  manualHelpers: CompetitionRosterManualHelper[];
+  excludedPlayers: CompetitionRosterOrganizerPlayer[];
 };
 
 const ORGANIZER_PROGRAM_LABELS: Record<string, string> = {
@@ -313,6 +341,57 @@ async function loadOrganizerAssignments(
   return rows;
 }
 
+type OrganizerCampusEnrollmentRow = {
+  id: string;
+  player_id: string;
+  players: {
+    first_name: string;
+    last_name: string;
+    birth_date: string | null;
+  } | null;
+};
+
+async function loadActiveCampusEnrollments(
+  admin: ReturnType<typeof createAdminClient>,
+  campusId: string,
+) {
+  const rows: OrganizerCampusEnrollmentRow[] = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const result = await admin
+      .from("enrollments")
+      .select("id, player_id, players(first_name, last_name, birth_date)")
+      .eq("campus_id", campusId)
+      .eq("status", "active")
+      .range(offset, offset + pageSize - 1)
+      .returns<OrganizerCampusEnrollmentRow[]>();
+    if (result.error) throw result.error;
+    rows.push(...(result.data ?? []));
+    if ((result.data?.length ?? 0) < pageSize) break;
+  }
+  return rows;
+}
+
+async function loadCampusEnrollmentsByIds(
+  admin: ReturnType<typeof createAdminClient>,
+  campusId: string,
+  enrollmentIds: string[],
+) {
+  const rows: OrganizerCampusEnrollmentRow[] = [];
+  const chunkSize = 200;
+  for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
+    const result = await admin
+      .from("enrollments")
+      .select("id, player_id, players(first_name, last_name, birth_date)")
+      .eq("campus_id", campusId)
+      .in("id", enrollmentIds.slice(index, index + chunkSize))
+      .returns<OrganizerCampusEnrollmentRow[]>();
+    if (result.error) throw result.error;
+    rows.push(...(result.data ?? []));
+  }
+  return rows;
+}
+
 export async function getCompetitionRosterOrganizerData(filters: {
   tournamentId: string;
   campusId: string;
@@ -354,6 +433,9 @@ export async function getCompetitionRosterOrganizerData(filters: {
   const assignmentByEnrollment = new Map(assignmentRows.map((row) => [row.enrollment_id, row]));
   const squadNamesByEnrollment = new Map<string, string[]>();
   const squadsByEnrollment = new Map<string, Array<{ id: string; name: string; kind: CompetitionSquadKind }>>();
+  const exclusionReasonByEnrollment = new Map(
+    foundation.exclusions.map((exclusion) => [exclusion.enrollmentId, exclusion.reason]),
+  );
   for (const squad of foundation.squads) {
     for (const member of squad.members) {
       const names = squadNamesByEnrollment.get(member.enrollmentId) ?? [];
@@ -384,6 +466,8 @@ export async function getCompetitionRosterOrganizerData(filters: {
       birthYear: getBirthYear(enrollment.players.birth_date),
       assignedSquadNames: squadNamesByEnrollment.get(enrollment.id) ?? [],
       assignedSquads: squadsByEnrollment.get(enrollment.id) ?? [],
+      isExcluded: exclusionReasonByEnrollment.has(enrollment.id),
+      exclusionReason: exclusionReasonByEnrollment.get(enrollment.id) ?? null,
     };
 
     if (!assignment?.training_groups) {
@@ -487,6 +571,60 @@ export async function getCompetitionRosterOrganizerData(filters: {
       memberCount: squad.members.length,
     }));
 
+  const activeSquads = foundation.squads
+    .filter((squad) => squad.program === filters.program)
+    .map((squad) => ({ id: squad.id, name: squad.name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "es-MX"));
+  const manualMemberIds = new Set(foundation.manualMemberEnrollmentIds);
+  const campusEnrollments = permission.isSportsDirector
+    ? await loadActiveCampusEnrollments(admin, tournament.campus_id)
+    : [];
+  const manualEnrollmentIds = [...manualMemberIds];
+  const manualOnlyEnrollments = permission.isSportsDirector
+    ? []
+    : await loadCampusEnrollmentsByIds(admin, tournament.campus_id, manualEnrollmentIds);
+  const helperEnrollmentRows = permission.isSportsDirector ? campusEnrollments : manualOnlyEnrollments;
+  const helperEnrollmentIds = helperEnrollmentRows.map((row) => row.id);
+  const helperAssignments = helperEnrollmentIds.length > 0
+    ? await loadOrganizerAssignments(admin, helperEnrollmentIds)
+    : [];
+  const helperAssignmentByEnrollment = new Map(helperAssignments.map((row) => [row.enrollment_id, row]));
+  const helperRowByEnrollment = new Map(helperEnrollmentRows.map((row) => [row.id, row]));
+  const helperCandidates = permission.isSportsDirector
+    ? sortOrganizerPlayers(campusEnrollments.flatMap<CompetitionRosterHelperCandidate>((enrollment) => {
+        if (!enrollment.players) return [];
+        const assignment = helperAssignmentByEnrollment.get(enrollment.id);
+        const group = assignment?.training_groups;
+        return [{
+          enrollmentId: enrollment.id,
+          playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
+          birthYear: getBirthYear(enrollment.players.birth_date),
+          trainingGroupName: group
+            ? formatTrainingGroupDisplayName({ name: group.name ?? "Grupo", program: group.program })
+            : "Sin grupo",
+          programLabel: ORGANIZER_PROGRAM_LABELS[group?.program ?? ""] ?? "Sin programa",
+          assignedSquadIds: squadsByEnrollment.get(enrollment.id)?.map((squad) => squad.id) ?? [],
+        }];
+      }))
+    : [];
+  const manualHelpers = foundation.squads.flatMap<CompetitionRosterManualHelper>((squad) =>
+    squad.members.flatMap((member) => {
+      if (member.source !== "manual") return [];
+      const enrollment = helperRowByEnrollment.get(member.enrollmentId);
+      if (!enrollment?.players) return [];
+      return [{
+        squadId: squad.id,
+        squadName: squad.name,
+        enrollmentId: member.enrollmentId,
+        playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
+        birthYear: getBirthYear(enrollment.players.birth_date),
+        reason: member.reason,
+      }];
+    }),
+  ).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
+  const allVisiblePlayers = [...groups.flatMap((group) => group.candidates), ...withoutGroup];
+  const excludedPlayers = sortOrganizerPlayers(allVisiblePlayers.filter((player) => player.isExcluded));
+
   return {
     tournamentId: tournament.id,
     productId: tournament.product_id,
@@ -502,5 +640,9 @@ export async function getCompetitionRosterOrganizerData(filters: {
     groups,
     combinedSquads,
     withoutGroup: sortOrganizerPlayers(withoutGroup),
+    activeSquads,
+    helperCandidates,
+    manualHelpers,
+    excludedPlayers,
   };
 }

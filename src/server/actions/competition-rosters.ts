@@ -48,6 +48,13 @@ function squadSyncErrorCode(error: { code?: string; message: string }) {
   if (message.includes("combined_no_players")) return "combined_no_players";
   if (message.includes("combined_name_conflict")) return "combined_name_conflict";
   if (message.includes("combined_player_conflict")) return "combined_player_conflict";
+  if (message.includes("invalid_reason")) return "invalid_exception_reason";
+  if (message.includes("confirmed_player_not_found")) return "confirmed_player_not_found";
+  if (message.includes("exclusion_not_found")) return "exclusion_not_found";
+  if (message.includes("manual_scope_not_found")) return "manual_scope_not_found";
+  if (message.includes("member_already_paid")) return "member_already_paid";
+  if (message.includes("manual_member_not_found")) return "manual_member_not_found";
+  if (message.includes("member_is_excluded")) return "member_is_excluded";
   if (message.includes("manager_required") || message.includes("auth_required") || message.includes("row-level security")) {
     return "squad_permission_denied";
   }
@@ -278,4 +285,116 @@ export async function createOrSyncCombinedCompetitionSquadAction(formData: FormD
   revalidatePath("/sports-signups");
   revalidatePath("/sports-signups/squads");
   redirect(organizerPath({ tournamentId, campusId, program, result: "ok=combined_synced" }));
+}
+
+export async function setCompetitionRosterExclusionAction(formData: FormData) {
+  const tournamentId = clean(formData.get("tournamentId"));
+  const campusId = clean(formData.get("campusId"));
+  const program = clean(formData.get("program"));
+  const enrollmentId = clean(formData.get("enrollmentId"));
+  const reason = clean(formData.get("reason"));
+  const excluded = clean(formData.get("excluded")) === "true";
+  const fallbackPath = organizerPath({ tournamentId, campusId, program });
+
+  await assertDebugWritesAllowed(fallbackPath);
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    redirect("/unauthorized");
+  }
+  if (
+    ![tournamentId, campusId, enrollmentId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || reason.length < 3
+    || reason.length > 240
+  ) {
+    redirect(organizerPath({ tournamentId, campusId, program, result: "err=invalid_exception_reason" }));
+  }
+
+  const result = await context.supabase.rpc("set_competition_roster_exclusion", {
+    p_tournament_id: tournamentId,
+    p_enrollment_id: enrollmentId,
+    p_reason: reason,
+    p_excluded: excluded,
+  });
+  if (result.error) {
+    console.error("competition roster exclusion update failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      enrollmentId,
+      excluded,
+    });
+    redirect(organizerPath({
+      tournamentId,
+      campusId,
+      program,
+      result: `err=${squadSyncErrorCode(result.error)}`,
+    }));
+  }
+
+  revalidatePath("/sports-signups");
+  revalidatePath("/sports-signups/squads");
+  redirect(organizerPath({
+    tournamentId,
+    campusId,
+    program,
+    result: excluded ? "ok=player_excluded" : "ok=player_reinstated",
+  }));
+}
+
+export async function setCompetitionRosterManualMemberAction(formData: FormData) {
+  const tournamentId = clean(formData.get("tournamentId"));
+  const campusId = clean(formData.get("campusId"));
+  const program = clean(formData.get("program"));
+  const squadId = clean(formData.get("squadId"));
+  const enrollmentId = clean(formData.get("enrollmentId"));
+  const reason = clean(formData.get("reason"));
+  const added = clean(formData.get("added")) === "true";
+  const fallbackPath = organizerPath({ tournamentId, campusId, program });
+
+  await assertDebugWritesAllowed(fallbackPath);
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    redirect("/unauthorized");
+  }
+  if (
+    ![tournamentId, campusId, squadId, enrollmentId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || reason.length < 3
+    || reason.length > 240
+  ) {
+    redirect(organizerPath({ tournamentId, campusId, program, result: "err=invalid_exception_reason" }));
+  }
+
+  const result = await context.supabase.rpc("set_competition_roster_manual_member", {
+    p_squad_id: squadId,
+    p_enrollment_id: enrollmentId,
+    p_reason: reason,
+    p_added: added,
+  });
+  if (result.error) {
+    console.error("competition roster manual member update failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      squadId,
+      enrollmentId,
+      added,
+    });
+    redirect(organizerPath({
+      tournamentId,
+      campusId,
+      program,
+      result: `err=${squadSyncErrorCode(result.error)}`,
+    }));
+  }
+
+  revalidatePath("/sports-signups");
+  revalidatePath("/sports-signups/squads");
+  redirect(organizerPath({
+    tournamentId,
+    campusId,
+    program,
+    result: added ? "ok=helper_added" : "ok=helper_removed",
+  }));
 }

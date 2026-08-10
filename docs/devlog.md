@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-10 (session 281)
+
+### Audited Tournament Roster Exceptions (v1.17.15 Preview)
+
+- Added one compact `Excepciones deportivas` panel to `Inscripciones Torneos > Organizar equipos` for the two approved exceptional cases: excluding a confirmed paid player from the active competition roster and adding an active same-campus player as a manual helper/refuerzo.
+- Exclusion preserves the paid `tournament_player_entries` registration and removes only active competition-squad memberships. Reinstating removes the exclusion and returns the player to the pending organizer pool instead of silently selecting a team.
+- Manual helpers require an active same-campus enrollment, an active tournament squad, and an explicit reason. They may help more than one squad, but cannot be added while excluded or duplicated over an existing paid membership in the same squad.
+- Every add, remove, exclude, and reinstate operation appends an actor/reason event. Archived memberships remain historical and no longer block a current exclusion.
+- Added paginated helper-candidate reads and focused regression assertions that reject writes to finance, tournament registration, attendance, enrollment, and training-group assignments. Snapshot capture and export/`Convocatorias` handoff remain next.
+- Preview database lint also exposed a pre-existing unsupported `max(uuid)` selector in the Azul/Blanco RPC. A guarded follow-up migration replaces those selectors with deterministic UUID array selection without changing split behavior or touching operational records.
+
 ## 2026-08-10 (session 280)
 
 ### Combined-Source Tournament Squad Editor (v1.17.14 Preview)

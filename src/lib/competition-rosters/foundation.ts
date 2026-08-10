@@ -26,6 +26,7 @@ export type CompetitionRosterFoundation = {
   campusId: string;
   squads: CompetitionRosterSquad[];
   candidateEnrollmentIds: string[];
+  exclusions: Array<{ enrollmentId: string; reason: string }>;
   excludedEnrollmentIds: string[];
   assignedCandidateEnrollmentIds: string[];
   pendingCandidateEnrollmentIds: string[];
