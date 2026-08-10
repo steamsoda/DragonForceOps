@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CompetitionRosterCombinedEditor } from "@/components/sports/competition-roster-combined-editor";
 import { CompetitionRosterSubmitButton } from "@/components/sports/competition-roster-submit-button";
 import { CompetitionRosterSplitEditor } from "@/components/sports/competition-roster-split-editor";
 import { PageShell } from "@/components/ui/page-shell";
@@ -17,6 +18,7 @@ type SearchParams = Promise<{
 const OK_MESSAGES: Record<string, string> = {
   squad_synced: "Equipo actualizado con las inscripciones confirmadas.",
   split_synced: "Division Azul y Blanco guardada correctamente.",
+  combined_synced: "Equipo combinado guardado correctamente.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -29,6 +31,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   split_needs_two_players: "Se necesitan por lo menos dos jugadores confirmados para dividir el grupo.",
   split_requires_both_teams: "Azul y Blanco necesitan por lo menos un jugador cada uno.",
   split_invalid_player: "La seleccion incluye un jugador que ya no esta confirmado en este grupo.",
+  invalid_combined_settings: "Selecciona por lo menos dos grupos y escribe un nombre valido.",
+  combined_needs_two_groups: "Selecciona por lo menos dos grupos para combinar.",
+  combined_invalid_name: "El nombre del equipo debe tener entre 3 y 80 caracteres.",
+  combined_invalid_group: "Uno de los grupos ya no esta activo o no pertenece al campus y programa seleccionados.",
+  combined_target_not_found: "El equipo combinado que intentas editar ya no esta disponible.",
+  combined_no_players: "Los grupos seleccionados no tienen jugadores confirmados para este torneo.",
+  combined_name_conflict: "Ya existe otro equipo de este torneo con ese nombre.",
+  combined_player_conflict: "Un jugador confirmado ya pertenece a otra estructura especial. No se guardaron cambios.",
   squad_sync_failed: "No se pudo guardar el equipo. No se modificaron inscripciones ni grupos de entrenamiento.",
 };
 
@@ -102,6 +112,23 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
           </div>
         ) : null}
 
+        {data.canManage && data.groups.filter((group) => group.canCombine).length >= 2 ? (
+          <CompetitionRosterCombinedEditor
+            tournamentId={data.tournamentId}
+            campusId={data.campusId}
+            program={data.program}
+            groups={data.groups.map((group) => ({
+              id: group.id,
+              name: group.name,
+              subtitle: group.subtitle,
+              candidateCount: group.candidates.length,
+              canCombine: group.canCombine,
+              combinedSquadId: group.combinedSquadId,
+            }))}
+            combinedSquads={data.combinedSquads}
+          />
+        ) : null}
+
         <section className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Grupos con inscripciones confirmadas</h2>
@@ -154,7 +181,9 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
 
                 {group.usesAdvancedStructure && !group.hasSplitStructure ? (
                   <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                    Este grupo usa una estructura combinada, personalizada o con excepciones. Se administrara en el siguiente pase.
+                    {group.hasCombinedStructure
+                      ? "Este grupo forma parte de un equipo combinado. Editalo desde el panel Combinar varios grupos."
+                      : "Este grupo usa una estructura personalizada o con excepciones. Se administrara en el siguiente pase."}
                   </div>
                 ) : null}
 

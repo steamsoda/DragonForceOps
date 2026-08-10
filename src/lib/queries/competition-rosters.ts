@@ -221,11 +221,22 @@ export type CompetitionRosterOrganizerGroup = {
     status: CompetitionSquadStatus;
     kind: CompetitionSquadKind;
     memberCount: number;
+    sourceGroupIds: string[];
   }>;
   pendingCount: number;
   usesAdvancedStructure: boolean;
   hasSplitStructure: boolean;
+  hasCombinedStructure: boolean;
+  combinedSquadId: string | null;
   canEditSplit: boolean;
+  canCombine: boolean;
+};
+
+export type CompetitionRosterCombinedSquad = {
+  id: string;
+  name: string;
+  sourceGroupIds: string[];
+  memberCount: number;
 };
 
 export type CompetitionRosterOrganizerData = {
@@ -241,6 +252,7 @@ export type CompetitionRosterOrganizerData = {
   totalAssigned: number;
   totalPending: number;
   groups: CompetitionRosterOrganizerGroup[];
+  combinedSquads: CompetitionRosterCombinedSquad[];
   withoutGroup: CompetitionRosterOrganizerPlayer[];
 };
 
@@ -397,9 +409,16 @@ export async function getCompetitionRosterOrganizerData(filters: {
       && linkedSquads.some((squad) => squad.kind === "azul")
       && linkedSquads.some((squad) => squad.kind === "blanco")
       && linkedSquads.every((squad) => squad.sourceGroups.length === 1);
+    const hasCombinedStructure = linkedSquads.length === 1
+      && singleSquad !== null
+      && singleSquad.sourceGroups.length > 1;
     const canEditSplit = linkedSquads.length === 0
       || (linkedSquads.length === 1 && singleSquad !== null && singleSquad.sourceGroups.length === 1)
       || hasSplitStructure;
+    const canCombine = linkedSquads.length === 0
+      || (linkedSquads.length === 1
+        && singleSquad !== null
+        && !singleSquad.members.some((member) => member.source === "manual"));
     const sortedCandidates = sortOrganizerPlayers(candidates);
     return {
       id: assignment.training_group_id,
@@ -427,13 +446,18 @@ export async function getCompetitionRosterOrganizerData(filters: {
         status: squad.status,
         kind: squad.kind,
         memberCount: squad.members.length,
+        sourceGroupIds: squad.sourceGroups.map((sourceGroup) => sourceGroup.id),
       })),
       pendingCount: sortedCandidates.filter(
         (player) => !assignedIds.has(player.enrollmentId) && !excludedIds.has(player.enrollmentId),
       ).length,
-      usesAdvancedStructure: linkedSquads.length > 1 || linkedSquads.some((squad) => squad.kind !== "single"),
+      usesAdvancedStructure: linkedSquads.length > 1
+        || linkedSquads.some((squad) => squad.kind !== "single" || squad.sourceGroups.length > 1),
       hasSplitStructure,
+      hasCombinedStructure,
+      combinedSquadId: hasCombinedStructure ? singleSquad.id : null,
       canEditSplit,
+      canCombine,
     };
   }).sort((a, b) => {
     const yearA = Math.max(...a.candidates.map((player) => player.birthYear ?? 0), 0);
@@ -448,6 +472,20 @@ export async function getCompetitionRosterOrganizerData(filters: {
   ]);
   const totalAssigned = [...visibleCandidateIds].filter((id) => assignedIds.has(id)).length;
   const totalExcluded = [...visibleCandidateIds].filter((id) => excludedIds.has(id)).length;
+  const visibleGroupIds = new Set(groups.map((group) => group.id));
+  const combinedSquads = foundation.squads
+    .filter((squad) =>
+      squad.kind === "single"
+      && squad.program === filters.program
+      && squad.sourceGroups.length > 1
+      && squad.sourceGroups.some((sourceGroup) => visibleGroupIds.has(sourceGroup.id)),
+    )
+    .map((squad) => ({
+      id: squad.id,
+      name: squad.name,
+      sourceGroupIds: squad.sourceGroups.map((sourceGroup) => sourceGroup.id),
+      memberCount: squad.members.length,
+    }));
 
   return {
     tournamentId: tournament.id,
@@ -462,6 +500,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
     totalAssigned,
     totalPending: visibleCandidateIds.size - totalAssigned - totalExcluded,
     groups,
+    combinedSquads,
     withoutGroup: sortOrganizerPlayers(withoutGroup),
   };
 }

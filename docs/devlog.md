@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 280)
+
+### Combined-Source Tournament Squad Editor (v1.17.14 Preview)
+
+- Added a page-level `Combinar varios grupos en un equipo` editor to `Inscripciones Torneos > Organizar equipos`. Directors can create one competition squad from two or more current training groups and later re-edit an existing combined squad.
+- The transactional RPC uses confirmed paid tournament entries, active enrollments, current source-group assignments, and explicit exclusions as roster truth. Ordinary one-group squads selected for combination are retained as archived sporting history instead of being deleted.
+- Added conflict guards that refuse Azul/Blanco, custom, manual-helper, cross-squad, wrong-campus, wrong-program, inactive-group, duplicate-name, and empty-roster cases. Existing combined squads cannot be accidentally mixed into a different combined team from the UI.
+- The pass writes only competition-roster organization and audit records. It does not change payments, charges, tournament registrations, attendance, enrollments, or training-group assignments.
+- Added focused regression coverage for source-group validation, paginated organizer reuse, role-scoped RPC writes, advanced-structure refusal, audit retention, and prohibited write surfaces. Manual helper players and explicit paid-player exclusion controls remain the next pass.
+
 ## 2026-08-10 (session 279)
 
 ### One-Group Azul/Blanco Tournament Split Editor (v1.17.13 Preview)
