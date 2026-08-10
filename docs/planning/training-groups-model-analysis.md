@@ -61,8 +61,8 @@ The first repository audit found these active dependency classes:
 2. Replace level-dependent enrollment/group matching, then apply reviewed Futbol Para Todos display names without changing group identity or history.
 3. Completed in `v1.17.7`: add `Por grupo` to `Inscripciones Torneos`, backed by current active training-group assignments and existing paid-registration truth. Keep `Sin grupo` visible.
 4. Completed through `v1.17.17`: add tournament-specific squads, practical organization, audited exceptions, snapshots, and dynamic routing from confirmed registration truth.
-5. Simplify the operational surface around the live roster: remove manual approval ceremony, export live squads directly, capture a hidden immutable snapshot when a convocatoria is generated, and expose only the pending split decisions that require a human.
-6. Scope coach access to assigned groups/squads and let coaches prepare convocatorias; directors/admins retain final image generation.
+5. Completed in `v1.17.18`: add the live `Equipos` view, remove manual approval ceremony, export live squads directly, and capture a hidden immutable snapshot transactionally when a convocatoria is generated.
+6. Polish the pending split decisions and exception controls, then scope coach access to assigned groups/squads while directors/admins retain final image generation.
 7. After all reads and writes are replaced, decide whether to remove legacy level fields and hidden generic team routes.
 
 No bulk production data repair, group rename, or tournament-roster rewrite is approved in Pass 1.
@@ -83,7 +83,8 @@ No bulk production data repair, group rename, or tournament-roster rewrite is ap
 - `v1.17.16` adds immutable approved roster capture, a compact Excel export from frozen snapshot data, and a controlled handoff into ready weekly `Convocatorias`. Snapshot-backed packets retain their approved Azul/Blanco/combined structure and cannot use the old live paid-roster refresh path.
 - `v1.17.17` adds queue-backed dynamic roster routing. Confirmed registrations automatically create/join an ordinary one-group squad or join the single combined-source destination; refunds, voids, baja/inactive enrollment, and exclusions remove active paid-origin membership while preserving history.
 - If one training group maps to Azul and Blanco, later registrations remain pending until assigned. Existing competition placement also remains stable after a training-group move and is flagged for review instead of being silently moved.
-- Next implementation pass: simplify the organizer to a live roster, remove manual approval ceremony, export the current roster directly, and create the immutable snapshot automatically when a convocatoria is generated. Legacy level/team containment remains separate.
+- `v1.17.18` adds `Inscripciones Torneos > Equipos`, a live squad Excel export, and one-step convocatoria preparation. The audit snapshot is still immutable, but it is now captured automatically in the same transaction rather than requiring staff approval and naming first.
+- Next implementation pass: compact the pending Azul/Blanco and exception controls, then add scoped coach preparation. Legacy level/team containment remains separate.
 
 ## v1.17 Production Audit And Accepted Direction (2026-08-06)
 

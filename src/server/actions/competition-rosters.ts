@@ -497,3 +497,50 @@ export async function createWeeklyCallupFromCompetitionSnapshotAction(formData: 
   revalidatePath("/convocatorias");
   redirect(`/convocatorias/${result.data}?ok=squad_snapshot_imported`);
 }
+
+export async function createWeeklyCallupFromLiveCompetitionRosterAction(formData: FormData) {
+  const tournamentId = clean(formData.get("tournamentId"));
+  const campusId = clean(formData.get("campusId"));
+  const program = clean(formData.get("program"));
+  const weekStart = clean(formData.get("weekStart"));
+  const fallbackPath = organizerPath({ tournamentId, campusId, program });
+
+  await assertDebugWritesAllowed(fallbackPath);
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    redirect("/unauthorized");
+  }
+  if (
+    ![tournamentId, campusId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || program === "little_dragons"
+    || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)
+  ) {
+    redirect(organizerPath({ tournamentId, campusId, program, result: "err=invalid_snapshot_callup" }));
+  }
+
+  const result = await context.supabase.rpc("create_weekly_callup_from_live_competition_roster", {
+    p_tournament_id: tournamentId,
+    p_program: program,
+    p_week_start: weekStart,
+  });
+  if (result.error || typeof result.data !== "string") {
+    console.error("live competition roster callup handoff failed", {
+      code: result.error?.code,
+      message: result.error?.message,
+      tournamentId,
+      program,
+      weekStart,
+    });
+    redirect(organizerPath({
+      tournamentId,
+      campusId,
+      program,
+      result: `err=${result.error ? squadSyncErrorCode(result.error) : "snapshot_callup_failed"}`,
+    }));
+  }
+
+  revalidatePath("/convocatorias");
+  revalidatePath("/sports-signups/squads");
+  redirect(`/convocatorias/${result.data}?ok=squad_snapshot_imported`);
+}

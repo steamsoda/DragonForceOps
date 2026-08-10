@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { CompetitionRosterLiveView } from "@/components/sports/competition-roster-live-view";
 import { SportsSignupsPacketExport } from "@/components/sports/sports-signups-packet-export";
 import type {
   CompetitionSignupCategoryGroup,
@@ -228,7 +229,7 @@ export function SportsSignupsBoard({
 }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
-  const [viewMode, setViewMode] = useState<"category" | "group">("category");
+  const [viewMode, setViewMode] = useState<"category" | "group" | "teams">("category");
   const [feedbackByCategoryKey, setFeedbackByCategoryKey] = useState<Record<string, CategoryActionFeedback>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -528,7 +529,7 @@ export function SportsSignupsBoard({
                   href={`/sports-signups/squads?tournament=${encodeURIComponent(selectedCompetition.tournamentId)}&campus=${encodeURIComponent(selectedCampusId)}&program=${encodeURIComponent(dashboard.selectedProgram)}`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark"
                 >
-                  Organizar equipos
+                  Administrar equipos
                 </Link>
               ) : selectedCompetition.tournamentId ? (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -557,6 +558,15 @@ export function SportsSignupsBoard({
             >
               Por grupo
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("teams")}
+              className={viewMode === "teams"
+                ? "rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white"
+                : "rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"}
+            >
+              Equipos
+            </button>
           </div>
 
           {selectedCompetition.eligibilityReviewPlayers.length > 0 ? (
@@ -565,7 +575,14 @@ export function SportsSignupsBoard({
             </div>
           ) : null}
 
-          {viewMode === "category" && selectedCompetition.categories.length === 0 ? (
+          {viewMode === "teams" ? (
+            <CompetitionRosterLiveView
+              active
+              tournamentId={selectedCompetition.tournamentId}
+              campusId={selectedCampusId}
+              program={dashboard.selectedProgram}
+            />
+          ) : viewMode === "category" && selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
               No hay categorias activas o jugadores pagados para esta competencia en el campus seleccionado.
             </div>

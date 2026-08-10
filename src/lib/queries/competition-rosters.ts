@@ -180,6 +180,7 @@ type OrganizerEntryRow = {
       first_name: string;
       last_name: string;
       birth_date: string | null;
+      public_player_id: string | null;
     } | null;
   } | null;
 };
@@ -201,7 +202,9 @@ export type CompetitionRosterOrganizerPlayer = {
   enrollmentId: string;
   playerId: string;
   playerName: string;
+  publicPlayerId: string | null;
   birthYear: number | null;
+  trainingGroupName: string | null;
   assignedSquadNames: string[];
   assignedSquads: Array<{ id: string; name: string; kind: CompetitionSquadKind }>;
   isExcluded: boolean;
@@ -282,7 +285,46 @@ export type CompetitionRosterOrganizerData = {
   helperCandidates: CompetitionRosterHelperCandidate[];
   manualHelpers: CompetitionRosterManualHelper[];
   excludedPlayers: CompetitionRosterOrganizerPlayer[];
+  liveSquads: CompetitionRosterLiveSquad[];
   latestSnapshot: { id: string; label: string; capturedAt: string } | null;
+};
+
+export type CompetitionRosterLiveMember = {
+  enrollmentId: string;
+  playerName: string;
+  publicPlayerId: string | null;
+  birthYear: number | null;
+  trainingGroupName: string | null;
+  source: CompetitionMembershipSource;
+};
+
+export type CompetitionRosterLiveSquad = {
+  id: string;
+  name: string;
+  kind: CompetitionSquadKind;
+  status: CompetitionSquadStatus;
+  categoryLabel: string | null;
+  sourceGroupNames: string[];
+  members: CompetitionRosterLiveMember[];
+};
+
+export type CompetitionRosterLiveViewData = {
+  tournamentId: string;
+  tournamentName: string;
+  campusId: string;
+  campusName: string;
+  program: string;
+  programLabel: string;
+  totalConfirmed: number;
+  totalAssigned: number;
+  totalPending: number;
+  squads: CompetitionRosterLiveSquad[];
+  pendingPlayers: Array<{
+    enrollmentId: string;
+    playerName: string;
+    birthYear: number | null;
+    trainingGroupName: string | null;
+  }>;
 };
 
 export type CompetitionRosterSnapshotExportData = {
@@ -332,7 +374,7 @@ async function loadConfirmedOrganizerEntries(
   for (let offset = 0; ; offset += pageSize) {
     const result = await admin
       .from("tournament_player_entries")
-      .select("enrollment_id, enrollments(id, player_id, campus_id, status, players(first_name, last_name, birth_date))")
+      .select("enrollment_id, enrollments(id, player_id, campus_id, status, players(first_name, last_name, birth_date, public_player_id))")
       .eq("tournament_id", tournamentId)
       .eq("entry_status", "confirmed")
       .range(offset, offset + pageSize - 1)
@@ -371,6 +413,7 @@ type OrganizerCampusEnrollmentRow = {
     first_name: string;
     last_name: string;
     birth_date: string | null;
+    public_player_id: string | null;
   } | null;
 };
 
@@ -383,7 +426,7 @@ async function loadActiveCampusEnrollments(
   for (let offset = 0; ; offset += pageSize) {
     const result = await admin
       .from("enrollments")
-      .select("id, player_id, players(first_name, last_name, birth_date)")
+      .select("id, player_id, players(first_name, last_name, birth_date, public_player_id)")
       .eq("campus_id", campusId)
       .eq("status", "active")
       .range(offset, offset + pageSize - 1)
@@ -405,7 +448,7 @@ async function loadCampusEnrollmentsByIds(
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const result = await admin
       .from("enrollments")
-      .select("id, player_id, players(first_name, last_name, birth_date)")
+      .select("id, player_id, players(first_name, last_name, birth_date, public_player_id)")
       .eq("campus_id", campusId)
       .in("id", enrollmentIds.slice(index, index + chunkSize))
       .returns<OrganizerCampusEnrollmentRow[]>();
@@ -499,7 +542,14 @@ export async function getCompetitionRosterOrganizerData(filters: {
       enrollmentId: enrollment.id,
       playerId: enrollment.player_id,
       playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
+      publicPlayerId: enrollment.players.public_player_id,
       birthYear: getBirthYear(enrollment.players.birth_date),
+      trainingGroupName: assignment?.training_groups
+        ? formatTrainingGroupDisplayName({
+            name: assignment.training_groups.name ?? "Grupo",
+            program: assignment.training_groups.program,
+          })
+        : null,
       assignedSquadNames: squadNamesByEnrollment.get(enrollment.id) ?? [],
       assignedSquads: squadsByEnrollment.get(enrollment.id) ?? [],
       isExcluded: exclusionReasonByEnrollment.has(enrollment.id),
@@ -660,6 +710,49 @@ export async function getCompetitionRosterOrganizerData(filters: {
   ).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
   const allVisiblePlayers = [...groups.flatMap((group) => group.candidates), ...withoutGroup];
   const excludedPlayers = sortOrganizerPlayers(allVisiblePlayers.filter((player) => player.isExcluded));
+  const playerByEnrollment = new Map(allVisiblePlayers.map((player) => [player.enrollmentId, player]));
+  const helperByEnrollment = new Map(manualHelpers.map((helper) => [helper.enrollmentId, helper]));
+  const liveSquads = foundation.squads
+    .filter((squad) => squad.program === filters.program)
+    .map<CompetitionRosterLiveSquad>((squad) => ({
+      id: squad.id,
+      name: squad.name,
+      kind: squad.kind,
+      status: squad.status,
+      categoryLabel: squad.categoryLabel,
+      sourceGroupNames: squad.sourceGroups.map((group) => group.name),
+      members: squad.members.flatMap<CompetitionRosterLiveMember>((member) => {
+        const player = playerByEnrollment.get(member.enrollmentId);
+        if (player) {
+          return [{
+            enrollmentId: player.enrollmentId,
+            playerName: player.playerName,
+            publicPlayerId: player.publicPlayerId,
+            birthYear: player.birthYear,
+            trainingGroupName: player.trainingGroupName,
+            source: member.source,
+          }];
+        }
+        const helper = helperByEnrollment.get(member.enrollmentId);
+        if (!helper) return [];
+        const helperCandidate = helperAssignmentByEnrollment.get(member.enrollmentId)?.training_groups;
+        return [{
+          enrollmentId: member.enrollmentId,
+          playerName: helper.playerName,
+          publicPlayerId: helperRowByEnrollment.get(member.enrollmentId)?.players?.public_player_id ?? null,
+          birthYear: helper.birthYear,
+          trainingGroupName: helperCandidate
+            ? formatTrainingGroupDisplayName({
+                name: helperCandidate.name ?? "Grupo",
+                program: helperCandidate.program,
+              })
+            : null,
+          source: member.source,
+        }];
+      }).sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")),
+    }))
+    .filter((squad) => squad.members.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, "es-MX"));
 
   return {
     tournamentId: tournament.id,
@@ -680,6 +773,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
     helperCandidates,
     manualHelpers,
     excludedPlayers,
+    liveSquads,
     latestSnapshot: programSnapshotsResult.data?.[0]
       ? {
           id: programSnapshotsResult.data[0].id,
@@ -687,6 +781,41 @@ export async function getCompetitionRosterOrganizerData(filters: {
           capturedAt: programSnapshotsResult.data[0].captured_at,
         }
       : null,
+  };
+}
+
+export async function getCompetitionRosterLiveViewData(filters: {
+  tournamentId: string;
+  campusId: string;
+  program: string;
+}): Promise<CompetitionRosterLiveViewData | null> {
+  const organizer = await getCompetitionRosterOrganizerData(filters);
+  if (!organizer) return null;
+
+  const assignedIds = new Set(organizer.liveSquads.flatMap((squad) => squad.members.map((member) => member.enrollmentId)));
+  const pendingPlayers = sortOrganizerPlayers(
+    [...organizer.groups.flatMap((group) => group.candidates), ...organizer.withoutGroup]
+      .filter((player) => !player.isExcluded && !assignedIds.has(player.enrollmentId))
+      .map((player) => ({
+        enrollmentId: player.enrollmentId,
+        playerName: player.playerName,
+        birthYear: player.birthYear,
+        trainingGroupName: player.trainingGroupName,
+      })),
+  );
+
+  return {
+    tournamentId: organizer.tournamentId,
+    tournamentName: organizer.tournamentName,
+    campusId: organizer.campusId,
+    campusName: organizer.campusName,
+    program: organizer.program,
+    programLabel: organizer.programLabel,
+    totalConfirmed: organizer.totalConfirmed,
+    totalAssigned: organizer.totalAssigned,
+    totalPending: organizer.totalPending,
+    squads: organizer.liveSquads,
+    pendingPlayers,
   };
 }
 

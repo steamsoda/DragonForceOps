@@ -26,7 +26,6 @@ const OK_MESSAGES: Record<string, string> = {
   player_reinstated: "Jugador reintegrado como pendiente. Asignalo al equipo correspondiente.",
   helper_added: "Refuerzo manual agregado al equipo.",
   helper_removed: "Refuerzo manual retirado del equipo.",
-  snapshot_captured: "Plantel aprobado y copia historica guardada.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -54,8 +53,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   member_already_paid: "Ese jugador ya pertenece al equipo por su inscripcion pagada; no necesita agregarse como refuerzo.",
   manual_member_not_found: "El refuerzo manual ya no pertenece a ese equipo.",
   member_is_excluded: "El jugador esta excluido del roster. Reintegralo antes de agregarlo como refuerzo.",
-  snapshot_pending_players: "Todavia hay jugadores confirmados sin equipo. Asignalos o registra su exclusion antes de aprobar.",
-  snapshot_empty: "No hay equipos con jugadores para guardar en esta copia.",
+  snapshot_pending_players: "Todavia hay jugadores confirmados sin equipo. Asignalos o registra su exclusion antes de preparar la convocatoria.",
+  snapshot_empty: "No hay equipos con jugadores para preparar la convocatoria.",
   invalid_snapshot_settings: "Revisa el nombre y la nota de la copia antes de guardar.",
   snapshot_not_found: "La copia aprobada ya no esta disponible para este programa.",
   invalid_snapshot_callup: "Selecciona un lunes valido para preparar la convocatoria.",
@@ -171,30 +170,15 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
           </section>
         ) : null}
 
-        {data.canManage ? (
-          <CompetitionRosterSnapshotPanel
-            tournamentId={data.tournamentId}
-            campusId={data.campusId}
-            program={data.program}
-            tournamentName={data.tournamentName}
-            programLabel={data.programLabel}
-            defaultWeekStart={getMonterreyWeekStart()}
-            totalPending={data.totalPending}
-            squadCount={data.activeSquads.length}
-            latestSnapshot={data.latestSnapshot}
-          />
-        ) : data.latestSnapshot ? (
-          <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <h2 className="font-semibold text-slate-950 dark:text-slate-50">Plantel aprobado</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{data.latestSnapshot.label}</p>
-            <a
-              href={`/api/exports/competition-roster-snapshot?snapshot=${encodeURIComponent(data.latestSnapshot.id)}`}
-              className="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200"
-            >
-              Exportar Excel
-            </a>
-          </section>
-        ) : null}
+        <CompetitionRosterSnapshotPanel
+          tournamentId={data.tournamentId}
+          campusId={data.campusId}
+          program={data.program}
+          defaultWeekStart={getMonterreyWeekStart()}
+          totalPending={data.totalPending}
+          squadCount={data.activeSquads.length}
+          canPrepare={data.canManage}
+        />
 
         <section className="space-y-3">
           <div>

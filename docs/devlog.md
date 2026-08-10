@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-10 (session 284)
+
+### Live Tournament Teams View And One-Step Convocatoria (v1.17.18 Preview)
+
+- Added `Equipos` beside `Por categoria` and `Por grupo` in `Inscripciones Torneos`. The view loads only when opened and reads the current `competition_roster_*` squads, source training groups, assigned players, and pending split decisions.
+- Added a direct Excel export of the live teams. It groups players by competition squad, includes source training group and manual-helper origin, and lists unresolved players separately instead of requiring an approved snapshot first.
+- Removed the user-facing `Aprobar plantel`, copy label, and snapshot-selection ceremony from the organizer. The page now presents the current roster, live export, and one `Preparar convocatoria` action.
+- Added a transactional RPC that captures the immutable audit snapshot internally and creates the ready weekly convocatoria from that exact copy. If either operation fails, neither the snapshot nor convocatoria is retained.
+- Preserved Azul/Blanco, combined-source, exclusion, and manual-helper editors for the cases that require sporting judgment. Ordinary roster membership continues to be maintained by the `v1.17.17` dynamic router.
+- Added focused live-workflow assertions and retained all earlier roster regression suites. No finance, registration, enrollment, training-group, or attendance records are mutated by this pass.
+
 ## 2026-08-10 (session 283)
 
 ### Dynamic Tournament Squad Routing Foundation (v1.17.17 Preview)
