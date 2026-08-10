@@ -55,6 +55,12 @@ function squadSyncErrorCode(error: { code?: string; message: string }) {
   if (message.includes("member_already_paid")) return "member_already_paid";
   if (message.includes("manual_member_not_found")) return "manual_member_not_found";
   if (message.includes("member_is_excluded")) return "member_is_excluded";
+  if (message.includes("snapshot_pending_players")) return "snapshot_pending_players";
+  if (message.includes("snapshot_empty")) return "snapshot_empty";
+  if (message.includes("snapshot_invalid")) return "invalid_snapshot_settings";
+  if (message.includes("snapshot_not_found") || message.includes("snapshot_program_empty")) return "snapshot_not_found";
+  if (message.includes("callup_already_exists")) return "snapshot_callup_already_exists";
+  if (message.includes("callup_invalid_settings")) return "invalid_snapshot_callup";
   if (message.includes("manager_required") || message.includes("auth_required") || message.includes("row-level security")) {
     return "squad_permission_denied";
   }
@@ -397,4 +403,97 @@ export async function setCompetitionRosterManualMemberAction(formData: FormData)
     program,
     result: added ? "ok=helper_added" : "ok=helper_removed",
   }));
+}
+
+export async function captureCompetitionRosterSnapshotAction(formData: FormData) {
+  const tournamentId = clean(formData.get("tournamentId"));
+  const campusId = clean(formData.get("campusId"));
+  const program = clean(formData.get("program"));
+  const label = clean(formData.get("label"));
+  const notes = clean(formData.get("notes"));
+  const fallbackPath = organizerPath({ tournamentId, campusId, program });
+
+  await assertDebugWritesAllowed(fallbackPath);
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    redirect("/unauthorized");
+  }
+  if (
+    ![tournamentId, campusId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || label.length < 3
+    || label.length > 100
+    || notes.length > 500
+  ) {
+    redirect(organizerPath({ tournamentId, campusId, program, result: "err=invalid_snapshot_settings" }));
+  }
+
+  const result = await context.supabase.rpc("capture_competition_roster_snapshot", {
+    p_tournament_id: tournamentId,
+    p_program: program,
+    p_label: label,
+    p_notes: notes || null,
+  });
+  if (result.error) {
+    console.error("competition roster snapshot capture failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      program,
+    });
+    redirect(organizerPath({
+      tournamentId,
+      campusId,
+      program,
+      result: `err=${squadSyncErrorCode(result.error)}`,
+    }));
+  }
+
+  revalidatePath("/sports-signups/squads");
+  redirect(organizerPath({ tournamentId, campusId, program, result: "ok=snapshot_captured" }));
+}
+
+export async function createWeeklyCallupFromCompetitionSnapshotAction(formData: FormData) {
+  const tournamentId = clean(formData.get("tournamentId"));
+  const campusId = clean(formData.get("campusId"));
+  const program = clean(formData.get("program"));
+  const snapshotId = clean(formData.get("snapshotId"));
+  const weekStart = clean(formData.get("weekStart"));
+  const fallbackPath = organizerPath({ tournamentId, campusId, program });
+
+  await assertDebugWritesAllowed(fallbackPath);
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    redirect("/unauthorized");
+  }
+  if (
+    ![tournamentId, campusId, snapshotId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)
+  ) {
+    redirect(organizerPath({ tournamentId, campusId, program, result: "err=invalid_snapshot_callup" }));
+  }
+
+  const result = await context.supabase.rpc("create_weekly_callup_from_competition_snapshot", {
+    p_snapshot_id: snapshotId,
+    p_program: program,
+    p_week_start: weekStart,
+  });
+  if (result.error || typeof result.data !== "string") {
+    console.error("competition roster snapshot callup handoff failed", {
+      code: result.error?.code,
+      message: result.error?.message,
+      snapshotId,
+      weekStart,
+    });
+    redirect(organizerPath({
+      tournamentId,
+      campusId,
+      program,
+      result: `err=${result.error ? squadSyncErrorCode(result.error) : "snapshot_callup_failed"}`,
+    }));
+  }
+
+  revalidatePath("/convocatorias");
+  redirect(`/convocatorias/${result.data}?ok=squad_snapshot_imported`);
 }

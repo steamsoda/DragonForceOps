@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 282)
+
+### Approved Tournament Roster Snapshot And Convocatorias Handoff (v1.17.16 Preview)
+
+- Added explicit `Aprobar plantel` capture for the selected tournament program. Approval rejects empty organizers and unassigned confirmed paid players, then freezes the active squads, source training groups, players, YOBs, IDs, helper/paid origin, label, note, actor, and timestamp as immutable sporting history.
+- Added a compact black-and-white Excel export sourced from the approved snapshot rather than the mutable live organizer. Azul/Blanco, combined groups, exclusions, and manual helpers therefore remain exactly as approved in the exported packet.
+- Added a controlled `Preparar convocatoria` handoff for Futbol Para Todos and Selectivo. It creates a ready weekly packet from the frozen squads, carries snapshot lineage into the convocatoria, and preserves the approved structure instead of rebuilding it from the current paid roster.
+- Hardened snapshot-backed convocatorias so the old live paid-roster comparison/refresh cannot silently collapse an approved Azul/Blanco or combined roster. Little Dragons snapshots remain exportable but are not handed to the older two-program convocatoria workflow.
+- Added role/campus-scoped `security invoker` RPCs, append-only snapshot audit events, focused regression coverage, and a migration verified on the linked preview database. The pass does not update finance, tournament registration, attendance, enrollment, or training-group assignments.
+
 ## 2026-08-10 (session 281)
 
 ### Audited Tournament Roster Exceptions (v1.17.15 Preview)

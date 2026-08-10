@@ -282,6 +282,29 @@ export type CompetitionRosterOrganizerData = {
   helperCandidates: CompetitionRosterHelperCandidate[];
   manualHelpers: CompetitionRosterManualHelper[];
   excludedPlayers: CompetitionRosterOrganizerPlayer[];
+  latestSnapshot: { id: string; label: string; capturedAt: string } | null;
+};
+
+export type CompetitionRosterSnapshotExportData = {
+  snapshotId: string;
+  label: string;
+  capturedAt: string;
+  tournamentName: string;
+  campusName: string;
+  squads: Array<{
+    name: string;
+    kind: CompetitionSquadKind;
+    program: string | null;
+    categoryLabel: string | null;
+    sourceGroupNames: string[];
+    members: Array<{
+      playerName: string;
+      publicPlayerId: string | null;
+      birthYear: number | null;
+      trainingGroupName: string | null;
+      source: CompetitionMembershipSource;
+    }>;
+  }>;
 };
 
 const ORGANIZER_PROGRAM_LABELS: Record<string, string> = {
@@ -419,11 +442,24 @@ export async function getCompetitionRosterOrganizerData(filters: {
   if (tournamentResult.error || !tournament?.is_active || tournament.campus_id !== filters.campusId) return null;
   if (!canAccessCampus(permission.campusAccess, tournament.campus_id)) return null;
 
-  const [entryRows, foundation] = await Promise.all([
+  const [entryRows, foundation, programSnapshotsResult] = await Promise.all([
     loadConfirmedOrganizerEntries(admin, tournament.id),
     getCompetitionRosterFoundation(tournament.id),
+    admin
+      .from("competition_roster_snapshots")
+      .select("id, label, captured_at, competition_roster_snapshot_squads!inner(program_snapshot)")
+      .eq("tournament_id", tournament.id)
+      .eq("competition_roster_snapshot_squads.program_snapshot", filters.program)
+      .order("captured_at", { ascending: false })
+      .limit(1)
+      .returns<Array<{
+        id: string;
+        label: string;
+        captured_at: string;
+        competition_roster_snapshot_squads: Array<{ program_snapshot: string | null }>;
+      }>>(),
   ]);
-  if (!foundation) return null;
+  if (!foundation || programSnapshotsResult.error) return null;
 
   const activeEntries = entryRows.filter((row) =>
     row.enrollments?.status === "active" && row.enrollments.campus_id === tournament.campus_id,
@@ -644,5 +680,103 @@ export async function getCompetitionRosterOrganizerData(filters: {
     helperCandidates,
     manualHelpers,
     excludedPlayers,
+    latestSnapshot: programSnapshotsResult.data?.[0]
+      ? {
+          id: programSnapshotsResult.data[0].id,
+          label: programSnapshotsResult.data[0].label,
+          capturedAt: programSnapshotsResult.data[0].captured_at,
+        }
+      : null,
+  };
+}
+
+export async function getCompetitionRosterSnapshotExportData(
+  snapshotId: string,
+): Promise<CompetitionRosterSnapshotExportData | null> {
+  const permission = await getPermissionContext();
+  if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
+
+  const admin = createAdminClient();
+  const snapshotResult = await admin
+    .from("competition_roster_snapshots")
+    .select("id, label, captured_at, tournament_id, tournaments(name, campus_id, campuses(name))")
+    .eq("id", snapshotId)
+    .maybeSingle<{
+      id: string;
+      label: string;
+      captured_at: string;
+      tournament_id: string;
+      tournaments: {
+        name: string;
+        campus_id: string;
+        campuses: { name: string | null } | null;
+      } | null;
+    } | null>();
+  const snapshot = snapshotResult.data;
+  if (snapshotResult.error || !snapshot?.tournaments) return null;
+  if (!canAccessCampus(permission.campusAccess, snapshot.tournaments.campus_id)) return null;
+
+  const squadsResult = await admin
+    .from("competition_roster_snapshot_squads")
+    .select("id, name_snapshot, squad_kind_snapshot, program_snapshot, category_label_snapshot, source_group_names_snapshot, sort_order")
+    .eq("snapshot_id", snapshot.id)
+    .order("sort_order")
+    .order("name_snapshot")
+    .returns<Array<{
+      id: string;
+      name_snapshot: string;
+      squad_kind_snapshot: CompetitionSquadKind;
+      program_snapshot: string | null;
+      category_label_snapshot: string | null;
+      source_group_names_snapshot: string[] | null;
+      sort_order: number;
+    }>>();
+  if (squadsResult.error) throw squadsResult.error;
+
+  const squadRows = squadsResult.data ?? [];
+  const squadIds = squadRows.map((squad) => squad.id);
+  const memberRows: Array<{
+    snapshot_squad_id: string;
+    player_name_snapshot: string;
+    player_public_id_snapshot: string | null;
+    birth_year_snapshot: number | null;
+    training_group_name_snapshot: string | null;
+    membership_source_snapshot: CompetitionMembershipSource;
+    sort_order: number;
+  }> = [];
+  for (let index = 0; index < squadIds.length; index += 100) {
+    const result = await admin
+      .from("competition_roster_snapshot_members")
+      .select("snapshot_squad_id, player_name_snapshot, player_public_id_snapshot, birth_year_snapshot, training_group_name_snapshot, membership_source_snapshot, sort_order")
+      .in("snapshot_squad_id", squadIds.slice(index, index + 100))
+      .order("sort_order")
+      .order("player_name_snapshot")
+      .returns<typeof memberRows>();
+    if (result.error) throw result.error;
+    memberRows.push(...(result.data ?? []));
+  }
+
+  return {
+    snapshotId: snapshot.id,
+    label: snapshot.label,
+    capturedAt: snapshot.captured_at,
+    tournamentName: snapshot.tournaments.name,
+    campusName: snapshot.tournaments.campuses?.name ?? "Campus",
+    squads: squadRows.map((squad) => ({
+      name: squad.name_snapshot,
+      kind: squad.squad_kind_snapshot,
+      program: squad.program_snapshot,
+      categoryLabel: squad.category_label_snapshot,
+      sourceGroupNames: squad.source_group_names_snapshot ?? [],
+      members: memberRows
+        .filter((member) => member.snapshot_squad_id === squad.id)
+        .map((member) => ({
+          playerName: member.player_name_snapshot,
+          publicPlayerId: member.player_public_id_snapshot,
+          birthYear: member.birth_year_snapshot,
+          trainingGroupName: member.training_group_name_snapshot,
+          source: member.membership_source_snapshot,
+        })),
+    })),
   };
 }

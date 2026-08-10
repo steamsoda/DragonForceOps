@@ -115,6 +115,7 @@ export type WeeklyCallupDetailData = {
   snapshotAt: string;
   canDeleteCallup: boolean;
   canManageExceptions: boolean;
+  usesApprovedSquadSnapshot: boolean;
   rosterComparison: WeeklyCallupRosterComparison | null;
   manualCandidates: WeeklyCallupManualCandidate[];
   categories: WeeklyCallupDetailCategory[];
@@ -146,6 +147,7 @@ type CategoryRow = { id: string; weekly_callup_id: string; tournament_name_snaps
 type PlayerRow = { weekly_callup_category_id: string };
 
 type DetailCallupRow = Omit<CallupRow, "tournaments"> & {
+  competition_roster_snapshot_id: string | null;
   tournaments: { name: string | null; product_id: string } | null;
 };
 
@@ -411,7 +413,7 @@ export async function getWeeklyCallupDetail(
   const admin = createAdminClient();
   const callupResult = await admin
     .from("weekly_callups")
-    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, tournaments(name, product_id)")
+    .select("id, campus_id, tournament_id, program, week_start, status, roster_snapshot_at, competition_roster_snapshot_id, tournaments(name, product_id)")
     .eq("id", callupId)
     .maybeSingle<DetailCallupRow | null>();
   if (callupResult.error) throw callupResult.error;
@@ -475,7 +477,10 @@ export async function getWeeklyCallupDetail(
   const campusName = campusAccess.campuses.find((campus) => campus.id === callup.campus_id)?.name ?? "Campus";
   const categoryTournamentNames = new Set(categories.map((category) => category.tournament_name_snapshot).filter(Boolean));
   const hasMixedTournaments = categoryTournamentNames.size > 1;
-  const shouldLoadLiveRoster = !hasMixedTournaments && (options.includeComparison || (options.includeCandidates && context.isSportsDirector));
+  const usesApprovedSquadSnapshot = Boolean(callup.competition_roster_snapshot_id);
+  const shouldLoadLiveRoster = !hasMixedTournaments
+    && !usesApprovedSquadSnapshot
+    && (options.includeComparison || (options.includeCandidates && context.isSportsDirector));
   const livePaidRoster = shouldLoadLiveRoster && callup.tournaments?.product_id
     ? await getWeeklyCallupLivePaidRoster({
         campusId: callup.campus_id,
@@ -580,7 +585,8 @@ export async function getWeeklyCallupDetail(
     status: callup.status,
     snapshotAt: callup.roster_snapshot_at,
     canDeleteCallup: context.isSportsDirector,
-    canManageExceptions: context.isSportsDirector && !hasMixedTournaments,
+    canManageExceptions: context.isSportsDirector && !hasMixedTournaments && !usesApprovedSquadSnapshot,
+    usesApprovedSquadSnapshot,
     rosterComparison,
     manualCandidates,
     categories: categories.map((category) => ({

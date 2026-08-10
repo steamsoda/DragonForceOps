@@ -54,6 +54,7 @@ const OK_MESSAGES: Record<string, string> = {
   manual_exception_added: "Excepcion sin pago agregada y registrada en auditoria.",
   roster_refreshed: "Plantel pagado actualizado. Partidos, descansos y excepciones manuales se conservaron.",
   composer_created: "Convocatoria preparada. Revisa jugadores, agrega partidos adicionales y genera la imagen.",
+  squad_snapshot_imported: "Convocatoria preparada desde el plantel deportivo aprobado. Agrega los partidos y genera la imagen.",
 };
 
 function formatDate(value: string) {
@@ -140,7 +141,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <WeeklyCallupPngExportButton data={pngData} />
-            {!isMixedTournament ? <Link href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue">{showComparison ? "Cerrar comparacion" : "Comparar plantel actual"}</Link> : null}
+            {!isMixedTournament && !callup.usesApprovedSquadSnapshot ? <Link href={`/convocatorias/${callup.id}${showComparison ? "" : "?compare=1"}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-portoBlue">{showComparison ? "Cerrar comparacion" : "Comparar plantel actual"}</Link> : null}
             {callup.canManageExceptions ? (
               <Link
                 href={`/convocatorias/${callup.id}${showExceptions ? "" : "?exceptions=1"}`}
@@ -166,6 +167,12 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
         {query.ok ? (
           <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {OK_MESSAGES[query.ok] ?? "Cambio guardado."}
+          </p>
+        ) : null}
+
+        {callup.usesApprovedSquadSnapshot ? (
+          <p className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Esta convocatoria usa un plantel deportivo aprobado. Los equipos Azul, Blanco, combinados y refuerzos permanecen congelados en esta copia.
           </p>
         ) : null}
 
