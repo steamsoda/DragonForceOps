@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 279)
+
+### One-Group Azul/Blanco Tournament Split Editor (v1.17.13 Preview)
+
+- Added an explicit Azul/Blanco editor to `Inscripciones Torneos > Organizar equipos` for the ordinary case where one current training group supplies two tournament squads.
+- Directors can start from the existing single squad or an unsplit paid roster, mark the players assigned to Blanco, and save both teams transactionally. Later edits resynchronize only the paid squad memberships for that source group.
+- Kept confirmed `tournament_player_entries`, active enrollment, current training-group assignment, and explicit exclusions as eligibility truth. The function refuses combined source groups, manual helper players, cross-group memberships, and other advanced structures instead of rewriting them.
+- The pass writes only `competition_roster_*` references and audit events. It does not change payments, charges, tournament registrations, attendance, enrollments, or training-group assignments.
+- Added focused regression coverage for the role boundary, eligibility rules, both-team requirement, explicit conflict constraint, and prohibited write surfaces. Combined groups, helper players/exclusions, approved snapshots, and export/Convocatorias handoff remain subsequent passes.
+
 ## 2026-08-09 (session 278)
 
 ### Default Tournament Squad Organizer Conflict Fix (v1.17.12 Production)

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CompetitionRosterSubmitButton } from "@/components/sports/competition-roster-submit-button";
+import { CompetitionRosterSplitEditor } from "@/components/sports/competition-roster-split-editor";
 import { PageShell } from "@/components/ui/page-shell";
 import { getCompetitionRosterOrganizerData } from "@/lib/queries/competition-rosters";
 import { createOrSyncDefaultCompetitionSquadAction } from "@/server/actions/competition-rosters";
@@ -15,6 +16,7 @@ type SearchParams = Promise<{
 
 const OK_MESSAGES: Record<string, string> = {
   squad_synced: "Equipo actualizado con las inscripciones confirmadas.",
+  split_synced: "Division Azul y Blanco guardada correctamente.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -23,6 +25,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   advanced_squad_requires_editor: "Este grupo ya usa una estructura especial. Se administrara en el siguiente pase.",
   squad_permission_denied: "Tu usuario no tiene permiso para organizar equipos en este campus.",
   squad_database_conflict: "La configuracion del organizador necesita actualizarse. No se guardo ningun cambio.",
+  invalid_split_settings: "La seleccion Azul y Blanco contiene datos invalidos.",
+  split_needs_two_players: "Se necesitan por lo menos dos jugadores confirmados para dividir el grupo.",
+  split_requires_both_teams: "Azul y Blanco necesitan por lo menos un jugador cada uno.",
+  split_invalid_player: "La seleccion incluye un jugador que ya no esta confirmado en este grupo.",
   squad_sync_failed: "No se pudo guardar el equipo. No se modificaron inscripciones ni grupos de entrenamiento.",
 };
 
@@ -129,6 +135,11 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
                         {group.pendingCount} pendientes
                       </span>
                     )}
+                    {group.hasSplitStructure ? (
+                      <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
+                        Azul {group.squads.find((squad) => squad.kind === "azul")?.memberCount ?? 0} | Blanco {group.squads.find((squad) => squad.kind === "blanco")?.memberCount ?? 0}
+                      </span>
+                    ) : null}
                     {data.canManage && !group.usesAdvancedStructure ? (
                       <form action={createOrSyncDefaultCompetitionSquadAction}>
                         <input type="hidden" name="tournamentId" value={data.tournamentId} />
@@ -141,9 +152,9 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
                   </div>
                 </div>
 
-                {group.usesAdvancedStructure ? (
+                {group.usesAdvancedStructure && !group.hasSplitStructure ? (
                   <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                    Este grupo ya tiene una division especial. El editor Azul/Blanco llega en el siguiente pase.
+                    Este grupo usa una estructura combinada, personalizada o con excepciones. Se administrara en el siguiente pase.
                   </div>
                 ) : null}
 
@@ -173,6 +184,17 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
                     </tbody>
                   </table>
                 </div>
+
+                {data.canManage && group.canEditSplit && group.candidates.length >= 2 ? (
+                  <CompetitionRosterSplitEditor
+                    tournamentId={data.tournamentId}
+                    campusId={data.campusId}
+                    trainingGroupId={group.id}
+                    program={data.program}
+                    players={group.candidates}
+                    exists={group.hasSplitStructure}
+                  />
+                ) : null}
               </article>
             ))
           )}

@@ -199,6 +199,7 @@ export type CompetitionRosterOrganizerPlayer = {
   playerName: string;
   birthYear: number | null;
   assignedSquadNames: string[];
+  assignedSquads: Array<{ id: string; name: string; kind: CompetitionSquadKind }>;
 };
 
 export type CompetitionRosterOrganizerGroup = {
@@ -214,8 +215,17 @@ export type CompetitionRosterOrganizerGroup = {
     kind: CompetitionSquadKind;
     memberCount: number;
   } | null;
+  squads: Array<{
+    id: string;
+    name: string;
+    status: CompetitionSquadStatus;
+    kind: CompetitionSquadKind;
+    memberCount: number;
+  }>;
   pendingCount: number;
   usesAdvancedStructure: boolean;
+  hasSplitStructure: boolean;
+  canEditSplit: boolean;
 };
 
 export type CompetitionRosterOrganizerData = {
@@ -331,11 +341,15 @@ export async function getCompetitionRosterOrganizerData(filters: {
   const assignmentRows = await loadOrganizerAssignments(admin, enrollmentIds);
   const assignmentByEnrollment = new Map(assignmentRows.map((row) => [row.enrollment_id, row]));
   const squadNamesByEnrollment = new Map<string, string[]>();
+  const squadsByEnrollment = new Map<string, Array<{ id: string; name: string; kind: CompetitionSquadKind }>>();
   for (const squad of foundation.squads) {
     for (const member of squad.members) {
       const names = squadNamesByEnrollment.get(member.enrollmentId) ?? [];
       names.push(squad.name);
       squadNamesByEnrollment.set(member.enrollmentId, names);
+      const assignedSquads = squadsByEnrollment.get(member.enrollmentId) ?? [];
+      assignedSquads.push({ id: squad.id, name: squad.name, kind: squad.kind });
+      squadsByEnrollment.set(member.enrollmentId, assignedSquads);
     }
   }
 
@@ -357,6 +371,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
       playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
       birthYear: getBirthYear(enrollment.players.birth_date),
       assignedSquadNames: squadNamesByEnrollment.get(enrollment.id) ?? [],
+      assignedSquads: squadsByEnrollment.get(enrollment.id) ?? [],
     };
 
     if (!assignment?.training_groups) {
@@ -377,6 +392,14 @@ export async function getCompetitionRosterOrganizerData(filters: {
       squad.sourceGroups.some((sourceGroup) => sourceGroup.id === assignment.training_group_id),
     );
     const singleSquad = linkedSquads.find((squad) => squad.kind === "single") ?? null;
+    const displaySquad = singleSquad ?? linkedSquads[0] ?? null;
+    const hasSplitStructure = linkedSquads.length === 2
+      && linkedSquads.some((squad) => squad.kind === "azul")
+      && linkedSquads.some((squad) => squad.kind === "blanco")
+      && linkedSquads.every((squad) => squad.sourceGroups.length === 1);
+    const canEditSplit = linkedSquads.length === 0
+      || (linkedSquads.length === 1 && singleSquad !== null && singleSquad.sourceGroups.length === 1)
+      || hasSplitStructure;
     const sortedCandidates = sortOrganizerPlayers(candidates);
     return {
       id: assignment.training_group_id,
@@ -389,19 +412,28 @@ export async function getCompetitionRosterOrganizerData(filters: {
       ].filter(Boolean).join(" | "),
       program: group.program ?? filters.program,
       candidates: sortedCandidates,
-      squad: singleSquad
+      squad: displaySquad
         ? {
-            id: singleSquad.id,
-            name: singleSquad.name,
-            status: singleSquad.status,
-            kind: singleSquad.kind,
-            memberCount: singleSquad.members.length,
+            id: displaySquad.id,
+            name: displaySquad.name,
+            status: displaySquad.status,
+            kind: displaySquad.kind,
+            memberCount: displaySquad.members.length,
           }
         : null,
+      squads: linkedSquads.map((squad) => ({
+        id: squad.id,
+        name: squad.name,
+        status: squad.status,
+        kind: squad.kind,
+        memberCount: squad.members.length,
+      })),
       pendingCount: sortedCandidates.filter(
         (player) => !assignedIds.has(player.enrollmentId) && !excludedIds.has(player.enrollmentId),
       ).length,
       usesAdvancedStructure: linkedSquads.length > 1 || linkedSquads.some((squad) => squad.kind !== "single"),
+      hasSplitStructure,
+      canEditSplit,
     };
   }).sort((a, b) => {
     const yearA = Math.max(...a.candidates.map((player) => player.birthYear ?? 0), 0);
