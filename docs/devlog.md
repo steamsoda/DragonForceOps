@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-11 (session 302)
+
+### Convocatoria PNG Adaptive Polish - Pass 3 (v1.17.36 Preview)
+
+- Reworked weekly convocatoria PNG sizing around the actual card content instead of a fixed category threshold. The renderer evaluates one-to-five-column layouts and chooses the closest square result, removes the old minimum canvas height, compacts card spacing, and retains contiguous YOB reading order without clipping the final team.
+- Made the team name the card headline and moved YOB to a smaller `Categoría` line. Changed generated terminology from `Coach` to `Profesor`, rendered game times with explicit `AM`/`PM`, and expanded Spanish month names.
+- Added display-only compact player names for generated images: the first given name plus the first paternal surname, with compound surname particles preserved. Full stored player names, payments, tournament registrations, squads, and convocatoria snapshots remain unchanged.
+- Added the square INVICTA mark to the blue convocatoria header. The browser embeds it as a data URL before canvas rendering so the downloaded PNG remains self-contained.
+- Applied the same adaptive aspect-ratio and wrap-aware height safeguards to the full `Inscripciones Torneos` PNG, addressing long-roster cards that could previously cross the SVG boundary.
+- Added focused layout and compact-name regressions. No database migration is required.
+
 ## 2026-08-11 (session 301)
 
 ### Director Weekly Schedule Detail - Polish Pass 2 (v1.17.35 Preview)

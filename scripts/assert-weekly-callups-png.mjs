@@ -19,15 +19,22 @@ assert.match(layout, /category\.games\.map\(\(game\) => renderGame\(game, densit
 assert.match(layout, /distributeCategoriesInReadingOrder/);
 assert.match(layout, /partitionStarts/);
 assert.match(layout, /categories\.slice\(range\.start, range\.end\)/);
-assert.match(layout, /categoryCount >= 11 \? 5/);
 assert.match(layout, /estimateLineCount/);
-assert.match(layout, /totalPlayers > 180/);
+assert.match(layout, /Math\.min\(5, categoryCount\)/);
+assert.match(layout, /Math\.abs\(Math\.log\(width \/ height\)\)/);
+assert.match(layout, /month: "long"/);
+assert.match(layout, /formatArrivalTime/);
+assert.match(layout, /compactPlayerName/);
+assert.match(layout, /Profesor:/);
+assert.match(layout, /logoDataUrl/);
 
 assert.match(exportButton, /canvas\.toBlob/);
 assert.match(exportButton, /URL\.createObjectURL/);
 assert.match(exportButton, /maxCanvasPixels = 32_000_000/);
 assert.match(exportButton, /maxCanvasDimension = 16_000/);
 assert.match(exportButton, /Descargar imagen/);
+assert.match(exportButton, /loadInvictaLogo/);
+assert.match(exportButton, /logo%20Invicta-02\.png/);
 assert.doesNotMatch(exportButton, /data\.status|borrador/i);
 
 assert.match(editorPage, /WeeklyCallupPngExportButton/);

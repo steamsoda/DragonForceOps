@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.35",
+  "version": "1.17.36",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -25,6 +25,7 @@
     "test:weekly-callups-editor": "node scripts/assert-weekly-callups-editor.mjs",
     "test:weekly-callups-refresh": "node scripts/assert-weekly-callups-refresh.mjs",
     "test:weekly-callups-png": "node scripts/assert-weekly-callups-png.mjs",
+    "test:player-display-name": "node --experimental-strip-types scripts/assert-player-display-name.mjs",
     "test:weekly-callups-composer": "node scripts/assert-weekly-callups-composer.mjs",
     "test:coach-convocatoria-scope": "node scripts/assert-coach-convocatoria-scope.mjs",
     "test:coach-game-rosters": "node scripts/assert-coach-game-rosters.mjs",

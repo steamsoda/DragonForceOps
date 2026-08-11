@@ -1,3 +1,5 @@
+import { compactPlayerName } from "@/lib/exports/player-display-name";
+
 export type SportsSignupPacketPlayer = {
   id: string;
   playerName: string;
@@ -38,10 +40,21 @@ function getPlayerColumnCount(playerCount: number) {
   return playerCount > 18 ? 2 : 1;
 }
 
-function estimateGroupHeight(group: SportsSignupPacketGroup) {
+function estimateGroupHeight(group: SportsSignupPacketGroup, cardWidth: number) {
   const playerColumns = getPlayerColumnCount(group.players.length);
-  const playerRows = Math.max(1, Math.ceil(group.players.length / playerColumns));
-  return 112 + playerRows * 25;
+  const splitAt = Math.ceil(group.players.length / playerColumns);
+  const innerWidth = cardWidth - 24;
+  const playerColumnWidth = (innerWidth - (playerColumns - 1) * 14) / playerColumns;
+  const nameWidth = Math.max(52, playerColumnWidth - 62);
+  const charsPerLine = Math.max(7, Math.floor(nameWidth / 6.6));
+  const titleWidth = Math.max(100, cardWidth - 108);
+  const titleLines = Math.max(1, Math.ceil(group.label.length / Math.max(12, Math.floor(titleWidth / 9.5))));
+  const columnHeights = Array.from({ length: playerColumns }, (_, columnIndex) =>
+    group.players
+      .slice(columnIndex * splitAt, (columnIndex + 1) * splitAt)
+      .reduce((height, player) => height + Math.max(18, Math.ceil(compactPlayerName(player.playerName).length / charsPerLine) * 18) + 3, 0),
+  );
+  return 72 + (titleLines - 1) * 22 + Math.max(24, ...columnHeights);
 }
 
 function distributeGroups(groups: SizedGroup[], columnCount: number) {
@@ -72,14 +85,14 @@ function renderPlayers(group: SportsSignupPacketGroup) {
       ${columns
         .map(
           (players, columnIndex) => `
-            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
               ${players
                 .map(
                   (player, playerIndex) => `
-                    <div style="display:grid;grid-template-columns:27px minmax(0,1fr) auto;gap:6px;align-items:baseline;font-size:15px;line-height:21px;color:#0f172a;">
+                    <div style="display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:5px;align-items:baseline;font-size:13px;line-height:18px;color:#0f172a;">
                       <span style="text-align:right;color:#64748b;">${columnIndex * splitAt + playerIndex + 1}.</span>
-                      <span style="font-weight:600;overflow-wrap:anywhere;">${escapeHtml(player.playerName)}</span>
-                      <span style="font-size:12px;color:#64748b;">${player.birthYear ?? "-"}</span>
+                      <span style="font-weight:600;overflow-wrap:anywhere;">${escapeHtml(compactPlayerName(player.playerName))}</span>
+                      <span style="font-size:11px;color:#64748b;">${player.birthYear ?? "-"}</span>
                     </div>
                   `,
                 )
@@ -97,7 +110,7 @@ function renderGroup(group: SizedGroup) {
     <section style="overflow:hidden;border:1px solid #94a3b8;border-radius:7px;background:#ffffff;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1px solid #cbd5e1;background:#eaf2fb;padding:10px 12px;">
         <div style="min-width:0;">
-          <div style="font-size:20px;font-weight:900;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(group.label)}</div>
+          <div style="font-size:18px;font-weight:900;line-height:1.08;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(group.label)}</div>
           <div style="margin-top:2px;font-size:12px;font-weight:700;color:#475569;overflow-wrap:anywhere;">${escapeHtml(group.programLabel)} | ${escapeHtml(group.subtitle)}</div>
         </div>
         <div style="flex:none;text-align:right;">
@@ -111,17 +124,23 @@ function renderGroup(group: SizedGroup) {
 }
 
 export function buildSportsSignupPacketPngSvg(data: SportsSignupPacketPngData) {
-  const width = 1700;
-  const outerPadding = 30;
-  const headerHeight = 145;
-  const groups = data.groups
-    .filter((group) => group.players.length > 0)
-    .map((group) => ({ ...group, estimatedHeight: estimateGroupHeight(group) }));
-  const totalPlayers = groups.reduce((total, group) => total + group.players.length, 0);
-  const columnCount = groups.length >= 10 || totalPlayers > 150 ? 4 : groups.length >= 6 ? 3 : groups.length >= 2 ? 2 : 1;
-  const columns = distributeGroups(groups, columnCount);
-  const contentHeight = Math.max(260, ...columns.map((column) => column.height));
-  const height = headerHeight + contentHeight + outerPadding * 2;
+  const outerPadding = 24;
+  const headerHeight = 132;
+  const visibleGroups = data.groups.filter((group) => group.players.length > 0);
+  const candidates = Array.from({ length: Math.max(1, Math.min(5, visibleGroups.length)) }, (_, index) => index + 1).map((columnCount) => {
+    const width = Math.min(1700, Math.max(1040, outerPadding * 2 + columnCount * 390 + (columnCount - 1) * 12));
+    const cardWidth = (width - outerPadding * 2 - (columnCount - 1) * 16) / columnCount;
+    const groups = visibleGroups.map((group) => ({ ...group, estimatedHeight: estimateGroupHeight(group, cardWidth) }));
+    const columns = distributeGroups(groups, columnCount);
+    const contentHeight = Math.max(220, ...columns.map((column) => column.height));
+    // Browser font metrics can add a final wrapped line inside narrow roster columns.
+    // Keep a small bottom reserve so the last card is never clipped from the PNG.
+    const height = headerHeight + contentHeight + outerPadding * 2 + 80;
+    return { width, height, columnCount, columns, score: Math.abs(Math.log(width / height)) };
+  });
+  const layout = candidates.reduce((best, candidate) => candidate.score < best.score ? candidate : best);
+  const { width, height, columnCount, columns } = layout;
+  const groups = visibleGroups;
   const titleSize = data.competitionLabel.length > 42 ? 30 : data.competitionLabel.length > 30 ? 34 : 38;
 
   const emptyState = `

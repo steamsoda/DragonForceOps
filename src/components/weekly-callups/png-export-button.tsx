@@ -38,8 +38,21 @@ async function svgToPngBlob(svg: string, width: number, height: number) {
   });
 }
 
+async function loadInvictaLogo() {
+  const response = await fetch("/logo%20Invicta-02.png", { cache: "force-cache" });
+  if (!response.ok) return undefined;
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("weekly_callup_logo_read_failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function downloadWeeklyCallupPng(data: WeeklyCallupPngData) {
-  const exportImage = buildWeeklyCallupPngSvg(data);
+  const logoDataUrl = data.logoDataUrl ?? await loadInvictaLogo();
+  const exportImage = buildWeeklyCallupPngSvg({ ...data, logoDataUrl });
   const blob = await svgToPngBlob(exportImage.svg, exportImage.width, exportImage.height);
   const downloadUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
