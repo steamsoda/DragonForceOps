@@ -123,7 +123,6 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     (group) => group.campusId === selectedCampusId && group.program === selectedProgram,
   );
   const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
-  const selectedWeekCallups = data.callups.filter((callup) => callup.weekStart === data.currentWeekStart);
   const previousCallups = data.callups.filter((callup) => callup.weekStart !== data.currentWeekStart);
   const selectionHref = (campusId: string, program: string) =>
     `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
@@ -198,16 +197,6 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
             coachScheduleDefaults={data.coachScheduleDefaults}
           />
         </section>
-
-        {selectedWeekCallups.length ? (
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-lg font-semibold">Convocatoria de la semana</h2>
-              <p className="text-sm text-slate-500">Lista para abrir, ajustar y descargar.</p>
-            </div>
-            <SavedCallupCards callups={selectedWeekCallups} canDelete={data.canDeleteCallups} />
-          </section>
-        ) : null}
 
         {previousCallups.length ? (
           <details className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">

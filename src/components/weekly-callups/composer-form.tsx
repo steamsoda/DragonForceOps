@@ -20,6 +20,7 @@ type ComposerTournament = {
 };
 
 type ComposerGame = {
+  sourceCoachGameId: string | null;
   matchDate: string;
   arrivalTime: string;
   venue: string;
@@ -37,12 +38,12 @@ type CoachScheduleDefault = {
   isRest: boolean;
   notes: string;
   coachName: string;
-  games: Array<{ matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
+  games: Array<{ id: string; matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
 };
 
 type ClientError = NonNullable<WeeklyCallupComposerState>;
 
-const EMPTY_GAME: ComposerGame = { matchDate: "", arrivalTime: "", venue: "", opponent: "" };
+const EMPTY_GAME: ComposerGame = { sourceCoachGameId: null, matchDate: "", arrivalTime: "", venue: "", opponent: "" };
 
 function isMonday(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -135,7 +136,7 @@ export function WeeklyCallupComposerForm({
       const reported = coachScheduleDefaults[group.id];
       return [group.id, {
         tournamentId: reported?.tournamentId ?? "",
-        games: reported?.games.length ? reported.games.map((game) => ({ ...game })) : [{ ...EMPTY_GAME }],
+        games: reported?.games.length ? reported.games.map((game) => ({ sourceCoachGameId: game.id, matchDate: game.matchDate, arrivalTime: game.arrivalTime, venue: game.venue, opponent: game.opponent })) : [{ ...EMPTY_GAME }],
         isRest: reported?.isRest ?? false,
       }];
     })),

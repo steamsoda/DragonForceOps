@@ -44,8 +44,12 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
   const week = weekDetails(data.currentWeekStart);
   const tournamentById = new Map(data.tournaments.map((tournament) => [tournament.id, tournament.name]));
   const currentCallups = data.callups.filter((callup) => callup.weekStart === data.currentWeekStart);
-  const hrefFor = (campusId: string, program: WeeklyCallupProgram) =>
-    `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
+  const hrefFor = (campusId: string, program: WeeklyCallupProgram) => {
+    const callup = currentCallups.find((row) => row.campusId === campusId && row.program === program);
+    return callup
+      ? `/convocatorias/${callup.id}`
+      : `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
+  };
 
   const rows = data.groups
     .map((group) => {
@@ -100,7 +104,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
                 <p className={`text-xs font-semibold ${pending ? "text-rose-700" : "text-emerald-700"}`}>{pending ? `${pending} pendientes` : "Reportes completos"}</p>
               </div>
               <p className={`mt-2 border-t pt-2 text-xs font-medium ${hasCallup ? "text-emerald-700" : "text-amber-700"}`}>
-                {hasCallup ? "Convocatoria lista" : "Convocatoria pendiente"}
+                {hasCallup ? "Abrir convocatoria" : "Preparar convocatoria"}
               </p>
             </Link>
           );

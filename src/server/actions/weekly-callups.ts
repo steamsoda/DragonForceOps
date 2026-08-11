@@ -95,6 +95,7 @@ function textValue(formData: FormData, key: string) {
 }
 
 type ComposerGameInput = {
+  sourceCoachGameId: string | null;
   matchDate: string;
   arrivalTime: string;
   venue: string;
@@ -109,6 +110,7 @@ function composerGamesValue(formData: FormData, key: string): ComposerGameInput[
       if (!value || typeof value !== "object") throw new Error("invalid_game");
       const game = value as Record<string, unknown>;
       return {
+        sourceCoachGameId: game.sourceCoachGameId ? String(game.sourceCoachGameId).trim() : null,
         matchDate: String(game.matchDate ?? "").trim(),
         arrivalTime: String(game.arrivalTime ?? "").trim(),
         venue: String(game.venue ?? "").trim(),
@@ -508,6 +510,10 @@ export async function createWeeklyCallupComposerAction(
       continue;
     }
     for (const [gameIndex, game] of row.games.entries()) {
+      if (game.sourceCoachGameId && !isUuid(game.sourceCoachGameId)) {
+        rowErrors[row.groupId] = `Partido ${gameIndex + 1}: el reporte del coach ya no es valido.`;
+        break;
+      }
       const missing = [!game.matchDate ? "fecha" : "", !game.arrivalTime ? "hora de cita" : "", !game.venue ? "sede" : "", !game.opponent ? "rival" : ""].filter(Boolean);
       if (missing.length > 0) {
         rowErrors[row.groupId] = `Partido ${gameIndex + 1}: completa ${missing.join(", ")}.`;
@@ -574,6 +580,43 @@ export async function createWeeklyCallupComposerAction(
   });
   if (invalidSource) {
     return { ok: false, message: "Un grupo o torneo seleccionado ya no esta activo. Revisa la seleccion e intenta nuevamente." };
+  }
+
+  type SourceGameRow = { id: string; report_id: string; competition_roster_squad_id: string | null };
+  type SourceReportRow = { id: string; training_group_id: string; tournament_id: string; week_start: string };
+  type SourcePlayerRow = { game_id: string; enrollment_id: string; player_id: string; player_name_snapshot: string; roster_status: "included" | "excluded" };
+  const sourceGameIds = [...new Set(rowConfigs.flatMap((row) => row.games!.map((game) => game.sourceCoachGameId).filter((id): id is string => Boolean(id))))];
+  const sourceGamesResult = sourceGameIds.length
+    ? await admin.from("coach_weekly_schedule_games").select("id, report_id, competition_roster_squad_id").in("id", sourceGameIds).returns<SourceGameRow[]>()
+    : { data: [] as SourceGameRow[], error: null };
+  if (sourceGamesResult.error) return { ok: false, message: "No se pudieron validar los partidos reportados por los coaches." };
+  const sourceReportIds = [...new Set((sourceGamesResult.data ?? []).map((game) => game.report_id))];
+  const [sourceReportsResult, sourcePlayersResult] = await Promise.all([
+    sourceReportIds.length
+      ? admin.from("coach_weekly_schedule_reports").select("id, training_group_id, tournament_id, week_start").in("id", sourceReportIds).returns<SourceReportRow[]>()
+      : Promise.resolve({ data: [] as SourceReportRow[], error: null }),
+    sourceGameIds.length
+      ? admin.from("coach_weekly_schedule_game_players").select("game_id, enrollment_id, player_id, player_name_snapshot, roster_status").in("game_id", sourceGameIds).returns<SourcePlayerRow[]>()
+      : Promise.resolve({ data: [] as SourcePlayerRow[], error: null }),
+  ]);
+  if (sourceReportsResult.error || sourcePlayersResult.error) return { ok: false, message: "No se pudo leer el plantel reportado por los coaches." };
+  const sourceGameById = new Map((sourceGamesResult.data ?? []).map((game) => [game.id, game]));
+  const sourceReportById = new Map((sourceReportsResult.data ?? []).map((report) => [report.id, report]));
+  const sourcePlayersByGame = new Map<string, SourcePlayerRow[]>();
+  for (const player of sourcePlayersResult.data ?? []) {
+    const current = sourcePlayersByGame.get(player.game_id) ?? [];
+    current.push(player);
+    sourcePlayersByGame.set(player.game_id, current);
+  }
+  for (const row of rowConfigs) {
+    for (const game of row.games!) {
+      if (!game.sourceCoachGameId) continue;
+      const sourceGame = sourceGameById.get(game.sourceCoachGameId);
+      const sourceReport = sourceGame ? sourceReportById.get(sourceGame.report_id) : null;
+      if (!sourceGame || !sourceReport || sourceReport.training_group_id !== row.groupId || sourceReport.tournament_id !== row.tournamentId || sourceReport.week_start !== weekStart) {
+        return { ok: false, message: "Un partido reportado por coach ya no coincide con esta semana, grupo o torneo." };
+      }
+    }
   }
 
   type PaidRoster = NonNullable<Awaited<ReturnType<typeof getCompetitionPaidCallupPlayers>>>;
@@ -664,15 +707,40 @@ export async function createWeeklyCallupComposerAction(
         if (playerResult.error) throw playerResult.error;
       }
       if (!row.isRest) {
-        const gameResult = await admin.from("weekly_callup_games").insert(row.games!.map((game, gameIndex) => ({
-          weekly_callup_category_id: categoryResult.data.id,
-          match_date: game.matchDate,
-          arrival_time: game.arrivalTime,
-          venue: game.venue,
-          opponent: game.opponent,
-          sort_order: gameIndex,
-        })));
-        if (gameResult.error) throw gameResult.error;
+        for (const [gameIndex, game] of row.games!.entries()) {
+          const sourceGame = game.sourceCoachGameId ? sourceGameById.get(game.sourceCoachGameId) : null;
+          const gameResult = await admin.from("weekly_callup_games").insert({
+            weekly_callup_category_id: categoryResult.data.id,
+            source_coach_schedule_game_id: game.sourceCoachGameId,
+            competition_roster_squad_id: sourceGame?.competition_roster_squad_id ?? null,
+            match_date: game.matchDate,
+            arrival_time: game.arrivalTime,
+            venue: game.venue,
+            opponent: game.opponent,
+            sort_order: gameIndex,
+          }).select("id").single<{ id: string }>();
+          if (gameResult.error || !gameResult.data) throw gameResult.error ?? new Error("composer_game_failed");
+          const sourcePlayers = game.sourceCoachGameId ? sourcePlayersByGame.get(game.sourceCoachGameId) ?? [] : [];
+          const gamePlayers = sourcePlayers.length
+            ? sourcePlayers.map((player) => ({
+                weekly_callup_game_id: gameResult.data.id,
+                enrollment_id: player.enrollment_id,
+                player_id: player.player_id,
+                player_name_snapshot: player.player_name_snapshot,
+                roster_status: player.roster_status,
+              }))
+            : players.map((player) => ({
+                weekly_callup_game_id: gameResult.data.id,
+                enrollment_id: player.enrollmentId,
+                player_id: player.playerId,
+                player_name_snapshot: player.playerName,
+                roster_status: "included",
+              }));
+          if (gamePlayers.length) {
+            const gamePlayersResult = await admin.from("weekly_callup_game_players").insert(gamePlayers);
+            if (gamePlayersResult.error) throw gamePlayersResult.error;
+          }
+        }
       }
     }
 

@@ -48,7 +48,7 @@ export type WeeklyCallupsFoundationData = {
     notes: string;
     coachName: string;
     updatedAt: string;
-    games: Array<{ matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
+    games: Array<{ id: string; squadId: string | null; matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
   }>;
   callups: WeeklyCallupListRow[];
 };
@@ -60,6 +60,12 @@ export type WeeklyCallupDetailGame = {
   venue: string;
   opponent: string;
   sortOrder: number;
+  players: Array<{
+    enrollmentId: string;
+    playerId: string;
+    playerName: string;
+    rosterStatus: "included" | "excluded";
+  }>;
 };
 
 export type WeeklyCallupDetailPlayer = {
@@ -197,7 +203,9 @@ type CoachScheduleReportRow = {
 };
 
 type CoachScheduleGameRow = {
+  id: string;
   report_id: string;
+  competition_roster_squad_id: string | null;
   match_date: string;
   arrival_time: string;
   venue: string;
@@ -226,6 +234,14 @@ type DetailGameRow = {
   venue: string | null;
   opponent: string | null;
   sort_order: number;
+};
+
+type DetailGamePlayerRow = {
+  weekly_callup_game_id: string;
+  enrollment_id: string;
+  player_id: string;
+  player_name_snapshot: string;
+  roster_status: "included" | "excluded";
 };
 
 type ManualCandidateAssignmentRow = {
@@ -351,7 +367,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
   const coachGamesResult = coachReportIds.length
     ? await admin
         .from("coach_weekly_schedule_games")
-        .select("report_id, match_date, arrival_time, venue, opponent, sort_order")
+        .select("id, report_id, competition_roster_squad_id, match_date, arrival_time, venue, opponent, sort_order")
         .in("report_id", coachReportIds)
         .order("sort_order")
         .returns<CoachScheduleGameRow[]>()
@@ -447,7 +463,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         updatedAt: report.updated_at,
         games: (coachGamesResult.data ?? [])
           .filter((game) => game.report_id === report.id)
-          .map((game) => ({ matchDate: game.match_date, arrivalTime: game.arrival_time.slice(0, 5), venue: game.venue, opponent: game.opponent })),
+          .map((game) => ({ id: game.id, squadId: game.competition_roster_squad_id, matchDate: game.match_date, arrivalTime: game.arrival_time.slice(0, 5), venue: game.venue, opponent: game.opponent })),
       }];
     })),
     callups: (callupsResult.data ?? []).map((row) => {
@@ -530,6 +546,16 @@ export async function getWeeklyCallupDetail(
         .returns<DetailGameRow[]>()
     : { data: [] as DetailGameRow[], error: null };
   if (gamesResult.error) throw gamesResult.error;
+  const gameIds = (gamesResult.data ?? []).map((game) => game.id);
+  const gamePlayersResult = gameIds.length
+    ? await admin
+        .from("weekly_callup_game_players")
+        .select("weekly_callup_game_id, enrollment_id, player_id, player_name_snapshot, roster_status")
+        .in("weekly_callup_game_id", gameIds)
+        .order("player_name_snapshot")
+        .returns<DetailGamePlayerRow[]>()
+    : { data: [] as DetailGamePlayerRow[], error: null };
+  if (gamePlayersResult.error) throw gamePlayersResult.error;
 
   const playersByCategory = new Map<string, DetailPlayerRow[]>();
   for (const player of players) {
@@ -542,6 +568,12 @@ export async function getWeeklyCallupDetail(
     const current = gamesByCategory.get(game.weekly_callup_category_id) ?? [];
     current.push(game);
     gamesByCategory.set(game.weekly_callup_category_id, current);
+  }
+  const playersByGame = new Map<string, DetailGamePlayerRow[]>();
+  for (const player of gamePlayersResult.data ?? []) {
+    const current = playersByGame.get(player.weekly_callup_game_id) ?? [];
+    current.push(player);
+    playersByGame.set(player.weekly_callup_game_id, current);
   }
 
   const weekEndDate = new Date(`${callup.week_start}T12:00:00Z`);
@@ -669,14 +701,30 @@ export async function getWeeklyCallupDetail(
       coachNames: category.coach_names_snapshot ?? "Sin coach",
       sortOrder: category.sort_order,
       isRest: category.is_rest,
-      games: (gamesByCategory.get(category.id) ?? []).map((game) => ({
-        id: game.id,
-        matchDate: game.match_date,
-        arrivalTime: game.arrival_time?.slice(0, 5) ?? "",
-        venue: game.venue ?? "",
-        opponent: game.opponent ?? "",
-        sortOrder: game.sort_order,
-      })),
+      games: (gamesByCategory.get(category.id) ?? []).map((game) => {
+        const gamePlayers = playersByGame.get(game.id) ?? [];
+        const fallbackPlayers = (playersByCategory.get(category.id) ?? []).map((player) => ({
+          enrollmentId: player.enrollment_id,
+          playerId: player.player_id,
+          playerName: player.player_name_snapshot,
+          rosterStatus: player.roster_status,
+        }));
+        const categoryIncluded = new Set((playersByCategory.get(category.id) ?? []).filter((player) => player.roster_status === "included").map((player) => player.enrollment_id));
+        return {
+          id: game.id,
+          matchDate: game.match_date,
+          arrivalTime: game.arrival_time?.slice(0, 5) ?? "",
+          venue: game.venue ?? "",
+          opponent: game.opponent ?? "",
+          sortOrder: game.sort_order,
+          players: (gamePlayers.length ? gamePlayers.map((player) => ({
+            enrollmentId: player.enrollment_id,
+            playerId: player.player_id,
+            playerName: player.player_name_snapshot,
+            rosterStatus: categoryIncluded.has(player.enrollment_id) ? player.roster_status : "excluded" as const,
+          })) : fallbackPlayers),
+        };
+      }),
       players: (playersByCategory.get(category.id) ?? []).map((player) => ({
         id: player.id,
         enrollmentId: player.enrollment_id,

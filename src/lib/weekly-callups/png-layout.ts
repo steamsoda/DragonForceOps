@@ -3,6 +3,7 @@ export type WeeklyCallupPngGame = {
   arrivalTime: string;
   venue: string;
   opponent: string;
+  players: Array<{ id: string; playerName: string }>;
 };
 
 export type WeeklyCallupPngCategory = {
@@ -66,24 +67,19 @@ function estimateLineCount(value: string, charsPerLine: number) {
 
 function estimateCategoryHeight(category: WeeklyCallupPngCategory, density: LayoutDensity) {
   if (category.isRest) return 150;
-  const playerHeight =
-    category.players.length > 0
-      ? category.players.reduce(
-          (height, player) =>
-            height + estimateLineCount(player.playerName, density.charsPerLine) * density.playerLineHeight + density.playerGap,
-          0,
-        )
-      : 28;
   const gamesHeight =
     category.games.length > 0
       ? category.games.reduce((height, game) => {
           const detail = `${game.arrivalTime} ${game.venue}`;
           const detailLines = estimateLineCount(detail, density.charsPerLine + 4);
           const opponentLines = estimateLineCount(game.opponent, density.charsPerLine + 2);
-          return height + 54 + (detailLines + opponentLines) * 18;
+          const playerHeight = game.players.length
+            ? game.players.reduce((total, player) => total + estimateLineCount(player.playerName, density.charsPerLine) * density.playerLineHeight + density.playerGap, 0)
+            : 24;
+          return height + 82 + (detailLines + opponentLines) * 18 + playerHeight;
         }, 0)
       : 56;
-  return 122 + playerHeight + gamesHeight;
+  return 122 + gamesHeight;
 }
 
 function distributeCategoriesInReadingOrder(categories: SizedCategory[], columnCount: number) {
@@ -140,6 +136,10 @@ function renderGame(game: WeeklyCallupPngGame, compact: boolean) {
       <div style="font-size:${titleSize}px;font-weight:800;text-transform:uppercase;color:#9a3412;">${escapeHtml(formatDate(game.matchDate))}</div>
       <div style="margin-top:3px;font-size:${detailSize}px;color:#1e293b;overflow-wrap:anywhere;"><strong>Cita:</strong> ${escapeHtml(game.arrivalTime)} | <strong>Sede:</strong> ${escapeHtml(game.venue)}</div>
       <div style="margin-top:2px;font-size:${titleSize}px;font-weight:700;color:#0f172a;overflow-wrap:anywhere;">VS ${escapeHtml(game.opponent)}</div>
+      <div style="margin-top:7px;border-top:1px solid #fed7aa;padding-top:6px;font-size:11px;font-weight:800;text-transform:uppercase;color:#64748b;">Convocados (${game.players.length})</div>
+      <div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">
+        ${game.players.length ? game.players.map((player, index) => `<div style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:4px;font-size:${compact ? 12 : 13}px;color:#0f172a;"><span style="color:#64748b;text-align:right;">${index + 1}.</span><span style="overflow-wrap:anywhere;">${escapeHtml(player.playerName)}</span></div>`).join("") : `<div style="font-size:12px;font-style:italic;color:#94a3b8;">Sin jugadores convocados.</div>`}
+      </div>
     </div>
   `;
 }
@@ -159,25 +159,6 @@ function renderCategory(category: SizedCategory, density: LayoutDensity) {
         category.isRest
           ? `<div style="display:flex;min-height:92px;align-items:center;justify-content:center;padding:16px;font-size:22px;font-weight:900;letter-spacing:0.04em;color:#9a3412;">DESCANSA</div>`
           : `
-            <div style="padding:10px 12px 4px;">
-              <div style="margin-bottom:7px;font-size:11px;font-weight:800;text-transform:uppercase;color:#64748b;">Convocados (${category.players.length})</div>
-              <div style="display:flex;flex-direction:column;gap:${density.playerGap}px;">
-                ${
-                  category.players.length > 0
-                    ? category.players
-                        .map(
-                          (player, playerIndex) => `
-                            <div style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:5px;align-items:start;font-size:${density.playerFontSize}px;line-height:${density.playerLineHeight}px;color:#0f172a;">
-                              <span style="color:#64748b;text-align:right;">${playerIndex + 1}.</span>
-                              <span style="overflow-wrap:anywhere;">${escapeHtml(player.playerName)}</span>
-                            </div>
-                          `,
-                        )
-                        .join("")
-                    : `<div style="font-size:14px;font-style:italic;color:#94a3b8;">Sin jugadores incluidos.</div>`
-                }
-              </div>
-            </div>
             <div style="display:flex;flex-direction:column;gap:7px;padding:10px 12px 12px;">
               ${
                 category.games.length > 0

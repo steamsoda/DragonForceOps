@@ -10,6 +10,7 @@ function assert(condition, message) {
 
 const migration = read("supabase/migrations/20260811010000_coach_schedule_reporting.sql");
 const debugWriteMigration = read("supabase/migrations/20260811030000_preview_debug_coach_schedule_write.sql");
+const gameRosterMigration = read("supabase/migrations/20260811120000_coach_game_roster_snapshots.sql");
 const permissions = read("src/lib/auth/permissions.ts");
 const layout = read("src/app/(protected)/layout.tsx");
 const coachQuery = read("src/lib/queries/coach-schedules.ts");
@@ -37,8 +38,10 @@ assert(permissions.includes("hasCoachScheduleAccess: isCoach && Boolean(coachId)
 assert(layout.includes('items: [{ href: "/convocatorias", label: "Mis horarios" }]'), "Coach navigation must expose only the schedule route.");
 assert(coachQuery.includes('.eq("coach_id", context.coachId)'), "Coach query must filter by the linked coach.");
 assert(coachQuery.includes("training_group_coaches"), "Coach query must use current group assignments.");
-assert(coachAction.includes('rpc("save_coach_weekly_schedule_report"'), "Coach writes must use the scoped database function.");
-assert(coachAction.includes("isPreviewDebugEnabled()") && coachAction.includes('rpc("save_debug_coach_weekly_schedule_report"'), "Writable coach impersonation must remain Preview-only and use the guarded helper.");
+assert(coachAction.includes('rpc("save_coach_weekly_schedule_report_v2"'), "Coach writes must use the stable game-roster database function.");
+assert(coachAction.includes("isPreviewDebugEnabled()") && coachAction.includes("p_effective_user_id"), "Writable coach impersonation must remain Preview-only and identify the effective coach account.");
+assert(gameRosterMigration.includes("coach_weekly_schedule_game_players") && gameRosterMigration.includes("weekly_callup_game_players"), "Game-specific coach and convocatoria rosters must be frozen separately.");
+assert(gameRosterMigration.includes("competition_roster_squad_members") && gameRosterMigration.includes("game_roster_changed"), "Coach roster submissions must match the current permanent squad without changing it.");
 assert(coachForm.includes("router.refresh()"), "A successful coach report must refresh persisted server state.");
 assert(coachForm.includes("Reporte enviado a administracion") && coachForm.includes("Actualizar reporte"), "Coaches must see and edit their submitted schedule.");
 assert(usersAction.includes("linkCoachUserAction") && usersAction.includes("coach.account_linked"), "Super Admin must explicitly link and audit coach accounts.");
@@ -48,7 +51,7 @@ assert(callupPage.includes("CoachScheduleLiveRefresh"), "The admin convocatoria 
 assert(callupPage.includes("getWeeklyCallupsFoundationData(params.week)"), "The admin handoff must load coach reports for the selected week.");
 assert(liveRefresh.includes("10_000") && liveRefresh.includes("router.refresh()") && liveRefresh.includes('window.addEventListener("focus"'), "Coach reports must refresh periodically and when the admin returns to the page.");
 assert(callupPage.includes("CurrentWeekDashboard"), "The admin view must put the current-week control panel before the composer.");
-assert(currentWeekDashboard.includes("Control de esta semana") && currentWeekDashboard.includes("Convocatoria pendiente"), "The weekly control panel must separate coach reporting from final convocatoria readiness.");
+assert(currentWeekDashboard.includes("Control de esta semana") && currentWeekDashboard.includes("Preparar convocatoria"), "The weekly control panel must separate coach reporting from final convocatoria readiness.");
 assert(currentWeekDashboard.includes("Pendiente") && currentWeekDashboard.includes("Reportado") && currentWeekDashboard.includes("Descanso"), "The traffic matrix must expose clear red/green operational states.");
 assert(currentWeekDashboard.includes("auxiliaryCoachNames") && weeklyCallupQuery.includes("auxiliaryCoachNames"), "Shared groups must remain single rows with auxiliary coaches visible.");
 assert(weeklyCallupQuery.includes("updated_at") && currentWeekDashboard.includes("updatedAt"), "The monitor must show persisted report freshness.");
@@ -56,6 +59,7 @@ assert(composerForm.includes('name={`games:${group.id}`}') && composerForm.inclu
 assert(composerForm.includes("dirtyGroupIds.has(group.id)"), "Live refresh must not overwrite a group the admin has edited.");
 assert(composerForm.includes("router.replace(`/convocatorias?campus="), "Changing the admin week must reload that week's coach reports.");
 assert(weeklyCallupAction.includes("composerGamesValue") && weeklyCallupAction.includes("row.games!.map"), "Convocatoria creation must validate and persist all reported games.");
-assert(!coachAction.includes("weekly_callup_players") && !coachAction.includes("competition_roster"), "Coach actions must not edit roster membership.");
+assert(!coachAction.includes('from("competition_roster_squad_members").insert') && !coachAction.includes('from("competition_roster_squad_members").delete'), "Coach actions must not edit permanent squad membership.");
+assert(!gameRosterMigration.includes("payment_allocations") && !gameRosterMigration.includes("attendance_records"), "Game roster snapshots must not touch finance or attendance.");
 
 console.log("Coach convocatoria scope assertions passed.");

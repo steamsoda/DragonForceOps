@@ -121,6 +121,9 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
         arrivalTime: game.arrivalTime,
         venue: game.venue,
         opponent: game.opponent,
+        players: game.players
+          .filter((player) => player.rosterStatus === "included")
+          .map((player) => ({ id: player.enrollmentId, playerName: player.playerName })),
       })),
       players: category.players
         .filter((player) => player.rosterStatus === "included")

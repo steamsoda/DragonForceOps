@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [migration, readyMigration, action, query, page, composer, editor, png] = await Promise.all([
+const [migration, readyMigration, action, query, page, composer, dashboard, editor, png] = await Promise.all([
   readFile("supabase/migrations/20260806120000_weekly_callup_group_tournaments.sql", "utf8"),
   readFile("supabase/migrations/20260806130000_weekly_callups_ready_coach_snapshots.sql", "utf8"),
   readFile("src/server/actions/weekly-callups.ts", "utf8"),
   readFile("src/lib/queries/weekly-callups.ts", "utf8"),
   readFile("src/app/(protected)/convocatorias/page.tsx", "utf8"),
   readFile("src/components/weekly-callups/composer-form.tsx", "utf8"),
+  readFile("src/components/weekly-callups/current-week-dashboard.tsx", "utf8"),
   readFile("src/app/(protected)/convocatorias/[callupId]/page.tsx", "utf8"),
   readFile("src/lib/weekly-callups/png-layout.ts", "utf8"),
 ]);
@@ -49,7 +50,9 @@ assert.match(composer, /Tus datos siguen guardados en esta pantalla/);
 assert.match(composer, /rowErrors/);
 assert.match(composer, /event\.preventDefault\(\)/);
 assert.match(composer, /value=\{row\.tournamentId\}/);
-assert.match(page, /Convocatoria de la semana/);
+assert.doesNotMatch(page, /Convocatoria de la semana/);
+assert.match(dashboard, /\/convocatorias\/\$\{callup\.id\}/);
+assert.match(dashboard, /Abrir convocatoria/);
 assert.match(page, /<details/);
 assert.match(page, /Convocatorias anteriores/);
 assert.match(editor, /category\.tournamentName/);

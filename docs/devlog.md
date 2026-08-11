@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 293)
+
+### Game-Specific Coach Rosters And Direct Weekly Navigation (v1.17.27 Preview)
+
+- Added stable coach game IDs and per-game player snapshots. Coaches now see the current tournament squad for each reported game, may move players between compact `Convocados` and `No convocados` lists, and may choose Azul/Blanco when a group has multiple squads.
+- Kept exclusions strictly game-specific. Saving a report does not change permanent squad membership, paid tournament registration, training groups, attendance, or finance; the database independently validates that the submitted roster still matches the current squad.
+- Copied the exact coach game roster into the final convocatoria and PNG. Different games for the same group can now show different invited players, while older saved convocatorias fall back to their existing category roster.
+- Made each current-week campus/program control card open the saved convocatoria directly when available, or the correctly preselected composer when missing. Removed the duplicate current-week card section at the bottom; prior weeks remain in collapsed history.
+- Added migration `20260811120000_coach_game_roster_snapshots.sql`, updated focused coach/convocatoria regressions, and verified typecheck plus the weekly-callup test suite before Preview promotion.
+
 ## 2026-08-10 (session 292)
 
 ### Compact Weekly Composer And History (v1.17.26 Preview)
