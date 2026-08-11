@@ -39,6 +39,7 @@ export type WeeklyCallupsFoundationData = {
     program: WeeklyCallupProgram;
     categoryLabel: string;
     primaryCoachName: string;
+    auxiliaryCoachNames: string[];
   }>;
   canDeleteCallups: boolean;
   coachScheduleDefaults: Record<string, {
@@ -46,6 +47,7 @@ export type WeeklyCallupsFoundationData = {
     isRest: boolean;
     notes: string;
     coachName: string;
+    updatedAt: string;
     games: Array<{ matchDate: string; arrivalTime: string; venue: string; opponent: string }>;
   }>;
   callups: WeeklyCallupListRow[];
@@ -190,6 +192,7 @@ type CoachScheduleReportRow = {
   tournament_id: string;
   is_rest: boolean;
   notes: string | null;
+  updated_at: string;
   coaches: { first_name: string | null; last_name: string | null } | null;
 };
 
@@ -338,7 +341,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
   const coachReportsResult = groupIds.length
     ? await admin
         .from("coach_weekly_schedule_reports")
-        .select("id, training_group_id, tournament_id, is_rest, notes, coaches(first_name, last_name)")
+        .select("id, training_group_id, tournament_id, is_rest, notes, updated_at, coaches(first_name, last_name)")
         .eq("week_start", currentWeekStart)
         .in("training_group_id", groupIds)
         .returns<CoachScheduleReportRow[]>()
@@ -417,6 +420,8 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         (a, b) => Number(b.is_primary) - Number(a.is_primary),
       );
       const coach = coachRows[0]?.coaches;
+      const coachName = (row: ComposerCoachRow) =>
+        [row.coaches?.first_name, row.coaches?.last_name].filter(Boolean).join(" ");
       return {
         id: group.id,
         campusId: group.campus_id,
@@ -428,6 +433,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
             : `${group.birth_year_min}/${group.birth_year_max}`
           : group.name,
         primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin coach",
+        auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       };
     }),
     canDeleteCallups: context.isSportsDirector,
@@ -438,6 +444,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         isRest: report.is_rest,
         notes: report.notes ?? "",
         coachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Coach",
+        updatedAt: report.updated_at,
         games: (coachGamesResult.data ?? [])
           .filter((game) => game.report_id === report.id)
           .map((game) => ({ matchDate: game.match_date, arrivalTime: game.arrival_time.slice(0, 5), venue: game.venue, opponent: game.opponent })),

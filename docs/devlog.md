@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 (session 291)
+
+### Current-Week Convocatoria Control Panel (v1.17.25 Preview)
+
+- Put the selected Monday-Sunday week front and center in `Convocatorias`, with four compact campus/program summaries for Contry Selectivos, Contry Futbol Para Todos, Linda Vista Selectivos, and Linda Vista Futbol Para Todos.
+- Added a traffic-light matrix with one row per active training group. Missing coach reports sort first in red; persisted game reports and rest weeks appear in green with tournament, game count, reporter, and last update time.
+- Groups with multiple coaches remain single operational rows. The primary coach owns the row, auxiliary coaches are shown underneath, and a report submitted by another assigned coach is identified without duplicating the group.
+- Kept coach report completion separate from final convocatoria readiness. This pass is read-only UI/query work and does not modify schedules, final convocatorias, squads, registrations, attendance, or finance.
+
 ## 2026-08-10 (session 290)
 
 ### Live Multi-Game Coach Handoff (v1.17.24 Preview)

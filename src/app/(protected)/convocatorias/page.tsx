@@ -5,6 +5,7 @@ import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-f
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { CoachScheduleForm } from "@/components/weekly-callups/coach-schedule-form";
 import { CoachScheduleLiveRefresh } from "@/components/weekly-callups/live-refresh";
+import { CurrentWeekDashboard } from "@/components/weekly-callups/current-week-dashboard";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
@@ -114,6 +115,12 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
             Convocatoria eliminada. Los pagos e inscripciones de torneo no cambiaron.
           </p>
         ) : null}
+
+        <CurrentWeekDashboard
+          data={data}
+          selectedCampusId={selectedCampusId}
+          selectedProgram={selectedProgram}
+        />
 
         <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
           <div>
