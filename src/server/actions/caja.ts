@@ -31,7 +31,10 @@ import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { createPerfTimer } from "@/lib/perf/timing";
 import type { AccountCreditSummary } from "@/lib/finance/account-credit";
-import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
+import {
+  syncCompetitionSignupsForEnrollment,
+  syncPaidCompetitionSignupsForCharges,
+} from "@/server/actions/tournament-signup-sync";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
 import { getPermissionContext } from "@/lib/auth/permissions";
@@ -134,7 +137,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
+  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; competitionRosterSyncPending: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
   | { ok: false; error: string };
 
 export type CajaCheckoutResult =
@@ -2159,7 +2162,10 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   perf.mark("uniform_sync");
 
   await clearPendingFollowUpIfResolved(supabase, enrollmentId);
-  const affectedTournamentIds = await syncCompetitionSignupsForEnrollment(enrollmentId);
+  const affectedTournamentIds = await syncPaidCompetitionSignupsForCharges(
+    enrollmentId,
+    Array.from(new Set(allAllocatedCharges.map((allocation) => allocation.chargeId))),
+  );
   perf.mark("followup_and_competition_sync");
 
   await revalidatePaymentSurfaces(ledger);
@@ -2210,6 +2216,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     remainingBalance: newBalance,
     currency: ledger.enrollment.currency,
     sessionWarning,
+    competitionRosterSyncPending: affectedTournamentIds.length > 0,
     chargesPaid,
     paidAt,
     date: formatDateMonterrey(paidAt),

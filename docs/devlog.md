@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 294)
+
+### Fast Caja Tournament Registration Handoff (v1.17.28 Preview)
+
+- Replaced the normal Caja payment path's enrollment-wide tournament reconciliation with one targeted database call over only the charges funded by that checkout. Direct tournament products and gender-aware bundle entitlements remain supported, and the database still verifies that each candidate charge is fully allocated before confirming registration.
+- Kept financial completion synchronous: payments, allocations, credit FIFO, early pricing checks, cash-session linking, folios, receipts, and audit writes still finish before Caja reports success. Only competition-squad placement leaves the request path and continues through the existing durable one-minute roster queue.
+- Added a receipt notice when a newly confirmed tournament registration is awaiting automatic team placement. If the targeted RPC is unavailable or fails, Caja falls back to the previous full reconciliation instead of silently losing the registration.
+- Left refund, void, reassignment, and corrective finance paths on the full lifecycle reconciler because those operations may need to remove or repair registrations rather than only add a newly paid one.
+- Added migration `20260811140000_fast_caja_tournament_signup.sql` and focused regression coverage. This pass does not change charge amounts, payment amounts, allocations, tournament pricing, paid-registration truth, squad-routing rules, attendance, enrollments, or training-group assignments.
+
 ## 2026-08-10 (session 293)
 
 ### Game-Specific Coach Rosters And Direct Weekly Navigation (v1.17.27 Preview)

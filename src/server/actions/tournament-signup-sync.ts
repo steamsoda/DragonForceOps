@@ -46,6 +46,37 @@ type BundleEntitlementRow = {
   is_active: boolean;
 };
 
+type TournamentSyncRpcRow = {
+  tournament_id: string;
+};
+
+export async function syncPaidCompetitionSignupsForCharges(
+  enrollmentId: string,
+  chargeIds: string[],
+): Promise<string[]> {
+  const candidateChargeIds = Array.from(new Set(chargeIds.filter(Boolean)));
+  if (candidateChargeIds.length === 0) return [];
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("sync_paid_tournament_entries_for_charges", {
+    p_enrollment_id: enrollmentId,
+    p_charge_ids: candidateChargeIds,
+  });
+
+  if (error) {
+    console.error("Targeted tournament signup sync failed; falling back to full reconciliation", {
+      enrollmentId,
+      chargeCount: candidateChargeIds.length,
+      error: error.message,
+    });
+    return syncCompetitionSignupsForEnrollment(enrollmentId);
+  }
+
+  return Array.from(
+    new Set(((data ?? []) as TournamentSyncRpcRow[]).map((row) => row.tournament_id).filter(Boolean)),
+  );
+}
+
 export async function syncCompetitionSignupsForEnrollment(enrollmentId: string): Promise<string[]> {
   const admin = createAdminClient();
   const { data: enrollment } = await admin

@@ -2810,6 +2810,12 @@ function ReceiptPanel({
         )}
       </div>
 
+      {receipt.competitionRosterSyncPending && (
+        <div className="rounded-lg border border-sky-300 bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+          La inscripcion al torneo quedo registrada. El equipo se actualizara automaticamente en segundo plano.
+        </div>
+      )}
+
       {false && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           ⚠ Sin sesión de caja abierta. El pago se registró correctamente pero no está vinculado a ninguna sesión.{" "}

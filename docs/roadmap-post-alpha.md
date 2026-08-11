@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.27`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.28`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.18`
-- Current preview candidate: `v1.17.27` adds direct current-week navigation and stable, game-specific coach roster snapshots that flow into the final convocatoria PNG
+- Current preview candidate: `v1.17.28` keeps paid tournament registration synchronous in Caja while moving automatic competition-squad placement off the payment request and into the existing durable queue
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -181,6 +181,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 9. 🟢 `v1.17.18` adds `Equipos` beside the category/group views, exports current squads directly, removes manual approval ceremony, and captures the immutable snapshot automatically inside one-step convocatoria creation.
 10. 🟢 `v1.17.19` adds compact direct pending Azul/Blanco placement and audited exclusion/reinstatement/helper controls inside the live `Equipos` view.
 11. 🟢 `v1.17.20`-`v1.17.27` add explicit coach-account linking, assigned-group-only schedule reporting, visible/editable submissions, scoped Preview testing, the debug escape hatch, live complete multi-game admin handoff, a current-week traffic monitor, compact composer/history layout, and per-game squad exclusions carried into the final WhatsApp image; directors/admins retain paid-roster control, exceptions, and deletion.
+
+12. `v1.17.28` shortens tournament payment posting by confirming only newly funded tournament charges inline and leaving squad placement to the existing durable queue. Normal/split professor inheritance and explicit combined-team professor assignment remain the next squad-reporting pass.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
