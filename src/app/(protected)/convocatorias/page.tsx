@@ -119,7 +119,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     ? params.campus!
     : data.defaultCampusId;
   const selectedProgram = params.program === "selectivo" ? "selectivo" : "futbol_para_todos";
-  const visibleGroups = data.groups.filter(
+  const visibleGroups = data.scheduleUnits.filter(
     (group) => group.campusId === selectedCampusId && group.program === selectedProgram,
   );
   const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
@@ -161,7 +161,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           <div>
             <h2 className="text-base font-semibold">Preparar convocatoria semanal</h2>
             <p className="text-sm text-slate-500">
-              Elige campus y programa. Despues captura el torneo y partido de cada grupo en una sola lista.
+              Elige campus y programa. Cada equipo debe tener partidos reportados o descanso antes de congelar la convocatoria.
             </p>
           </div>
           <div className="space-y-4">

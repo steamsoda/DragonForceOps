@@ -60,10 +60,10 @@ assert(currentWeekDashboard.includes("Control de esta semana") && currentWeekDas
 assert(currentWeekDashboard.includes("Pendiente") && currentWeekDashboard.includes("Reportado") && currentWeekDashboard.includes("Descanso"), "The traffic matrix must expose clear red/green operational states.");
 assert(currentWeekDashboard.includes("auxiliaryCoachNames") && weeklyCallupQuery.includes("auxiliaryCoachNames"), "Shared groups must remain single rows with auxiliary coaches visible.");
 assert(weeklyCallupQuery.includes("updated_at") && currentWeekDashboard.includes("updatedAt"), "The monitor must show persisted report freshness.");
-assert(composerForm.includes('name={`games:${group.id}`}') && composerForm.includes("reported.games.map"), "The admin composer must preload every coach-reported game.");
-assert(composerForm.includes("dirtyGroupIds.has(group.id)"), "Live refresh must not overwrite a group the admin has edited.");
+assert(composerForm.includes('name="squadId"') && composerForm.includes("coachScheduleDefaults[group.id]"), "The admin composer must identify every squad and show its persisted report state.");
+assert(composerForm.includes("disabled={!complete || pending}"), "Packet creation must stay blocked until every visible squad is complete.");
 assert(composerForm.includes("router.replace(`/convocatorias?campus="), "Changing the admin week must reload that week's coach reports.");
-assert(weeklyCallupAction.includes("composerGamesValue") && weeklyCallupAction.includes("row.games!.map"), "Convocatoria creation must validate and persist all reported games.");
+assert(weeklyCallupAction.includes("expectedSquads") && weeklyCallupAction.includes("source_coach_schedule_game_id: game.id"), "Convocatoria creation must reload and freeze all authoritative squad reports.");
 assert(!coachAction.includes('from("competition_roster_squad_members").insert') && !coachAction.includes('from("competition_roster_squad_members").delete'), "Coach actions must not edit permanent squad membership.");
 assert(!gameRosterMigration.includes("payment_allocations") && !gameRosterMigration.includes("attendance_records"), "Game roster snapshots must not touch finance or attendance.");
 

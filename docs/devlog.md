@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 297)
+
+### Squad-Frozen Weekly Convocatorias (v1.17.31 Preview)
+
+- Replaced the legacy group-editing composer with an authoritative squad checklist. Administration now sees one row per ordinary, Azul, Blanco, or combined competition squad and can prepare the packet only when every visible squad has reported games or explicitly marked `Descansa`.
+- New packet creation reloads the full active squad set, professor reports, live squad members, and per-game included/excluded player snapshots on the server. Client form data cannot omit a team or alter match and roster details during the freeze.
+- New frozen categories retain the exact competition squad, fixed tournament, reporting professor, live roster context, source game, and game-specific exclusions. Existing historical group-based convocatorias remain readable and unchanged.
+- Added migration `20260811210000_squad_aware_weekly_callup_categories.sql` so Azul/Blanco or combined squads sharing a source training group can coexist in one packet while legacy group uniqueness remains protected.
+- Kept this pass isolated from tournament registration, payments, squad membership, training groups, and attendance. TypeScript and focused composer, professor-scope, and game-roster regressions pass.
+
 ## 2026-08-10 (session 296)
 
 ### Squad-Aware Professor Schedules And Weekly Monitor (v1.17.30 Preview)

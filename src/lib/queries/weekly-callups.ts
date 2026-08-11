@@ -50,6 +50,7 @@ export type WeeklyCallupsFoundationData = {
     name: string;
     program: WeeklyCallupProgram;
     categoryLabel: string;
+    sourceGroupNames: string[];
     primaryCoachName: string;
     auxiliaryCoachNames: string[];
   }>;
@@ -540,6 +541,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         name: squad.name,
         program: squad.program,
         categoryLabel: squad.category_label || anchorGroup.name,
+        sourceGroupNames: sourceGroups.map((group) => group.name),
         primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin profesor",
         auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       }];

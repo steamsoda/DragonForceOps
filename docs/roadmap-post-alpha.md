@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.30`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.31`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.18`
-- Current preview candidate: `v1.17.30` makes professor schedule reporting and the current-week traffic matrix squad-aware, including separate Azul/Blanco and combined-team rows
+- Current preview candidate: `v1.17.31` freezes completed professor reports into separate ordinary, Azul, Blanco, and combined-team convocatoria categories
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -185,7 +185,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 12. ✅ `v1.17.28` shortens tournament payment posting by confirming only newly funded tournament charges inline and leaving squad placement to the existing durable queue.
 13. 🟢 `v1.17.29` adds audited competition-team professor ownership: normal and Azul/Blanco squads inherit their training-group professors, combined squads require deliberate manual assignment, and directors can apply explicit overrides in `Organizar equipos`.
 14. 🟢 `v1.17.30` makes professor reporting and the weekly traffic matrix use effective tournament-team ownership, including separate Azul/Blanco and combined-team rows; legacy group reports remain readable.
-15. 🔴 Next: freeze each reported squad as its own convocatoria category and block packet creation until every visible team has a game report or explicit rest status.
+15. ✅ `v1.17.31` freezes each reported squad as its own convocatoria category and blocks packet creation until every visible team has a game report or explicit rest status.
+16. 🔴 Next: Preview smoke-test packet creation, historical packet rendering, and PNG layout with real split/combined squads; then address any compact-layout polish before production promotion.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
