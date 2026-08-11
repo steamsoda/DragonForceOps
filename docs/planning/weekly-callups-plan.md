@@ -1,5 +1,7 @@
 # Weekly WhatsApp Convocatorias
 
+> Status: accepted in Preview through `v1.17.37` on 2026-08-11. Future requests should be scoped as new follow-up work rather than reopening the completed implementation lane.
+
 ## Goal
 
 Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or `Futbol Para Todos`) without rebuilding paid rosters by hand. Each training group may select its own tournament in the same image.
@@ -76,12 +78,14 @@ Generate one clear weekly WhatsApp image per campus and program (`Selectivos` or
 - Preserve campus, program, tournament, date, time, venue, rival, and rest values after any expected validation failure.
 - Navigate to the saved convocatoria only after successful creation.
 
-### Pass 4 - Hardening
+### Pass 4 - Hardening (accepted in Preview through v1.17.37)
 
 - Validate role and campus behavior with debug users.
 - Compare saved rosters against `Inscripciones Torneos` for direct and Combo registrations.
 - Verify no pagination gaps, duplicate players, or finance mutations.
 - Browser-test desktop, narrow screens, and the generated PNG.
+- Completed a Preview-only load test with 150 balanced demo tournament purchases across three products, both campuses, both programs, and mixed-tournament packets.
+- Accepted the parent-facing `Rol de juegos` output with adaptive packing, parent-safe team labels, explicit times, full Spanish dates, and the horizontal white INVICTA wordmark.
 
 ## Safety Boundary
 

@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.33`
-- Current preview candidate: `v1.17.37` parent-facing `Rol de juegos` PNG labels and new horizontal INVICTA branding
+- Current preview candidate: `v1.17.37` accepted after parent-facing `Rol de juegos` PNG polish and a 150-registration Preview load test; pending explicit production promotion
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -147,7 +147,7 @@ This checkpoint closes the long `v1.16` delivery wave without deleting its backl
 
 **Backlog Retained, Not Dropped**
 
-- 🟡 Weekly convocatoria quick exclusions, print polish, and final hardening.
+- ✅ Weekly convocatoria editor, exclusions, director fallback, parent-facing PNG polish, and load-sized Preview validation completed through `v1.17.37`.
 - 🟡 Attendance special-day/cancellation UX and the finance-sensitive injury/absence v2 workflow.
 - 🔴 Enrollment validation/confirmation and baja re-enrollment/reactivation.
 - 🟡 Product archive/pricing-rule admin, tournament redesign, coach match posting, and offline/outage mitigation.
@@ -190,10 +190,18 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 17. 🟢 `v1.17.33` makes `Inscripciones Torneos` program filters local and instant, enforces youngest-to-oldest YOB ordering in all three views, and removes B-level/internal suffix noise from display without renaming stored groups or squads.
 18. 🟢 `v1.17.34` applies canonical YOB/program squad labels consistently across live team cards, coach reporting, the current-week matrix, and saved convocatoria detail without mutating stored data.
 19. 🟢 `v1.17.35` exposes guarded Super Admin/Director Admin/Director Deportivo game entry and correction from every populated current-week card, with campus, professor, squad, week, and live-roster validation.
-20. 🟢 `v1.17.36` polishes the convocatoria PNG with team-first headers, compact display names, INVICTA branding, explicit times, full month names, and adaptive square card packing; the full tournament-signup PNG receives the same overflow hardening.
-21. 🟢 `v1.17.37` standardizes the parent-facing packet as `Rol de juegos`, adds the new horizontal white INVICTA wordmark, includes YOB in Selectivo team titles, and removes internal Futbol Para Todos terminology from the PNG only.
+20. ✅ `v1.17.36` polishes the convocatoria PNG with team-first headers, compact display names, INVICTA branding, explicit times, full month names, and adaptive square card packing; the full tournament-signup PNG receives the same overflow hardening.
+21. ✅ `v1.17.37` standardizes the parent-facing packet as `Rol de juegos`, adds the new horizontal white INVICTA wordmark, includes YOB in Selectivo team titles, removes internal Futbol Para Todos terminology from the PNG only, and passes a 150-registration Preview load test.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
+
+## Checkpoint: 2026-08-11 - Rol de Juegos Preview Acceptance
+
+- ✅ The weekly convocatoria operational lane is accepted in Preview through `v1.17.37`: effective squad/professor ownership, coach and director game reporting, current-week traffic control, per-game player exclusions, guarded packet preparation, and direct PNG download are working together.
+- ✅ Parent output is now a compact `Rol de juegos` image with parent-safe team labels, YOB-aware Selectivo names, no internal Futbol Para Todos terminology, mixed-tournament support, full Spanish dates, explicit AM/PM times, and the horizontal white INVICTA wordmark.
+- ✅ A manual Preview-only seed exercised 150 balanced tournament purchases across three products. Both campuses and programs were reviewed without clipped teams or pagination symptoms. The seed is not a migration and does not target production.
+- ✅ This polish lane is closed. Future convocatoria feedback should enter as a new scoped item instead of keeping the completed pass permanently active.
+- ➡️ Next integrity work returns to the legacy assignment-review matcher, followed by an individual production review of unassigned players and YOB-range mismatches without rewriting attendance history.
 
 ## Now
 
@@ -202,10 +210,10 @@ These are the highest-value items to consider next. Keep this list short: usuall
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
-| 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.18` contains legacy Nivel, independent live squads, dynamic routing, live `Equipos` export, and automatic convocatoria snapshots. Preview `v1.17.19` completes direct split-pending and exception controls; `v1.17.20` adds scoped coach schedule reporting. Legacy containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
+| 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
-| 🟡 | Weekly WhatsApp convocatorias polish/hardening | Production `v1.16.236`-`v1.16.243` provides the frozen Combo-aware roster, editor, controlled refresh/exceptions, direct PNG, per-group tournament composer, ready-first flow, coach labels, deletion, and preserved validation. Quick exclusions, print polish, and final hardening remain. | `docs/planning/weekly-callups-plan.md`, Competencias |
+| ✅ | Weekly WhatsApp convocatorias / `Rol de juegos` | Accepted in Preview through `v1.17.37`, including current-week control, team-level reporting, exclusions, director fallback, guarded preparation, adaptive PNG layout, parent-safe labels, and load-sized validation. Remove from `Now` at the next checkpoint after production promotion. | `docs/planning/weekly-callups-plan.md`, Competencias, `v1.17.20`-`v1.17.37` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Resume after the attendance display and enrollment/group integrity passes. | Checkpoint 2026-07-11, Asistencia lane |
 
 **How `Now` Works**

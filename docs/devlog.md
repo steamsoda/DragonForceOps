@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-11 (session 304)
+
+### Rol de Juegos Preview Acceptance + Checkpoint (v1.17.37 Preview)
+
+- Accepted the parent-facing `Rol de juegos` PNG polish after operational review in Preview.
+- Load-tested the tournament and convocatoria read paths with 150 balanced Preview-only demo purchases distributed across Superliga Regia 17 Edicion, Rosa Power Cup 13 Edicion, and Torneo de Leyendas.
+- Confirmed both campuses, both programs, mixed-tournament packets, compact team cards, YOB-aware parent labels, the horizontal white INVICTA wordmark, explicit AM/PM times, full Spanish month names, and adaptive packing without clipped teams.
+- The load-test data was inserted manually in Preview with a dedicated marker and is not a migration. No production charges, payments, allocations, registrations, squads, or convocatoria records were changed by this checkpoint.
+- Closed the current weekly convocatoria PNG polish lane. The next active integrity pass returns to the contained legacy assignment matcher and the production review of unassigned/YOB-mismatched training-group assignments.
+
 ## 2026-08-11 (session 303)
 
 ### Parent-Facing Rol de Juegos PNG - Pass 1 (v1.17.37 Preview)
