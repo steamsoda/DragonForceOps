@@ -1,5 +1,9 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatCompetitionSquadDisplay,
+  formatTournamentGroupCardDisplay,
+} from "@/lib/training-groups/shared";
 import { getMonterreyWeekStart } from "@/lib/queries/weekly-callups";
 
 export type CoachScheduleGame = {
@@ -103,6 +107,7 @@ type SquadRow = {
   id: string;
   tournament_id: string;
   name: string;
+  squad_kind: string;
   program: "selectivo" | "futbol_para_todos";
   category_label: string;
   coach_assignment_mode: "inherited" | "manual";
@@ -206,7 +211,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
   const squadsResult = candidateSquadIds.length
     ? await admin
         .from("competition_roster_squads")
-        .select("id, tournament_id, name, program, category_label, coach_assignment_mode, status")
+        .select("id, tournament_id, name, squad_kind, program, category_label, coach_assignment_mode, status")
         .in("id", candidateSquadIds)
         .neq("status", "archived")
         .order("sort_order")
@@ -323,19 +328,35 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
         const squads: CoachScheduleSquad[] = [{
           id: squad.id,
           tournamentId: squad.tournament_id,
-          name: squad.name,
+          name: formatCompetitionSquadDisplay({
+            name: squad.name,
+            program: squad.program,
+            categoryLabel: squad.category_label,
+            kind: squad.squad_kind,
+          }).title,
           players: membersBySquad.get(squad.id) ?? [],
         }];
+        const display = formatCompetitionSquadDisplay({
+          name: squad.name,
+          program: squad.program,
+          categoryLabel: squad.category_label || categoryLabel(anchorGroup),
+          kind: squad.squad_kind,
+        });
         return [{
           id: squad.id,
           trainingGroupId: anchorGroup.id,
           squadId: squad.id,
           campusId: anchorGroup.campus_id,
           campusName: anchorGroup.campuses?.name ?? "Campus",
-          name: squad.name,
+          name: display.title,
           program: squad.program,
-          categoryLabel: squad.category_label || categoryLabel(anchorGroup),
-          sourceGroupNames: sourceGroups.map((group) => group.name),
+          categoryLabel: display.categoryLabel,
+          sourceGroupNames: sourceGroups.map((group) => formatTournamentGroupCardDisplay({
+            name: group.name,
+            program: group.program,
+            birthYearMin: group.birth_year_min,
+            birthYearMax: group.birth_year_max,
+          }).title),
           squads,
           report: report
             ? {

@@ -1,5 +1,9 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatCompetitionSquadDisplay,
+  formatTournamentGroupCardDisplay,
+} from "@/lib/training-groups/shared";
 import { getWeeklyCallupLivePaidRoster } from "@/lib/weekly-callups/live-roster";
 
 export type WeeklyCallupProgram = "selectivo" | "futbol_para_todos";
@@ -220,6 +224,7 @@ type FoundationSquadRow = {
   id: string;
   tournament_id: string;
   name: string;
+  squad_kind: string;
   program: WeeklyCallupProgram;
   category_label: string;
   coach_assignment_mode: "inherited" | "manual";
@@ -389,7 +394,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
   const squadsResult = tournamentIds.length
     ? await admin
         .from("competition_roster_squads")
-        .select("id, tournament_id, name, program, category_label, coach_assignment_mode, status")
+        .select("id, tournament_id, name, squad_kind, program, category_label, coach_assignment_mode, status")
         .in("tournament_id", tournamentIds)
         .neq("status", "archived")
         .order("sort_order")
@@ -506,10 +511,16 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
       const coach = coachRows[0]?.coaches;
       const coachName = (row: ComposerCoachRow) =>
         [row.coaches?.first_name, row.coaches?.last_name].filter(Boolean).join(" ");
+      const display = formatTournamentGroupCardDisplay({
+        name: group.name,
+        program: group.program,
+        birthYearMin: group.birth_year_min,
+        birthYearMax: group.birth_year_max,
+      });
       return {
         id: group.id,
         campusId: group.campus_id,
-        name: group.name,
+        name: display.title,
         program: group.program,
         categoryLabel: group.birth_year_min && group.birth_year_max
           ? group.birth_year_min === group.birth_year_max
@@ -532,16 +543,27 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
       const coach = coachRows[0]?.coaches;
       const coachName = (row: ComposerCoachRow | FoundationSquadCoachRow) =>
         [row.coaches?.first_name, row.coaches?.last_name].filter(Boolean).join(" ");
+      const display = formatCompetitionSquadDisplay({
+        name: squad.name,
+        program: squad.program,
+        categoryLabel: squad.category_label || undefined,
+        kind: squad.squad_kind,
+      });
       return [{
         id: squad.id,
         trainingGroupId: anchorGroup.id,
         squadId: squad.id,
         fixedTournamentId: squad.tournament_id,
         campusId: anchorGroup.campus_id,
-        name: squad.name,
+        name: display.title,
         program: squad.program,
-        categoryLabel: squad.category_label || anchorGroup.name,
-        sourceGroupNames: sourceGroups.map((group) => group.name),
+        categoryLabel: display.categoryLabel,
+        sourceGroupNames: sourceGroups.map((group) => formatTournamentGroupCardDisplay({
+          name: group.name,
+          program: group.program,
+          birthYearMin: group.birth_year_min,
+          birthYearMax: group.birth_year_max,
+        }).title),
         primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin profesor",
         auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       }];
@@ -788,12 +810,18 @@ export async function getWeeklyCallupDetail(
     usesApprovedSquadSnapshot,
     rosterComparison,
     manualCandidates,
-    categories: categories.map((category) => ({
+    categories: categories.map((category) => {
+      const display = formatCompetitionSquadDisplay({
+        name: category.training_group_name_snapshot,
+        program: callup.program,
+        categoryLabel: category.category_label,
+      });
+      return {
       id: category.id,
-      categoryLabel: category.category_label,
-      trainingGroupName: category.training_group_name_snapshot,
+      categoryLabel: display.categoryLabel,
+      trainingGroupName: display.teamLabel,
       tournamentName: category.tournament_name_snapshot ?? callup.tournaments?.name ?? "Torneo",
-      coachNames: category.coach_names_snapshot ?? "Sin coach",
+      coachNames: category.coach_names_snapshot ?? "Sin profesor",
       sortOrder: category.sort_order,
       isRest: category.is_rest,
       games: (gamesByCategory.get(category.id) ?? []).map((game) => {
@@ -831,6 +859,7 @@ export async function getWeeklyCallupDetail(
         rosterStatus: player.roster_status,
         manualReason: player.manual_reason,
       })),
-    })),
+    };
+    }),
   };
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const {
+  formatCompetitionSquadDisplay,
   formatTournamentGroupCardDisplay,
   formatTrainingGroupDisplayName,
   sanitizeTournamentTeamDisplayName,
@@ -35,6 +36,27 @@ assert.equal(
 );
 assert.equal(sanitizeTournamentTeamDisplayName("Intermedio B1 (-d08d)"), "Intermedio");
 assert.equal(sanitizeTournamentTeamDisplayName("PreJuvenil B1 (2aa8)"), "PreJuvenil");
+assert.equal(sanitizeTournamentTeamDisplayName("Intermedio B1 - d08d"), "Intermedio");
+assert.equal(sanitizeTournamentTeamDisplayName("Basico B1 - 805d"), "Basico");
+assert.equal(sanitizeTournamentTeamDisplayName("Selectivo 2015"), "Selectivo 2015");
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Avanzado B1 - d08d",
+    program: "futbol_para_todos",
+    categoryLabel: "2014",
+    kind: "single",
+  }),
+  { title: "2014 Futbol Para Todos", categoryLabel: "2014", teamLabel: "Futbol Para Todos" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Expert B3 Femenil (2aa8) Blanco",
+    program: "futbol_para_todos",
+    categoryLabel: "2012/2013",
+    kind: "blanco",
+  }),
+  { title: "2012/2013 Futbol Para Todos Femenil - Blanco", categoryLabel: "2012/2013", teamLabel: "Futbol Para Todos Femenil - Blanco" },
+);
 assert.deepEqual(
   formatTournamentGroupCardDisplay({
     name: "Avanzado B2 Femenil",

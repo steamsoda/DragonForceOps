@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [migration, writeBoundary, action, query, page, nav, sportsQuery] = await Promise.all([
+const [migration, writeBoundary, action, query, page, dashboard, nav, sportsQuery] = await Promise.all([
   readFile("supabase/migrations/20260806030000_weekly_callups_foundation.sql", "utf8"),
   readFile("supabase/migrations/20260806031000_weekly_callups_write_boundary.sql", "utf8"),
   readFile("src/server/actions/weekly-callups.ts", "utf8"),
   readFile("src/lib/queries/weekly-callups.ts", "utf8"),
   readFile("src/app/(protected)/convocatorias/page.tsx", "utf8"),
+  readFile("src/components/weekly-callups/current-week-dashboard.tsx", "utf8"),
   readFile("src/app/(protected)/layout.tsx", "utf8"),
   readFile("src/lib/queries/sports-signups.ts", "utf8"),
 ]);
@@ -39,8 +40,12 @@ assert.doesNotMatch(action, /from\("(?:charges|payments|payment_allocations)"\)/
 assert.doesNotMatch(query, /from\("(?:charges|payments|payment_allocations)"\)/);
 
 assert.match(page, /title="Convocatorias"/);
-assert.match(page, /Preparar convocatoria semanal/);
 assert.match(page, /plantel pagado/);
+assert.match(page, /CurrentWeekDashboard/);
+assert.match(dashboard, /Control de esta semana/);
+assert.match(dashboard, /Preparar convocatoria/);
+assert.match(dashboard, /Descargar PNG/);
+assert.match(dashboard, /Ver detalle/);
 assert.match(nav, /href: "\/convocatorias", label: "Convocatorias"/);
 
 console.log("weekly callups foundation assertions passed");

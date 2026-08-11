@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
 import {
-  sanitizeTournamentTeamDisplayName,
+  formatCompetitionSquadDisplay,
 } from "@/lib/training-groups/shared";
 
 type Props = {
@@ -118,17 +118,26 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
               const yearDifference = getSquadBirthYear(right) - getSquadBirthYear(left);
               return yearDifference || left.name.localeCompare(right.name, "es-MX");
             })
-            .map((squad) => (
+            .map((squad) => {
+              const display = formatCompetitionSquadDisplay({
+                name: squad.name,
+                program: data.program,
+                categoryLabel: squad.categoryLabel,
+                kind: squad.kind,
+              });
+              return (
             <article key={squad.id} className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
               <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-slate-950 dark:text-slate-50">
-                      {sanitizeTournamentTeamDisplayName(squad.name)}
+                      {display.title}
                     </h3>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {squad.sourceGroupNames.map(sanitizeTournamentTeamDisplayName).join(" + ") || "Sin grupo fuente"}
-                    </p>
+                    {squad.sourceGroupNames.length > 1 ? (
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Combina {squad.sourceGroupNames.length} grupos de entrenamiento
+                      </p>
+                    ) : null}
                   </div>
                   <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
                     {kindLabel(squad.kind)} · {squad.members.length}
@@ -145,7 +154,8 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
                 ))}
               </div>
             </article>
-          ))}
+              );
+            })}
         </div>
       )}
 

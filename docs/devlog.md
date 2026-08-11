@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-11 (session 300)
+
+### Canonical Tournament Team Labels - Polish Pass 1 (v1.17.34 Preview)
+
+- Added one shared competition-squad display formatter for `Inscripciones Torneos`, coach schedule reporting, the current-week `Convocatorias` matrix, and saved convocatoria detail. Futbol Para Todos teams now lead with YOB/program labels such as `2014 Futbol Para Todos`; Azul/Blanco and Femenil distinctions remain explicit.
+- Expanded display-only suffix cleanup to cover both parenthesized generated tokens and bare suffixes such as `- d08d` or `- 805d`. Stored squad/group names, IDs, source-group links, players, professor assignments, registrations, and historical snapshots remain unchanged.
+- Replaced raw source-group labels below live team cards with a concise combined-group count, showed each pending matrix row's fixed tournament, changed detail terminology from `Coach` to `Profesor`, and sorted the selected matrix by YOB before team name.
+- Added focused formatter regressions and verified TypeScript plus live-roster, coach-scope, and weekly-composer checks. No migration is required.
+- Next: Pass 2 exposes guarded admin/director game entry from every current-week detail card. Pass 3 will polish the convocatoria PNG layout after operational review.
+
 ## 2026-08-11 (session 299)
 
 ### Instant Tournament Program Filters And Roster Display Cleanup (v1.17.33 Production)

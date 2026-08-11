@@ -69,8 +69,16 @@ export function formatTrainingGroupDisplayName(group: {
 }
 
 export function sanitizeTrainingGroupDisplayName(value: string) {
-  return value
-    .replace(/\s*\(-?[a-z0-9]{4}\)\s*$/i, "")
+  const withoutParenthesizedSuffix = value.replace(
+    /\s*\(-?([a-z0-9]{4})\)\s*$/i,
+    (match, token: string) => /[a-z]/i.test(token) ? "" : match,
+  );
+  const withoutBareSuffix = withoutParenthesizedSuffix.replace(
+    /\s*-\s*([a-z0-9]{4})\s*$/i,
+    (match, token: string) => /[a-z]/i.test(token) ? "" : match,
+  );
+
+  return withoutBareSuffix
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -80,6 +88,35 @@ export function sanitizeTournamentTeamDisplayName(value: string) {
     .replace(/\bB[123]\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function formatCompetitionSquadDisplay(squad: {
+  name: string;
+  program?: string | null;
+  categoryLabel?: string | null;
+  kind?: string | null;
+}) {
+  const sanitizedName = sanitizeTournamentTeamDisplayName(squad.name);
+  const categoryYears = `${squad.categoryLabel ?? ""} ${sanitizedName}`
+    .match(/(?:19|20)\d{2}/g);
+  const categoryLabel = categoryYears
+    ? [...new Set(categoryYears)].join("/")
+    : sanitizeTournamentTeamDisplayName(squad.categoryLabel ?? "") || "Sin categoria";
+  const programLabel = TRAINING_GROUP_PROGRAM_LABELS[squad.program ?? ""] ?? "Programa sin definir";
+  const isFemale = /\bfemenil\b/i.test(sanitizedName);
+  const kindLabel = squad.kind === "azul" || /\bazul\b/i.test(sanitizedName)
+    ? "Azul"
+    : squad.kind === "blanco" || /\bblanco\b/i.test(sanitizedName)
+      ? "Blanco"
+      : null;
+  const programTeamLabel = [programLabel, isFemale ? "Femenil" : null].filter(Boolean).join(" ");
+  const teamLabel = kindLabel ? `${programTeamLabel} - ${kindLabel}` : programTeamLabel;
+
+  return {
+    title: categoryLabel === "Sin categoria" ? teamLabel : `${categoryLabel} ${teamLabel}`,
+    categoryLabel,
+    teamLabel,
+  };
 }
 
 export function formatTournamentGroupCardDisplay(group: {

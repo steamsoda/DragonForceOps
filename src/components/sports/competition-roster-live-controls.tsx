@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
+import { formatCompetitionSquadDisplay } from "@/lib/training-groups/shared";
 import {
   assignPendingCompetitionRosterSplitMemberAction,
   setCompetitionRosterExclusionInlineAction,
@@ -48,6 +49,12 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
     () => data.manualHelpers.find((helper) => `${helper.squadId}:${helper.enrollmentId}` === removeHelperKey) ?? null,
     [data.manualHelpers, removeHelperKey],
   );
+  const squadName = (squad: { name: string; categoryLabel?: string | null; kind?: string | null }) => formatCompetitionSquadDisplay({
+    name: squad.name,
+    program: data.program,
+    categoryLabel: squad.categoryLabel,
+    kind: squad.kind,
+  }).title;
 
   function run(action: () => Promise<CompetitionRosterInlineActionResult>, afterSuccess?: () => void) {
     setMessage(null);
@@ -88,7 +95,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
                         type="button"
                         disabled={isPending}
                         onClick={() => {
-                          if (!window.confirm(`Asignar a ${player.playerName} en ${squad.name}?`)) return;
+                          if (!window.confirm(`Asignar a ${player.playerName} en ${squadName(squad)}?`)) return;
                           run(() => assignPendingCompetitionRosterSplitMemberAction({
                             tournamentId: data.tournamentId,
                             campusId: data.campusId,
@@ -163,7 +170,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
             <div><h4 className="font-semibold">Agregar refuerzo</h4><p className="text-xs text-slate-500">No crea pago ni cambia su grupo de entrenamiento.</p></div>
             <select required value={helperSquadId} onChange={(event) => setHelperSquadId(event.target.value)} className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900">
               <option value="">Equipo destino</option>
-              {data.squads.map((squad) => <option key={squad.id} value={squad.id}>{squad.name}</option>)}
+              {data.squads.map((squad) => <option key={squad.id} value={squad.id}>{squadName(squad)}</option>)}
             </select>
             <select required value={helperEnrollmentId} onChange={(event) => setHelperEnrollmentId(event.target.value)} className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900">
               <option value="">Jugador activo del campus</option>

@@ -256,9 +256,9 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
               <section key={category.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-portoBlue">{category.categoryLabel} - {category.trainingGroupName}</h2>
+                    <h2 className="text-lg font-semibold text-portoBlue">{category.categoryLabel} {category.trainingGroupName}</h2>
                     <p className="text-sm font-medium text-slate-700">{category.tournamentName}</p>
-                    <p className="text-sm text-slate-600">Coach: {category.coachNames}</p>
+                    <p className="text-sm text-slate-600">Profesor: {category.coachNames}</p>
                     <p className="text-sm text-slate-500">{included.length} incluidos | {excluded.length} excluidos | {category.games.length} partidos</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

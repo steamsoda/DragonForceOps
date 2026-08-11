@@ -172,14 +172,13 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
         ...group,
         report,
         campusName: data.campuses.find((campus) => campus.id === group.campusId)?.name ?? "Campus",
-        tournamentName: report ? tournamentById.get(report.tournamentId) ?? "Torneo" : "-",
+        tournamentName: tournamentById.get(report?.tournamentId ?? group.fixedTournamentId) ?? "Torneo",
       };
     })
     .sort((a, b) => {
       const reportOrder = Number(Boolean(a.report)) - Number(Boolean(b.report));
       if (reportOrder !== 0) return reportOrder;
-      return a.primaryCoachName.localeCompare(b.primaryCoachName, "es")
-        || b.categoryLabel.localeCompare(a.categoryLabel, "es", { numeric: true })
+      return b.categoryLabel.localeCompare(a.categoryLabel, "es", { numeric: true })
         || a.name.localeCompare(b.name, "es");
     });
 
