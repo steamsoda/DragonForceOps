@@ -4,6 +4,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-form";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { CoachScheduleForm } from "@/components/weekly-callups/coach-schedule-form";
+import { CoachScheduleLiveRefresh } from "@/components/weekly-callups/live-refresh";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
@@ -77,7 +78,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
       </PageShell>
     );
   }
-  const data = await getWeeklyCallupsFoundationData();
+  const data = await getWeeklyCallupsFoundationData(params.week);
   if (!data) redirect("/unauthorized");
   const selectedCampusId = data.campuses.some((campus) => campus.id === params.campus)
     ? params.campus!
@@ -88,7 +89,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
   );
   const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
   const selectionHref = (campusId: string, program: string) =>
-    `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}`;
+    `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
 
   return (
     <PageShell
@@ -97,6 +98,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
       subtitle="Prepara los planteles semanales para WhatsApp a partir de inscripciones de torneo pagadas."
     >
       <div className="space-y-5">
+        <CoachScheduleLiveRefresh />
         {params.err ? (
           <p className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             {ERROR_MESSAGES[params.err] ?? "No se pudo completar la accion."}
@@ -144,7 +146,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           </div>
 
           <WeeklyCallupComposerForm
-            key={`${selectedCampusId}:${selectedProgram}`}
+            key={`${selectedCampusId}:${selectedProgram}:${data.currentWeekStart}`}
             campusId={selectedCampusId}
             program={selectedProgram}
             currentWeekStart={data.currentWeekStart}

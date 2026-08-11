@@ -15,6 +15,9 @@ const layout = read("src/app/(protected)/layout.tsx");
 const coachQuery = read("src/lib/queries/coach-schedules.ts");
 const coachAction = read("src/server/actions/coach-schedules.ts");
 const coachForm = read("src/components/weekly-callups/coach-schedule-form.tsx");
+const composerForm = read("src/components/weekly-callups/composer-form.tsx");
+const liveRefresh = read("src/components/weekly-callups/live-refresh.tsx");
+const weeklyCallupAction = read("src/server/actions/weekly-callups.ts");
 const usersAction = read("src/server/actions/users.ts");
 const callupPage = read("src/app/(protected)/convocatorias/page.tsx");
 
@@ -39,6 +42,13 @@ assert(coachForm.includes("Reporte enviado a administracion") && coachForm.inclu
 assert(usersAction.includes("linkCoachUserAction") && usersAction.includes("coach.account_linked"), "Super Admin must explicitly link and audit coach accounts.");
 assert(callupPage.includes("permission?.isCoach") && callupPage.includes("getCoachSchedulePageData"), "Coach route must render the scoped view.");
 assert(callupPage.includes("Modo de prueba de coach") && callupPage.includes("El resto del modo Ver como permanece en solo lectura"), "The coach page must explain its narrow Preview write exception.");
+assert(callupPage.includes("CoachScheduleLiveRefresh"), "The admin convocatoria view must refresh current coach reports.");
+assert(callupPage.includes("getWeeklyCallupsFoundationData(params.week)"), "The admin handoff must load coach reports for the selected week.");
+assert(liveRefresh.includes("10_000") && liveRefresh.includes("router.refresh()") && liveRefresh.includes('window.addEventListener("focus"'), "Coach reports must refresh periodically and when the admin returns to the page.");
+assert(composerForm.includes('name={`games:${group.id}`}') && composerForm.includes("reported.games.map"), "The admin composer must preload every coach-reported game.");
+assert(composerForm.includes("dirtyGroupIds.has(group.id)"), "Live refresh must not overwrite a group the admin has edited.");
+assert(composerForm.includes("router.replace(`/convocatorias?campus="), "Changing the admin week must reload that week's coach reports.");
+assert(weeklyCallupAction.includes("composerGamesValue") && weeklyCallupAction.includes("row.games!.map"), "Convocatoria creation must validate and persist all reported games.");
 assert(!coachAction.includes("weekly_callup_players") && !coachAction.includes("competition_roster"), "Coach actions must not edit roster membership.");
 
 console.log("Coach convocatoria scope assertions passed.");

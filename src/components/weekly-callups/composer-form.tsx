@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   createWeeklyCallupComposerAction,
   type WeeklyCallupComposerState,
@@ -18,12 +19,16 @@ type ComposerTournament = {
   name: string;
 };
 
-type ComposerRow = {
-  tournamentId: string;
+type ComposerGame = {
   matchDate: string;
   arrivalTime: string;
   venue: string;
   opponent: string;
+};
+
+type ComposerRow = {
+  tournamentId: string;
+  games: ComposerGame[];
   isRest: boolean;
 };
 
@@ -36,6 +41,8 @@ type CoachScheduleDefault = {
 };
 
 type ClientError = NonNullable<WeeklyCallupComposerState>;
+
+const EMPTY_GAME: ComposerGame = { matchDate: "", arrivalTime: "", venue: "", opponent: "" };
 
 function isMonday(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -60,7 +67,9 @@ function validateComposer(weekStart: string, rows: Record<string, ComposerRow>):
   const rowErrors: Record<string, string> = {};
   let selectedCount = 0;
   for (const [groupId, row] of Object.entries(rows)) {
-    const hasAnyGameValue = Boolean(row.matchDate || row.arrivalTime || row.venue.trim() || row.opponent.trim());
+    const hasAnyGameValue = row.games.some((game) =>
+      Boolean(game.matchDate || game.arrivalTime || game.venue.trim() || game.opponent.trim()),
+    );
     if (!row.tournamentId && (row.isRest || hasAnyGameValue)) {
       rowErrors[groupId] = "Selecciona un torneo para este grupo o limpia los datos capturados.";
       continue;
@@ -69,18 +78,21 @@ function validateComposer(weekStart: string, rows: Record<string, ComposerRow>):
     selectedCount += 1;
     if (row.isRest) continue;
 
-    const missing = [
-      !row.matchDate ? "fecha" : "",
-      !row.arrivalTime ? "hora de cita" : "",
-      !row.venue.trim() ? "sede" : "",
-      !row.opponent.trim() ? "rival" : "",
-    ].filter(Boolean);
-    if (missing.length > 0) {
-      rowErrors[groupId] = `Completa: ${missing.join(", ")}.`;
-      continue;
-    }
-    if (!dateWithinWeek(row.matchDate, weekStart)) {
-      rowErrors[groupId] = "La fecha del partido debe estar entre el lunes y domingo de la semana elegida.";
+    for (const [gameIndex, game] of row.games.entries()) {
+      const missing = [
+        !game.matchDate ? "fecha" : "",
+        !game.arrivalTime ? "hora de cita" : "",
+        !game.venue.trim() ? "sede" : "",
+        !game.opponent.trim() ? "rival" : "",
+      ].filter(Boolean);
+      if (missing.length > 0) {
+        rowErrors[groupId] = `Partido ${gameIndex + 1}: completa ${missing.join(", ")}.`;
+        break;
+      }
+      if (!dateWithinWeek(game.matchDate, weekStart)) {
+        rowErrors[groupId] = `Partido ${gameIndex + 1}: la fecha debe estar entre el lunes y domingo de la semana elegida.`;
+        break;
+      }
     }
   }
 
@@ -108,16 +120,13 @@ export function WeeklyCallupComposerForm({
   tournaments: ComposerTournament[];
   coachScheduleDefaults?: Record<string, CoachScheduleDefault>;
 }) {
+  const router = useRouter();
   const initialRows = useMemo(
     () => Object.fromEntries(groups.map((group) => {
       const reported = coachScheduleDefaults[group.id];
-      const firstGame = reported?.games[0];
       return [group.id, {
         tournamentId: reported?.tournamentId ?? "",
-        matchDate: firstGame?.matchDate ?? "",
-        arrivalTime: firstGame?.arrivalTime ?? "",
-        venue: firstGame?.venue ?? "",
-        opponent: firstGame?.opponent ?? "",
+        games: reported?.games.length ? reported.games.map((game) => ({ ...game })) : [{ ...EMPTY_GAME }],
         isRest: reported?.isRest ?? false,
       }];
     })),
@@ -125,14 +134,34 @@ export function WeeklyCallupComposerForm({
   );
   const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [rows, setRows] = useState<Record<string, ComposerRow>>(initialRows);
+  const [dirtyGroupIds, setDirtyGroupIds] = useState<Set<string>>(() => new Set());
   const [clientError, setClientError] = useState<ClientError | null>(null);
   const [serverState, formAction, isPending] = useActionState(createWeeklyCallupComposerAction, null);
   const alertRef = useRef<HTMLDivElement>(null);
   const error = clientError ?? serverState;
 
+  useEffect(() => {
+    setRows((current) => Object.fromEntries(groups.map((group) => [
+      group.id,
+      dirtyGroupIds.has(group.id) ? current[group.id] ?? initialRows[group.id] : initialRows[group.id],
+    ])));
+  }, [dirtyGroupIds, groups, initialRows]);
+
+  function markDirty(groupId: string) {
+    setDirtyGroupIds((current) => new Set(current).add(groupId));
+  }
+
   function updateRow(groupId: string, patch: Partial<ComposerRow>) {
     setRows((current) => ({ ...current, [groupId]: { ...current[groupId], ...patch } }));
+    markDirty(groupId);
     setClientError(null);
+  }
+
+  function updateGame(groupId: string, gameIndex: number, patch: Partial<ComposerGame>) {
+    const row = rows[groupId];
+    updateRow(groupId, {
+      games: row.games.map((game, index) => index === gameIndex ? { ...game, ...patch } : game),
+    });
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -165,8 +194,12 @@ export function WeeklyCallupComposerForm({
             type="date"
             value={weekStart}
             onChange={(event) => {
-              setWeekStart(event.target.value);
+              const nextWeek = event.target.value;
+              setWeekStart(nextWeek);
               setClientError(null);
+              if (isMonday(nextWeek)) {
+                router.replace(`/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(nextWeek)}`);
+              }
             }}
             required
             className="min-h-10 rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950"
@@ -189,6 +222,7 @@ export function WeeklyCallupComposerForm({
                 <tr key={group.id} className={`align-top ${rowError ? "bg-rose-50" : "odd:bg-white even:bg-slate-50/70"}`}>
                   <td className="px-3 py-2">
                     <input type="hidden" name="groupId" value={group.id} />
+                    <input type="hidden" name={`games:${group.id}`} value={JSON.stringify(row.isRest ? [] : row.games)} />
                     <strong className="block text-portoBlue">{group.name}</strong>
                     <span className="text-xs text-slate-500">Cat. {group.categoryLabel}</span>
                     {rowError ? <p className="mt-2 max-w-52 text-xs font-semibold text-rose-700">{rowError}</p> : null}
@@ -198,8 +232,11 @@ export function WeeklyCallupComposerForm({
                     {coachScheduleDefaults[group.id] ? (
                       <span className="mt-1 block text-xs font-semibold text-emerald-700">
                         Reportado por {coachScheduleDefaults[group.id].coachName}
-                        {coachScheduleDefaults[group.id].games.length > 1 ? ` | ${coachScheduleDefaults[group.id].games.length} partidos (el primero se precarga)` : ""}
+                        {coachScheduleDefaults[group.id].games.length > 1 ? ` | ${coachScheduleDefaults[group.id].games.length} partidos` : ""}
                       </span>
+                    ) : null}
+                    {coachScheduleDefaults[group.id]?.notes ? (
+                      <span className="mt-1 block max-w-52 text-xs text-slate-500">{coachScheduleDefaults[group.id].notes}</span>
                     ) : null}
                   </td>
                   <td className="px-3 py-2">
@@ -214,11 +251,14 @@ export function WeeklyCallupComposerForm({
                       {tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}
                     </select>
                   </td>
-                  <td className="px-3 py-2"><input type="date" name={`matchDate:${group.id}`} value={row.matchDate} onChange={(event) => updateRow(group.id, { matchDate: event.target.value })} disabled={row.isRest} className="min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" /></td>
-                  <td className="px-3 py-2"><input type="time" name={`arrivalTime:${group.id}`} value={row.arrivalTime} onChange={(event) => updateRow(group.id, { arrivalTime: event.target.value })} disabled={row.isRest} className="min-h-9 w-28 rounded border border-slate-300 px-2 disabled:bg-slate-100" /></td>
-                  <td className="px-3 py-2"><input name={`venue:${group.id}`} value={row.venue} onChange={(event) => updateRow(group.id, { venue: event.target.value })} disabled={row.isRest} placeholder="Sede" className="min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" /></td>
-                  <td className="px-3 py-2"><input name={`opponent:${group.id}`} value={row.opponent} onChange={(event) => updateRow(group.id, { opponent: event.target.value })} disabled={row.isRest} placeholder="Rival" className="min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" /></td>
-                  <td className="px-3 py-3 text-center"><input type="checkbox" name={`isRest:${group.id}`} checked={row.isRest} onChange={(event) => updateRow(group.id, { isRest: event.target.checked })} value="yes" className="h-4 w-4" /></td>
+                  <td className="space-y-2 px-3 py-2">{row.games.map((game, index) => <input key={index} type="date" value={game.matchDate} onChange={(event) => updateGame(group.id, index, { matchDate: event.target.value })} disabled={row.isRest} className="block min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" />)}</td>
+                  <td className="space-y-2 px-3 py-2">{row.games.map((game, index) => <input key={index} type="time" value={game.arrivalTime} onChange={(event) => updateGame(group.id, index, { arrivalTime: event.target.value })} disabled={row.isRest} className="block min-h-9 w-28 rounded border border-slate-300 px-2 disabled:bg-slate-100" />)}</td>
+                  <td className="space-y-2 px-3 py-2">{row.games.map((game, index) => <input key={index} value={game.venue} onChange={(event) => updateGame(group.id, index, { venue: event.target.value })} disabled={row.isRest} placeholder="Sede" className="block min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" />)}</td>
+                  <td className="space-y-2 px-3 py-2">{row.games.map((game, index) => <div key={index} className="flex gap-1"><input value={game.opponent} onChange={(event) => updateGame(group.id, index, { opponent: event.target.value })} disabled={row.isRest} placeholder="Rival" className="min-h-9 w-36 rounded border border-slate-300 px-2 disabled:bg-slate-100" />{row.games.length > 1 ? <button type="button" title="Quitar partido" onClick={() => updateRow(group.id, { games: row.games.filter((_, gameIndex) => gameIndex !== index) })} className="rounded border border-slate-300 px-2 text-xs">Quitar</button> : null}</div>)}</td>
+                  <td className="space-y-3 px-3 py-3 text-center">
+                    <input type="checkbox" name={`isRest:${group.id}`} checked={row.isRest} onChange={(event) => updateRow(group.id, { isRest: event.target.checked })} value="yes" className="h-4 w-4" />
+                    {!row.isRest && row.games.length < 3 ? <button type="button" onClick={() => updateRow(group.id, { games: [...row.games, { ...EMPTY_GAME }] })} className="block rounded border border-portoBlue px-2 py-1 text-xs font-medium text-portoBlue">+ Partido</button> : null}
+                  </td>
                 </tr>
               );
             })}

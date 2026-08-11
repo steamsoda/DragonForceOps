@@ -283,7 +283,13 @@ export function getMonterreyWeekStart(now = new Date()) {
   return localDate.toISOString().slice(0, 10);
 }
 
-export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFoundationData | null> {
+function validMonday(value: string | undefined) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? "")) return null;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(date.valueOf()) || date.getUTCDay() !== 1 ? null : value!;
+}
+
+export async function getWeeklyCallupsFoundationData(week?: string): Promise<WeeklyCallupsFoundationData | null> {
   const context = await getPermissionContext();
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
 
@@ -327,7 +333,7 @@ export async function getWeeklyCallupsFoundationData(): Promise<WeeklyCallupsFou
   if (groupsResult.error) throw groupsResult.error;
   if (coachesResult.error) throw coachesResult.error;
 
-  const currentWeekStart = getMonterreyWeekStart();
+  const currentWeekStart = validMonday(week) ?? getMonterreyWeekStart();
   const groupIds = (groupsResult.data ?? []).map((group) => group.id);
   const coachReportsResult = groupIds.length
     ? await admin

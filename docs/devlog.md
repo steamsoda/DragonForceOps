@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 (session 290)
+
+### Live Multi-Game Coach Handoff (v1.17.24 Preview)
+
+- Completed the coach-to-admin schedule handoff: all one-to-three games reported for a training group now preload into the admin convocatoria composer and are copied into the final saved convocatoria instead of silently using only the first game.
+- The admin view refreshes current coach reports every 10 seconds and whenever the browser regains focus. The week selector loads reports for that exact Monday-Sunday period, including future weeks. Untouched group rows receive current coach changes, while rows already edited by the admin are protected from automatic overwrite.
+- Coach notes remain visible as operational context. Server validation independently checks every game is complete, within the selected Monday-Sunday week, and limited to three games before any convocatoria is created.
+- This pass changes only schedule-report reads and convocatoria game creation. It does not modify paid registrations, squad membership, training groups, attendance, or finance.
+
 ## 2026-08-10 (session 289)
 
 ### Preview Debug Lockout Escape Hatch (v1.17.23 Preview)

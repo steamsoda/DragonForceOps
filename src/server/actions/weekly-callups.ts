@@ -94,6 +94,32 @@ function textValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+type ComposerGameInput = {
+  matchDate: string;
+  arrivalTime: string;
+  venue: string;
+  opponent: string;
+};
+
+function composerGamesValue(formData: FormData, key: string): ComposerGameInput[] | null {
+  try {
+    const parsed: unknown = JSON.parse(textValue(formData, key) || "[]");
+    if (!Array.isArray(parsed) || parsed.length > 3) return null;
+    return parsed.map((value) => {
+      if (!value || typeof value !== "object") throw new Error("invalid_game");
+      const game = value as Record<string, unknown>;
+      return {
+        matchDate: String(game.matchDate ?? "").trim(),
+        arrivalTime: String(game.arrivalTime ?? "").trim(),
+        venue: String(game.venue ?? "").trim(),
+        opponent: String(game.opponent ?? "").trim(),
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
 function isMondayIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T12:00:00Z`);
@@ -454,15 +480,16 @@ export async function createWeeklyCallupComposerAction(
     groupId,
     tournamentId: textValue(formData, `tournamentId:${groupId}`),
     isRest: textValue(formData, `isRest:${groupId}`) === "yes",
-    matchDate: textValue(formData, `matchDate:${groupId}`),
-    arrivalTime: textValue(formData, `arrivalTime:${groupId}`),
-    venue: textValue(formData, `venue:${groupId}`),
-    opponent: textValue(formData, `opponent:${groupId}`),
+    games: composerGamesValue(formData, `games:${groupId}`),
   }));
 
   const rowErrors: Record<string, string> = {};
   for (const row of submittedRows) {
-    const hasAnyGameValue = Boolean(row.matchDate || row.arrivalTime || row.venue || row.opponent);
+    if (!row.games) {
+      rowErrors[row.groupId] = "Los partidos reportados no tienen un formato valido. Recarga la pagina e intenta nuevamente.";
+      continue;
+    }
+    const hasAnyGameValue = row.games.some((game) => Boolean(game.matchDate || game.arrivalTime || game.venue || game.opponent));
     if (!row.tournamentId && (row.isRest || hasAnyGameValue)) {
       rowErrors[row.groupId] = "Selecciona un torneo para este grupo o limpia los datos capturados.";
       continue;
@@ -472,23 +499,24 @@ export async function createWeeklyCallupComposerAction(
       rowErrors[row.groupId] = "El torneo seleccionado ya no es valido. Seleccionalo nuevamente.";
       continue;
     }
-    const hasCompleteGame = Boolean(row.matchDate && row.arrivalTime && row.venue && row.opponent);
     if (row.isRest && hasAnyGameValue) {
       rowErrors[row.groupId] = "Si el grupo descansa, limpia la fecha, hora, sede y rival.";
       continue;
     }
-    if (!row.isRest && !hasCompleteGame) {
-      const missing = [
-        !row.matchDate ? "fecha" : "",
-        !row.arrivalTime ? "hora de cita" : "",
-        !row.venue ? "sede" : "",
-        !row.opponent ? "rival" : "",
-      ].filter(Boolean).join(", ");
-      rowErrors[row.groupId] = `Completa: ${missing}.`;
+    if (!row.isRest && row.games.length === 0) {
+      rowErrors[row.groupId] = "Agrega al menos un partido o marca Descansa.";
       continue;
     }
-    if (!row.isRest && !dateWithinWeek(row.matchDate, weekStart)) {
-      rowErrors[row.groupId] = "La fecha del partido debe estar entre el lunes y domingo de la semana elegida.";
+    for (const [gameIndex, game] of row.games.entries()) {
+      const missing = [!game.matchDate ? "fecha" : "", !game.arrivalTime ? "hora de cita" : "", !game.venue ? "sede" : "", !game.opponent ? "rival" : ""].filter(Boolean);
+      if (missing.length > 0) {
+        rowErrors[row.groupId] = `Partido ${gameIndex + 1}: completa ${missing.join(", ")}.`;
+        break;
+      }
+      if (!dateWithinWeek(game.matchDate, weekStart)) {
+        rowErrors[row.groupId] = `Partido ${gameIndex + 1}: la fecha debe estar entre el lunes y domingo de la semana elegida.`;
+        break;
+      }
     }
   }
   if (Object.keys(rowErrors).length > 0) {
@@ -636,14 +664,14 @@ export async function createWeeklyCallupComposerAction(
         if (playerResult.error) throw playerResult.error;
       }
       if (!row.isRest) {
-        const gameResult = await admin.from("weekly_callup_games").insert({
+        const gameResult = await admin.from("weekly_callup_games").insert(row.games!.map((game, gameIndex) => ({
           weekly_callup_category_id: categoryResult.data.id,
-          match_date: row.matchDate,
-          arrival_time: row.arrivalTime,
-          venue: row.venue,
-          opponent: row.opponent,
-          sort_order: 0,
-        });
+          match_date: game.matchDate,
+          arrival_time: game.arrivalTime,
+          venue: game.venue,
+          opponent: game.opponent,
+          sort_order: gameIndex,
+        })));
         if (gameResult.error) throw gameResult.error;
       }
     }
