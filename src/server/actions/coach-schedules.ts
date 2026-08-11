@@ -78,11 +78,12 @@ export async function saveCoachScheduleAction(
     return { ok: false, message: "El modo Ver como es de solo lectura para esta accion." };
   }
   const trainingGroupId = clean(formData, "trainingGroupId");
+  const squadId = clean(formData, "squadId");
   const weekStart = clean(formData, "weekStart");
   const tournamentId = clean(formData, "tournamentId");
   const isRest = clean(formData, "isRest") === "yes";
   const notes = clean(formData, "notes");
-  if (!isUuid(trainingGroupId) || !isUuid(tournamentId) || !isMonday(weekStart) || notes.length > 500) {
+  if (!isUuid(trainingGroupId) || !isUuid(squadId) || !isUuid(tournamentId) || !isMonday(weekStart) || notes.length > 500) {
     return { ok: false, message: "Revisa la semana, el torneo y los datos capturados." };
   }
 
@@ -127,12 +128,13 @@ export async function saveCoachScheduleAction(
 
   const admin = createAdminClient();
   const actorUserId = isWritableCoachPreview ? debugContext!.actor.id : context.user.id;
-  const result = await admin.rpc("save_coach_weekly_schedule_report_v2", {
+  const result = await admin.rpc("save_coach_weekly_schedule_report_v3", {
     p_actor_user_id: actorUserId,
     p_effective_user_id: context.user.id,
     p_coach_id: context.coachId,
     p_week_start: weekStart,
     p_training_group_id: trainingGroupId,
+    p_competition_roster_squad_id: squadId,
     p_tournament_id: tournamentId,
     p_is_rest: isRest,
     p_notes: notes || null,
@@ -150,6 +152,7 @@ export async function saveCoachScheduleAction(
     recordId: typeof result.data === "string" ? result.data : null,
     afterData: {
       training_group_id: trainingGroupId,
+      competition_roster_squad_id: squadId,
       week_start: weekStart,
       tournament_id: tournamentId,
       coach_id: context.coachId,

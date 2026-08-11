@@ -41,6 +41,18 @@ export type WeeklyCallupsFoundationData = {
     primaryCoachName: string;
     auxiliaryCoachNames: string[];
   }>;
+  scheduleUnits: Array<{
+    id: string;
+    trainingGroupId: string;
+    squadId: string;
+    fixedTournamentId: string;
+    campusId: string;
+    name: string;
+    program: WeeklyCallupProgram;
+    categoryLabel: string;
+    primaryCoachName: string;
+    auxiliaryCoachNames: string[];
+  }>;
   canDeleteCallups: boolean;
   coachScheduleDefaults: Record<string, {
     tournamentId: string;
@@ -195,10 +207,28 @@ type ComposerCoachRow = {
 type CoachScheduleReportRow = {
   id: string;
   training_group_id: string;
+  competition_roster_squad_id: string | null;
   tournament_id: string;
   is_rest: boolean;
   notes: string | null;
   updated_at: string;
+  coaches: { first_name: string | null; last_name: string | null } | null;
+};
+
+type FoundationSquadRow = {
+  id: string;
+  tournament_id: string;
+  name: string;
+  program: WeeklyCallupProgram;
+  category_label: string;
+  coach_assignment_mode: "inherited" | "manual";
+  status: string;
+};
+
+type FoundationSquadGroupRow = { squad_id: string; training_group_id: string };
+type FoundationSquadCoachRow = {
+  squad_id: string;
+  is_primary: boolean;
   coaches: { first_name: string | null; last_name: string | null } | null;
 };
 
@@ -354,12 +384,36 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
 
   const currentWeekStart = validMonday(week) ?? getMonterreyWeekStart();
   const groupIds = (groupsResult.data ?? []).map((group) => group.id);
-  const coachReportsResult = groupIds.length
+  const tournamentIds = (tournamentsResult.data ?? []).map((tournament) => tournament.id);
+  const squadsResult = tournamentIds.length
+    ? await admin
+        .from("competition_roster_squads")
+        .select("id, tournament_id, name, program, category_label, coach_assignment_mode, status")
+        .in("tournament_id", tournamentIds)
+        .neq("status", "archived")
+        .order("sort_order")
+        .order("name")
+        .returns<FoundationSquadRow[]>()
+    : { data: [] as FoundationSquadRow[], error: null };
+  if (squadsResult.error) throw squadsResult.error;
+  const squadIds = (squadsResult.data ?? []).map((squad) => squad.id);
+  const [squadGroupsResult, squadCoachesResult] = await Promise.all([
+    squadIds.length
+      ? admin.from("competition_roster_squad_groups").select("squad_id, training_group_id").in("squad_id", squadIds).returns<FoundationSquadGroupRow[]>()
+      : Promise.resolve({ data: [] as FoundationSquadGroupRow[], error: null }),
+    squadIds.length
+      ? admin.from("competition_roster_squad_coaches").select("squad_id, is_primary, coaches(first_name, last_name)").in("squad_id", squadIds).returns<FoundationSquadCoachRow[]>()
+      : Promise.resolve({ data: [] as FoundationSquadCoachRow[], error: null }),
+  ]);
+  if (squadGroupsResult.error) throw squadGroupsResult.error;
+  if (squadCoachesResult.error) throw squadCoachesResult.error;
+
+  const coachReportsResult = squadIds.length
     ? await admin
         .from("coach_weekly_schedule_reports")
-        .select("id, training_group_id, tournament_id, is_rest, notes, updated_at, coaches(first_name, last_name)")
+        .select("id, training_group_id, competition_roster_squad_id, tournament_id, is_rest, notes, updated_at, coaches(first_name, last_name)")
         .eq("week_start", currentWeekStart)
-        .in("training_group_id", groupIds)
+        .in("competition_roster_squad_id", squadIds)
         .returns<CoachScheduleReportRow[]>()
     : { data: [] as CoachScheduleReportRow[], error: null };
   if (coachReportsResult.error) throw coachReportsResult.error;
@@ -380,6 +434,19 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
     current.push(row);
     coachRowsByGroup.set(row.training_group_id, current);
   }
+  const directCoachRowsBySquad = new Map<string, FoundationSquadCoachRow[]>();
+  for (const row of squadCoachesResult.data ?? []) {
+    const current = directCoachRowsBySquad.get(row.squad_id) ?? [];
+    current.push(row);
+    directCoachRowsBySquad.set(row.squad_id, current);
+  }
+  const sourceGroupIdsBySquad = new Map<string, string[]>();
+  for (const row of squadGroupsResult.data ?? []) {
+    const current = sourceGroupIdsBySquad.get(row.squad_id) ?? [];
+    current.push(row.training_group_id);
+    sourceGroupIdsBySquad.set(row.squad_id, current);
+  }
+  const groupById = new Map((groupsResult.data ?? []).map((group) => [group.id, group]));
 
   const callupIds = (callupsResult.data ?? []).map((row) => row.id);
   const categoriesResult = callupIds.length
@@ -448,14 +515,40 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
             ? String(group.birth_year_min)
             : `${group.birth_year_min}/${group.birth_year_max}`
           : group.name,
-        primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin coach",
+        primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin profesor",
         auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       };
     }),
+    scheduleUnits: (squadsResult.data ?? []).flatMap((squad) => {
+      const sourceGroupIds = sourceGroupIdsBySquad.get(squad.id) ?? [];
+      const sourceGroups = sourceGroupIds.map((id) => groupById.get(id)).filter((group): group is ComposerGroupRow => Boolean(group));
+      const anchorGroup = sourceGroups[0];
+      if (!anchorGroup) return [];
+      const inheritedCoachRows = sourceGroupIds.flatMap((id) => coachRowsByGroup.get(id) ?? []);
+      const coachRows = (squad.coach_assignment_mode === "manual" ? directCoachRowsBySquad.get(squad.id) ?? [] : inheritedCoachRows).sort(
+        (a, b) => Number(b.is_primary) - Number(a.is_primary),
+      );
+      const coach = coachRows[0]?.coaches;
+      const coachName = (row: ComposerCoachRow | FoundationSquadCoachRow) =>
+        [row.coaches?.first_name, row.coaches?.last_name].filter(Boolean).join(" ");
+      return [{
+        id: squad.id,
+        trainingGroupId: anchorGroup.id,
+        squadId: squad.id,
+        fixedTournamentId: squad.tournament_id,
+        campusId: anchorGroup.campus_id,
+        name: squad.name,
+        program: squad.program,
+        categoryLabel: squad.category_label || anchorGroup.name,
+        primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin profesor",
+        auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
+      }];
+    }),
     canDeleteCallups: context.isSportsDirector,
-    coachScheduleDefaults: Object.fromEntries((coachReportsResult.data ?? []).map((report) => {
+    coachScheduleDefaults: Object.fromEntries((coachReportsResult.data ?? []).flatMap((report) => {
+      if (!report.competition_roster_squad_id) return [];
       const coach = report.coaches;
-      return [report.training_group_id, {
+      return [[report.competition_roster_squad_id, {
         tournamentId: report.tournament_id,
         isRest: report.is_rest,
         notes: report.notes ?? "",
@@ -464,7 +557,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         games: (coachGamesResult.data ?? [])
           .filter((game) => game.report_id === report.id)
           .map((game) => ({ id: game.id, squadId: game.competition_roster_squad_id, matchDate: game.match_date, arrivalTime: game.arrival_time.slice(0, 5), venue: game.venue, opponent: game.opponent })),
-      }];
+      }] as const];
     })),
     callups: (callupsResult.data ?? []).map((row) => {
       const categories = categoriesByCallup.get(row.id) ?? [];

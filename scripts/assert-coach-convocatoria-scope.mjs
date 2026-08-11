@@ -11,6 +11,7 @@ function assert(condition, message) {
 const migration = read("supabase/migrations/20260811010000_coach_schedule_reporting.sql");
 const debugWriteMigration = read("supabase/migrations/20260811030000_preview_debug_coach_schedule_write.sql");
 const gameRosterMigration = read("supabase/migrations/20260811120000_coach_game_roster_snapshots.sql");
+const squadScheduleMigration = read("supabase/migrations/20260811190000_squad_aware_coach_schedules.sql");
 const permissions = read("src/lib/auth/permissions.ts");
 const layout = read("src/app/(protected)/layout.tsx");
 const coachQuery = read("src/lib/queries/coach-schedules.ts");
@@ -38,7 +39,11 @@ assert(permissions.includes("hasCoachScheduleAccess: isCoach && Boolean(coachId)
 assert(layout.includes('items: [{ href: "/convocatorias", label: "Mis horarios" }]'), "Coach navigation must expose only the schedule route.");
 assert(coachQuery.includes('.eq("coach_id", context.coachId)'), "Coach query must filter by the linked coach.");
 assert(coachQuery.includes("training_group_coaches"), "Coach query must use current group assignments.");
-assert(coachAction.includes('rpc("save_coach_weekly_schedule_report_v2"'), "Coach writes must use the stable game-roster database function.");
+assert(coachAction.includes('rpc("save_coach_weekly_schedule_report_v3"'), "Coach writes must use the squad-scoped game-roster database function.");
+assert(coachAction.includes("p_competition_roster_squad_id"), "Coach writes must identify the exact competition squad.");
+assert(squadScheduleMigration.includes("uq_coach_schedule_squad_week") && squadScheduleMigration.includes("can_manage_competition_squad_schedule"), "Squad schedules must have independent weekly identity and professor authorization.");
+assert(coachQuery.includes("coach_assignment_mode") && coachQuery.includes("competition_roster_squad_coaches"), "Coach schedule cards must resolve inherited and manual squad professors.");
+assert(currentWeekDashboard.includes("data.scheduleUnits"), "The weekly traffic matrix must display competition squads rather than collapsing split teams into training groups.");
 assert(coachAction.includes("isPreviewDebugEnabled()") && coachAction.includes("p_effective_user_id"), "Writable coach impersonation must remain Preview-only and identify the effective coach account.");
 assert(gameRosterMigration.includes("coach_weekly_schedule_game_players") && gameRosterMigration.includes("weekly_callup_game_players"), "Game-specific coach and convocatoria rosters must be frozen separately.");
 assert(gameRosterMigration.includes("competition_roster_squad_members") && gameRosterMigration.includes("game_roster_changed"), "Coach roster submissions must match the current permanent squad without changing it.");

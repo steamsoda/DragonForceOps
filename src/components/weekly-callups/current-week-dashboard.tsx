@@ -51,7 +51,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
       : `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
   };
 
-  const rows = data.groups
+  const rows = data.scheduleUnits
     .map((group) => {
       const report = data.coachScheduleDefaults[group.id];
       return {
@@ -84,7 +84,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {data.campuses.flatMap((campus) => PROGRAMS.map((program) => {
-          const groups = data.groups.filter((group) => group.campusId === campus.id && group.program === program.value);
+          const groups = data.scheduleUnits.filter((group) => group.campusId === campus.id && group.program === program.value);
           const reported = groups.filter((group) => Boolean(data.coachScheduleDefaults[group.id])).length;
           const pending = groups.length - reported;
           const hasCallup = currentCallups.some((callup) => callup.campusId === campus.id && callup.program === program.value);

@@ -55,10 +55,10 @@ export function CoachScheduleForm({
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(saveCoachScheduleAction, null);
-  const [tournamentId, setTournamentId] = useState(group.report?.tournamentId ?? "");
+  const [tournamentId] = useState(group.squads[0]?.tournamentId ?? group.report?.tournamentId ?? "");
   const [isRest, setIsRest] = useState(group.report?.isRest ?? false);
   const [notes, setNotes] = useState(group.report?.notes ?? "");
-  const initialSquad = group.squads.find((squad) => squad.tournamentId === group.report?.tournamentId);
+  const initialSquad = group.squads.find((squad) => squad.tournamentId === group.report?.tournamentId) ?? group.squads[0];
   const [games, setGames] = useState<GameDraft[]>(
     group.report?.games.length ? group.report.games : [gameForSquad(initialSquad)],
   );
@@ -77,12 +77,6 @@ export function CoachScheduleForm({
 
   function updateGame(index: number, patch: Partial<GameDraft>) {
     setGames((current) => current.map((game, gameIndex) => gameIndex === index ? { ...game, ...patch } : game));
-  }
-
-  function selectTournament(value: string) {
-    setTournamentId(value);
-    const squad = group.squads.find((candidate) => candidate.tournamentId === value);
-    setGames((current) => current.map((game) => ({ ...gameForSquad(squad), ...game, id: null, squadId: squad?.id ?? "", players: gameForSquad(squad).players })));
   }
 
   function selectSquad(index: number, squadId: string) {
@@ -106,13 +100,15 @@ export function CoachScheduleForm({
 
   return (
     <form action={action} className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-      <input type="hidden" name="trainingGroupId" value={group.id} />
+      <input type="hidden" name="trainingGroupId" value={group.trainingGroupId} />
+      <input type="hidden" name="squadId" value={group.squadId} />
       <input type="hidden" name="weekStart" value={weekStart} />
       <input type="hidden" name="games" value={JSON.stringify(isRest ? [] : games)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-portoBlue">{group.name}</h2>
           <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.categoryLabel} | {group.program === "selectivo" ? "Selectivo" : "Futbol Para Todos"}</p>
+          {group.sourceGroupNames.length > 1 ? <p className="text-xs text-slate-500">Grupos origen: {group.sourceGroupNames.join(", ")}</p> : null}
         </div>
         {savedReport ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Horario reportado</span> : <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}
       </div>
@@ -131,10 +127,8 @@ export function CoachScheduleForm({
       ) : null}
       <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_auto] sm:items-end">
         <label className="text-sm font-medium">Torneo
-          <select name="tournamentId" value={tournamentId} onChange={(event) => selectTournament(event.target.value)} required className="mt-1 block min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 dark:border-slate-600 dark:bg-slate-950">
-            <option value="">Selecciona torneo</option>
-            {options.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}
-          </select>
+          <input type="hidden" name="tournamentId" value={tournamentId} />
+          <span className="mt-1 flex min-h-10 items-center rounded-md border border-slate-300 bg-slate-50 px-3 dark:border-slate-600 dark:bg-slate-950">{options.find((tournament) => tournament.id === tournamentId)?.name ?? "Torneo asignado"}</span>
         </label>
         <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium"><input type="checkbox" name="isRest" value="yes" checked={isRest} onChange={(event) => setIsRest(event.target.checked)} /> Descansa esta semana</label>
       </div>

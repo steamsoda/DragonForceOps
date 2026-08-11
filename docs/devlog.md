@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-10 (session 296)
+
+### Squad-Aware Professor Schedules And Weekly Monitor (v1.17.30 Preview)
+
+- Changed new weekly schedule reports from one record per training group to one record per live competition squad. Ordinary, Azul, Blanco, and combined teams can now report games or rest independently without changing their source training groups.
+- `Mis horarios` now resolves effective team ownership: inherited squads use current training-group professors, while manually assigned combined/overridden squads are visible only to their explicit professors. Each card has a fixed tournament, exact live squad roster, game-specific exclusions, and an editable persisted report.
+- Changed the current-week traffic matrix to count and display actual competition squads. Split and combined teams no longer collapse into one training-group row; teams without an effective professor remain visible as `Sin profesor` and pending.
+- Added additive migration `20260811190000_squad_aware_coach_schedules.sql`, including partial weekly uniqueness for squad reports, explicit authorization for inherited/manual team professors, and a service-only transactional v3 report writer. Existing group-scoped reports and historical convocatorias remain readable.
+- Kept final convocatoria composition on its existing group-safe path for this release. The next pass will consume squad reports as separate frozen categories and enforce that every visible team is either reported or marked as rest before packet creation.
+- Verified TypeScript and focused coach, game-roster, composer, and professor-assignment regressions. This pass does not modify tournament payments, registrations, squad membership, training groups, attendance, charges, payments, or allocations.
+
 ## 2026-08-10 (session 295)
 
 ### Explicit Competition-Team Professors (v1.17.29 Preview)
