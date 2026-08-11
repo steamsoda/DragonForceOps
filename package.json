@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.22",
+  "version": "1.17.23",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -27,6 +27,7 @@
     "test:weekly-callups-png": "node scripts/assert-weekly-callups-png.mjs",
     "test:weekly-callups-composer": "node scripts/assert-weekly-callups-composer.mjs",
     "test:coach-convocatoria-scope": "node scripts/assert-coach-convocatoria-scope.mjs",
+    "test:debug-view-reset": "node scripts/assert-debug-view-reset.mjs",
     "diagnose:training-workload-counts": "node scripts/verify-training-workload-counts.mjs",
     "test:attendance-nomenclature": "node scripts/assert-attendance-nomenclature.mjs",
     "test:weekly-coach-packet": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-weekly-coach-packet.mjs",

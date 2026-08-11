@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.22`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-10 (`v1.17.23`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.18`
-- Current preview candidate: `v1.17.22` adds explicit coach-account linking, assigned-group-only weekly schedule reporting, visible/editable submission status, a tightly scoped writable Preview test mode, and admin convocatoria handoff
+- Current preview candidate: `v1.17.23` adds a protected escape hatch for leaving an unauthorized simulated user while preserving the scoped coach schedule test mode from `v1.17.22`
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`

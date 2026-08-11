@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-10 (session 289)
+
+### Preview Debug Lockout Escape Hatch (v1.17.23 Preview)
+
+- Added a protected Preview-only reset route so a real signed-in Super Admin can leave `Ver como` even when the simulated account has no app permissions and redirects to `Sin autorizacion`.
+- The unauthorized page now shows `Salir de Ver como` only while a Super Admin has an active simulated user. The reset clears only the debug-view cookies and returns to the normal dashboard; it does not modify users, roles, or application data.
+- Guarded the reset redirect against external/protocol-relative destinations and added a focused regression assertion for the lockout path.
+
 ## 2026-08-10 (session 288)
 
 ### Writable Preview Coach Test Profile (v1.17.22 Preview)
