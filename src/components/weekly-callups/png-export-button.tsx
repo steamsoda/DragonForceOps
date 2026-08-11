@@ -39,7 +39,7 @@ async function svgToPngBlob(svg: string, width: number, height: number) {
 }
 
 async function loadInvictaLogo() {
-  const response = await fetch("/logo%20Invicta-02.png", { cache: "force-cache" });
+  const response = await fetch("/invicta-wordmark-white.png", { cache: "force-cache" });
   if (!response.ok) return undefined;
   const blob = await response.blob();
   return await new Promise<string>((resolve, reject) => {

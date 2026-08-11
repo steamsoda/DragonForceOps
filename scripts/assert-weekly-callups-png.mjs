@@ -27,6 +27,8 @@ assert.match(layout, /formatArrivalTime/);
 assert.match(layout, /compactPlayerName/);
 assert.match(layout, /Profesor:/);
 assert.match(layout, /logoDataUrl/);
+assert.match(layout, /packetSubtitle/);
+assert.doesNotMatch(layout, /Futbol Para Todos/);
 
 assert.match(exportButton, /canvas\.toBlob/);
 assert.match(exportButton, /URL\.createObjectURL/);
@@ -34,13 +36,15 @@ assert.match(exportButton, /maxCanvasPixels = 32_000_000/);
 assert.match(exportButton, /maxCanvasDimension = 16_000/);
 assert.match(exportButton, /Descargar imagen/);
 assert.match(exportButton, /loadInvictaLogo/);
-assert.match(exportButton, /logo%20Invicta-02\.png/);
+assert.match(exportButton, /invicta-wordmark-white\.png/);
 assert.doesNotMatch(exportButton, /data\.status|borrador/i);
 
 assert.match(editorPage, /WeeklyCallupPngExportButton/);
 assert.match(editorPage, /buildWeeklyCallupPngData\(callup\)/);
 assert.match(pngData, /player\.rosterStatus === "included"/);
-assert.match(pngData, /tournamentName: packetTitle/);
+assert.match(pngData, /tournamentName: "Rol de juegos"/);
+assert.match(pngData, /formatParentFacingTeamTitle/);
+assert.match(pngData, /\["SELECTIVO", categoryLabel, genderLabel\]/);
 assert.match(pngData, /tournamentName: category\.tournamentName/);
 assert.match(pngData, /coachNames: category\.coachNames/);
 assert.match(pngData, /games: category\.games\.map/);

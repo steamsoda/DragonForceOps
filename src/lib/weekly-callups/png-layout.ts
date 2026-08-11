@@ -69,8 +69,12 @@ function formatArrivalTime(value: string) {
   return `${displayHours}:${match[2]} ${hours >= 12 ? "PM" : "AM"}`;
 }
 
-function programLabel(program: WeeklyCallupPngData["program"]) {
-  return program === "selectivo" ? "Selectivos" : "Futbol Para Todos";
+function packetSubtitle(data: WeeklyCallupPngData) {
+  return [
+    data.campusName,
+    data.program === "selectivo" ? "Selectivos" : null,
+    `${formatDate(data.weekStart)} al ${formatDate(data.weekEnd)}`,
+  ].filter(Boolean).join(" | ");
 }
 
 function estimateLineCount(value: string, charsPerLine: number) {
@@ -220,9 +224,9 @@ export function buildWeeklyCallupPngSvg(data: WeeklyCallupPngData) {
           <div style="min-width:0;">
             <div style="font-size:19px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#bfdbfe;">INVICTA | CONVOCADOS</div>
             <div style="margin-top:5px;max-width:1280px;font-size:${titleFontSize}px;font-weight:900;line-height:1.05;overflow-wrap:anywhere;">${escapeHtml(data.tournamentName)}</div>
-            <div style="margin-top:9px;font-size:17px;color:#e2e8f0;">${escapeHtml(data.campusName)} | ${escapeHtml(programLabel(data.program))} | ${escapeHtml(formatDate(data.weekStart))} al ${escapeHtml(formatDate(data.weekEnd))}</div>
+            <div style="margin-top:9px;font-size:17px;color:#e2e8f0;">${escapeHtml(packetSubtitle(data))}</div>
           </div>
-          ${data.logoDataUrl ? `<div style="display:flex;width:108px;height:84px;flex:none;align-items:center;justify-content:center;border-radius:8px;background:#ffffff;padding:7px;"><img src="${escapeHtml(data.logoDataUrl)}" alt="INVICTA" style="display:block;max-width:100%;max-height:100%;object-fit:contain;" /></div>` : ""}
+          ${data.logoDataUrl ? `<div style="display:flex;width:290px;height:64px;flex:none;align-items:center;justify-content:flex-end;padding-top:2px;"><img src="${escapeHtml(data.logoDataUrl)}" alt="INVICTA" style="display:block;max-width:100%;max-height:100%;object-fit:contain;object-position:right center;" /></div>` : ""}
         </div>
       </header>
       <main style="display:grid;grid-template-columns:repeat(${columnCount},minmax(0,1fr));gap:${gap}px;align-items:start;padding:${outerPadding}px;box-sizing:border-box;">

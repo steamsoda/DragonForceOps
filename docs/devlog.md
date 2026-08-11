@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-11 (session 303)
+
+### Parent-Facing Rol de Juegos PNG - Pass 1 (v1.17.37 Preview)
+
+- Replaced the square crest in the weekly convocatoria PNG with the new horizontal white INVICTA wordmark on the existing blue header, without a badge or added background.
+- Standardized the packet title as `Rol de juegos` so one image can contain teams playing different tournaments; every team card still shows its own tournament.
+- Made parent-facing Selectivo titles explicit by YOB and split, such as `SELECTIVO 2016 - AZUL`. Futbol Para Todos packets now use concise titles such as `2016` or `2016 AZUL` and omit the internal program name from the header and team cards.
+- Kept all label changes export-only. Stored training groups, competition squads, tournament registrations, professor assignments, games, payments, and frozen convocatoria data remain unchanged. No migration is required.
+- Verified focused PNG assertions, TypeScript, production build, alpha transparency, and rendered Selectivo/Futbol Para Todos fixtures with mixed tournaments.
+
 ## 2026-08-11 (session 302)
 
 ### Convocatoria PNG Adaptive Polish - Pass 3 (v1.17.36 Preview)
