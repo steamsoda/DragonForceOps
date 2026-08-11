@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-10 (session 292)
+
+### Compact Weekly Composer And History (v1.17.26 Preview)
+
+- Replaced the always-expanded convocatoria spreadsheet with compact group summary rows. Each row shows group, category, coach/report status, and its current tournament/game/rest summary; only one group editor opens at a time.
+- Preserved all unsaved values while rows open and close. Collapsed groups remain part of the final submission, dirty admin rows remain protected from live coach refreshes, and validation automatically opens the first group that needs correction.
+- Kept saved convocatorias for the selected week visible as the active packet while moving older weeks into a collapsed `Convocatorias anteriores` history section.
+- This is UI/state organization only. It does not change coach reports, convocatoria validation, roster snapshots, paid registrations, squads, attendance, or finance.
+
 ## 2026-08-10 (session 291)
 
 ### Current-Week Convocatoria Control Panel (v1.17.25 Preview)

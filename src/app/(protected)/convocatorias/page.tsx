@@ -9,7 +9,7 @@ import { CurrentWeekDashboard } from "@/components/weekly-callups/current-week-d
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
 import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
-import { getWeeklyCallupsFoundationData } from "@/lib/queries/weekly-callups";
+import { getWeeklyCallupsFoundationData, type WeeklyCallupListRow } from "@/lib/queries/weekly-callups";
 import { deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
 
 type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string; week?: string }>;
@@ -46,6 +46,40 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function SavedCallupCards({ callups, canDelete }: { callups: WeeklyCallupListRow[]; canDelete: boolean }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {callups.map((callup) => (
+        <article key={callup.id} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-portoBlue">{callup.tournamentName}</h3>
+              <p className="text-sm text-slate-600">{callup.campusName} | {programLabel(callup.program)}</p>
+            </div>
+            <span className="rounded-full border border-slate-300 px-2 py-1 text-xs font-medium">{statusLabel(callup.status)}</span>
+          </div>
+          <dl className="grid grid-cols-3 gap-2 text-sm">
+            <div><dt className="text-xs uppercase text-slate-500">Semana</dt><dd className="font-medium">{formatDate(callup.weekStart)}</dd></div>
+            <div><dt className="text-xs uppercase text-slate-500">Categorias</dt><dd className="font-medium">{callup.categoryCount}</dd></div>
+            <div><dt className="text-xs uppercase text-slate-500">Jugadores</dt><dd className="font-medium">{callup.playerCount}</dd></div>
+          </dl>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Link href={`/convocatorias/${callup.id}`} className="block min-h-10 rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-semibold text-white">
+              Abrir convocatoria
+            </Link>
+            {canDelete ? (
+              <form action={deleteWeeklyCallupAction}>
+                <input type="hidden" name="callupId" value={callup.id} />
+                <WeeklyCallupDeleteButton />
+              </form>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 export default async function WeeklyCallupsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -89,6 +123,8 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     (group) => group.campusId === selectedCampusId && group.program === selectedProgram,
   );
   const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
+  const selectedWeekCallups = data.callups.filter((callup) => callup.weekStart === data.currentWeekStart);
+  const previousCallups = data.callups.filter((callup) => callup.weekStart !== data.currentWeekStart);
   const selectionHref = (campusId: string, program: string) =>
     `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
 
@@ -163,45 +199,29 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           />
         </section>
 
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold">Convocatorias guardadas</h2>
-            <p className="text-sm text-slate-500">Puedes abrir, modificar, volver a descargar o eliminar una convocatoria anterior.</p>
-          </div>
-          {data.callups.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Todavia no hay convocatorias guardadas.</p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {data.callups.map((callup) => (
-                <article key={callup.id} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-portoBlue">{callup.tournamentName}</h3>
-                      <p className="text-sm text-slate-600">{callup.campusName} | {programLabel(callup.program)}</p>
-                    </div>
-                    <span className="rounded-full border border-slate-300 px-2 py-1 text-xs font-medium">{statusLabel(callup.status)}</span>
-                  </div>
-                  <dl className="grid grid-cols-3 gap-2 text-sm">
-                    <div><dt className="text-xs uppercase text-slate-500">Semana</dt><dd className="font-medium">{formatDate(callup.weekStart)}</dd></div>
-                    <div><dt className="text-xs uppercase text-slate-500">Categorias</dt><dd className="font-medium">{callup.categoryCount}</dd></div>
-                    <div><dt className="text-xs uppercase text-slate-500">Jugadores</dt><dd className="font-medium">{callup.playerCount}</dd></div>
-                  </dl>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Link href={`/convocatorias/${callup.id}`} className="block min-h-10 rounded-md bg-portoBlue px-4 py-2 text-center text-sm font-semibold text-white">
-                      Abrir convocatoria
-                    </Link>
-                    {data.canDeleteCallups ? (
-                      <form action={deleteWeeklyCallupAction}>
-                        <input type="hidden" name="callupId" value={callup.id} />
-                        <WeeklyCallupDeleteButton />
-                      </form>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
+        {selectedWeekCallups.length ? (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">Convocatoria de la semana</h2>
+              <p className="text-sm text-slate-500">Lista para abrir, ajustar y descargar.</p>
             </div>
-          )}
-        </section>
+            <SavedCallupCards callups={selectedWeekCallups} canDelete={data.canDeleteCallups} />
+          </section>
+        ) : null}
+
+        {previousCallups.length ? (
+          <details className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+            <summary className="cursor-pointer list-none px-4 py-4 font-semibold text-portoBlue">
+              Convocatorias anteriores <span className="ml-2 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{previousCallups.length}</span>
+              <span className="ml-2 text-xs font-normal text-slate-500">Abrir historial</span>
+            </summary>
+            <div className="border-t border-slate-200 p-4">
+              <SavedCallupCards callups={previousCallups} canDelete={data.canDeleteCallups} />
+            </div>
+          </details>
+        ) : data.callups.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">Todavia no hay convocatorias guardadas.</p>
+        ) : null}
       </div>
     </PageShell>
   );
