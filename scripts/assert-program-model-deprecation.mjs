@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const { formatTrainingGroupDisplayName } = await import("../src/lib/training-groups/shared.ts");
+const {
+  formatTournamentGroupCardDisplay,
+  formatTrainingGroupDisplayName,
+  sanitizeTournamentTeamDisplayName,
+} = await import("../src/lib/training-groups/shared.ts");
 
 const root = new URL("../", import.meta.url);
 
@@ -28,6 +32,17 @@ assert.equal(
 assert.equal(
   formatTrainingGroupDisplayName({ name: "Selectivo 2015", program: "selectivo" }),
   "Selectivo 2015",
+);
+assert.equal(sanitizeTournamentTeamDisplayName("Intermedio B1 (-d08d)"), "Intermedio");
+assert.equal(sanitizeTournamentTeamDisplayName("PreJuvenil B1 (2aa8)"), "PreJuvenil");
+assert.deepEqual(
+  formatTournamentGroupCardDisplay({
+    name: "Avanzado B2 Femenil",
+    program: "futbol_para_todos",
+    birthYearMin: 2014,
+    birthYearMax: 2015,
+  }),
+  { title: "2014/2015 Futbol Para Todos", subtitle: "Avanzado Femenil" },
 );
 
 console.log("Program model deprecation assertions passed.");

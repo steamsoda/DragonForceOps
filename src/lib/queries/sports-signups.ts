@@ -206,6 +206,7 @@ export type CompetitionSignupCategoryGroup = {
   birthYear: number | null;
   confirmedCount: number;
   activeCount: number;
+  activeCountByProgram: Record<string, number>;
   players: CompetitionSignupPlayerRow[];
 };
 
@@ -215,6 +216,8 @@ export type CompetitionSignupTrainingGroup = {
   label: string;
   subtitle: string;
   program: string | null;
+  birthYearMin: number | null;
+  birthYearMax: number | null;
   confirmedCount: number;
   activeCount: number;
   players: CompetitionSignupPlayerRow[];
@@ -1080,10 +1083,13 @@ function buildCampusBoard(
           birthYear,
           confirmedCount: 0,
           activeCount: 0,
+          activeCountByProgram: {},
           players: [],
         };
 
       category.activeCount += 1;
+      const categoryProgram = trainingGroupByEnrollment.get(enrollment.id)?.program ?? "sin_programa";
+      category.activeCountByProgram[categoryProgram] = (category.activeCountByProgram[categoryProgram] ?? 0) + 1;
       categoryMap.set(categoryKey, category);
 
       const group = trainingGroupByEnrollment.get(enrollment.id) ?? null;
@@ -1094,6 +1100,8 @@ function buildCampusBoard(
         label: group?.label ?? "Sin grupo",
         subtitle: group?.subtitle ?? "Sin asignacion activa",
         program: group?.program ?? null,
+        birthYearMin: group?.birthYearMin ?? null,
+        birthYearMax: group?.birthYearMax ?? null,
         confirmedCount: 0,
         activeCount: 0,
         players: [],
@@ -1113,6 +1121,7 @@ function buildCampusBoard(
           birthYear: player.birthYear,
           confirmedCount: 0,
           activeCount: 0,
+          activeCountByProgram: {},
           players: [],
         };
 
@@ -1127,6 +1136,8 @@ function buildCampusBoard(
         label: player.trainingGroupLabel,
         subtitle: player.trainingGroupSubtitle,
         program: player.trainingProgram,
+        birthYearMin: player.birthYear,
+        birthYearMax: player.birthYear,
         confirmedCount: 0,
         activeCount: 0,
         players: [],
@@ -1162,6 +1173,9 @@ function buildCampusBoard(
           if (a.trainingGroupId === null && b.trainingGroupId === null) return 0;
           if (a.trainingGroupId === null) return 1;
           if (b.trainingGroupId === null) return -1;
+          const yearA = a.birthYearMax ?? a.birthYearMin ?? 0;
+          const yearB = b.birthYearMax ?? b.birthYearMin ?? 0;
+          if (yearA !== yearB) return yearB - yearA;
           return a.label.localeCompare(b.label, "es-MX");
         }),
     };
@@ -1513,7 +1527,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
         trainingGroupByEnrollment,
         restrictionsByProduct,
         pricingRulesByProduct,
-        selectedProgram,
+        null,
       ),
     );
     recordPerfStep(perf, "build campus boards", campusBoardsStartedAt);

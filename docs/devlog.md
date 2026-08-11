@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-11 (session 299)
+
+### Instant Tournament Program Filters And Roster Display Cleanup (v1.17.33 Preview)
+
+- Changed the `Todos`, `Futbol Para Todos`, `Selectivos`, and conditional `Little Dragons` controls in `Inscripciones Torneos` to filter the complete loaded dashboard locally. Program changes now update the shareable URL without a page or RSC refresh.
+- Preserved the same paid-registration, product-eligibility, invited-group, date-filter, and tournament-squad sources. The client recalculates only visible counts from the complete read-only dataset; no finance, registration, team-membership, or training-group writes changed.
+- Standardized youngest-to-oldest YOB ordering across category, training-group, and live-team views. Group cards now lead with the YOB and program, with the sporting descriptor as secondary text.
+- Removed legacy B1/B2/B3 text and opaque generated suffixes such as `(-d08d)` or `(2aa8)` from tournament card/team display only. Stored names, IDs, historical snapshots, and roster relationships remain unchanged.
+- Verified TypeScript, production build, focused eligibility/group/live-roster/program regressions, and `git diff --check`. Authenticated local visual verification remains for Preview because the local browser session stops at Microsoft login.
+
 ## 2026-08-11 (session 298)
 
 ### Current-Week Convocatoria Card Workflow (v1.17.32 Preview)

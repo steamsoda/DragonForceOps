@@ -56,7 +56,7 @@ export function formatTrainingGroupDisplayName(group: {
   name: string;
   program?: string | null;
 }) {
-  const name = group.name.replace(/\s+/g, " ").trim();
+  const name = sanitizeTrainingGroupDisplayName(group.name);
   if (group.program !== "futbol_para_todos") return name;
 
   const withoutLegacyLevel = name
@@ -66,6 +66,41 @@ export function formatTrainingGroupDisplayName(group: {
 
   if (/f[uú]tbol\s+para\s+todos/i.test(withoutLegacyLevel)) return withoutLegacyLevel;
   return withoutLegacyLevel ? `${withoutLegacyLevel} - Futbol Para Todos` : "Futbol Para Todos";
+}
+
+export function sanitizeTrainingGroupDisplayName(value: string) {
+  return value
+    .replace(/\s*\(-?[a-z0-9]{4}\)\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function sanitizeTournamentTeamDisplayName(value: string) {
+  return sanitizeTrainingGroupDisplayName(value)
+    .replace(/\bB[123]\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function formatTournamentGroupCardDisplay(group: {
+  name: string;
+  program?: string | null;
+  birthYearMin?: number | null;
+  birthYearMax?: number | null;
+}) {
+  const programLabel = TRAINING_GROUP_PROGRAM_LABELS[group.program ?? ""] ?? "Programa sin definir";
+  const birthYearLabel = formatTrainingGroupBirthYearRange(group.birthYearMin, group.birthYearMax);
+  const sanitizedName = sanitizeTournamentTeamDisplayName(group.name)
+    .replace(/\s*-?\s*f[uú]tbol\s+para\s+todos\s*$/i, "")
+    .replace(/\s*-?\s*selectivos?\s*$/i, "")
+    .replace(/\s*-?\s*little\s+dragons\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    title: birthYearLabel === "Sin categoria" ? programLabel : `${birthYearLabel} ${programLabel}`,
+    subtitle: sanitizedName && sanitizedName !== programLabel ? sanitizedName : null,
+  };
 }
 
 export function formatTrainingGroupLabel(group: {

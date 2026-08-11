@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.32`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.33`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.31`
-- Current preview candidate: `v1.17.32` makes the four current-week cards the sole convocatoria selector, freeze, PNG, and detail surface
+- Current production line: `v1.17.32`
+- Current preview candidate: `v1.17.33` makes tournament program filters instant and cleans YOB ordering plus legacy/internal roster labels without changing registration truth
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -187,7 +187,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 14. 🟢 `v1.17.30` makes professor reporting and the weekly traffic matrix use effective tournament-team ownership, including separate Azul/Blanco and combined-team rows; legacy group reports remain readable.
 15. ✅ `v1.17.31` freezes each reported squad as its own convocatoria category and blocks packet creation until every visible team has a game report or explicit rest status.
 16. 🟢 `v1.17.32` removes the duplicated weekly composer and moves guarded preparation, direct PNG download, detail access, and local traffic-matrix filtering into the four current-week cards.
-16. 🔴 Next: Preview smoke-test packet creation, historical packet rendering, and PNG layout with real split/combined squads; then address any compact-layout polish before production promotion.
+17. 🟢 `v1.17.33` makes `Inscripciones Torneos` program filters local and instant, enforces youngest-to-oldest YOB ordering in all three views, and removes B-level/internal suffix noise from display without renaming stored groups or squads.
+18. 🔴 Next: Preview smoke-test tournament category/group/team cards and instant program switching with real data; then resume convocatoria PNG compact-layout polish.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 

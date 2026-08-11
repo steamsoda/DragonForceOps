@@ -10,6 +10,7 @@ import type {
   CompetitionSignupDashboardData,
   CompetitionSignupTrainingGroup,
 } from "@/lib/queries/sports-signups";
+import { formatTournamentGroupCardDisplay } from "@/lib/training-groups/shared";
 
 type Props = {
   dashboard: CompetitionSignupDashboardData;
@@ -21,6 +22,39 @@ type Props = {
 type CategoryActionFeedback = "copied" | "copy-error" | "png-exported" | "png-error";
 
 const CATEGORY_TWO_COLUMN_THRESHOLD = 14;
+
+function filterCompetitionByProgram(
+  competition: CompetitionSignupDashboardData["campusBoards"][number]["competitions"][number],
+  program: string | null,
+) {
+  if (!program) return competition;
+
+  const categories = competition.categories
+    .map((category) => {
+      const players = category.players.filter((player) => player.trainingProgram === program);
+      return {
+        ...category,
+        players,
+        confirmedCount: players.length,
+        activeCount: category.activeCountByProgram[program] ?? 0,
+      };
+    })
+    .filter((category) => category.activeCount > 0 || category.confirmedCount > 0);
+  const confirmedPlayers = categories.flatMap((category) => category.players);
+
+  return {
+    ...competition,
+    totalConfirmed: confirmedPlayers.length,
+    directConfirmedCount: confirmedPlayers.filter((player) => player.registrationSource === "direct").length,
+    bundleConfirmedCount: confirmedPlayers.filter((player) => player.registrationSource === "bundle").length,
+    totalActive: categories.reduce((total, category) => total + category.activeCount, 0),
+    eligibilityReviewPlayers: competition.eligibilityReviewPlayers.filter(
+      (player) => player.trainingProgram === program,
+    ),
+    categories,
+    trainingGroups: competition.trainingGroups.filter((group) => group.program === program),
+  };
+}
 
 function parseDateOnly(value: string | null | undefined) {
   if (!value) return null;
@@ -229,6 +263,7 @@ export function SportsSignupsBoard({
 }: Props) {
   const [selectedCampusId, setSelectedCampusId] = useState(dashboard.selectedCampusId);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
+  const [selectedProgram, setSelectedProgram] = useState(dashboard.selectedProgram);
   const [viewMode, setViewMode] = useState<"category" | "group" | "teams">("category");
   const [feedbackByCategoryKey, setFeedbackByCategoryKey] = useState<Record<string, CategoryActionFeedback>>({});
   const router = useRouter();
@@ -236,7 +271,7 @@ export function SportsSignupsBoard({
   const perfEnabled = canUsePerfDebug && searchParams.get("perf") === "1";
   const paidFilterLabel = formatPaidFilterLabel(dashboard.paidDateFilter.from, dashboard.paidDateFilter.to);
   const paidFilterQuery = `${dashboard.paidDateFilter.from ? `&paidFrom=${encodeURIComponent(dashboard.paidDateFilter.from)}` : ""}${dashboard.paidDateFilter.to ? `&paidTo=${encodeURIComponent(dashboard.paidDateFilter.to)}` : ""}`;
-  const programQuery = dashboard.selectedProgram ? `&program=${encodeURIComponent(dashboard.selectedProgram)}` : "";
+  const programQuery = selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : "";
 
   const selectedBoard = useMemo(
     () =>
@@ -246,12 +281,18 @@ export function SportsSignupsBoard({
     [dashboard.campusBoards, selectedCampusId],
   );
 
-  const selectedCompetition = useMemo(
-    () =>
-      selectedBoard?.competitions.find((competition) => competition.id === selectedCompetitionId) ??
+  const selectedCompetition = useMemo(() => {
+    const competition =
+      selectedBoard?.competitions.find((item) => item.id === selectedCompetitionId) ??
       selectedBoard?.competitions[0] ??
-      null,
-    [selectedBoard, selectedCompetitionId],
+      null;
+    return competition ? filterCompetitionByProgram(competition, selectedProgram) : null;
+  }, [selectedBoard, selectedCompetitionId, selectedProgram]);
+
+  const visibleCompetitions = useMemo(
+    () => (selectedBoard?.competitions ?? []).map((competition) =>
+      filterCompetitionByProgram(competition, selectedProgram)),
+    [selectedBoard, selectedProgram],
   );
 
   function setCategoryFeedback(categoryKey: string, feedback: CategoryActionFeedback) {
@@ -268,9 +309,13 @@ export function SportsSignupsBoard({
   }
 
   function selectProgram(program: string | null) {
-    const competitionQuery = selectedCompetition ? `&competition=${encodeURIComponent(selectedCompetition.id)}` : "";
-    const nextProgramQuery = program ? `&program=${encodeURIComponent(program)}` : "";
-    router.push(`/sports-signups?campus=${encodeURIComponent(selectedCampusId)}${competitionQuery}${nextProgramQuery}${paidFilterQuery}${perfEnabled ? "&perf=1" : ""}`);
+    setSelectedProgram(program);
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("campus", selectedCampusId);
+    if (selectedCompetition) nextParams.set("competition", selectedCompetition.id);
+    if (program) nextParams.set("program", program);
+    else nextParams.delete("program");
+    window.history.replaceState(null, "", `/sports-signups?${nextParams.toString()}`);
   }
 
   async function handleCopyCategoryText(category: CompetitionSignupCategoryGroup) {
@@ -353,7 +398,7 @@ export function SportsSignupsBoard({
               <SportsSignupsPacketExport
                 competition={selectedCompetition}
                 campusName={selectedBoard.campusName}
-                programLabel={formatProgramLabel(dashboard.selectedProgram)}
+                programLabel={formatProgramLabel(selectedProgram)}
                 paidFilterLabel={paidFilterLabel ?? "Todos los pagos confirmados"}
               />
             </div>
@@ -388,7 +433,7 @@ export function SportsSignupsBoard({
               ? [{ value: "little_dragons", label: "Little Dragons" }]
               : []),
           ].map((option) => {
-            const isSelected = dashboard.selectedProgram === option.value;
+            const isSelected = selectedProgram === option.value;
             return (
               <button
                 key={option.value ?? "all"}
@@ -409,7 +454,7 @@ export function SportsSignupsBoard({
         <form action="/sports-signups" className="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
           <input type="hidden" name="campus" value={selectedCampusId} />
           {selectedCompetition ? <input type="hidden" name="competition" value={selectedCompetition.id} /> : null}
-          {dashboard.selectedProgram ? <input type="hidden" name="program" value={dashboard.selectedProgram} /> : null}
+          {selectedProgram ? <input type="hidden" name="program" value={selectedProgram} /> : null}
           {perfEnabled ? <input type="hidden" name="perf" value="1" /> : null}
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-200">Pagado desde</span>
@@ -456,7 +501,7 @@ export function SportsSignupsBoard({
           Competencias
         </p>
         <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {(selectedBoard?.competitions ?? []).map((competition) => {
+          {visibleCompetitions.map((competition) => {
             const isSelected = competition.id === selectedCompetition?.id;
             const dateRange = formatDateRange(competition.startDate, competition.endDate);
             const deadlineStatus = formatDeadlineStatus(competition.signupDeadline);
@@ -524,9 +569,9 @@ export function SportsSignupsBoard({
                 inscripciones confirmadas · Pago directo {selectedCompetition.directConfirmedCount} · Via Combo{" "}
                 {selectedCompetition.bundleConfirmedCount}
               </div>
-              {selectedCompetition.tournamentId && dashboard.selectedProgram ? (
+              {selectedCompetition.tournamentId && selectedProgram ? (
                 <Link
-                  href={`/sports-signups/squads?tournament=${encodeURIComponent(selectedCompetition.tournamentId)}&campus=${encodeURIComponent(selectedCampusId)}&program=${encodeURIComponent(dashboard.selectedProgram)}`}
+                  href={`/sports-signups/squads?tournament=${encodeURIComponent(selectedCompetition.tournamentId)}&campus=${encodeURIComponent(selectedCampusId)}&program=${encodeURIComponent(selectedProgram)}`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark"
                 >
                   Administrar equipos
@@ -580,7 +625,7 @@ export function SportsSignupsBoard({
               active
               tournamentId={selectedCompetition.tournamentId}
               campusId={selectedCampusId}
-              program={dashboard.selectedProgram}
+              program={selectedProgram}
             />
           ) : viewMode === "category" && selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
@@ -740,6 +785,12 @@ function TrainingGroupSignupCard({
   onOpen: (href: string) => void;
 }) {
   const nameColumns = getNameColumns(group.players);
+  const display = formatTournamentGroupCardDisplay({
+    name: group.label,
+    program: group.program,
+    birthYearMin: group.birthYearMin,
+    birthYearMax: group.birthYearMax,
+  });
 
   return (
     <article
@@ -755,8 +806,10 @@ function TrainingGroupSignupCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{group.label}</h3>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{group.subtitle}</p>
+          <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-50">{display.title}</h3>
+          {display.subtitle ? (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{display.subtitle}</p>
+          ) : null}
         </div>
         <p className="shrink-0 text-2xl font-semibold text-slate-950 dark:text-slate-50">
           {group.confirmedCount}/{group.activeCount}

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
+import {
+  sanitizeTournamentTeamDisplayName,
+} from "@/lib/training-groups/shared";
 
 type Props = {
   active: boolean;
@@ -17,6 +20,12 @@ function kindLabel(kind: string) {
   if (kind === "blanco") return "Blanco";
   if (kind === "custom") return "Especial";
   return "Equipo";
+}
+
+function getSquadBirthYear(squad: CompetitionRosterLiveViewData["squads"][number]) {
+  const categoryYears = squad.categoryLabel?.match(/(?:19|20)\d{2}/g)?.map(Number) ?? [];
+  const memberYears = squad.members.flatMap((member) => member.birthYear == null ? [] : [member.birthYear]);
+  return Math.max(...categoryYears, ...memberYears, 0);
 }
 
 export function CompetitionRosterLiveView({ active, tournamentId, campusId, program }: Props) {
@@ -104,14 +113,21 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {data.squads.map((squad) => (
+          {[...data.squads]
+            .sort((left, right) => {
+              const yearDifference = getSquadBirthYear(right) - getSquadBirthYear(left);
+              return yearDifference || left.name.localeCompare(right.name, "es-MX");
+            })
+            .map((squad) => (
             <article key={squad.id} className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
               <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold text-slate-950 dark:text-slate-50">{squad.name}</h3>
+                    <h3 className="font-semibold text-slate-950 dark:text-slate-50">
+                      {sanitizeTournamentTeamDisplayName(squad.name)}
+                    </h3>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {squad.sourceGroupNames.join(" + ") || "Sin grupo fuente"}
+                      {squad.sourceGroupNames.map(sanitizeTournamentTeamDisplayName).join(" + ") || "Sin grupo fuente"}
                     </p>
                   </div>
                   <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
