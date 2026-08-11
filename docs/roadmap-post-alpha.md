@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.32`
-- Current preview candidate: `v1.17.33` makes tournament program filters instant and cleans YOB ordering plus legacy/internal roster labels without changing registration truth
+- Current production line: `v1.17.33`
+- Current preview candidate: production and preview are aligned after the tournament signup display cleanup
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`

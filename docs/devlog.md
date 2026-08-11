@@ -2,7 +2,7 @@
 
 ## 2026-08-11 (session 299)
 
-### Instant Tournament Program Filters And Roster Display Cleanup (v1.17.33 Preview)
+### Instant Tournament Program Filters And Roster Display Cleanup (v1.17.33 Production)
 
 - Changed the `Todos`, `Futbol Para Todos`, `Selectivos`, and conditional `Little Dragons` controls in `Inscripciones Torneos` to filter the complete loaded dashboard locally. Program changes now update the shareable URL without a page or RSC refresh.
 - Preserved the same paid-registration, product-eligibility, invited-group, date-filter, and tournament-squad sources. The client recalculates only visible counts from the complete read-only dataset; no finance, registration, team-membership, or training-group writes changed.
