@@ -4,7 +4,11 @@ import {
   formatCompetitionSquadDisplay,
   formatTournamentGroupCardDisplay,
 } from "@/lib/training-groups/shared";
-import { getMonterreyWeekStart } from "@/lib/queries/weekly-callups";
+import {
+  getMonterreyWeekStart,
+  type WeeklyCallupsFoundationData,
+  type WeeklyCallupProgram,
+} from "@/lib/queries/weekly-callups";
 
 export type CoachScheduleGame = {
   id: string | null;
@@ -32,6 +36,7 @@ export type CoachScheduleSquad = {
 
 export type CoachScheduleGroup = {
   id: string;
+  coachId: string | null;
   trainingGroupId: string;
   squadId: string;
   campusId: string;
@@ -59,6 +64,14 @@ export type CoachSchedulePageData = {
   tournaments: Array<{ id: string; campusId: string; name: string }>;
 };
 
+export type AdminScheduleDetailData = {
+  campusName: string;
+  program: WeeklyCallupProgram;
+  selectedWeekStart: string;
+  groups: CoachScheduleGroup[];
+  tournaments: Array<{ id: string; campusId: string; name: string }>;
+};
+
 type LinkRow = {
   training_group_id: string;
   training_groups: {
@@ -75,6 +88,7 @@ type LinkRow = {
 
 type ReportRow = {
   id: string;
+  coach_id: string;
   training_group_id: string;
   competition_roster_squad_id: string | null;
   tournament_id: string;
@@ -231,7 +245,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
   const reportsResult = activeSquadIds.length
     ? await admin
         .from("coach_weekly_schedule_reports")
-        .select("id, training_group_id, competition_roster_squad_id, tournament_id, is_rest, notes, updated_at")
+        .select("id, coach_id, training_group_id, competition_roster_squad_id, tournament_id, is_rest, notes, updated_at")
         .eq("week_start", selectedWeekStart)
         .in("competition_roster_squad_id", activeSquadIds)
         .returns<ReportRow[]>()
@@ -344,6 +358,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
         });
         return [{
           id: squad.id,
+          coachId: context.coachId,
           trainingGroupId: anchorGroup.id,
           squadId: squad.id,
           campusId: anchorGroup.campus_id,
@@ -369,14 +384,11 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
                   const fallbackSquad = squads.find((squad) => squad.tournamentId === report.tournament_id);
                   const squadId = game.competition_roster_squad_id ?? fallbackSquad?.id ?? "";
                   const savedPlayers = gamePlayersByGame.get(game.id) ?? [];
-                  const players = savedPlayers.length
-                    ? savedPlayers.map((player) => ({
-                        enrollmentId: player.enrollment_id,
-                        playerId: player.player_id,
-                        playerName: player.player_name_snapshot,
-                        rosterStatus: player.roster_status,
-                      }))
-                    : (membersBySquad.get(squadId) ?? []).map((player) => ({ ...player, rosterStatus: "included" as const }));
+                  const savedStatusByEnrollment = new Map(savedPlayers.map((player) => [player.enrollment_id, player.roster_status]));
+                  const players = (membersBySquad.get(squadId) ?? []).map((player) => ({
+                    ...player,
+                    rosterStatus: savedStatusByEnrollment.get(player.enrollmentId) ?? "included" as const,
+                  }));
                   return {
                     id: game.id,
                     matchDate: game.match_date,
@@ -392,5 +404,154 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
         }];
       })
       .sort((a, b) => a.campusName.localeCompare(b.campusName, "es") || b.categoryLabel.localeCompare(a.categoryLabel, "es") || a.name.localeCompare(b.name, "es")),
+  };
+}
+
+export async function getAdminScheduleDetailData(
+  foundation: WeeklyCallupsFoundationData,
+  campusId: string,
+  program: WeeklyCallupProgram,
+): Promise<AdminScheduleDetailData | null> {
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !context.campusAccess?.campusIds.includes(campusId)) return null;
+
+  const units = foundation.scheduleUnits.filter((unit) => unit.campusId === campusId && unit.program === program);
+  const squadIds = units.map((unit) => unit.squadId);
+  const admin = createAdminClient();
+  const reportsResult = squadIds.length
+    ? await admin
+        .from("coach_weekly_schedule_reports")
+        .select("id, coach_id, training_group_id, competition_roster_squad_id, tournament_id, is_rest, notes, updated_at")
+        .eq("week_start", foundation.currentWeekStart)
+        .in("competition_roster_squad_id", squadIds)
+        .returns<ReportRow[]>()
+    : { data: [] as ReportRow[], error: null };
+  if (reportsResult.error) throw reportsResult.error;
+
+  const reportIds = (reportsResult.data ?? []).map((report) => report.id);
+  const gamesResult = reportIds.length
+    ? await admin
+        .from("coach_weekly_schedule_games")
+        .select("id, report_id, competition_roster_squad_id, match_date, arrival_time, venue, opponent, sort_order")
+        .in("report_id", reportIds)
+        .order("sort_order")
+        .returns<GameRow[]>()
+    : { data: [] as GameRow[], error: null };
+  if (gamesResult.error) throw gamesResult.error;
+
+  const gameIds = (gamesResult.data ?? []).map((game) => game.id);
+  const gamePlayersResult = gameIds.length
+    ? await admin
+        .from("coach_weekly_schedule_game_players")
+        .select("game_id, enrollment_id, player_id, player_name_snapshot, roster_status")
+        .in("game_id", gameIds)
+        .order("player_name_snapshot")
+        .returns<GamePlayerRow[]>()
+    : { data: [] as GamePlayerRow[], error: null };
+  if (gamePlayersResult.error) throw gamePlayersResult.error;
+
+  const squadMembers: SquadMemberRow[] = [];
+  if (squadIds.length) {
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await admin
+        .from("competition_roster_squad_members")
+        .select("squad_id, enrollment_id, enrollments!inner(player_id, players!inner(first_name, last_name))")
+        .in("squad_id", squadIds)
+        .order("enrollment_id")
+        .range(offset, offset + pageSize - 1)
+        .returns<SquadMemberRow[]>();
+      if (page.error) throw page.error;
+      squadMembers.push(...(page.data ?? []));
+      if ((page.data?.length ?? 0) < pageSize) break;
+    }
+  }
+
+  const reportsBySquad = new Map((reportsResult.data ?? []).flatMap((report) =>
+    report.competition_roster_squad_id ? [[report.competition_roster_squad_id, report] as const] : [],
+  ));
+  const gamesByReport = new Map<string, GameRow[]>();
+  for (const game of gamesResult.data ?? []) {
+    const rows = gamesByReport.get(game.report_id) ?? [];
+    rows.push(game);
+    gamesByReport.set(game.report_id, rows);
+  }
+  const gamePlayersByGame = new Map<string, GamePlayerRow[]>();
+  for (const player of gamePlayersResult.data ?? []) {
+    const rows = gamePlayersByGame.get(player.game_id) ?? [];
+    rows.push(player);
+    gamePlayersByGame.set(player.game_id, rows);
+  }
+  const membersBySquad = new Map<string, CoachScheduleSquad["players"]>();
+  for (const member of squadMembers) {
+    if (!member.enrollments?.players) continue;
+    const rows = membersBySquad.get(member.squad_id) ?? [];
+    rows.push({
+      enrollmentId: member.enrollment_id,
+      playerId: member.enrollments.player_id,
+      playerName: `${member.enrollments.players.first_name} ${member.enrollments.players.last_name}`.trim(),
+    });
+    membersBySquad.set(member.squad_id, rows);
+  }
+  for (const players of membersBySquad.values()) {
+    players.sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX"));
+  }
+
+  return {
+    campusName: foundation.campuses.find((campus) => campus.id === campusId)?.name ?? "Campus",
+    program,
+    selectedWeekStart: foundation.currentWeekStart,
+    tournaments: foundation.tournaments.map((tournament) => ({
+      id: tournament.id,
+      campusId: tournament.campusId,
+      name: tournament.name,
+    })),
+    groups: units.map((unit): CoachScheduleGroup => {
+      const report = reportsBySquad.get(unit.squadId);
+      const squad: CoachScheduleSquad = {
+        id: unit.squadId,
+        tournamentId: unit.fixedTournamentId,
+        name: unit.name,
+        players: membersBySquad.get(unit.squadId) ?? [],
+      };
+      return {
+        id: unit.id,
+        coachId: unit.primaryCoachId ?? report?.coach_id ?? null,
+        trainingGroupId: unit.trainingGroupId,
+        squadId: unit.squadId,
+        campusId: unit.campusId,
+        campusName: foundation.campuses.find((campus) => campus.id === unit.campusId)?.name ?? "Campus",
+        name: unit.name,
+        program: unit.program,
+        categoryLabel: unit.categoryLabel,
+        sourceGroupNames: unit.sourceGroupNames,
+        squads: [squad],
+        report: report
+          ? {
+              id: report.id,
+              tournamentId: report.tournament_id,
+              isRest: report.is_rest,
+              notes: report.notes ?? "",
+              updatedAt: report.updated_at,
+              games: (gamesByReport.get(report.id) ?? []).map((game) => {
+                const savedPlayers = gamePlayersByGame.get(game.id) ?? [];
+                const savedStatusByEnrollment = new Map(savedPlayers.map((player) => [player.enrollment_id, player.roster_status]));
+                return {
+                  id: game.id,
+                  matchDate: game.match_date,
+                  arrivalTime: game.arrival_time.slice(0, 5),
+                  venue: game.venue,
+                  opponent: game.opponent,
+                  squadId: game.competition_roster_squad_id ?? unit.squadId,
+                  players: squad.players.map((player) => ({
+                    ...player,
+                    rosterStatus: savedStatusByEnrollment.get(player.enrollmentId) ?? "included" as const,
+                  })),
+                };
+              }),
+            }
+          : null,
+      };
+    }),
   };
 }

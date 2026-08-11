@@ -55,6 +55,7 @@ export type WeeklyCallupsFoundationData = {
     program: WeeklyCallupProgram;
     categoryLabel: string;
     sourceGroupNames: string[];
+    primaryCoachId: string | null;
     primaryCoachName: string;
     auxiliaryCoachNames: string[];
   }>;
@@ -206,7 +207,7 @@ type ComposerGroupRow = {
 type ComposerCoachRow = {
   training_group_id: string;
   is_primary: boolean;
-  coaches: { first_name: string | null; last_name: string | null } | null;
+  coaches: { id: string; first_name: string | null; last_name: string | null } | null;
 };
 
 type CoachScheduleReportRow = {
@@ -235,7 +236,7 @@ type FoundationSquadGroupRow = { squad_id: string; training_group_id: string };
 type FoundationSquadCoachRow = {
   squad_id: string;
   is_primary: boolean;
-  coaches: { first_name: string | null; last_name: string | null } | null;
+  coaches: { id: string; first_name: string | null; last_name: string | null } | null;
 };
 
 type CoachScheduleGameRow = {
@@ -379,7 +380,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
       .returns<ComposerGroupRow[]>(),
     admin
       .from("training_group_coaches")
-      .select("training_group_id, is_primary, coaches(first_name, last_name)")
+      .select("training_group_id, is_primary, coaches(id, first_name, last_name)")
       .returns<ComposerCoachRow[]>(),
   ]);
 
@@ -408,7 +409,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
       ? admin.from("competition_roster_squad_groups").select("squad_id, training_group_id").in("squad_id", squadIds).returns<FoundationSquadGroupRow[]>()
       : Promise.resolve({ data: [] as FoundationSquadGroupRow[], error: null }),
     squadIds.length
-      ? admin.from("competition_roster_squad_coaches").select("squad_id, is_primary, coaches(first_name, last_name)").in("squad_id", squadIds).returns<FoundationSquadCoachRow[]>()
+      ? admin.from("competition_roster_squad_coaches").select("squad_id, is_primary, coaches(id, first_name, last_name)").in("squad_id", squadIds).returns<FoundationSquadCoachRow[]>()
       : Promise.resolve({ data: [] as FoundationSquadCoachRow[], error: null }),
   ]);
   if (squadGroupsResult.error) throw squadGroupsResult.error;
@@ -564,6 +565,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
           birthYearMin: group.birth_year_min,
           birthYearMax: group.birth_year_max,
         }).title),
+        primaryCoachId: coach?.id ?? null,
         primaryCoachName: [coach?.first_name, coach?.last_name].filter(Boolean).join(" ") || "Sin profesor",
         auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       }];

@@ -18,6 +18,7 @@ type Props = {
   data: WeeklyCallupsFoundationData;
   selectedCampusId: string;
   selectedProgram: WeeklyCallupProgram;
+  canManageSchedules: boolean;
 };
 
 const PROGRAMS: Array<{ value: WeeklyCallupProgram; label: string }> = [
@@ -87,6 +88,7 @@ function CurrentWeekCard({
   weekStart,
   selected,
   onSelect,
+  canManageSchedules,
 }: {
   campus: { id: string; name: string };
   program: { value: WeeklyCallupProgram; label: string };
@@ -96,6 +98,7 @@ function CurrentWeekCard({
   weekStart: string;
   selected: boolean;
   onSelect: () => void;
+  canManageSchedules: boolean;
 }) {
   const [state, action, pending] = useActionState<WeeklyCallupComposerState, FormData>(
     createWeeklyCallupComposerAction,
@@ -104,6 +107,7 @@ function CurrentWeekCard({
   const reported = groups.filter((group) => Boolean(reports[group.id])).length;
   const pendingCount = groups.length - reported;
   const complete = groups.length > 0 && pendingCount === 0;
+  const detailHref = `/convocatorias?campus=${encodeURIComponent(campus.id)}&program=${program.value}&week=${weekStart}&detail=horarios#detalle-horarios`;
 
   return (
     <article className={`rounded-md border transition-colors ${selected ? "border-portoBlue bg-blue-50" : "border-slate-200 bg-white hover:border-slate-400"}`}>
@@ -124,11 +128,12 @@ function CurrentWeekCard({
         {callup ? (
           <div className="grid grid-cols-2 gap-2">
             <DirectPngButton callupId={callup.id} />
-            <Link href={`/convocatorias/${callup.id}`} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">
+            {canManageSchedules ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">
               Ver detalle
-            </Link>
+            </Link> : <Link href={`/convocatorias/${callup.id}`} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Abrir convocatoria</Link>}
           </div>
         ) : complete ? (
+          <div className={`grid gap-2 ${canManageSchedules ? "grid-cols-2" : ""}`}>
           <form action={action} className="space-y-2">
             <input type="hidden" name="campusId" value={campus.id} />
             <input type="hidden" name="program" value={program.value} />
@@ -139,17 +144,20 @@ function CurrentWeekCard({
             </button>
             {state ? <p role="alert" className="text-xs font-medium text-rose-700">{state.message}</p> : null}
           </form>
+          {canManageSchedules ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Ver detalle</Link> : null}
+          </div>
         ) : (
-          <p className="min-h-9 rounded-md bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-500">
-            {groups.length === 0 ? "Sin equipos configurados" : "Faltan reportes"}
-          </p>
+          <div className="grid gap-2">
+            <p className="min-h-9 rounded-md bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-500">{groups.length === 0 ? "Sin equipos configurados" : "Faltan reportes"}</p>
+            {canManageSchedules && groups.length ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Ver detalle</Link> : null}
+          </div>
         )}
       </div>
     </article>
   );
 }
 
-export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }: Props) {
+export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram, canManageSchedules }: Props) {
   const [selection, setSelection] = useState({ campusId: selectedCampusId, program: selectedProgram });
   const week = weekDetails(data.currentWeekStart);
   const tournamentById = new Map(data.tournaments.map((tournament) => [tournament.id, tournament.name]));
@@ -208,6 +216,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram }
               weekStart={data.currentWeekStart}
               selected={campus.id === selection.campusId && program.value === selection.program}
               onSelect={() => select(campus.id, program.value)}
+              canManageSchedules={canManageSchedules}
             />
           );
         }))}

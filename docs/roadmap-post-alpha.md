@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.34`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.35`).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.33`
-- Current preview candidate: `v1.17.34` canonical tournament-team labels
+- Current preview candidate: `v1.17.35` guarded director weekly-schedule detail
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -189,8 +189,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 16. 🟢 `v1.17.32` removes the duplicated weekly composer and moves guarded preparation, direct PNG download, detail access, and local traffic-matrix filtering into the four current-week cards.
 17. 🟢 `v1.17.33` makes `Inscripciones Torneos` program filters local and instant, enforces youngest-to-oldest YOB ordering in all three views, and removes B-level/internal suffix noise from display without renaming stored groups or squads.
 18. 🟢 `v1.17.34` applies canonical YOB/program squad labels consistently across live team cards, coach reporting, the current-week matrix, and saved convocatoria detail without mutating stored data.
-19. 🔴 Next Pass 2: expose guarded admin/director game entry and editing from every current-week detail path.
-20. 🔴 Pass 3: convocatoria PNG compact-layout and visual polish after operational feedback.
+19. 🟢 `v1.17.35` exposes guarded Super Admin/Director Admin/Director Deportivo game entry and correction from every populated current-week card, with campus, professor, squad, week, and live-roster validation.
+20. 🔴 Next Pass 3: convocatoria PNG compact-layout and visual polish after operational feedback.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 

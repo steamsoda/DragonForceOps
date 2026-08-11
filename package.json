@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.34",
+  "version": "1.17.35",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -28,6 +28,7 @@
     "test:weekly-callups-composer": "node scripts/assert-weekly-callups-composer.mjs",
     "test:coach-convocatoria-scope": "node scripts/assert-coach-convocatoria-scope.mjs",
     "test:coach-game-rosters": "node scripts/assert-coach-game-rosters.mjs",
+    "test:director-schedule-editor": "node scripts/assert-director-schedule-editor.mjs",
     "test:caja-tournament-sync-performance": "node scripts/assert-caja-tournament-sync-performance.mjs",
     "test:debug-view-reset": "node scripts/assert-debug-view-reset.mjs",
     "diagnose:training-workload-counts": "node scripts/verify-training-workload-counts.mjs",

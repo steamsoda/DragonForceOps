@@ -64,8 +64,10 @@ export async function saveCoachScheduleAction(
 ): Promise<CoachScheduleActionState> {
   const debugContext = await getDebugViewContext();
   const context = await getPermissionContext();
-  if (!context?.hasCoachScheduleAccess || !context.coachId) {
-    return { ok: false, message: "Tu cuenta no esta vinculada a un coach activo." };
+  const writeMode = clean(formData, "writeMode") === "director" ? "director" : "coach";
+  const directorWrite = writeMode === "director";
+  if (!context || (directorWrite ? !context.isSportsDirector : !context.hasCoachScheduleAccess || !context.coachId)) {
+    return { ok: false, message: directorWrite ? "Necesitas permiso de direccion deportiva para guardar este horario." : "Tu cuenta no esta vinculada a un coach activo." };
   }
   const isWritableCoachPreview = Boolean(
     isPreviewDebugEnabled()
@@ -74,16 +76,17 @@ export async function saveCoachScheduleAction(
       && debugContext.activeView?.userId === context.user.id
       && context.isCoach,
   );
-  if (debugContext?.isReadOnly && !isWritableCoachPreview) {
+  if (debugContext?.isReadOnly && (!isWritableCoachPreview || directorWrite)) {
     return { ok: false, message: "El modo Ver como es de solo lectura para esta accion." };
   }
+  const coachId = directorWrite ? clean(formData, "coachId") : context.coachId!;
   const trainingGroupId = clean(formData, "trainingGroupId");
   const squadId = clean(formData, "squadId");
   const weekStart = clean(formData, "weekStart");
   const tournamentId = clean(formData, "tournamentId");
   const isRest = clean(formData, "isRest") === "yes";
   const notes = clean(formData, "notes");
-  if (!isUuid(trainingGroupId) || !isUuid(squadId) || !isUuid(tournamentId) || !isMonday(weekStart) || notes.length > 500) {
+  if (!isUuid(coachId) || !isUuid(trainingGroupId) || !isUuid(squadId) || !isUuid(tournamentId) || !isMonday(weekStart) || notes.length > 500) {
     return { ok: false, message: "Revisa la semana, el torneo y los datos capturados." };
   }
 
@@ -128,10 +131,9 @@ export async function saveCoachScheduleAction(
 
   const admin = createAdminClient();
   const actorUserId = isWritableCoachPreview ? debugContext!.actor.id : context.user.id;
-  const result = await admin.rpc("save_coach_weekly_schedule_report_v3", {
+  const sharedArgs = {
     p_actor_user_id: actorUserId,
-    p_effective_user_id: context.user.id,
-    p_coach_id: context.coachId,
+    p_coach_id: coachId,
     p_week_start: weekStart,
     p_training_group_id: trainingGroupId,
     p_competition_roster_squad_id: squadId,
@@ -139,15 +141,23 @@ export async function saveCoachScheduleAction(
     p_is_rest: isRest,
     p_notes: notes || null,
     p_games: games,
-  });
+  };
+  const result = directorWrite
+    ? await admin.rpc("save_staff_weekly_schedule_report_v1", sharedArgs)
+    : await admin.rpc("save_coach_weekly_schedule_report_v3", {
+        ...sharedArgs,
+        p_effective_user_id: context.user.id,
+      });
   if (result.error) {
     console.error("[coach-schedule] save failed", result.error);
-    return { ok: false, message: "No se pudo guardar. Confirma que el grupo siga asignado a tu cuenta y que las fechas pertenezcan a esa semana." };
+    return { ok: false, message: directorWrite
+      ? "No se pudo guardar. Confirma el profesor responsable, el equipo y que las fechas pertenezcan a esta semana."
+      : "No se pudo guardar. Confirma que el grupo siga asignado a tu cuenta y que las fechas pertenezcan a esa semana." };
   }
   await writeAuditLog(admin, {
     actorUserId,
     actorEmail: isWritableCoachPreview ? debugContext!.actor.email : context.user.email,
-    action: "coach_schedule.report_saved",
+    action: directorWrite ? "coach_schedule.director_saved" : "coach_schedule.report_saved",
     tableName: "coach_weekly_schedule_reports",
     recordId: typeof result.data === "string" ? result.data : null,
     afterData: {
@@ -155,9 +165,10 @@ export async function saveCoachScheduleAction(
       competition_roster_squad_id: squadId,
       week_start: weekStart,
       tournament_id: tournamentId,
-      coach_id: context.coachId,
+      coach_id: coachId,
       effective_user_id: context.user.id,
       debug_impersonation: isWritableCoachPreview,
+      write_mode: writeMode,
       is_rest: isRest,
       game_count: games.length,
       included_player_count: games.reduce((sum, game) => sum + game.players.filter((player) => player.roster_status === "included").length, 0),

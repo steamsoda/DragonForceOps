@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-11 (session 301)
+
+### Director Weekly Schedule Detail - Polish Pass 2 (v1.17.35 Preview)
+
+- Added `Ver detalle` to every populated current-week campus/program card for Super Admin, Director Admin, and Director Deportivo. The detail loads only the selected campus/program and lets authorized directors complete or correct each squad's games or explicit rest status through the existing compact report form.
+- Added a separate service-only staff RPC that verifies the real actor role, Director Deportivo campus scope, responsible professor assignment, tournament/squad/source-group relationship, Monday-to-Sunday dates, complete live squad roster, and at least one included player. Coach writes retain their existing narrower RPC and assignment checks.
+- Reconciled saved game exclusions against the current live squad when the form opens, so legitimate roster changes do not leave a stale form while permanent squad membership remains untouched. Teams without a responsible professor are visible but cannot be saved until their professor assignment is corrected.
+- Kept frozen convocatoria preparation and direct PNG download separate from schedule editing. This pass does not mutate payments, registrations, training groups, permanent squads, attendance, charges, or allocations.
+- Added focused director-editor assertions and verified TypeScript plus the existing coach scope, game-roster, weekly composer, and foundation contracts.
+- Next: Pass 3 will polish the convocatoria PNG layout after operational review.
+
 ## 2026-08-11 (session 300)
 
 ### Canonical Tournament Team Labels - Polish Pass 1 (v1.17.34 Preview)

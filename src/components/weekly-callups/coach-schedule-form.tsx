@@ -48,10 +48,12 @@ export function CoachScheduleForm({
   group,
   weekStart,
   tournaments,
+  writeMode = "coach",
 }: {
   group: CoachScheduleGroup;
   weekStart: string;
   tournaments: Array<{ id: string; campusId: string; name: string }>;
+  writeMode?: "coach" | "director";
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(saveCoachScheduleAction, null);
@@ -102,6 +104,8 @@ export function CoachScheduleForm({
     <form action={action} className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <input type="hidden" name="trainingGroupId" value={group.trainingGroupId} />
       <input type="hidden" name="squadId" value={group.squadId} />
+      <input type="hidden" name="coachId" value={group.coachId ?? ""} />
+      <input type="hidden" name="writeMode" value={writeMode} />
       <input type="hidden" name="weekStart" value={weekStart} />
       <input type="hidden" name="games" value={JSON.stringify(isRest ? [] : games)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -133,6 +137,7 @@ export function CoachScheduleForm({
         <label className="flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium"><input type="checkbox" name="isRest" value="yes" checked={isRest} onChange={(event) => setIsRest(event.target.checked)} /> Descansa esta semana</label>
       </div>
       {!isRest && tournamentId && !availableSquads.length ? <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">Este grupo aun no tiene un equipo activo para el torneo seleccionado. Administracion debe revisar Equipos antes de reportar.</p> : null}
+      {writeMode === "director" && !group.coachId ? <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">Este equipo no tiene profesor responsable. Asigna uno en Equipos antes de guardar su horario.</p> : null}
       {!isRest ? (
         <div className="space-y-3">
           {games.map((game, index) => {
@@ -160,7 +165,7 @@ export function CoachScheduleForm({
       ) : null}
       <label className="block text-sm font-medium">Nota opcional<textarea name="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} rows={2} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Indicacion breve para administracion" /></label>
       {state ? <p className={`rounded-md border px-3 py-2 text-sm ${state.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{state.message}</p> : null}
-      <div className="flex justify-end"><button disabled={pending || !tournamentId || !hasCompleteRosters} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : savedReport ? "Actualizar reporte" : "Reportar horario"}</button></div>
+      <div className="flex justify-end"><button disabled={pending || !group.coachId || !tournamentId || !hasCompleteRosters} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : savedReport ? "Actualizar reporte" : "Reportar horario"}</button></div>
     </form>
   );
 }

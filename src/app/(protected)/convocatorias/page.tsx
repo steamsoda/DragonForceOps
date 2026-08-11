@@ -7,11 +7,11 @@ import { CoachScheduleLiveRefresh } from "@/components/weekly-callups/live-refre
 import { CurrentWeekDashboard } from "@/components/weekly-callups/current-week-dashboard";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { getDebugViewContext } from "@/lib/auth/debug-view";
-import { getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
+import { getAdminScheduleDetailData, getCoachSchedulePageData } from "@/lib/queries/coach-schedules";
 import { getWeeklyCallupsFoundationData, type WeeklyCallupListRow } from "@/lib/queries/weekly-callups";
 import { deleteWeeklyCallupAction } from "@/server/actions/weekly-callups";
 
-type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string; week?: string }>;
+type SearchParams = Promise<{ err?: string; ok?: string; campus?: string; program?: string; week?: string; detail?: string }>;
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_snapshot_settings: "Selecciona campus, torneo, programa y un lunes valido.",
@@ -119,6 +119,9 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     : data.defaultCampusId;
   const selectedProgram = params.program === "selectivo" ? "selectivo" : "futbol_para_todos";
   const previousCallups = data.callups.filter((callup) => callup.weekStart !== data.currentWeekStart);
+  const adminScheduleDetail = params.detail === "horarios" && permission?.isSportsDirector
+    ? await getAdminScheduleDetailData(data, selectedCampusId, selectedProgram)
+    : null;
 
   return (
     <PageShell
@@ -148,7 +151,24 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           data={data}
           selectedCampusId={selectedCampusId}
           selectedProgram={selectedProgram}
+          canManageSchedules={Boolean(permission?.isSportsDirector)}
         />
+
+        {adminScheduleDetail ? (
+          <section id="detalle-horarios" className="space-y-4 scroll-mt-4 rounded-lg border border-portoBlue bg-blue-50/40 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-portoBlue">Detalle de horarios</p>
+                <h2 className="text-xl font-semibold">{adminScheduleDetail.campusName} | {programLabel(adminScheduleDetail.program)}</h2>
+                <p className="text-sm text-slate-500">Direccion puede completar o corregir los partidos de esta semana sin modificar equipos, planteles, pagos ni asistencias.</p>
+              </div>
+              <Link href={`/convocatorias?campus=${encodeURIComponent(selectedCampusId)}&program=${selectedProgram}&week=${data.currentWeekStart}`} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Cerrar detalle</Link>
+            </div>
+            {adminScheduleDetail.groups.length ? adminScheduleDetail.groups.map((group) => (
+              <CoachScheduleForm key={`director:${adminScheduleDetail.selectedWeekStart}:${group.id}`} group={group} weekStart={adminScheduleDetail.selectedWeekStart} tournaments={adminScheduleDetail.tournaments} writeMode="director" />
+            )) : <p className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">No hay equipos activos para esta seleccion.</p>}
+          </section>
+        ) : null}
 
         {previousCallups.length ? (
           <details className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
