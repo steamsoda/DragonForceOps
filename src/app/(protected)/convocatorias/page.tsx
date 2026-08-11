@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { WeeklyCallupComposerForm } from "@/components/weekly-callups/composer-form";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
 import { CoachScheduleForm } from "@/components/weekly-callups/coach-schedule-form";
 import { CoachScheduleLiveRefresh } from "@/components/weekly-callups/live-refresh";
@@ -119,13 +118,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     ? params.campus!
     : data.defaultCampusId;
   const selectedProgram = params.program === "selectivo" ? "selectivo" : "futbol_para_todos";
-  const visibleGroups = data.scheduleUnits.filter(
-    (group) => group.campusId === selectedCampusId && group.program === selectedProgram,
-  );
-  const tournamentOptions = data.tournaments.filter((tournament) => tournament.campusId === selectedCampusId);
   const previousCallups = data.callups.filter((callup) => callup.weekStart !== data.currentWeekStart);
-  const selectionHref = (campusId: string, program: string) =>
-    `/convocatorias?campus=${encodeURIComponent(campusId)}&program=${encodeURIComponent(program)}&week=${encodeURIComponent(data.currentWeekStart)}`;
 
   return (
     <PageShell
@@ -156,47 +149,6 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           selectedCampusId={selectedCampusId}
           selectedProgram={selectedProgram}
         />
-
-        <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-          <div>
-            <h2 className="text-base font-semibold">Preparar convocatoria semanal</h2>
-            <p className="text-sm text-slate-500">
-              Elige campus y programa. Cada equipo debe tener partidos reportados o descanso antes de congelar la convocatoria.
-            </p>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Campus</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {data.campuses.map((campus) => (
-                  <Link key={campus.id} href={selectionHref(campus.id, selectedProgram)} className={`min-h-14 rounded-md border px-4 py-4 text-center font-semibold ${campus.id === selectedCampusId ? "border-portoBlue bg-blue-50 text-portoBlue" : "border-slate-300 bg-white text-slate-700"}`}>
-                    {campus.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Programa</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {[{ value: "selectivo", label: "Selectivos" }, { value: "futbol_para_todos", label: "Futbol Para Todos" }].map((program) => (
-                  <Link key={program.value} href={selectionHref(selectedCampusId, program.value)} className={`min-h-14 rounded-md border px-4 py-4 text-center font-semibold ${program.value === selectedProgram ? "border-portoBlue bg-blue-50 text-portoBlue" : "border-slate-300 bg-white text-slate-700"}`}>
-                    {program.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <WeeklyCallupComposerForm
-            key={`${selectedCampusId}:${selectedProgram}:${data.currentWeekStart}`}
-            campusId={selectedCampusId}
-            program={selectedProgram}
-            currentWeekStart={data.currentWeekStart}
-            groups={visibleGroups}
-            tournaments={tournamentOptions.map((tournament) => ({ id: tournament.id, name: tournament.name }))}
-            coachScheduleDefaults={data.coachScheduleDefaults}
-          />
-        </section>
 
         {previousCallups.length ? (
           <details className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">

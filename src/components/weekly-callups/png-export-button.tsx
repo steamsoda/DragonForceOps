@@ -38,22 +38,26 @@ async function svgToPngBlob(svg: string, width: number, height: number) {
   });
 }
 
+export async function downloadWeeklyCallupPng(data: WeeklyCallupPngData) {
+  const exportImage = buildWeeklyCallupPngSvg(data);
+  const blob = await svgToPngBlob(exportImage.svg, exportImage.width, exportImage.height);
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `${safeFileName(data.tournamentName)}-${safeFileName(data.campusName)}-${safeFileName(data.program)}-${data.weekStart}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
 export function WeeklyCallupPngExportButton({ data }: { data: WeeklyCallupPngData }) {
   const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
 
   async function handleDownload() {
     setState("working");
     try {
-      const exportImage = buildWeeklyCallupPngSvg(data);
-      const blob = await svgToPngBlob(exportImage.svg, exportImage.width, exportImage.height);
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = `${safeFileName(data.tournamentName)}-${safeFileName(data.campusName)}-${safeFileName(data.program)}-${data.weekStart}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(downloadUrl);
+      await downloadWeeklyCallupPng(data);
       setState("done");
     } catch (error) {
       console.error("weekly callup PNG export failed", error);

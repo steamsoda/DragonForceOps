@@ -5,6 +5,7 @@ import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-but
 import { WeeklyCallupSubmitButton } from "@/components/weekly-callups/submit-button";
 import { PageShell } from "@/components/ui/page-shell";
 import { getWeeklyCallupDetail } from "@/lib/queries/weekly-callups";
+import { buildWeeklyCallupPngData } from "@/lib/weekly-callups/png-data";
 import {
   addWeeklyCallupManualExceptionAction,
   deleteWeeklyCallupAction,
@@ -103,33 +104,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
   const tournamentNames = [...new Set(callup.categories.map((category) => category.tournamentName))];
   const isMixedTournament = tournamentNames.length > 1;
   const packetTitle = isMixedTournament ? "Convocatoria semanal" : tournamentNames[0] ?? callup.tournamentName;
-  const pngData = {
-    tournamentName: packetTitle,
-    campusName: callup.campusName,
-    program: callup.program,
-    weekStart: callup.weekStart,
-    weekEnd: callup.weekEnd,
-    categories: callup.categories.map((category) => ({
-      id: category.id,
-      categoryLabel: category.categoryLabel,
-      trainingGroupName: category.trainingGroupName,
-      tournamentName: category.tournamentName,
-      coachNames: category.coachNames,
-      isRest: category.isRest,
-      games: category.games.map((game) => ({
-        matchDate: game.matchDate,
-        arrivalTime: game.arrivalTime,
-        venue: game.venue,
-        opponent: game.opponent,
-        players: game.players
-          .filter((player) => player.rosterStatus === "included")
-          .map((player) => ({ id: player.enrollmentId, playerName: player.playerName })),
-      })),
-      players: category.players
-        .filter((player) => player.rosterStatus === "included")
-        .map((player) => ({ id: player.id, playerName: player.playerName })),
-    })),
-  };
+  const pngData = buildWeeklyCallupPngData(callup);
 
   return (
     <PageShell

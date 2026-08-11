@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-11 (session 298)
+
+### Current-Week Convocatoria Card Workflow (v1.17.32 Preview)
+
+- Made the four `Control de esta semana` campus/program cards the sole current-week selector and action surface. Clicking a card now filters the traffic matrix locally without reloading the page or navigating away.
+- Removed the duplicated `Preparar convocatoria semanal` campus/program composer. A complete card now prepares the frozen packet through the existing guarded server action; incomplete cards clearly show missing reports, and ready cards expose direct `Descargar PNG` and `Ver detalle` commands.
+- Added an authenticated, campus-scoped, no-store PNG-data endpoint and shared PNG mapper so ready packets download directly from the card while the detailed editor and historical packet rendering keep the same frozen data contract.
+- Preserved collapsed prior-week history and all existing snapshot safeguards. This pass adds no migration and does not modify tournament registrations, paid-player truth, competition squads, training groups, attendance, charges, payments, or allocations.
+- Verified TypeScript plus focused weekly-composer, PNG, professor-scope, and game-roster regressions.
+
 ## 2026-08-10 (session 297)
 
 ### Squad-Frozen Weekly Convocatorias (v1.17.31 Preview)
