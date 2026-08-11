@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-10 (session 295)
+
+### Explicit Competition-Team Professors (v1.17.29 Preview)
+
+- Added a dedicated professor assignment layer for tournament teams without changing training-group ownership. Normal one-group teams and their Azul/Blanco divisions inherit the current primary and auxiliary professors from the source training group automatically.
+- Combined multi-group teams now require an explicit manual professor selection, avoiding the previous ambiguous union of every source group's staff. Directors may also override an ordinary or split team and later restore training-group inheritance.
+- Added a compact `Profesores de equipos` editor inside `Organizar equipos`, with a visible principal professor, active campus professor options, missing-assignment warnings, and transactional save feedback.
+- Every assignment-mode change is recorded in `competition_roster_events`. The migration is additive and does not modify players, paid tournament registrations, team membership, training groups, attendance, charges, payments, or allocations.
+- This pass establishes ownership only. The following pass will make coach schedule reporting, the weekly traffic matrix, and convocatoria generation consume these effective tournament-team assignments.
+
 ## 2026-08-10 (session 294)
 
 ### Fast Caja Tournament Registration Handoff (v1.17.28 Preview)

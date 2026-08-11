@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CompetitionRosterCombinedEditor } from "@/components/sports/competition-roster-combined-editor";
 import { CompetitionRosterExceptionsEditor } from "@/components/sports/competition-roster-exceptions-editor";
+import { CompetitionRosterProfessorEditor } from "@/components/sports/competition-roster-professor-editor";
 import { CompetitionRosterSnapshotPanel } from "@/components/sports/competition-roster-snapshot-panel";
 import { CompetitionRosterSubmitButton } from "@/components/sports/competition-roster-submit-button";
 import { CompetitionRosterSplitEditor } from "@/components/sports/competition-roster-split-editor";
@@ -131,6 +132,16 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
           <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">
             Vista de consulta. La seleccion deportiva corresponde a Super Admin, Director Admin o Director Deportivo del campus.
           </div>
+        ) : null}
+
+        {data.canManage && data.squadProfessorAssignments.length > 0 ? (
+          <CompetitionRosterProfessorEditor
+            tournamentId={data.tournamentId}
+            campusId={data.campusId}
+            program={data.program}
+            professorOptions={data.professorOptions}
+            assignments={data.squadProfessorAssignments}
+          />
         ) : null}
 
         {data.canManage && data.groups.filter((group) => group.canCombine).length >= 2 ? (

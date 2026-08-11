@@ -27,6 +27,25 @@ type SquadRow = {
   gender: string | null;
   status: CompetitionSquadStatus;
   sort_order: number;
+  coach_assignment_mode: "inherited" | "manual";
+};
+
+type SquadCoachRow = {
+  squad_id: string;
+  coach_id: string;
+  is_primary: boolean;
+};
+
+type TrainingGroupCoachRow = {
+  training_group_id: string;
+  coach_id: string;
+  is_primary: boolean;
+};
+
+type CoachRow = {
+  id: string;
+  first_name: string;
+  last_name: string | null;
 };
 
 type SquadGroupRow = {
@@ -66,7 +85,7 @@ export async function getCompetitionRosterFoundation(
   const [squadsResult, candidatesResult, exclusionsResult, snapshotsResult] = await Promise.all([
     admin
       .from("competition_roster_squads")
-      .select("id, tournament_id, name, squad_kind, program, category_label, gender, status, sort_order")
+      .select("id, tournament_id, name, squad_kind, program, category_label, gender, status, sort_order, coach_assignment_mode")
       .eq("tournament_id", tournamentId)
       .neq("status", "archived")
       .order("sort_order")
@@ -127,6 +146,7 @@ export async function getCompetitionRosterFoundation(
     gender: row.gender,
     status: row.status,
     sortOrder: row.sort_order,
+    professorAssignmentMode: row.coach_assignment_mode,
     sourceGroups: groupRows
       .filter((group) => group.squad_id === row.id)
       .map((group) => ({
@@ -267,6 +287,22 @@ export type CompetitionRosterCombinedSquad = {
   memberCount: number;
 };
 
+export type CompetitionRosterProfessor = {
+  id: string;
+  name: string;
+  isPrimary: boolean;
+};
+
+export type CompetitionRosterSquadProfessorAssignment = {
+  squadId: string;
+  squadName: string;
+  squadKind: CompetitionSquadKind;
+  sourceGroupNames: string[];
+  assignmentMode: "inherited" | "manual";
+  requiresManualAssignment: boolean;
+  professors: CompetitionRosterProfessor[];
+};
+
 export type CompetitionRosterOrganizerData = {
   tournamentId: string;
   productId: string;
@@ -285,6 +321,8 @@ export type CompetitionRosterOrganizerData = {
   activeSquads: Array<{ id: string; name: string }>;
   helperCandidates: CompetitionRosterHelperCandidate[];
   manualHelpers: CompetitionRosterManualHelper[];
+  professorOptions: Array<{ id: string; name: string }>;
+  squadProfessorAssignments: CompetitionRosterSquadProfessorAssignment[];
   excludedPlayers: CompetitionRosterOrganizerPlayer[];
   liveSquads: CompetitionRosterLiveSquad[];
   latestSnapshot: { id: string; label: string; capturedAt: string } | null;
@@ -685,6 +723,79 @@ export async function getCompetitionRosterOrganizerData(filters: {
     .filter((squad) => squad.program === filters.program)
     .map((squad) => ({ id: squad.id, name: squad.name }))
     .sort((a, b) => a.name.localeCompare(b.name, "es-MX"));
+
+  const programSquads = foundation.squads.filter((squad) => squad.program === filters.program);
+  const programSquadIds = programSquads.map((squad) => squad.id);
+  const sourceGroupIds = [...new Set(programSquads.flatMap((squad) => squad.sourceGroups.map((group) => group.id)))];
+  const [coachOptionsResult, squadCoachResult, trainingGroupCoachResult] = await Promise.all([
+    admin
+      .from("coaches")
+      .select("id, first_name, last_name")
+      .eq("campus_id", tournament.campus_id)
+      .eq("is_active", true)
+      .order("first_name")
+      .returns<CoachRow[]>(),
+    programSquadIds.length > 0
+      ? admin
+          .from("competition_roster_squad_coaches")
+          .select("squad_id, coach_id, is_primary")
+          .in("squad_id", programSquadIds)
+          .returns<SquadCoachRow[]>()
+      : Promise.resolve({ data: [] as SquadCoachRow[], error: null }),
+    sourceGroupIds.length > 0
+      ? admin
+          .from("training_group_coaches")
+          .select("training_group_id, coach_id, is_primary")
+          .in("training_group_id", sourceGroupIds)
+          .returns<TrainingGroupCoachRow[]>()
+      : Promise.resolve({ data: [] as TrainingGroupCoachRow[], error: null }),
+  ]);
+  if (coachOptionsResult.error || squadCoachResult.error || trainingGroupCoachResult.error) return null;
+
+  const coachNameById = new Map((coachOptionsResult.data ?? []).map((coach) => [
+    coach.id,
+    `${coach.first_name} ${coach.last_name ?? ""}`.trim(),
+  ]));
+  const directCoachesBySquad = new Map<string, SquadCoachRow[]>();
+  for (const row of squadCoachResult.data ?? []) {
+    const current = directCoachesBySquad.get(row.squad_id) ?? [];
+    current.push(row);
+    directCoachesBySquad.set(row.squad_id, current);
+  }
+  const inheritedCoachesByGroup = new Map<string, TrainingGroupCoachRow[]>();
+  for (const row of trainingGroupCoachResult.data ?? []) {
+    const current = inheritedCoachesByGroup.get(row.training_group_id) ?? [];
+    current.push(row);
+    inheritedCoachesByGroup.set(row.training_group_id, current);
+  }
+  const squadProfessorAssignments = programSquads.map<CompetitionRosterSquadProfessorAssignment>((squad) => {
+    const requiresManualAssignment = squad.sourceGroups.length > 1;
+    const sourceRows = squad.professorAssignmentMode === "manual"
+      ? directCoachesBySquad.get(squad.id) ?? []
+      : squad.sourceGroups.flatMap((group) => inheritedCoachesByGroup.get(group.id) ?? []);
+    const professorById = new Map<string, CompetitionRosterProfessor>();
+    for (const row of sourceRows) {
+      const name = coachNameById.get(row.coach_id);
+      if (!name) continue;
+      const existing = professorById.get(row.coach_id);
+      professorById.set(row.coach_id, {
+        id: row.coach_id,
+        name,
+        isPrimary: Boolean(existing?.isPrimary || row.is_primary),
+      });
+    }
+    return {
+      squadId: squad.id,
+      squadName: squad.name,
+      squadKind: squad.kind,
+      sourceGroupNames: squad.sourceGroups.map((group) => group.name),
+      assignmentMode: squad.professorAssignmentMode,
+      requiresManualAssignment,
+      professors: [...professorById.values()].sort((left, right) =>
+        Number(right.isPrimary) - Number(left.isPrimary) || left.name.localeCompare(right.name, "es-MX"),
+      ),
+    };
+  }).sort((left, right) => left.squadName.localeCompare(right.squadName, "es-MX"));
   const manualMemberIds = new Set(foundation.manualMemberEnrollmentIds);
   const campusEnrollments = permission.isSportsDirector
     ? await loadActiveCampusEnrollments(admin, tournament.campus_id)
@@ -797,6 +908,11 @@ export async function getCompetitionRosterOrganizerData(filters: {
     activeSquads,
     helperCandidates,
     manualHelpers,
+    professorOptions: (coachOptionsResult.data ?? []).map((coach) => ({
+      id: coach.id,
+      name: `${coach.first_name} ${coach.last_name ?? ""}`.trim(),
+    })),
+    squadProfessorAssignments,
     excludedPlayers,
     liveSquads,
     latestSnapshot: programSnapshotsResult.data?.[0]

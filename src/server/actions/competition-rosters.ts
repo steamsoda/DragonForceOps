@@ -98,8 +98,82 @@ function inlineErrorMessage(code: string) {
     manual_member_not_found: "El refuerzo ya no pertenece a ese equipo.",
     member_is_excluded: "Reintegra al jugador antes de agregarlo a un equipo.",
     squad_permission_denied: "Tu usuario no tiene permiso para administrar estos equipos.",
+    competition_squad_professor_required: "Selecciona por lo menos un profesor para este equipo.",
+    competition_squad_primary_professor_required: "Selecciona cual sera el profesor principal.",
+    competition_squad_professor_invalid: "Uno de los profesores ya no esta activo en este campus.",
+    combined_squad_requires_manual_professor: "Los equipos combinados necesitan una asignacion manual de profesores.",
   };
   return messages[code] ?? "No se pudo guardar el cambio. Ningun otro dato fue modificado.";
+}
+
+export async function setCompetitionRosterSquadProfessorsInlineAction(input: {
+  tournamentId: string;
+  campusId: string;
+  program: string;
+  squadId: string;
+  coachIds: string[];
+  primaryCoachId: string | null;
+  useInherited: boolean;
+}): Promise<CompetitionRosterInlineActionResult> {
+  const tournamentId = clean(input.tournamentId);
+  const campusId = clean(input.campusId);
+  const program = clean(input.program);
+  const squadId = clean(input.squadId);
+  const coachIds = [...new Set(input.coachIds.map((coachId) => clean(coachId)).filter(isUuid))];
+  const primaryCoachId = input.primaryCoachId ? clean(input.primaryCoachId) : null;
+  if (
+    ![tournamentId, campusId, squadId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || (!input.useInherited && (coachIds.length === 0 || !primaryCoachId || !isUuid(primaryCoachId)))
+  ) {
+    return {
+      ok: false,
+      message: inlineErrorMessage(coachIds.length === 0
+        ? "competition_squad_professor_required"
+        : "competition_squad_primary_professor_required"),
+    };
+  }
+
+  const context = await inlineManagerContext({ tournamentId, campusId, program });
+  if (!context) return { ok: false, message: inlineErrorMessage("squad_permission_denied") };
+
+  const result = await context.supabase.rpc("set_competition_roster_squad_coaches", {
+    p_squad_id: squadId,
+    p_coach_ids: coachIds,
+    p_primary_coach_id: input.useInherited ? null : primaryCoachId,
+    p_use_inherited: input.useInherited,
+  });
+  if (result.error) {
+    const message = result.error.message.toLowerCase();
+    const code = message.includes("combined_squad_requires_manual_professor")
+      ? "combined_squad_requires_manual_professor"
+      : message.includes("primary_professor")
+        ? "competition_squad_primary_professor_required"
+        : message.includes("professor_invalid")
+          ? "competition_squad_professor_invalid"
+          : message.includes("professor_required")
+            ? "competition_squad_professor_required"
+            : message.includes("manager_required") || message.includes("row-level security")
+              ? "squad_permission_denied"
+              : "squad_sync_failed";
+    console.error("competition squad professor update failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      squadId,
+    });
+    return { ok: false, message: inlineErrorMessage(code) };
+  }
+
+  revalidateCompetitionRosterPaths();
+  revalidatePath("/convocatorias");
+  revalidatePath("/mis-horarios");
+  return {
+    ok: true,
+    message: input.useInherited
+      ? "El equipo vuelve a usar los profesores de su grupo de entrenamiento."
+      : "Profesores del equipo actualizados.",
+  };
 }
 
 function revalidateCompetitionRosterPaths() {

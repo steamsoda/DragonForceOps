@@ -12,6 +12,7 @@ export type CompetitionRosterSquad = {
   gender: string | null;
   status: CompetitionSquadStatus;
   sortOrder: number;
+  professorAssignmentMode: "inherited" | "manual";
   sourceGroups: Array<{ id: string; name: string }>;
   members: Array<{
     enrollmentId: string;
