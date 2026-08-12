@@ -4,7 +4,7 @@
 
 ### Tournament-Team Label Consistency (v1.17.41 Preview)
 
-- Removed the internal `Futbol Para Todos` label from active tournament registration cards, team administration, `Convocatorias`, professor schedule forms, and tournament/convocatoria PNG data. Operational filters now use `No Selectivos` where a program distinction is still required.
+- Removed the internal `Futbol Para Todos` label from individual team names and parent-facing PNG team cards while preserving `Futbol Para Todos` wherever the program itself must be identified: filters, current-week cards, campus/program columns, organizer context, and professor schedule context.
 - Kept one-team non-selectivo squads explicit as `2015 Azul`. A normal Selectivo team now displays as `Selectivo 2016`; `Azul` and `Blanco` appear for Selectivos only when the stored squad is an actual split.
 - Centralized these rules in the shared tournament-team formatter and applied them to live team cards, coach/director schedule screens, current-week controls, saved convocatoria detail, and full tournament exports. Stored squad names, paid registrations, assignments, finance records, training groups, and historical snapshots were not changed.
 - Expanded formatter regressions for ordinary non-selectivo teams, lone Selectivos, and true Selectivo Azul/Blanco splits; tournament eligibility, full packet PNG, convocatoria PNG, routing, and TypeScript checks pass.

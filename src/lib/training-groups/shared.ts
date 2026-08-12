@@ -10,7 +10,7 @@ export const TRAINING_GROUP_GENDER_OPTIONS = ["male", "female", "mixed"] as cons
 
 export const TRAINING_GROUP_PROGRAM_LABELS: Record<string, string> = {
   little_dragons: "Little Dragons",
-  futbol_para_todos: "No Selectivos",
+  futbol_para_todos: "Futbol Para Todos",
   selectivo: "Selectivo",
 };
 

@@ -19,8 +19,7 @@ assert.match(query, /if \(!eligibleActiveEnrollmentIds\.has\(enrollment\.id\)\) 
 assert.match(query, /getCompetitionBucketIds\(charge, productBucketIds, bundleEntitlements\)/);
 assert.match(query, /eligibilityReviewPlayers/);
 
-assert.match(board, /No Selectivos/);
-assert.doesNotMatch(board, /Futbol Para Todos/);
+assert.match(board, /Futbol Para Todos/);
 assert.match(board, /Selectivos/);
 assert.match(board, /dashboard\.selectedProgram/);
 assert.match(board, /programQuery/);

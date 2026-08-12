@@ -18,6 +18,8 @@ const intake = await source("src/components/enrollments/enrollment-intake-form.t
 const playerEdit = await source("src/app/(protected)/players/[playerId]/edit/page.tsx");
 const playerProfile = await source("src/app/(protected)/players/[playerId]/page.tsx");
 const playerActions = await source("src/server/actions/players.ts");
+const sportsSignupsBoard = await source("src/components/sports/sports-signups-board.tsx");
+const currentWeekDashboard = await source("src/components/weekly-callups/current-week-dashboard.tsx");
 
 assert.match(intake, /Programa:/, "Enrollment review must show the confirmed program");
 assert.doesNotMatch(intake, /derivePlayerLevelFromTrainingProgram/, "Enrollment review must not derive a legacy level");
@@ -25,6 +27,8 @@ assert.doesNotMatch(playerEdit, /name="level"/, "Player editing must not expose 
 assert.doesNotMatch(playerProfile, />Nivel operativo</, "Player profile must not show the legacy operational level");
 assert.doesNotMatch(playerProfile, /label={`Nivel /, "Player profile must not show a legacy level chip");
 assert.doesNotMatch(playerActions, /level:\s*level/, "Ordinary player edits must preserve the legacy level value");
+assert.match(sportsSignupsBoard, /label: "Futbol Para Todos"/, "Tournament program filter must keep the academy program name");
+assert.match(currentWeekDashboard, /label: "Futbol Para Todos"/, "Convocatorias program card must keep the academy program name");
 
 assert.equal(
   formatTrainingGroupDisplayName({ name: "Avanzado B2 Femenil", program: "futbol_para_todos" }),

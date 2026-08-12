@@ -30,7 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 function programLabel(program: string) {
-  return program === "selectivo" ? "Selectivos" : "";
+  return program === "selectivo" ? "Selectivos" : "Futbol Para Todos";
 }
 
 function statusLabel(status: string) {

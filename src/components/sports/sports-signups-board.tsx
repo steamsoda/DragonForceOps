@@ -84,7 +84,7 @@ function formatPaidFilterLabel(from: string | null, to: string | null) {
 }
 
 function formatProgramLabel(program: string | null) {
-  if (program === "futbol_para_todos") return "No Selectivos";
+  if (program === "futbol_para_todos") return "Futbol Para Todos";
   if (program === "selectivo") return "Selectivos";
   if (program === "little_dragons") return "Little Dragons";
   return "Todos los programas";
@@ -427,7 +427,7 @@ export function SportsSignupsBoard({
         <div className="flex flex-wrap gap-2" aria-label="Filtrar por programa">
           {[
             { value: null, label: "Todos" },
-            { value: "futbol_para_todos", label: "No Selectivos" },
+            { value: "futbol_para_todos", label: "Futbol Para Todos" },
             { value: "selectivo", label: "Selectivos" },
             ...(selectedCompetition?.availablePrograms.includes("little_dragons")
               ? [{ value: "little_dragons", label: "Little Dragons" }]

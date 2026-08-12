@@ -416,7 +416,7 @@ export type CompetitionRosterSnapshotExportData = {
 };
 
 const ORGANIZER_PROGRAM_LABELS: Record<string, string> = {
-  futbol_para_todos: "No Selectivos",
+  futbol_para_todos: "Futbol Para Todos",
   selectivo: "Selectivos",
   little_dragons: "Little Dragons",
 };
