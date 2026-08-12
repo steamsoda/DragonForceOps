@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.38`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.33`
-- Current preview candidate: `v1.17.37` accepted after parent-facing `Rol de juegos` PNG polish and a 150-registration Preview load test; pending explicit production promotion
+- Current production line: `v1.17.37`
+- Current preview candidate: `v1.17.38` hardens coach schedule validation and stale-roster recovery; pending Preview verification
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -209,6 +209,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
+| 🟢 | Coach schedule reliability | Preview `v1.17.38` replaces generic save failures with precise messages, highlights missing match fields, and safely refreshes a changed squad roster without clearing the coach's game draft. Validate with a writable coach profile before production promotion. | Convocatorias / Mis horarios, `v1.17.38` devlog |
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |

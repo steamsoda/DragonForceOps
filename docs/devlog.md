@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-12 (session 305)
+
+### Coach Schedule Reliability And Roster Recovery (v1.17.38 Preview)
+
+- Replaced the generic coach schedule save failure with specific operational messages for account linking, team ownership, tournament/group mismatches, week validation, incomplete games, stale rosters, and director campus permissions.
+- Kept the database roster-integrity lock intact. When paid registration changes a competition squad while a coach is entering a game, the action now reloads the current squad and the form merges it into every affected game without clearing date, time, venue, rival, notes, or prior exclusion choices for players who remain on the team.
+- Added required field validation and visible red field states for date, arrival time, venue, rival, and team selection. Invalid submissions remain in place instead of refreshing the page or erasing the draft.
+- This pass changes only coach/director weekly schedule reporting. It does not change tournament registrations, permanent squad membership, payments, charges, allocations, attendance, or training-group assignments, and requires no migration.
+- Added focused static regressions for precise errors, stale-roster recovery, and field-level validation.
+
 ## 2026-08-11 (session 304)
 
 ### Rol de Juegos Preview Acceptance + Checkpoint (v1.17.37 Preview)

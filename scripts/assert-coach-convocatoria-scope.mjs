@@ -49,6 +49,9 @@ assert(gameRosterMigration.includes("coach_weekly_schedule_game_players") && gam
 assert(gameRosterMigration.includes("competition_roster_squad_members") && gameRosterMigration.includes("game_roster_changed"), "Coach roster submissions must match the current permanent squad without changing it.");
 assert(coachForm.includes("router.refresh()"), "A successful coach report must refresh persisted server state.");
 assert(coachForm.includes("Reporte enviado a administracion") && coachForm.includes("Actualizar reporte"), "Coaches must see and edit their submitted schedule.");
+assert(coachAction.includes("DATABASE_ERROR_MESSAGES") && coachAction.includes("game_roster_changed"), "Coach schedule failures must expose precise operational messages.");
+assert(coachAction.includes("loadFreshSquadRoster") && coachForm.includes("Plantel actualizado"), "A stale squad roster must refresh without discarding the game draft.");
+assert(coachForm.includes("onInvalidCapture") && coachForm.includes("data-validation-field"), "Missing game fields must be highlighted before submission.");
 assert(usersAction.includes("linkCoachUserAction") && usersAction.includes("coach.account_linked"), "Super Admin must explicitly link and audit coach accounts.");
 assert(callupPage.includes("permission?.isCoach") && callupPage.includes("getCoachSchedulePageData"), "Coach route must render the scoped view.");
 assert(callupPage.includes("Modo de prueba de coach") && callupPage.includes("El resto del modo Ver como permanece en solo lectura"), "The coach page must explain its narrow Preview write exception.");
