@@ -669,6 +669,7 @@ export function SportsSignupsBoard({
               tournamentId={selectedCompetition.tournamentId}
               campusId={selectedCampusId}
               program={selectedProgram}
+              availablePrograms={selectedCompetition.availablePrograms}
             />
           ) : viewMode === "category" && selectedCompetition.categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">

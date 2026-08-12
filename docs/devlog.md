@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-12 (session 311)
+
+### All-Program Tournament-Team View (v1.17.45 Preview)
+
+- Made `Todos` in `Inscripciones Torneos > Equipos` display every available team for the selected campus and tournament, organized into clear `Futbol Para Todos`, `Selectivos`, and `Little Dragons` sections.
+- Reused the existing program-scoped team panel and API request for each section. Editing, drag-and-drop, accessible player moves, exceptions, pending assignments, and exports therefore remain isolated to their real program instead of introducing cross-program mutations.
+- Kept the specific-program filters unchanged and omitted programs that are not available for the selected campus/tournament. No schema, migration, tournament registration, squad membership, training-group, enrollment, finance, or attendance write was added.
+- Verification: focused all-program regression, member-move/live-workflow regressions, TypeScript, production build, and `git diff --check`.
+
 ## 2026-08-12 (session 310)
 
 ### Guarded Live Tournament-Team Moves (v1.17.44 Preview)

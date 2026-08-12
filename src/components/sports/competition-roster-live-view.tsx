@@ -15,7 +15,32 @@ type Props = {
   tournamentId: string | null;
   campusId: string;
   program: string | null;
+  availablePrograms: string[];
 };
+
+type ScopedProps = Omit<Props, "program" | "availablePrograms"> & {
+  program: string;
+};
+
+const PROGRAM_ORDER = ["futbol_para_todos", "selectivo", "little_dragons"];
+
+function programLabel(program: string) {
+  if (program === "futbol_para_todos") return "Futbol Para Todos";
+  if (program === "selectivo") return "Selectivos";
+  if (program === "little_dragons") return "Little Dragons";
+  return program;
+}
+
+function orderedPrograms(programs: string[]) {
+  return [...new Set(programs)].sort((left, right) => {
+    const leftIndex = PROGRAM_ORDER.indexOf(left);
+    const rightIndex = PROGRAM_ORDER.indexOf(right);
+    if (leftIndex === -1 && rightIndex === -1) return left.localeCompare(right, "es-MX");
+    if (leftIndex === -1) return 1;
+    if (rightIndex === -1) return -1;
+    return leftIndex - rightIndex;
+  });
+}
 
 function kindLabel(kind: string) {
   if (kind === "azul") return "Azul";
@@ -34,7 +59,67 @@ function sortMembers(squad: CompetitionRosterLiveViewData["squads"][number]) {
   return [...squad.members].sort((left, right) => left.playerName.localeCompare(right.playerName, "es-MX"));
 }
 
-export function CompetitionRosterLiveView({ active, tournamentId, campusId, program }: Props) {
+export function CompetitionRosterLiveView({
+  active,
+  tournamentId,
+  campusId,
+  program,
+  availablePrograms,
+}: Props) {
+  if (!active) return null;
+  if (!tournamentId) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+        Esta competencia todavia no tiene una configuracion de torneo para organizar equipos.
+      </div>
+    );
+  }
+
+  if (program) {
+    return (
+      <CompetitionRosterProgramView
+        active
+        tournamentId={tournamentId}
+        campusId={campusId}
+        program={program}
+      />
+    );
+  }
+
+  const programs = orderedPrograms(availablePrograms);
+  if (programs.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+        No hay programas elegibles para mostrar equipos en esta competencia.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
+        Mostrando todos los equipos del campus. La edicion y las excepciones permanecen separadas por programa.
+      </div>
+      {programs.map((currentProgram) => (
+        <section key={currentProgram} className="space-y-3" aria-labelledby={`teams-${currentProgram}`}>
+          <div className="border-b border-slate-300 pb-2 dark:border-slate-700">
+            <h3 id={`teams-${currentProgram}`} className="text-lg font-semibold text-slate-950 dark:text-slate-50">
+              {programLabel(currentProgram)}
+            </h3>
+          </div>
+          <CompetitionRosterProgramView
+            active
+            tournamentId={tournamentId}
+            campusId={campusId}
+            program={currentProgram}
+          />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function CompetitionRosterProgramView({ active, tournamentId, campusId, program }: ScopedProps) {
   const [data, setData] = useState<CompetitionRosterLiveViewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +130,7 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
   const [moveNotice, setMoveNotice] = useState<{ tone: "success" | "error" | "saving"; message: string } | null>(null);
 
   const loadData = useCallback(async (signal?: AbortSignal, background = false) => {
-    if (!active || !tournamentId || !program) return;
+    if (!active || !tournamentId) return;
     const query = new URLSearchParams({ tournament: tournamentId, campus: campusId, program });
     if (!background) {
       setLoading(true);
@@ -77,13 +162,6 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
   }, [active, tournamentId, program, loadData]);
 
   if (!active) return null;
-  if (!program) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-        Selecciona Futbol Para Todos, Selectivos o Little Dragons para ver sus equipos.
-      </div>
-    );
-  }
   if (!tournamentId) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">

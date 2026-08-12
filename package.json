@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.44",
+  "version": "1.17.45",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -61,6 +61,7 @@
     "test:competition-roster-live-controls": "node scripts/assert-competition-roster-live-controls.mjs",
     "test:competition-roster-professors": "node scripts/assert-competition-roster-professors.mjs",
     "test:competition-roster-member-moves": "node scripts/assert-competition-roster-member-moves.mjs",
+    "test:competition-roster-all-programs": "node scripts/assert-competition-roster-all-programs.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
     "test:enrollment-training-group-selection": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-enrollment-training-group-selection.mjs",
