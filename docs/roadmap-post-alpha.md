@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.43`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.44`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.37`
-- Current preview candidate: `v1.17.41` removes Futbol Para Todos from individual team identities while preserving the canonical program label in filters and operational context; Selectivos use Azul/Blanco only for real splits
+- Current preview candidate: `v1.17.44` adds guarded, audited same-context player moves between existing live tournament teams without changing registrations, finance, training groups, attendance, or snapshots.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -198,7 +198,7 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 
 25. 🟢 `v1.17.42` adds campus-scoped `CO`/`LV` identity and visible professor ownership across `Inscripciones Torneos`, team organization, coach schedules, and `Convocatorias`. This is display-only and does not rewrite squads or registrations.
 26. 🟢 `v1.17.43` adds an instant `Por grupo` visibility toggle between groups with confirmed registrations and all eligible groups, preserving explicit zero-registration visibility without changing product eligibility or adding queries.
-27. Open Pass 3: add a guarded `Editar jugadores` mode to `Equipos` for moving an existing member between squads in the same tournament/campus/program. It must never duplicate members, alter paid registration, create reinforcements, or change training groups.
+27. 🟢 `v1.17.44` adds guarded `Editar jugadores` drag/drop and `Mover a...` controls to `Equipos`, backed by one transactional audited same-tournament/campus/program membership move. It never duplicates members, alters paid registration, creates reinforcements, changes training groups, or rewrites snapshots.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
@@ -214,7 +214,7 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
-Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visibility; `v1.17.43` adds the eligible-group visibility toggle. Next is guarded same-context drag/drop team moves.
+Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visibility; `v1.17.43` adds eligible-group visibility; `v1.17.44` completes guarded same-context player moves between existing teams.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|

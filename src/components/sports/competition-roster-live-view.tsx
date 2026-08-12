@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
+import { moveCompetitionRosterMemberInlineAction } from "@/server/actions/competition-rosters";
 import {
   formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
@@ -29,16 +30,27 @@ function getSquadBirthYear(squad: CompetitionRosterLiveViewData["squads"][number
   return Math.max(...categoryYears, ...memberYears, 0);
 }
 
+function sortMembers(squad: CompetitionRosterLiveViewData["squads"][number]) {
+  return [...squad.members].sort((left, right) => left.playerName.localeCompare(right.playerName, "es-MX"));
+}
+
 export function CompetitionRosterLiveView({ active, tournamentId, campusId, program }: Props) {
   const [data, setData] = useState<CompetitionRosterLiveViewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [draggedMember, setDraggedMember] = useState<{ sourceSquadId: string; enrollmentId: string } | null>(null);
+  const [dropTargetSquadId, setDropTargetSquadId] = useState<string | null>(null);
+  const [movingEnrollmentId, setMovingEnrollmentId] = useState<string | null>(null);
+  const [moveNotice, setMoveNotice] = useState<{ tone: "success" | "error" | "saving"; message: string } | null>(null);
 
-  const loadData = useCallback(async (signal?: AbortSignal) => {
+  const loadData = useCallback(async (signal?: AbortSignal, background = false) => {
     if (!active || !tournamentId || !program) return;
     const query = new URLSearchParams({ tournament: tournamentId, campus: campusId, program });
-    setLoading(true);
-    setError(null);
+    if (!background) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const response = await fetch(`/api/sports-signups/teams?${query.toString()}`, {
         cache: "no-store",
@@ -48,9 +60,11 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
       setData(await response.json() as CompetitionRosterLiveViewData);
     } catch (nextError) {
       if (signal?.aborted) return;
-      setError(nextError instanceof Error ? nextError.message : "No se pudieron cargar los equipos.");
+      if (!background) {
+        setError(nextError instanceof Error ? nextError.message : "No se pudieron cargar los equipos.");
+      }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && !background) setLoading(false);
     }
   }, [active, tournamentId, campusId, program]);
 
@@ -84,6 +98,72 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
     return <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">{error ?? "No se encontraron equipos."}</div>;
   }
 
+  const sortedSquads = [...data.squads].sort((left, right) => {
+    const yearDifference = getSquadBirthYear(right) - getSquadBirthYear(left);
+    return yearDifference || left.name.localeCompare(right.name, "es-MX");
+  });
+  const getTeamName = (squad: CompetitionRosterLiveViewData["squads"][number]) => {
+    const display = formatCompetitionSquadDisplay({
+      name: squad.name,
+      program: data.program,
+      categoryLabel: squad.categoryLabel,
+      kind: squad.kind,
+      sourceGroupCount: squad.sourceGroupNames.length,
+    });
+    return formatCampusCompetitionTeamName(data.campusName, display.title);
+  };
+  const moveMember = async (params: {
+    sourceSquadId: string;
+    destinationSquadId: string;
+    enrollmentId: string;
+  }) => {
+    if (movingEnrollmentId || params.sourceSquadId === params.destinationSquadId) return;
+    const sourceSquad = data.squads.find((squad) => squad.id === params.sourceSquadId);
+    const destinationSquad = data.squads.find((squad) => squad.id === params.destinationSquadId);
+    const member = sourceSquad?.members.find((candidate) => candidate.enrollmentId === params.enrollmentId);
+    if (!sourceSquad || !destinationSquad || !member) {
+      setMoveNotice({ tone: "error", message: "El jugador o el equipo ya cambio. Actualiza la vista." });
+      return;
+    }
+    if (destinationSquad.members.some((candidate) => candidate.enrollmentId === params.enrollmentId)) {
+      setMoveNotice({ tone: "error", message: "El jugador ya pertenece al equipo de destino." });
+      return;
+    }
+
+    const previousData = data;
+    setMovingEnrollmentId(params.enrollmentId);
+    setMoveNotice({ tone: "saving", message: `Moviendo a ${member.playerName}...` });
+    setData({
+      ...data,
+      squads: data.squads.map((squad) => {
+        if (squad.id === params.sourceSquadId) {
+          return { ...squad, members: squad.members.filter((candidate) => candidate.enrollmentId !== params.enrollmentId) };
+        }
+        if (squad.id === params.destinationSquadId) {
+          return { ...squad, members: [...squad.members, member].sort((left, right) => left.playerName.localeCompare(right.playerName, "es-MX")) };
+        }
+        return squad;
+      }),
+    });
+
+    const result = await moveCompetitionRosterMemberInlineAction({
+      tournamentId: data.tournamentId,
+      campusId: data.campusId,
+      program: data.program,
+      ...params,
+    });
+    if (!result.ok) {
+      setData(previousData);
+      setMoveNotice({ tone: "error", message: result.message });
+      setMovingEnrollmentId(null);
+      return;
+    }
+
+    setMoveNotice({ tone: "success", message: result.message });
+    setMovingEnrollmentId(null);
+    await loadData(undefined, true);
+  };
+
   const organizerHref = `/sports-signups/squads?tournament=${encodeURIComponent(data.tournamentId)}&campus=${encodeURIComponent(data.campusId)}&program=${encodeURIComponent(data.program)}`;
   return (
     <div className="space-y-4">
@@ -96,6 +176,22 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {data.canManage && data.squads.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditMode((current) => !current);
+                setDraggedMember(null);
+                setDropTargetSquadId(null);
+                setMoveNotice(null);
+              }}
+              className={editMode
+                ? "rounded-md border border-portoBlue bg-blue-50 px-4 py-2 text-sm font-semibold text-portoBlue"
+                : "rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200"}
+            >
+              {editMode ? "Cerrar edicion" : "Editar jugadores"}
+            </button>
+          ) : null}
           <a
             href={`/api/exports/competition-roster-live?tournament=${encodeURIComponent(data.tournamentId)}&campus=${encodeURIComponent(data.campusId)}&program=${encodeURIComponent(data.program)}`}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200"
@@ -108,18 +204,26 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
         </div>
       </div>
 
+      {moveNotice ? (
+        <div
+          role="status"
+          className={moveNotice.tone === "error"
+            ? "rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            : moveNotice.tone === "success"
+              ? "rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+              : "rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800"}
+        >
+          {moveNotice.message}
+        </div>
+      ) : null}
+
       {data.squads.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
           Los equipos se crearán automáticamente cuando existan inscripciones confirmadas en este programa.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {[...data.squads]
-            .sort((left, right) => {
-              const yearDifference = getSquadBirthYear(right) - getSquadBirthYear(left);
-              return yearDifference || left.name.localeCompare(right.name, "es-MX");
-            })
-            .map((squad) => {
+          {sortedSquads.map((squad) => {
               const display = formatCompetitionSquadDisplay({
                 name: squad.name,
                 program: data.program,
@@ -128,8 +232,32 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
                 sourceGroupCount: squad.sourceGroupNames.length,
               });
               const teamName = formatCampusCompetitionTeamName(data.campusName, display.title);
+              const canDrop = editMode
+                && draggedMember !== null
+                && draggedMember.sourceSquadId !== squad.id
+                && !squad.members.some((member) => member.enrollmentId === draggedMember.enrollmentId);
               return (
-            <article key={squad.id} className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
+            <article
+              key={squad.id}
+              onDragOver={(event) => {
+                if (!canDrop) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropTargetSquadId(squad.id);
+              }}
+              onDragLeave={() => setDropTargetSquadId((current) => current === squad.id ? null : current)}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (!canDrop || !draggedMember) return;
+                const move = { ...draggedMember, destinationSquadId: squad.id };
+                setDraggedMember(null);
+                setDropTargetSquadId(null);
+                void moveMember(move);
+              }}
+              className={dropTargetSquadId === squad.id && canDrop
+                ? "overflow-hidden rounded-md border-2 border-portoBlue bg-blue-50/40 dark:bg-blue-950/20"
+                : "overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950"}
+            >
               <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -151,13 +279,63 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
                 </div>
               </header>
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {squad.members.map((member, index) => (
-                  <div key={`${squad.id}-${member.enrollmentId}`} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 px-4 py-2 text-sm">
+                {sortMembers(squad).map((member, index) => {
+                  const destinations = sortedSquads.filter((candidate) =>
+                    candidate.id !== squad.id
+                    && !candidate.members.some((existing) => existing.enrollmentId === member.enrollmentId),
+                  );
+                  return (
+                  <div
+                    key={`${squad.id}-${member.enrollmentId}`}
+                    draggable={editMode && movingEnrollmentId === null}
+                    onDragStart={(event) => {
+                      if (!editMode || movingEnrollmentId) {
+                        event.preventDefault();
+                        return;
+                      }
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", member.enrollmentId);
+                      setDraggedMember({ sourceSquadId: squad.id, enrollmentId: member.enrollmentId });
+                    }}
+                    onDragEnd={() => {
+                      setDraggedMember(null);
+                      setDropTargetSquadId(null);
+                    }}
+                    className={editMode
+                      ? "grid cursor-grab grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 px-4 py-2 text-sm active:cursor-grabbing"
+                      : "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 px-4 py-2 text-sm"}
+                  >
                     <span className="text-xs text-slate-400">{index + 1}</span>
-                    <span className="font-medium text-slate-900 dark:text-slate-100">{member.playerName}</span>
-                    <span className="text-xs text-slate-500">{member.birthYear ?? "-"}</span>
+                    <span className="min-w-0 font-medium text-slate-900 dark:text-slate-100">
+                      <span className="block truncate">{member.playerName}</span>
+                      {editMode ? <span className="mt-0.5 block text-xs font-normal text-slate-500">{member.birthYear ?? "-"}</span> : null}
+                    </span>
+                    {editMode ? (
+                      <select
+                        aria-label={`Mover a ${member.playerName}`}
+                        value=""
+                        disabled={movingEnrollmentId !== null || destinations.length === 0}
+                        onChange={(event) => {
+                          if (!event.target.value) return;
+                          void moveMember({
+                            sourceSquadId: squad.id,
+                            destinationSquadId: event.target.value,
+                            enrollmentId: member.enrollmentId,
+                          });
+                        }}
+                        className="max-w-44 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                      >
+                        <option value="">Mover a...</option>
+                        {destinations.map((destination) => (
+                          <option key={destination.id} value={destination.id}>{getTeamName(destination)}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-slate-500">{member.birthYear ?? "-"}</span>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </article>
               );
@@ -166,7 +344,7 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
       )}
 
       {data.canManage ? (
-        <CompetitionRosterLiveControls data={data} onChanged={() => loadData()} />
+        <CompetitionRosterLiveControls data={data} onChanged={() => loadData(undefined, true)} />
       ) : data.pendingPlayers.length > 0 ? (
         <section className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
           <h3 className="font-semibold">Pendientes por asignar</h3>

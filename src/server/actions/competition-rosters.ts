@@ -57,6 +57,14 @@ function squadSyncErrorCode(error: { code?: string; message: string }) {
   if (message.includes("member_is_excluded")) return "member_is_excluded";
   if (message.includes("pending_player_not_found")) return "pending_player_not_found";
   if (message.includes("player_already_assigned")) return "player_already_assigned";
+  if (message.includes("move_same_squad")) return "competition_roster_move_same_squad";
+  if (message.includes("move_source_not_found")) return "competition_roster_move_source_not_found";
+  if (message.includes("move_destination_duplicate")) return "competition_roster_move_destination_duplicate";
+  if (message.includes("move_tournament_inactive")) return "competition_roster_move_tournament_inactive";
+  if (message.includes("move_manager_required") || message.includes("move_auth_required")) {
+    return "squad_permission_denied";
+  }
+  if (message.includes("competition_roster_move_")) return "competition_roster_move_scope_invalid";
   if (message.includes("split_destination") || message.includes("split_structure_invalid")) {
     return "split_destination_invalid";
   }
@@ -102,6 +110,11 @@ function inlineErrorMessage(code: string) {
     competition_squad_primary_professor_required: "Selecciona cual sera el profesor principal.",
     competition_squad_professor_invalid: "Uno de los profesores ya no esta activo en este campus.",
     combined_squad_requires_manual_professor: "Los equipos combinados necesitan una asignacion manual de profesores.",
+    competition_roster_move_same_squad: "El jugador ya pertenece a ese equipo.",
+    competition_roster_move_source_not_found: "El jugador ya no pertenece al equipo de origen. Actualiza la vista.",
+    competition_roster_move_destination_duplicate: "El jugador ya pertenece al equipo de destino.",
+    competition_roster_move_tournament_inactive: "El torneo ya no esta activo y sus equipos no se pueden modificar.",
+    competition_roster_move_scope_invalid: "El movimiento debe permanecer en el mismo torneo, campus y programa.",
   };
   return messages[code] ?? "No se pudo guardar el cambio. Ningun otro dato fue modificado.";
 }
@@ -235,6 +248,57 @@ export async function assignPendingCompetitionRosterSplitMemberAction(input: {
 
   revalidateCompetitionRosterPaths();
   return { ok: true, message: "Jugador asignado al equipo." };
+}
+
+export async function moveCompetitionRosterMemberInlineAction(input: {
+  tournamentId: string;
+  campusId: string;
+  program: string;
+  sourceSquadId: string;
+  destinationSquadId: string;
+  enrollmentId: string;
+}): Promise<CompetitionRosterInlineActionResult> {
+  const tournamentId = clean(input.tournamentId);
+  const campusId = clean(input.campusId);
+  const program = clean(input.program);
+  const sourceSquadId = clean(input.sourceSquadId);
+  const destinationSquadId = clean(input.destinationSquadId);
+  const enrollmentId = clean(input.enrollmentId);
+  if (
+    ![tournamentId, campusId, sourceSquadId, destinationSquadId, enrollmentId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || sourceSquadId === destinationSquadId
+  ) {
+    return { ok: false, message: inlineErrorMessage("invalid_squad_settings") };
+  }
+
+  const context = await inlineManagerContext({ tournamentId, campusId, program });
+  if (!context) return { ok: false, message: inlineErrorMessage("squad_permission_denied") };
+
+  const result = await context.supabase.rpc("move_competition_roster_member", {
+    p_tournament_id: tournamentId,
+    p_program: program,
+    p_source_squad_id: sourceSquadId,
+    p_destination_squad_id: destinationSquadId,
+    p_enrollment_id: enrollmentId,
+  });
+  if (result.error) {
+    const code = squadSyncErrorCode(result.error);
+    console.error("competition roster member move failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      sourceSquadId,
+      destinationSquadId,
+      enrollmentId,
+    });
+    return { ok: false, message: inlineErrorMessage(code) };
+  }
+
+  revalidateCompetitionRosterPaths();
+  revalidatePath("/convocatorias");
+  revalidatePath("/mis-horarios");
+  return { ok: true, message: "Jugador movido al equipo seleccionado." };
 }
 
 export async function setCompetitionRosterExclusionInlineAction(input: {

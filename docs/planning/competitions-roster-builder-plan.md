@@ -436,3 +436,11 @@ Work brick by brick:
 4. then build Trello-style roster builder
 
 Do not combine attendance simplification and roster-builder implementation in one code pass. They share vocabulary, but they are different workflows and should be stabilized separately.
+
+## Current Live-Team Editing Contract (v1.17.44)
+
+- `Inscripciones Torneos > Equipos` remains read-only by default and exposes `Editar jugadores` only to the existing sports-manager permission boundary.
+- An existing member can move only between existing teams in the same active tournament, campus, and program. Drag/drop and `Mover a...` call the same transactional RPC.
+- A move transfers one membership; it never copies the player, creates a reinforcement, changes the confirmed tournament entry, modifies the training group, or touches finance or attendance.
+- Paid/manual membership provenance is preserved. Duplicate destination membership and stale source membership are rejected, and the UI rolls back its optimistic state.
+- Every successful move records the actor, enrollment, source team, destination team, membership source, and timestamp. Frozen roster snapshots remain immutable.

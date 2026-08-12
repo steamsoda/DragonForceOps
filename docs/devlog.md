@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-12 (session 310)
+
+### Guarded Live Tournament-Team Moves (v1.17.44 Preview)
+
+- Added an opt-in `Editar jugadores` mode to `Inscripciones Torneos > Equipos`. Authorized sports managers can drag a player onto another existing team or use the accessible `Mover a...` selector; the normal read-only roster layout remains unchanged outside edit mode.
+- Moves are optimistic for immediate feedback, keep both team counts and alphabetical lists current, refresh from the server after success, and restore the previous roster if the database rejects the operation.
+- Added one transactional RPC that only moves the existing squad-membership row inside the same active tournament, campus, and program. It preserves paid/manual provenance, rejects duplicate destination membership, requires sports-campus management access, and records actor, player, source team, destination team, and timestamp in `competition_roster_events`.
+- Tournament registrations, charges, payments, allocations, enrollments, training groups, attendance, and immutable snapshots are not inserted, updated, or deleted by this workflow. Read-only users do not receive the edit control.
+- Verification: focused member-move regression, existing live-control/dynamic-routing/team-routing regressions, TypeScript, migration dry run/application against the linked Preview project, and `git diff --check`. Two production-build attempts were blocked only by DNS access to Google Fonts while fetching `Aoboshi One`; application compilation reported no code error before that external fetch failure.
+
 ## 2026-08-12 (session 309)
 
 ### Tournament Eligible-Group Visibility Toggle (v1.17.43 Preview)
