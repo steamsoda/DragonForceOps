@@ -1,6 +1,7 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
   formatTournamentGroupCardDisplay,
 } from "@/lib/training-groups/shared";
@@ -352,13 +353,16 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
         const squads: CoachScheduleSquad[] = [{
           id: squad.id,
           tournamentId: squad.tournament_id,
-          name: formatCompetitionSquadDisplay({
-            name: squad.name,
-            program: squad.program,
-            categoryLabel: squad.category_label,
-            kind: squad.squad_kind,
-            sourceGroupCount: sourceGroups.length,
-          }).title,
+          name: formatCampusCompetitionTeamName(
+            anchorGroup.campuses?.name,
+            formatCompetitionSquadDisplay({
+              name: squad.name,
+              program: squad.program,
+              categoryLabel: squad.category_label,
+              kind: squad.squad_kind,
+              sourceGroupCount: sourceGroups.length,
+            }).title,
+          ),
           players: membersBySquad.get(squad.id) ?? [],
         }];
         const display = formatCompetitionSquadDisplay({
@@ -375,7 +379,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
           squadId: squad.id,
           campusId: anchorGroup.campus_id,
           campusName: anchorGroup.campuses?.name ?? "Campus",
-          name: display.title,
+          name: formatCampusCompetitionTeamName(anchorGroup.campuses?.name, display.title),
           program: squad.program,
           categoryLabel: display.categoryLabel,
           sourceGroupNames: sourceGroups.map((group) => formatTournamentGroupCardDisplay({

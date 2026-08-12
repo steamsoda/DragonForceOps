@@ -90,6 +90,36 @@ export function sanitizeTournamentTeamDisplayName(value: string) {
     .trim();
 }
 
+export function formatCampusTeamPrefix(value: string | null | undefined) {
+  const normalized = (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/_/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (normalized.includes("contry")) return "CO";
+  if (normalized.includes("linda vista")) return "LV";
+
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 3)
+    .toUpperCase();
+}
+
+export function formatCampusCompetitionTeamName(
+  campusName: string | null | undefined,
+  teamName: string,
+) {
+  const cleanTeamName = teamName.trim();
+  if (!cleanTeamName) return cleanTeamName;
+  const prefix = formatCampusTeamPrefix(campusName);
+  return prefix ? `${prefix} · ${cleanTeamName}` : cleanTeamName;
+}
+
 export function formatCompetitionSquadDisplay(squad: {
   name: string;
   program?: string | null;

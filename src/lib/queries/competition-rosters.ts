@@ -10,6 +10,7 @@ import {
 } from "@/lib/competition-rosters/foundation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
   formatTournamentGroupCardDisplay,
   formatTrainingGroupDisplayName,
@@ -350,6 +351,7 @@ export type CompetitionRosterLiveSquad = {
   categoryLabel: string | null;
   sourceGroupIds: string[];
   sourceGroupNames: string[];
+  professorNames: string[];
   members: CompetitionRosterLiveMember[];
 };
 
@@ -581,13 +583,17 @@ export async function getCompetitionRosterOrganizerData(filters: {
   const exclusionReasonByEnrollment = new Map(
     foundation.exclusions.map((exclusion) => [exclusion.enrollmentId, exclusion.reason]),
   );
-  const displaySquadName = (squad: CompetitionRosterSquad) => formatCompetitionSquadDisplay({
-    name: squad.name,
-    program: squad.program,
-    categoryLabel: squad.categoryLabel,
-    kind: squad.kind,
-    sourceGroupCount: squad.sourceGroups.length,
-  }).title;
+  const campusName = tournament.campuses?.name ?? "Campus";
+  const displaySquadName = (squad: CompetitionRosterSquad) => formatCampusCompetitionTeamName(
+    campusName,
+    formatCompetitionSquadDisplay({
+      name: squad.name,
+      program: squad.program,
+      categoryLabel: squad.categoryLabel,
+      kind: squad.kind,
+      sourceGroupCount: squad.sourceGroups.length,
+    }).title,
+  );
   for (const squad of foundation.squads) {
     for (const member of squad.members) {
       const names = squadNamesByEnrollment.get(member.enrollmentId) ?? [];
@@ -864,6 +870,12 @@ export async function getCompetitionRosterOrganizerData(filters: {
   const excludedPlayers = sortOrganizerPlayers(allVisiblePlayers.filter((player) => player.isExcluded));
   const playerByEnrollment = new Map(allVisiblePlayers.map((player) => [player.enrollmentId, player]));
   const helperByEnrollment = new Map(manualHelpers.map((helper) => [helper.enrollmentId, helper]));
+  const professorNamesBySquadId = new Map(
+    squadProfessorAssignments.map((assignment) => [
+      assignment.squadId,
+      assignment.professors.map((professor) => professor.name),
+    ]),
+  );
   const liveSquads = foundation.squads
     .filter((squad) => squad.program === filters.program)
     .map<CompetitionRosterLiveSquad>((squad) => ({
@@ -874,6 +886,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
       categoryLabel: squad.categoryLabel,
       sourceGroupIds: squad.sourceGroups.map((group) => group.id),
       sourceGroupNames: squad.sourceGroups.map((group) => group.name),
+      professorNames: professorNamesBySquadId.get(squad.id) ?? [],
       members: squad.members.flatMap<CompetitionRosterLiveMember>((member) => {
         const player = playerByEnrollment.get(member.enrollmentId);
         if (player) {
@@ -912,7 +925,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
     productId: tournament.product_id,
     tournamentName: tournament.name,
     campusId: tournament.campus_id,
-    campusName: tournament.campuses?.name ?? "Campus",
+    campusName,
     program: filters.program,
     programLabel: ORGANIZER_PROGRAM_LABELS[filters.program],
     canManage: permission.isSportsDirector,

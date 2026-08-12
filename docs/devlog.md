@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-12 (session 308)
+
+### Tournament-Team Campus Identity And Professor Visibility (v1.17.42 Preview)
+
+- Added a display-only campus prefix to current competition-team identity: `CO` for Contry and `LV` for Linda Vista. Stored squad names, source training groups, registrations, and historical snapshots remain unchanged.
+- Added the effective professor assignment beside each team in the live `Equipos` view, reusing inherited or manually overridden squad ownership already used by coach schedules and `Convocatorias`.
+- Applied the same campus-scoped identity to current coach schedule, weekly convocatoria labels, and the live team workbook so operational screens and exports identify otherwise similar teams consistently.
+- Recorded the next two isolated passes: a paid-only/all-eligible group toggle, followed by guarded drag-and-drop moves between existing squads only.
+
 ## 2026-08-12 (session 307)
 
 ### Tournament-Team Label Consistency (v1.17.41 Preview)

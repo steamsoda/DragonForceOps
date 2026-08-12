@@ -1,6 +1,7 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
   formatTournamentGroupCardDisplay,
 } from "@/lib/training-groups/shared";
@@ -560,7 +561,10 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         squadId: squad.id,
         fixedTournamentId: squad.tournament_id,
         campusId: anchorGroup.campus_id,
-        name: display.title,
+        name: formatCampusCompetitionTeamName(
+          campusNameById.get(anchorGroup.campus_id),
+          display.title,
+        ),
         program: squad.program,
         categoryLabel: display.categoryLabel,
         sourceGroupNames: sourceGroups.map((group) => formatTournamentGroupCardDisplay({
@@ -825,7 +829,7 @@ export async function getWeeklyCallupDetail(
       return {
       id: category.id,
       categoryLabel: display.categoryLabel,
-      trainingGroupName: display.teamLabel,
+      trainingGroupName: formatCampusCompetitionTeamName(campusName, display.teamLabel),
       tournamentName: category.tournament_name_snapshot ?? callup.tournaments?.name ?? "Torneo",
       coachNames: category.coach_names_snapshot ?? "Sin profesor",
       sortOrder: category.sort_order,

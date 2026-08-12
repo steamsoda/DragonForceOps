@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
 import {
+  formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
 } from "@/lib/training-groups/shared";
 
@@ -126,14 +127,18 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
                 kind: squad.kind,
                 sourceGroupCount: squad.sourceGroupNames.length,
               });
+              const teamName = formatCampusCompetitionTeamName(data.campusName, display.title);
               return (
             <article key={squad.id} className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
               <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-slate-950 dark:text-slate-50">
-                      {display.title}
+                      {teamName}
                     </h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Profesor: {squad.professorNames.join(", ") || "Sin asignar"}
+                    </p>
                     {squad.sourceGroupNames.length > 1 ? (
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Combina {squad.sourceGroupNames.length} grupos de entrenamiento

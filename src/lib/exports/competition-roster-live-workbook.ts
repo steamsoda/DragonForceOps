@@ -1,5 +1,9 @@
 import ExcelJS from "exceljs";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
+import {
+  formatCampusCompetitionTeamName,
+  formatCompetitionSquadDisplay,
+} from "@/lib/training-groups/shared";
 
 const BORDER = "FFB8C0CC";
 const LIGHT_GRAY = "FFF3F5F8";
@@ -55,14 +59,26 @@ export async function buildCompetitionRosterLiveWorkbook(data: CompetitionRoster
 
   for (const squad of data.squads) {
     worksheet.addRow([]);
-    const squadTitle = worksheet.addRow([`${squad.name} (${squad.members.length} jugadores)`]);
+    const display = formatCompetitionSquadDisplay({
+      name: squad.name,
+      program: data.program,
+      categoryLabel: squad.categoryLabel,
+      kind: squad.kind,
+      sourceGroupCount: squad.sourceGroupNames.length,
+    });
+    const squadName = formatCampusCompetitionTeamName(data.campusName, display.title);
+    const squadTitle = worksheet.addRow([`${squadName} (${squad.members.length} jugadores)`]);
     worksheet.mergeCells(squadTitle.number, 1, squadTitle.number, COLUMNS.length);
     squadTitle.font = { bold: true, size: 12 };
     squadTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GRAY } };
     borderRow(squadTitle);
 
     const detail = worksheet.addRow([
-      [squad.categoryLabel ? `Cat. ${squad.categoryLabel}` : null, squad.sourceGroupNames.join(", ")]
+      [
+        squad.categoryLabel ? `Cat. ${squad.categoryLabel}` : null,
+        `Profesor: ${squad.professorNames.join(", ") || "Sin asignar"}`,
+        squad.sourceGroupNames.join(", ")
+      ]
         .filter(Boolean)
         .join(" | "),
     ]);
