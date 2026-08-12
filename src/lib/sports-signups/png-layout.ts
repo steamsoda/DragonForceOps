@@ -111,7 +111,7 @@ function renderGroup(group: SizedGroup) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-bottom:1px solid #cbd5e1;background:#eaf2fb;padding:10px 12px;">
         <div style="min-width:0;">
           <div style="font-size:18px;font-weight:900;line-height:1.08;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(group.label)}</div>
-          <div style="margin-top:2px;font-size:12px;font-weight:700;color:#475569;overflow-wrap:anywhere;">${escapeHtml(group.programLabel)} | ${escapeHtml(group.subtitle)}</div>
+          <div style="margin-top:2px;font-size:12px;font-weight:700;color:#475569;overflow-wrap:anywhere;">${escapeHtml([group.programLabel, group.subtitle].filter(Boolean).join(" | "))}</div>
         </div>
         <div style="flex:none;text-align:right;">
           <div style="font-size:24px;font-weight:900;color:#0b2f6b;">${group.players.length}</div>
@@ -156,7 +156,7 @@ export function buildSportsSignupPacketPngSvg(data: SportsSignupPacketPngData) {
           <div style="min-width:0;">
             <div style="font-size:14px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;">Inscripciones Torneos | ${escapeHtml(data.campusName)}</div>
             <div style="margin-top:8px;font-size:${titleSize}px;font-weight:900;line-height:1.05;color:#0b2f6b;overflow-wrap:anywhere;">${escapeHtml(data.competitionLabel)}</div>
-            <div style="margin-top:8px;font-size:15px;font-weight:700;color:#475569;">${escapeHtml(data.programLabel)} | ${escapeHtml(data.paidFilterLabel)}</div>
+            <div style="margin-top:8px;font-size:15px;font-weight:700;color:#475569;">${escapeHtml([data.programLabel, data.paidFilterLabel].filter(Boolean).join(" | "))}</div>
           </div>
           <div style="flex:none;text-align:right;">
             <div style="font-size:44px;font-weight:900;line-height:1;color:#0b2f6b;">${data.totalConfirmed}</div>

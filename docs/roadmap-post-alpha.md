@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.40`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.41`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.37`
-- Current preview candidate: `v1.17.40` adds canonical YOB/program/Azul-Blanco identity across active tournament-team workflows without rewriting stored squads or frozen history
+- Current preview candidate: `v1.17.41` removes internal Futbol Para Todos labels across active tournament operations and preserves Azul/Blanco on Selectivos only for real splits, without rewriting stored squads or frozen history
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -194,6 +194,7 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 21. ✅ `v1.17.37` standardizes the parent-facing packet as `Rol de juegos`, adds the new horizontal white INVICTA wordmark, includes YOB in Selectivo team titles, removes internal Futbol Para Todos terminology from the PNG only, and passes a 150-registration Preview load test.
 22. 🟢 `v1.17.38`-`v1.17.39` harden professor schedule errors and introduce the controlled tournament-ending lifecycle: active squads are archived transactionally, current operational views exclude ended tournaments, and all paid-registration, game, roster, and frozen-packet history remains intact.
 23. 🟢 `v1.17.40` standardizes active one-group teams as Azul by default, keeps split and combined identities explicit, removes remaining legacy level/name noise from team administration, and regression-locks ordinary, combined, split, and finalized routing behavior without mutating stored history.
+24. 🟢 `v1.17.41` removes internal Futbol Para Todos labels across registrations, team administration, Convocatorias, professor screens, and exports; ordinary Selectivos remain unsuffixed while true splits retain Azul/Blanco.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 

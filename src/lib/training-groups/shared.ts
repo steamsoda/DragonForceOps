@@ -10,7 +10,7 @@ export const TRAINING_GROUP_GENDER_OPTIONS = ["male", "female", "mixed"] as cons
 
 export const TRAINING_GROUP_PROGRAM_LABELS: Record<string, string> = {
   little_dragons: "Little Dragons",
-  futbol_para_todos: "Futbol Para Todos",
+  futbol_para_todos: "No Selectivos",
   selectivo: "Selectivo",
 };
 
@@ -61,11 +61,11 @@ export function formatTrainingGroupDisplayName(group: {
 
   const withoutLegacyLevel = name
     .replace(/\bB[123]\b/gi, " ")
+    .replace(/\s*-?\s*f[uú]tbol\s+para\s+todos\s*$/i, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  if (/f[uú]tbol\s+para\s+todos/i.test(withoutLegacyLevel)) return withoutLegacyLevel;
-  return withoutLegacyLevel ? `${withoutLegacyLevel} - Futbol Para Todos` : "Futbol Para Todos";
+  return withoutLegacyLevel || "Grupo";
 }
 
 export function sanitizeTrainingGroupDisplayName(value: string) {
@@ -103,31 +103,39 @@ export function formatCompetitionSquadDisplay(squad: {
   const categoryLabel = categoryYears
     ? [...new Set(categoryYears)].join("/")
     : sanitizeTournamentTeamDisplayName(squad.categoryLabel ?? "") || "Sin categoria";
-  const programLabel = TRAINING_GROUP_PROGRAM_LABELS[squad.program ?? ""] ?? "Programa sin definir";
+  const isSelectivo = squad.program === "selectivo";
+  const programLabel = isSelectivo
+    ? "Selectivo"
+    : squad.program === "little_dragons"
+      ? "Little Dragons"
+      : "";
   const isFemale = /\bfemenil\b/i.test(sanitizedName);
   const isCombined = (squad.sourceGroupCount ?? 0) > 1;
   const combinedName = sanitizedName
     .replace(/\b(?:basico|básico|intermedio|avanzado|expert|prejuvenil)\b/gi, " ")
+    .replace(/\bf[uú]tbol\s+para\s+todos\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
   const kindLabel = squad.kind === "azul" || /\bazul\b/i.test(sanitizedName)
     ? "Azul"
     : squad.kind === "blanco" || /\bblanco\b/i.test(sanitizedName)
       ? "Blanco"
-      : squad.kind === "single" && squad.sourceGroupCount === 1
+      : squad.kind === "single" && !isSelectivo
         ? "Azul"
       : null;
   const programTeamLabel = [programLabel, isFemale ? "Femenil" : null].filter(Boolean).join(" ");
   const teamLabel = isCombined
     ? combinedName || programTeamLabel
     : kindLabel
-      ? `${programTeamLabel} - ${kindLabel}`
+      ? [programTeamLabel, kindLabel].filter(Boolean).join(" ")
       : programTeamLabel;
   const title = isCombined
     ? teamLabel
     : categoryLabel === "Sin categoria"
       ? teamLabel
-      : `${categoryLabel} ${teamLabel}`;
+      : isSelectivo
+        ? [programLabel, categoryLabel, isFemale ? "Femenil" : null, kindLabel].filter(Boolean).join(" ")
+        : [categoryLabel, teamLabel].filter(Boolean).join(" ");
 
   return {
     title,
@@ -142,7 +150,11 @@ export function formatTournamentGroupCardDisplay(group: {
   birthYearMin?: number | null;
   birthYearMax?: number | null;
 }) {
-  const programLabel = TRAINING_GROUP_PROGRAM_LABELS[group.program ?? ""] ?? "Programa sin definir";
+  const programLabel = group.program === "selectivo"
+    ? "Selectivo"
+    : group.program === "little_dragons"
+      ? "Little Dragons"
+      : "";
   const birthYearLabel = formatTrainingGroupBirthYearRange(group.birthYearMin, group.birthYearMax);
   const sanitizedName = sanitizeTournamentTeamDisplayName(group.name)
     .replace(/\s*-?\s*f[uú]tbol\s+para\s+todos\s*$/i, "")
@@ -152,7 +164,11 @@ export function formatTournamentGroupCardDisplay(group: {
     .trim();
 
   return {
-    title: birthYearLabel === "Sin categoria" ? programLabel : `${birthYearLabel} ${programLabel}`,
+    title: birthYearLabel === "Sin categoria"
+      ? programLabel || "Sin categoria"
+      : group.program === "selectivo"
+        ? `${programLabel} ${birthYearLabel}`
+        : `${birthYearLabel}${programLabel ? ` ${programLabel}` : ""}`,
     subtitle: sanitizedName && sanitizedName !== programLabel ? sanitizedName : null,
   };
 }

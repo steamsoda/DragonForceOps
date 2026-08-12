@@ -28,7 +28,7 @@ assert.doesNotMatch(playerActions, /level:\s*level/, "Ordinary player edits must
 
 assert.equal(
   formatTrainingGroupDisplayName({ name: "Avanzado B2 Femenil", program: "futbol_para_todos" }),
-  "Avanzado Femenil - Futbol Para Todos",
+  "Avanzado Femenil",
 );
 assert.equal(
   formatTrainingGroupDisplayName({ name: "Selectivo 2015", program: "selectivo" }),
@@ -46,7 +46,7 @@ assert.deepEqual(
     categoryLabel: "2014",
     kind: "single",
   }),
-  { title: "2014 Futbol Para Todos", categoryLabel: "2014", teamLabel: "Futbol Para Todos" },
+  { title: "2014 Azul", categoryLabel: "2014", teamLabel: "Azul" },
 );
 assert.deepEqual(
   formatCompetitionSquadDisplay({
@@ -56,7 +56,7 @@ assert.deepEqual(
     kind: "single",
     sourceGroupCount: 1,
   }),
-  { title: "2014 Futbol Para Todos - Azul", categoryLabel: "2014", teamLabel: "Futbol Para Todos - Azul" },
+  { title: "2014 Azul", categoryLabel: "2014", teamLabel: "Azul" },
 );
 assert.deepEqual(
   formatCompetitionSquadDisplay({
@@ -65,7 +65,7 @@ assert.deepEqual(
     categoryLabel: "2012/2013",
     kind: "blanco",
   }),
-  { title: "2012/2013 Futbol Para Todos Femenil - Blanco", categoryLabel: "2012/2013", teamLabel: "Futbol Para Todos Femenil - Blanco" },
+  { title: "2012/2013 Femenil Blanco", categoryLabel: "2012/2013", teamLabel: "Femenil Blanco" },
 );
 assert.deepEqual(
   formatCompetitionSquadDisplay({
@@ -84,7 +84,37 @@ assert.deepEqual(
     birthYearMin: 2014,
     birthYearMax: 2015,
   }),
-  { title: "2014/2015 Futbol Para Todos", subtitle: "Avanzado Femenil" },
+  { title: "2014/2015", subtitle: "Avanzado Femenil" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Selectivo 2016",
+    program: "selectivo",
+    categoryLabel: "2016",
+    kind: "single",
+    sourceGroupCount: 1,
+  }),
+  { title: "Selectivo 2016", categoryLabel: "2016", teamLabel: "Selectivo" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Selectivo 2016 Azul",
+    program: "selectivo",
+    categoryLabel: "2016",
+    kind: "azul",
+    sourceGroupCount: 1,
+  }),
+  { title: "Selectivo 2016 Azul", categoryLabel: "2016", teamLabel: "Selectivo Azul" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Selectivo 2016 Blanco",
+    program: "selectivo",
+    categoryLabel: "2016",
+    kind: "blanco",
+    sourceGroupCount: 1,
+  }),
+  { title: "Selectivo 2016 Blanco", categoryLabel: "2016", teamLabel: "Selectivo Blanco" },
 );
 
 console.log("Program model deprecation assertions passed.");

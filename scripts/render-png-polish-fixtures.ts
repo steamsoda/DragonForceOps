@@ -17,7 +17,7 @@ function category(index: number, playerCount: number): WeeklyCallupPngCategory {
   return {
     id: `category-${index}`,
     categoryLabel: String(2021 - index),
-    trainingGroupName: `${2021 - index} Futbol Para Todos${index % 3 === 0 ? " Azul" : ""}`,
+    trainingGroupName: `${2021 - index}${index % 3 === 0 ? " Azul" : ""}`,
     tournamentName: index % 2 ? "Rosa Power Cup 13 Edicion" : "Superliga Regia 17 Edicion",
     coachNames: index % 2 ? "Arturo Gonzalez" : "Johan Villalba",
     isRest: index % 7 === 6,
@@ -59,9 +59,9 @@ async function main() {
 
   const sportsGroups = Array.from({ length: 18 }, (_, index) => ({
     id: `group-${index}`,
-    label: `${2022 - index} Futbol Para Todos`,
+    label: `${2022 - index}`,
     subtitle: `Categoria ${2022 - index}`,
-    programLabel: "Futbol Para Todos",
+    programLabel: "",
     players: players(5 + (index * 9) % 24, `sport-${index}`).map((player) => ({ ...player, birthYear: 2022 - index })),
   }));
   const sports = buildSportsSignupPacketPngSvg({

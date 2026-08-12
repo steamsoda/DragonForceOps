@@ -30,7 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 function programLabel(program: string) {
-  return program === "selectivo" ? "Selectivos" : "Futbol Para Todos";
+  return program === "selectivo" ? "Selectivos" : "";
 }
 
 function statusLabel(status: string) {
@@ -55,7 +55,7 @@ function SavedCallupCards({ callups, canDelete }: { callups: WeeklyCallupListRow
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold text-portoBlue">{callup.tournamentName}</h3>
-              <p className="text-sm text-slate-600">{callup.campusName} | {programLabel(callup.program)}</p>
+              <p className="text-sm text-slate-600">{[callup.campusName, programLabel(callup.program)].filter(Boolean).join(" | ")}</p>
             </div>
             <span className="rounded-full border border-slate-300 px-2 py-1 text-xs font-medium">{statusLabel(callup.status)}</span>
           </div>
@@ -159,7 +159,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-portoBlue">Detalle de horarios</p>
-                <h2 className="text-xl font-semibold">{adminScheduleDetail.campusName} | {programLabel(adminScheduleDetail.program)}</h2>
+                <h2 className="text-xl font-semibold">{[adminScheduleDetail.campusName, programLabel(adminScheduleDetail.program)].filter(Boolean).join(" | ")}</h2>
                 <p className="text-sm text-slate-500">Direccion puede completar o corregir los partidos de esta semana sin modificar equipos, planteles, pagos ni asistencias.</p>
               </div>
               <Link href={`/convocatorias?campus=${encodeURIComponent(selectedCampusId)}&program=${selectedProgram}&week=${data.currentWeekStart}`} className="min-h-10 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Cerrar detalle</Link>

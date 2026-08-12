@@ -6,9 +6,10 @@ import {
   buildSportsSignupPacketPngSvg,
   type SportsSignupPacketPngData,
 } from "@/lib/sports-signups/png-layout";
+import { formatTournamentGroupCardDisplay } from "@/lib/training-groups/shared";
 
 const PROGRAM_LABELS: Record<string, string> = {
-  futbol_para_todos: "Futbol Para Todos",
+  futbol_para_todos: "",
   selectivo: "Selectivos",
   little_dragons: "Little Dragons",
 };
@@ -72,17 +73,25 @@ export function SportsSignupsPacketExport({
     try {
       const groups: SportsSignupPacketPngData["groups"] = competition.trainingGroups
         .filter((group) => group.players.length > 0)
-        .map((group) => ({
-          id: group.key,
-          label: group.label,
-          subtitle: group.subtitle,
-          programLabel: PROGRAM_LABELS[group.program ?? ""] ?? "Sin programa",
-          players: group.players.map((player) => ({
-            id: player.enrollmentId,
-            playerName: player.playerName,
-            birthYear: player.birthYear,
-          })),
-        }));
+        .map((group) => {
+          const display = formatTournamentGroupCardDisplay({
+            name: group.label,
+            program: group.program,
+            birthYearMin: group.birthYearMin,
+            birthYearMax: group.birthYearMax,
+          });
+          return {
+            id: group.key,
+            label: display.title,
+            subtitle: display.subtitle ?? "",
+            programLabel: PROGRAM_LABELS[group.program ?? ""] ?? "Sin programa",
+            players: group.players.map((player) => ({
+              id: player.enrollmentId,
+              playerName: player.playerName,
+              birthYear: player.birthYear,
+            })),
+          };
+        });
       const exportImage = buildSportsSignupPacketPngSvg({
         competitionLabel: competition.label,
         campusName,

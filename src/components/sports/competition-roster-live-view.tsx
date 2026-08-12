@@ -65,7 +65,7 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
   if (!program) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-        Selecciona Futbol Para Todos, Selectivos o Little Dragons para ver sus equipos.
+        Selecciona No Selectivos, Selectivos o Little Dragons para ver sus equipos.
       </div>
     );
   }

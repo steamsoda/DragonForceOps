@@ -76,7 +76,7 @@ function formatDateTime(value: string) {
 }
 
 function programLabel(program: string) {
-  return program === "selectivo" ? "Selectivos" : "Futbol Para Todos";
+  return program === "selectivo" ? "Selectivos" : "";
 }
 
 function statusLabel(status: string) {
@@ -110,7 +110,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
     <PageShell
       wide
       title={packetTitle}
-      subtitle={`${callup.campusName} | ${programLabel(callup.program)} | ${formatDate(callup.weekStart)} al ${formatDate(callup.weekEnd)}`}
+      subtitle={`${[callup.campusName, programLabel(callup.program)].filter(Boolean).join(" | ")} | ${formatDate(callup.weekStart)} al ${formatDate(callup.weekEnd)}`}
     >
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

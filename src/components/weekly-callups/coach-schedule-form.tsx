@@ -151,7 +151,7 @@ export function CoachScheduleForm({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-portoBlue">{group.name}</h2>
-          <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.categoryLabel} | {group.program === "selectivo" ? "Selectivo" : "Futbol Para Todos"}</p>
+          <p className="text-xs text-slate-500">{group.campusName} | Cat. {group.categoryLabel}{group.program === "selectivo" ? " | Selectivo" : ""}</p>
           {group.sourceGroupNames.length > 1 ? <p className="text-xs text-slate-500">Grupos origen: {group.sourceGroupNames.join(", ")}</p> : null}
         </div>
         {savedReport ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Horario reportado</span> : <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}

@@ -23,7 +23,7 @@ type Props = {
 
 const PROGRAMS: Array<{ value: WeeklyCallupProgram; label: string }> = [
   { value: "selectivo", label: "Selectivos" },
-  { value: "futbol_para_todos", label: "Futbol Para Todos" },
+  { value: "futbol_para_todos", label: "No Selectivos" },
 ];
 
 function weekDetails(weekStart: string) {
