@@ -9,6 +9,7 @@ import {
   type WeeklyCallupsFoundationData,
   type WeeklyCallupProgram,
 } from "@/lib/queries/weekly-callups";
+import { getMonterreyDateString } from "@/lib/time";
 
 export type CoachScheduleGame = {
   id: string | null;
@@ -182,10 +183,18 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
   );
   const groupIds = links.map((link) => link.training_group_id);
   const campusIds = [...new Set(links.map((link) => link.training_groups!.campus_id))];
+  const today = getMonterreyDateString();
   const tournamentsResult = campusIds.length
-    ? await admin.from("tournaments").select("id, campus_id, name, products(name)").in("campus_id", campusIds).eq("is_active", true).order("name")
+    ? await admin
+        .from("tournaments")
+        .select("id, campus_id, name, products(name)")
+        .in("campus_id", campusIds)
+        .eq("is_active", true)
+        .or(`end_date.is.null,end_date.gte.${today}`)
+        .order("name")
     : { data: [], error: null };
   if (tournamentsResult.error) throw tournamentsResult.error;
+  const activeTournamentIds = new Set((tournamentsResult.data ?? []).map((row: any) => row.id as string));
 
   const squadGroupsResult = groupIds.length
     ? await admin
@@ -222,11 +231,12 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
     : { data: [] as SourceGroupRow[], error: null };
   if (sourceGroupsResult.error) throw sourceGroupsResult.error;
   const sourceGroupById = new Map((sourceGroupsResult.data ?? []).map((group) => [group.id, group]));
-  const squadsResult = candidateSquadIds.length
+  const squadsResult = candidateSquadIds.length && activeTournamentIds.size > 0
     ? await admin
         .from("competition_roster_squads")
         .select("id, tournament_id, name, squad_kind, program, category_label, coach_assignment_mode, status")
         .in("id", candidateSquadIds)
+        .in("tournament_id", [...activeTournamentIds])
         .neq("status", "archived")
         .order("sort_order")
         .order("name")

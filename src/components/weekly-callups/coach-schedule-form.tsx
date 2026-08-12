@@ -65,7 +65,10 @@ export function CoachScheduleForm({
   const [games, setGames] = useState<GameDraft[]>(
     group.report?.games.length ? group.report.games : [gameForSquad(initialSquad)],
   );
-  const options = tournaments.filter((tournament) => tournament.campusId === group.campusId);
+  const groupTournamentIds = new Set(group.squads.map((squad) => squad.tournamentId));
+  const options = tournaments.filter(
+    (tournament) => tournament.campusId === group.campusId && groupTournamentIds.has(tournament.id),
+  );
   const availableSquads = useMemo(
     () => group.squads.filter((squad) => squad.tournamentId === tournamentId),
     [group.squads, tournamentId],

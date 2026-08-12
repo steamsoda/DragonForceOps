@@ -263,6 +263,15 @@ export type CompetitionSignupDashboardData = {
     endDate: string | null;
     signupDeadline: string | null;
   }>;
+  archivedTournamentSettings: Array<{
+    id: string;
+    campusId: string;
+    productId: string;
+    name: string;
+    startDate: string | null;
+    endDate: string | null;
+    signupDeadline: string | null;
+  }>;
   campusBoards: CompetitionSignupCampusBoard[];
   loadError: string | null;
   perf?: {
@@ -571,6 +580,26 @@ async function loadSignupTournaments(admin: SupabaseQueryClient, campusIds: stri
       row.products?.is_active === true &&
       isCompetitionProduct(row.products),
   );
+}
+
+async function loadTournamentSettings(
+  admin: SupabaseQueryClient,
+  campusIds: string[],
+  isActive: boolean,
+) {
+  if (campusIds.length === 0) return [];
+  const { data, error } = await admin
+    .from("tournaments")
+    .select("id, name, campus_id, product_id, start_date, end_date, signup_deadline, is_active, products(id, name, is_active, requires_pricing_rule_match, charge_types(code))")
+    .in("campus_id", campusIds)
+    .eq("is_active", isActive)
+    .not("product_id", "is", null)
+    .order("end_date", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true })
+    .limit(100)
+    .returns<SignupTournamentRow[]>();
+  if (error) throw error;
+  return (data ?? []).filter((row) => row.product_id && isCompetitionProduct(row.products));
 }
 
 async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
@@ -1212,10 +1241,12 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
   const admin = createAdminClient();
   const campusIds = campusAccess.campusIds;
   const productsStartedAt = Date.now();
-  const [products, tournaments, bundleEntitlements] = await Promise.all([
+  const [products, tournaments, bundleEntitlements, activeSettingTournaments, archivedTournaments] = await Promise.all([
     loadCompetitionProducts(admin),
     loadSignupTournaments(admin, campusIds),
     loadProductBundleEntitlements(admin),
+    permissionContext.isSuperAdmin ? loadTournamentSettings(admin, campusIds, true) : Promise.resolve([]),
+    permissionContext.isSuperAdmin ? loadTournamentSettings(admin, campusIds, false) : Promise.resolve([]),
   ]);
   if (perf) {
     recordPerfStep(perf, "load products and tournaments", productsStartedAt);
@@ -1285,7 +1316,16 @@ async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof
     configurableProducts: products
       .filter((product) => !allBundleSourceProductIds.includes(product.id))
       .map((product) => ({ id: product.id, name: product.name })),
-    activeTournamentSettings: tournaments.map((tournament) => ({
+    activeTournamentSettings: activeSettingTournaments.map((tournament) => ({
+      id: tournament.id,
+      campusId: tournament.campus_id,
+      productId: tournament.product_id,
+      name: tournament.name,
+      startDate: tournament.start_date,
+      endDate: tournament.end_date,
+      signupDeadline: tournament.signup_deadline,
+    })),
+    archivedTournamentSettings: archivedTournaments.map((tournament) => ({
       id: tournament.id,
       campusId: tournament.campus_id,
       productId: tournament.product_id,
@@ -1459,6 +1499,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
     pricingRulesByProduct,
     configurableProducts,
     activeTournamentSettings,
+    archivedTournamentSettings,
   } = baseData;
 
   const selectedCampusId =
@@ -1477,6 +1518,7 @@ export async function getCompetitionSignupDashboardData(filters?: {
     competitionOptions,
     configurableProducts,
     activeTournamentSettings,
+    archivedTournamentSettings,
     campusBoards: campusAccess.campuses.map((campus) => ({
       campusId: campus.id,
       campusName: campus.name,

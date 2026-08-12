@@ -147,10 +147,10 @@ export async function archiveSportsSignupTournamentAction(formData: FormData) {
     redirect("/unauthorized");
   }
 
-  const { error } = await admin
-    .from("tournaments")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq("id", tournamentId);
+  const { data: lifecycleResult, error } = await admin.rpc("finalize_sports_signup_tournament", {
+    p_actor_user_id: context.user.id,
+    p_tournament_id: tournamentId,
+  });
 
   if (error) redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_archive_failed`);
 
@@ -160,10 +160,15 @@ export async function archiveSportsSignupTournamentAction(formData: FormData) {
     action: "sports_signups.tournament_archived",
     tableName: "tournaments",
     recordId: tournamentId,
-    afterData: { is_active: false },
+    afterData: {
+      is_active: false,
+      lifecycle: lifecycleResult,
+      preserved_history: true,
+    },
   });
 
   revalidatePath("/sports-signups");
   revalidatePath("/tournaments");
+  revalidatePath("/convocatorias");
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}ok=tournament_archived`);
 }

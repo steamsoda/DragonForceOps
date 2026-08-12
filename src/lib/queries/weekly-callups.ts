@@ -5,6 +5,7 @@ import {
   formatTournamentGroupCardDisplay,
 } from "@/lib/training-groups/shared";
 import { getWeeklyCallupLivePaidRoster } from "@/lib/weekly-callups/live-roster";
+import { getMonterreyDateString } from "@/lib/time";
 
 export type WeeklyCallupProgram = "selectivo" | "futbol_para_todos";
 
@@ -353,12 +354,14 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
   const admin = createAdminClient();
+  const today = getMonterreyDateString();
   const [tournamentsResult, callupsResult, groupsResult, coachesResult] = await Promise.all([
     admin
       .from("tournaments")
       .select("id, campus_id, product_id, name, start_date, end_date, signup_deadline, products(name)")
       .in("campus_id", campusAccess.campusIds)
       .eq("is_active", true)
+      .or(`end_date.is.null,end_date.gte.${today}`)
       .order("start_date", { ascending: true, nullsFirst: false })
       .returns<TournamentRow[]>(),
     admin

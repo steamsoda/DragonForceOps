@@ -68,6 +68,7 @@ const DATABASE_ERROR_MESSAGES: Record<string, string> = {
   coach_link_invalid: "Tu usuario ya no esta vinculado a un profesor activo. Administracion debe revisar tu cuenta.",
   coach_squad_forbidden: "Este equipo ya no esta asignado a tu cuenta. Tus datos siguen en pantalla; pide a administracion revisar el profesor del equipo.",
   invalid_schedule_squad: "El equipo, torneo o grupo origen cambio. Tus datos siguen en pantalla; recarga la pagina para revisar la asignacion.",
+  tournament_not_active: "Este torneo ya fue finalizado. El horario historico se conserva, pero ya no acepta reportes nuevos.",
   week_must_start_monday: "La semana seleccionada no empieza en lunes. Vuelve a abrir la semana correspondiente.",
   notes_too_long: "La nota supera el limite de 500 caracteres.",
   invalid_games: "No se pudieron leer los partidos capturados.",

@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-12 (session 306)
+
+### Tournament Finalization Lifecycle - Pass 2 (v1.17.39 Preview)
+
+- Replaced the partial tournament archive action with one transactional Super Admin finalization operation. It marks the tournament inactive and archives every current competition squad for that tournament in the same database transaction.
+- Preserved historical truth: tournament charges, payments, confirmed entries, squad members, coach reports, reported games, frozen convocatorias, and immutable roster snapshots are not deleted or rewritten. A tournament lifecycle event records the transition and archived squad count.
+- Removed finalized and date-ended tournaments from current `Inscripciones Torneos`, `Convocatorias`, traffic-control, and professor `Mis horarios` inputs. Existing historical packets and reports remain readable.
+- Tightened professor schedule options to the tournament actually assigned to each live squad and added a database write guard that rejects new or edited reports for inactive tournaments with a clear message.
+- Added a confirmed `Finalizar` control plus a Super Admin-only read-only list of finalized tournaments. Active settings include date-ended records so an ended but still active tournament such as Torneo de Leyendas can still be deliberately finalized.
+- Added focused lifecycle regressions and verified the existing professor-scope, director-editor, and frozen convocatoria contracts. This pass does not mutate finance or attendance data.
+
 ## 2026-08-12 (session 305)
 
 ### Coach Schedule Reliability And Roster Recovery (v1.17.38 Preview)

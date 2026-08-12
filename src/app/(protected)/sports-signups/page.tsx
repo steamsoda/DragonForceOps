@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { SportsSignupsBoard } from "@/components/sports/sports-signups-board";
+import { FinalizeTournamentForm } from "@/components/sports/finalize-tournament-form";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import {
   getCompetitionSignupDashboardData,
 } from "@/lib/queries/sports-signups";
 import {
-  archiveSportsSignupTournamentAction,
   saveSportsSignupTournamentSettingsAction,
 } from "@/server/actions/sports-signups";
 
@@ -23,7 +23,7 @@ type SearchParams = Promise<{
 
 const OK_MESSAGES: Record<string, string> = {
   tournament_settings_saved: "Competencia actualizada.",
-  tournament_archived: "Competencia archivada.",
+  tournament_archived: "Competencia finalizada. Ya no aparece en la operacion actual; su historial se conservo.",
 };
 
 const ERR_MESSAGES: Record<string, string> = {
@@ -32,7 +32,7 @@ const ERR_MESSAGES: Record<string, string> = {
   invalid_tournament_product: "Selecciona un producto activo de torneo o copa.",
   tournament_settings_failed: "No se pudo guardar la competencia.",
   tournament_signup_backfill_failed: "La competencia se guardo, pero no se pudieron sincronizar las inscripciones existentes.",
-  tournament_archive_failed: "No se pudo archivar la competencia.",
+  tournament_archive_failed: "No se pudo finalizar la competencia. No se modifico su estado operativo.",
 };
 
 export default async function SportsSignupsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -167,16 +167,27 @@ export default async function SportsSignupsPage({ searchParams }: { searchParams
                     <span>{setting.startDate ?? "-"}</span>
                     <span>{setting.endDate ?? "-"}</span>
                     <span>{setting.signupDeadline ?? "-"}</span>
-                    <form action={archiveSportsSignupTournamentAction}>
-                      <input type="hidden" name="returnTo" value={returnTo} />
-                      <input type="hidden" name="tournamentId" value={setting.id} />
-                      <button type="submit" className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200">
-                        Archivar
-                      </button>
-                    </form>
+                    <FinalizeTournamentForm tournamentId={setting.id} tournamentName={setting.name} returnTo={returnTo} />
                   </div>
                 ))}
               </div>
+            ) : null}
+
+            {dashboard.archivedTournamentSettings.length > 0 ? (
+              <details className="mt-4 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Torneos finalizados ({dashboard.archivedTournamentSettings.length})
+                </summary>
+                <div className="mt-3 divide-y divide-slate-100 text-sm dark:divide-slate-800">
+                  {dashboard.archivedTournamentSettings.map((setting) => (
+                    <div key={setting.id} className="grid gap-2 py-2 sm:grid-cols-[1fr_1.5fr_1fr]">
+                      <span>{dashboard.campuses.find((campus) => campus.id === setting.campusId)?.name ?? "Campus"}</span>
+                      <span className="font-medium">{setting.name}</span>
+                      <span className="text-slate-500">Final: {setting.endDate ?? "Sin fecha"}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
             ) : null}
           </details>
         ) : null}

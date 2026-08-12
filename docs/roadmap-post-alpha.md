@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.38`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.39`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.37`
-- Current preview candidate: `v1.17.38` hardens coach schedule validation and stale-roster recovery; pending Preview verification
+- Current preview candidate: `v1.17.39` adds transactional tournament finalization, archives current squads, and removes ended tournaments from active professor/convocatoria work while preserving history
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -192,6 +192,7 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 19. 🟢 `v1.17.35` exposes guarded Super Admin/Director Admin/Director Deportivo game entry and correction from every populated current-week card, with campus, professor, squad, week, and live-roster validation.
 20. ✅ `v1.17.36` polishes the convocatoria PNG with team-first headers, compact display names, INVICTA branding, explicit times, full month names, and adaptive square card packing; the full tournament-signup PNG receives the same overflow hardening.
 21. ✅ `v1.17.37` standardizes the parent-facing packet as `Rol de juegos`, adds the new horizontal white INVICTA wordmark, includes YOB in Selectivo team titles, removes internal Futbol Para Todos terminology from the PNG only, and passes a 150-registration Preview load test.
+22. 🟢 `v1.17.38`-`v1.17.39` harden professor schedule errors and introduce the controlled tournament-ending lifecycle: active squads are archived transactionally, current operational views exclude ended tournaments, and all paid-registration, game, roster, and frozen-packet history remains intact.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 
@@ -209,7 +210,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Coach schedule reliability | Preview `v1.17.38` replaces generic save failures with precise messages, highlights missing match fields, and safely refreshes a changed squad roster without clearing the coach's game draft. Validate with a writable coach profile before production promotion. | Convocatorias / Mis horarios, `v1.17.38` devlog |
+| 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
