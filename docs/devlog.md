@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-12 (session 309)
+
+### Tournament Eligible-Group Visibility Toggle (v1.17.43 Preview)
+
+- Added a `Por grupo`-only segmented control to switch between groups with confirmed tournament registrations and every training group eligible under the tournament's existing product rules.
+- Kept `Con inscritos` as the default so the operational board remains compact, while `Todos los elegibles` exposes zero-registration groups and their `0/active` counts for enrollment follow-up.
+- Reused the complete eligible-group data already loaded by the page. Switching modes is instant and adds no navigation, refresh, database query, eligibility reinterpretation, or write.
+- No tournament registration, squad membership, training-group assignment, product rule, charge, payment, or attendance data changes. No migration is required.
+- Verification: `npm run test:sports-signups-group-view`, `npm run typecheck`, production build, and `git diff --check`.
+
 ## 2026-08-12 (session 308)
 
 ### Tournament-Team Campus Identity And Professor Visibility (v1.17.42 Preview)

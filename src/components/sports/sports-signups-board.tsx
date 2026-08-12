@@ -20,6 +20,7 @@ type Props = {
 };
 
 type CategoryActionFeedback = "copied" | "copy-error" | "png-exported" | "png-error";
+type TrainingGroupVisibility = "registered" | "eligible";
 
 const CATEGORY_TWO_COLUMN_THRESHOLD = 14;
 
@@ -265,6 +266,7 @@ export function SportsSignupsBoard({
   const [selectedCompetitionId, setSelectedCompetitionId] = useState(initialCompetitionId);
   const [selectedProgram, setSelectedProgram] = useState(dashboard.selectedProgram);
   const [viewMode, setViewMode] = useState<"category" | "group" | "teams">("category");
+  const [trainingGroupVisibility, setTrainingGroupVisibility] = useState<TrainingGroupVisibility>("registered");
   const [feedbackByCategoryKey, setFeedbackByCategoryKey] = useState<Record<string, CategoryActionFeedback>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -294,6 +296,14 @@ export function SportsSignupsBoard({
       filterCompetitionByProgram(competition, selectedProgram)),
     [selectedBoard, selectedProgram],
   );
+
+  const registeredTrainingGroups = useMemo(
+    () => selectedCompetition?.trainingGroups.filter((group) => group.confirmedCount > 0) ?? [],
+    [selectedCompetition],
+  );
+  const visibleTrainingGroups = trainingGroupVisibility === "eligible"
+    ? selectedCompetition?.trainingGroups ?? []
+    : registeredTrainingGroups;
 
   function setCategoryFeedback(categoryKey: string, feedback: CategoryActionFeedback) {
     setFeedbackByCategoryKey((current) => ({ ...current, [categoryKey]: feedback }));
@@ -614,6 +624,39 @@ export function SportsSignupsBoard({
             </button>
           </div>
 
+          {viewMode === "group" ? (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
+              <div>
+                <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Mostrar grupos</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Los grupos elegibles respetan las reglas configuradas para este torneo.
+                </p>
+              </div>
+              <div className="inline-flex rounded-md border border-slate-300 bg-white p-1 dark:border-slate-600 dark:bg-slate-950" aria-label="Visibilidad de grupos">
+                <button
+                  type="button"
+                  aria-pressed={trainingGroupVisibility === "registered"}
+                  onClick={() => setTrainingGroupVisibility("registered")}
+                  className={trainingGroupVisibility === "registered"
+                    ? "rounded bg-portoBlue px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}
+                >
+                  Con inscritos ({registeredTrainingGroups.length})
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={trainingGroupVisibility === "eligible"}
+                  onClick={() => setTrainingGroupVisibility("eligible")}
+                  className={trainingGroupVisibility === "eligible"
+                    ? "rounded bg-portoBlue px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}
+                >
+                  Todos los elegibles ({selectedCompetition.trainingGroups.length})
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {selectedCompetition.eligibilityReviewPlayers.length > 0 ? (
             <div className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
               {selectedCompetition.eligibilityReviewPlayers.length} registro(s) pagado(s) requieren revision porque el grupo actual ya no coincide con los grupos invitados o las reglas del torneo.
@@ -745,13 +788,15 @@ export function SportsSignupsBoard({
                 );
               })}
             </div>
-          ) : selectedCompetition.trainingGroups.length === 0 ? (
+          ) : visibleTrainingGroups.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-400">
-              No hay grupos activos o jugadores pagados para esta competencia en el campus seleccionado.
+              {trainingGroupVisibility === "registered"
+                ? "No hay grupos con jugadores inscritos para esta competencia. Puedes mostrar todos los grupos elegibles."
+                : "No hay grupos elegibles para esta competencia en el campus y programa seleccionados."}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {selectedCompetition.trainingGroups.map((group) => (
+              {visibleTrainingGroups.map((group) => (
                 <TrainingGroupSignupCard
                   key={`${selectedCompetition.id}-${group.key}`}
                   group={group}

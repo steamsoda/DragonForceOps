@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.42`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.43`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -196,8 +196,8 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 23. 🟢 `v1.17.40` standardizes active one-group teams as Azul by default, keeps split and combined identities explicit, removes remaining legacy level/name noise from team administration, and regression-locks ordinary, combined, split, and finalized routing behavior without mutating stored history.
 24. 🟢 `v1.17.41` removes Futbol Para Todos from individual team identities and parent-facing team cards while retaining the program name in filters and operational context; ordinary Selectivos remain unsuffixed while true splits retain Azul/Blanco.
 
-25. In progress: `v1.17.42` begins tournament-team operations polish with campus-scoped `CO`/`LV` identity and visible professor ownership across `Inscripciones Torneos`, team organization, coach schedules, and `Convocatorias`. This is display-only and does not rewrite squads or registrations.
-26. Open Pass 2: add a `Por grupo` visibility toggle between groups with confirmed registrations and all eligible groups, preserving explicit zero-registration visibility without changing product eligibility.
+25. 🟢 `v1.17.42` adds campus-scoped `CO`/`LV` identity and visible professor ownership across `Inscripciones Torneos`, team organization, coach schedules, and `Convocatorias`. This is display-only and does not rewrite squads or registrations.
+26. 🟢 `v1.17.43` adds an instant `Por grupo` visibility toggle between groups with confirmed registrations and all eligible groups, preserving explicit zero-registration visibility without changing product eligibility or adding queries.
 27. Open Pass 3: add a guarded `Editar jugadores` mode to `Equipos` for moving an existing member between squads in the same tournament/campus/program. It must never duplicate members, alter paid registration, create reinforcements, or change training groups.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
@@ -214,7 +214,7 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
-Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visibility. Next is the eligible-group visibility toggle, followed by guarded same-context drag/drop team moves.
+Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visibility; `v1.17.43` adds the eligible-group visibility toggle. Next is guarded same-context drag/drop team moves.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
