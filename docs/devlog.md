@@ -2,6 +2,13 @@
 
 ## 2026-08-12 (session 306)
 
+### Canonical Active Tournament-Team Identity (v1.17.40 Preview)
+
+- Standardized live one-group tournament teams as `Azul` by default and retained explicit `Blanco` labels for split teams. The canonical display now combines YOB, program, and team color without exposing legacy B1/B2/B3, Basico, Intermedio, Avanzado, or generated suffix noise.
+- Preserved deliberate combined-team names and kept tournament/campus context in their existing page and report fields, so the same training group can participate in different tournaments without renaming or merging database squads.
+- Applied the identity consistently to `Administrar equipos`, the live `Equipos` view and controls, professor ownership, `Mis horarios`, and current `Convocatorias`. Frozen historical snapshots retain their captured labels.
+- Added routing regressions for ordinary auto-creation, combined-source automatic placement, split-team pending assignment, and inactive-tournament rejection. No migration, finance write, registration rewrite, training-group mutation, or historical snapshot change is included.
+
 ### Tournament Finalization Lifecycle - Pass 2 (v1.17.39 Preview)
 
 - Replaced the partial tournament archive action with one transactional Super Admin finalization operation. It marks the tournament inactive and archives every current competition squad for that tournament in the same database transaction.

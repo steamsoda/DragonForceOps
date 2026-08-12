@@ -95,6 +95,7 @@ export function formatCompetitionSquadDisplay(squad: {
   program?: string | null;
   categoryLabel?: string | null;
   kind?: string | null;
+  sourceGroupCount?: number;
 }) {
   const sanitizedName = sanitizeTournamentTeamDisplayName(squad.name);
   const categoryYears = `${squad.categoryLabel ?? ""} ${sanitizedName}`
@@ -104,16 +105,32 @@ export function formatCompetitionSquadDisplay(squad: {
     : sanitizeTournamentTeamDisplayName(squad.categoryLabel ?? "") || "Sin categoria";
   const programLabel = TRAINING_GROUP_PROGRAM_LABELS[squad.program ?? ""] ?? "Programa sin definir";
   const isFemale = /\bfemenil\b/i.test(sanitizedName);
+  const isCombined = (squad.sourceGroupCount ?? 0) > 1;
+  const combinedName = sanitizedName
+    .replace(/\b(?:basico|básico|intermedio|avanzado|expert|prejuvenil)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   const kindLabel = squad.kind === "azul" || /\bazul\b/i.test(sanitizedName)
     ? "Azul"
     : squad.kind === "blanco" || /\bblanco\b/i.test(sanitizedName)
       ? "Blanco"
+      : squad.kind === "single" && squad.sourceGroupCount === 1
+        ? "Azul"
       : null;
   const programTeamLabel = [programLabel, isFemale ? "Femenil" : null].filter(Boolean).join(" ");
-  const teamLabel = kindLabel ? `${programTeamLabel} - ${kindLabel}` : programTeamLabel;
+  const teamLabel = isCombined
+    ? combinedName || programTeamLabel
+    : kindLabel
+      ? `${programTeamLabel} - ${kindLabel}`
+      : programTeamLabel;
+  const title = isCombined
+    ? teamLabel
+    : categoryLabel === "Sin categoria"
+      ? teamLabel
+      : `${categoryLabel} ${teamLabel}`;
 
   return {
-    title: categoryLabel === "Sin categoria" ? teamLabel : `${categoryLabel} ${teamLabel}`,
+    title,
     categoryLabel,
     teamLabel,
   };

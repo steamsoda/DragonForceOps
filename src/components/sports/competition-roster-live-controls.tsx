@@ -49,11 +49,12 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
     () => data.manualHelpers.find((helper) => `${helper.squadId}:${helper.enrollmentId}` === removeHelperKey) ?? null,
     [data.manualHelpers, removeHelperKey],
   );
-  const squadName = (squad: { name: string; categoryLabel?: string | null; kind?: string | null }) => formatCompetitionSquadDisplay({
+  const squadName = (squad: { name: string; categoryLabel?: string | null; kind?: string | null; sourceGroupNames?: string[] }) => formatCompetitionSquadDisplay({
     name: squad.name,
     program: data.program,
     categoryLabel: squad.categoryLabel,
     kind: squad.kind,
+    sourceGroupCount: squad.sourceGroupNames?.length,
   }).title;
 
   function run(action: () => Promise<CompetitionRosterInlineActionResult>, afterSuccess?: () => void) {

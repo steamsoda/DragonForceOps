@@ -124,6 +124,7 @@ export function CompetitionRosterLiveView({ active, tournamentId, campusId, prog
                 program: data.program,
                 categoryLabel: squad.categoryLabel,
                 kind: squad.kind,
+                sourceGroupCount: squad.sourceGroupNames.length,
               });
               return (
             <article key={squad.id} className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">

@@ -552,6 +552,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         program: squad.program,
         categoryLabel: squad.category_label || undefined,
         kind: squad.squad_kind,
+        sourceGroupCount: sourceGroups.length,
       });
       return [{
         id: squad.id,

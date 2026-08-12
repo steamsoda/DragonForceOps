@@ -9,7 +9,11 @@ import {
   type CompetitionSquadStatus,
 } from "@/lib/competition-rosters/foundation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatTrainingGroupDisplayName } from "@/lib/training-groups/shared";
+import {
+  formatCompetitionSquadDisplay,
+  formatTournamentGroupCardDisplay,
+  formatTrainingGroupDisplayName,
+} from "@/lib/training-groups/shared";
 
 type TournamentRow = {
   id: string;
@@ -283,6 +287,7 @@ export type CompetitionRosterOrganizerGroup = {
 export type CompetitionRosterCombinedSquad = {
   id: string;
   name: string;
+  displayName: string;
   sourceGroupIds: string[];
   memberCount: number;
 };
@@ -576,13 +581,20 @@ export async function getCompetitionRosterOrganizerData(filters: {
   const exclusionReasonByEnrollment = new Map(
     foundation.exclusions.map((exclusion) => [exclusion.enrollmentId, exclusion.reason]),
   );
+  const displaySquadName = (squad: CompetitionRosterSquad) => formatCompetitionSquadDisplay({
+    name: squad.name,
+    program: squad.program,
+    categoryLabel: squad.categoryLabel,
+    kind: squad.kind,
+    sourceGroupCount: squad.sourceGroups.length,
+  }).title;
   for (const squad of foundation.squads) {
     for (const member of squad.members) {
       const names = squadNamesByEnrollment.get(member.enrollmentId) ?? [];
-      names.push(squad.name);
+      names.push(displaySquadName(squad));
       squadNamesByEnrollment.set(member.enrollmentId, names);
       const assignedSquads = squadsByEnrollment.get(member.enrollmentId) ?? [];
-      assignedSquads.push({ id: squad.id, name: squad.name, kind: squad.kind });
+      assignedSquads.push({ id: squad.id, name: displaySquadName(squad), kind: squad.kind });
       squadsByEnrollment.set(member.enrollmentId, assignedSquads);
     }
   }
@@ -652,21 +664,22 @@ export async function getCompetitionRosterOrganizerData(filters: {
         && singleSquad !== null
         && !singleSquad.members.some((member) => member.source === "manual"));
     const sortedCandidates = sortOrganizerPlayers(candidates);
+    const groupDisplay = formatTournamentGroupCardDisplay({
+      name: group.name ?? "Grupo",
+      program: group.program,
+      birthYearMin: group.birth_year_min,
+      birthYearMax: group.birth_year_max,
+    });
     return {
       id: assignment.training_group_id,
-      name: formatTrainingGroupDisplayName({ name: group.name ?? "Grupo", program: group.program }),
-      subtitle: [
-        group.birth_year_min && group.birth_year_max
-          ? `Cat. ${group.birth_year_min === group.birth_year_max ? group.birth_year_min : `${group.birth_year_min}/${group.birth_year_max}`}`
-          : null,
-        ORGANIZER_PROGRAM_LABELS[group.program ?? ""] ?? null,
-      ].filter(Boolean).join(" | "),
+      name: groupDisplay.title,
+      subtitle: "Grupo de entrenamiento",
       program: group.program ?? filters.program,
       candidates: sortedCandidates,
       squad: displaySquad
         ? {
             id: displaySquad.id,
-            name: displaySquad.name,
+            name: displaySquadName(displaySquad),
             status: displaySquad.status,
             kind: displaySquad.kind,
             memberCount: displaySquad.members.length,
@@ -674,7 +687,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
         : null,
       squads: linkedSquads.map((squad) => ({
         id: squad.id,
-        name: squad.name,
+        name: displaySquadName(squad),
         status: squad.status,
         kind: squad.kind,
         memberCount: squad.members.length,
@@ -715,13 +728,14 @@ export async function getCompetitionRosterOrganizerData(filters: {
     .map((squad) => ({
       id: squad.id,
       name: squad.name,
+      displayName: displaySquadName(squad),
       sourceGroupIds: squad.sourceGroups.map((sourceGroup) => sourceGroup.id),
       memberCount: squad.members.length,
     }));
 
   const activeSquads = foundation.squads
     .filter((squad) => squad.program === filters.program)
-    .map((squad) => ({ id: squad.id, name: squad.name }))
+    .map((squad) => ({ id: squad.id, name: displaySquadName(squad) }))
     .sort((a, b) => a.name.localeCompare(b.name, "es-MX"));
 
   const programSquads = foundation.squads.filter((squad) => squad.program === filters.program);
@@ -786,9 +800,12 @@ export async function getCompetitionRosterOrganizerData(filters: {
     }
     return {
       squadId: squad.id,
-      squadName: squad.name,
+      squadName: displaySquadName(squad),
       squadKind: squad.kind,
-      sourceGroupNames: squad.sourceGroups.map((group) => group.name),
+      sourceGroupNames: squad.sourceGroups.map((group) => formatTrainingGroupDisplayName({
+        name: group.name,
+        program: squad.program,
+      })),
       assignmentMode: squad.professorAssignmentMode,
       requiresManualAssignment,
       professors: [...professorById.values()].sort((left, right) =>
@@ -835,7 +852,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
       if (!enrollment?.players) return [];
       return [{
         squadId: squad.id,
-        squadName: squad.name,
+        squadName: displaySquadName(squad),
         enrollmentId: member.enrollmentId,
         playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
         birthYear: getBirthYear(enrollment.players.birth_date),

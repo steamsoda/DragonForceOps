@@ -16,6 +16,7 @@ type CombinedGroup = {
 type ExistingCombinedSquad = {
   id: string;
   name: string;
+  displayName: string;
   sourceGroupIds: string[];
   memberCount: number;
 };
@@ -111,7 +112,7 @@ export function CompetitionRosterCombinedEditor({
               <option value="new">Nuevo equipo combinado</option>
               {combinedSquads.map((squad) => (
                 <option key={squad.id} value={squad.id}>
-                  Editar {squad.name} ({squad.memberCount} jugadores)
+                  Editar {squad.displayName} ({squad.memberCount} jugadores)
                 </option>
               ))}
             </select>

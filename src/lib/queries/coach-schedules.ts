@@ -357,6 +357,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
             program: squad.program,
             categoryLabel: squad.category_label,
             kind: squad.squad_kind,
+            sourceGroupCount: sourceGroups.length,
           }).title,
           players: membersBySquad.get(squad.id) ?? [],
         }];
@@ -365,6 +366,7 @@ export async function getCoachSchedulePageData(week?: string): Promise<CoachSche
           program: squad.program,
           categoryLabel: squad.category_label || categoryLabel(anchorGroup),
           kind: squad.squad_kind,
+          sourceGroupCount: sourceGroups.length,
         });
         return [{
           id: squad.id,

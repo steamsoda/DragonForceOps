@@ -50,12 +50,32 @@ assert.deepEqual(
 );
 assert.deepEqual(
   formatCompetitionSquadDisplay({
+    name: "Avanzado B1 - d08d",
+    program: "futbol_para_todos",
+    categoryLabel: "2014",
+    kind: "single",
+    sourceGroupCount: 1,
+  }),
+  { title: "2014 Futbol Para Todos - Azul", categoryLabel: "2014", teamLabel: "Futbol Para Todos - Azul" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
     name: "Expert B3 Femenil (2aa8) Blanco",
     program: "futbol_para_todos",
     categoryLabel: "2012/2013",
     kind: "blanco",
   }),
   { title: "2012/2013 Futbol Para Todos Femenil - Blanco", categoryLabel: "2012/2013", teamLabel: "Futbol Para Todos Femenil - Blanco" },
+);
+assert.deepEqual(
+  formatCompetitionSquadDisplay({
+    name: "Expert B3 Femenil 2011/2012/2013 - 2aa8",
+    program: "futbol_para_todos",
+    categoryLabel: "2011/2012/2013",
+    kind: "single",
+    sourceGroupCount: 3,
+  }),
+  { title: "Femenil 2011/2012/2013", categoryLabel: "2011/2012/2013", teamLabel: "Femenil 2011/2012/2013" },
 );
 assert.deepEqual(
   formatTournamentGroupCardDisplay({
