@@ -92,6 +92,13 @@ export type CompetitionRosterInlineActionResult = {
   message: string;
 };
 
+type CompetitionRosterRefreshResult = {
+  checked?: number;
+  moved?: number;
+  pending_review?: number;
+  failed?: number;
+};
+
 function inlineErrorMessage(code: string) {
   const messages: Record<string, string> = {
     invalid_squad_settings: "Faltan datos para guardar el cambio.",
@@ -115,8 +122,65 @@ function inlineErrorMessage(code: string) {
     competition_roster_move_destination_duplicate: "El jugador ya pertenece al equipo de destino.",
     competition_roster_move_tournament_inactive: "El torneo ya no esta activo y sus equipos no se pueden modificar.",
     competition_roster_move_scope_invalid: "El movimiento debe permanecer en el mismo torneo, campus y programa.",
+    competition_roster_refresh_tournament_inactive: "El torneo ya no esta activo y sus equipos no se pueden actualizar.",
   };
   return messages[code] ?? "No se pudo guardar el cambio. Ningun otro dato fue modificado.";
+}
+
+export async function refreshCompetitionRosterTeamsInlineAction(input: {
+  tournamentId: string;
+  campusId: string;
+}): Promise<CompetitionRosterInlineActionResult> {
+  const tournamentId = clean(input.tournamentId);
+  const campusId = clean(input.campusId);
+  if (![tournamentId, campusId].every(isUuid)) {
+    return { ok: false, message: inlineErrorMessage("invalid_squad_settings") };
+  }
+
+  await assertDebugWritesAllowed("/sports-signups");
+  const context = await getPermissionContext();
+  if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
+    return { ok: false, message: inlineErrorMessage("squad_permission_denied") };
+  }
+
+  const result = await context.supabase.rpc("refresh_competition_roster_teams", {
+    p_tournament_id: tournamentId,
+  });
+  if (result.error) {
+    const message = result.error.message.toLowerCase();
+    const code = message.includes("tournament_inactive")
+      ? "competition_roster_refresh_tournament_inactive"
+      : message.includes("manager_required") || message.includes("auth_required")
+        ? "squad_permission_denied"
+        : "squad_sync_failed";
+    console.error("competition roster bulk refresh failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      campusId,
+    });
+    return { ok: false, message: inlineErrorMessage(code) };
+  }
+
+  const summary = (result.data ?? {}) as CompetitionRosterRefreshResult;
+  const checked = Number(summary.checked ?? 0);
+  const moved = Number(summary.moved ?? 0);
+  const pending = Number(summary.pending_review ?? 0);
+  const failed = Number(summary.failed ?? 0);
+  revalidateCompetitionRosterPaths();
+  revalidatePath("/convocatorias");
+  revalidatePath("/mis-horarios");
+
+  if (failed > 0) {
+    return {
+      ok: false,
+      message: `Se revisaron ${checked} jugadores, pero ${failed} no pudieron actualizarse. ${pending} requieren revision manual.`,
+    };
+  }
+  return {
+    ok: true,
+    message: `Equipos actualizados: ${checked} jugadores revisados, ${moved} reasignados y ${pending} pendientes de revision.`,
+  };
 }
 
 export async function setCompetitionRosterSquadProfessorsInlineAction(input: {

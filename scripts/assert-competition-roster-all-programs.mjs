@@ -10,7 +10,7 @@ const route = read("src/app/api/sports-signups/teams/route.ts");
 assert.match(board, /availablePrograms=\{selectedCompetition\.availablePrograms\}/);
 assert.match(liveView, /const PROGRAM_ORDER = \["futbol_para_todos", "selectivo", "little_dragons"\]/);
 assert.match(liveView, /orderedPrograms\(availablePrograms\)/);
-assert.match(liveView, /programs\.map\(\(currentProgram\) =>/);
+assert.match(liveView, /programs\.map\(\(currentProgram(?:, index)?\) =>/);
 assert.match(liveView, /<CompetitionRosterProgramView[\s\S]*program=\{currentProgram\}/);
 assert.match(liveView, /new URLSearchParams\(\{ tournament: tournamentId, campus: campusId, program \}\)/);
 assert.match(liveView, /La edicion y las excepciones permanecen separadas por programa/);

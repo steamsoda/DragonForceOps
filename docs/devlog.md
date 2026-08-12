@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-12 (session 312)
+
+### Training-Group-Aware Tournament-Team Refresh (v1.17.46 Preview)
+
+- Added `Actualizar todos los equipos` to `Inscripciones Torneos > Equipos` for authorized sports managers. It reconciles every confirmed registration in the selected tournament and immediately reloads all visible program sections with a clear checked/moved/pending result.
+- Extended the existing asynchronous roster queue so later training-group changes automatically move a paid player when there is exactly one valid destination team. Azul/Blanco or any other ambiguous destination remains pending for sporting review instead of being guessed.
+- Kept tournament registration, finance, enrollment, attendance, and training-group assignment data read-only during reconciliation. Automatic moves only update the live competition-squad membership and write an audit event; historical snapshots remain immutable.
+- Verification: focused roster-refresh regression plus existing dynamic-routing, member-move, live-workflow, and all-program regressions; TypeScript, production build, and `git diff --check`.
+
 ## 2026-08-12 (session 311)
 
 ### All-Program Tournament-Team View (v1.17.45 Preview)

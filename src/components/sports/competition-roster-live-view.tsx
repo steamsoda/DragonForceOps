@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
-import { moveCompetitionRosterMemberInlineAction } from "@/server/actions/competition-rosters";
+import {
+  moveCompetitionRosterMemberInlineAction,
+  refreshCompetitionRosterTeamsInlineAction,
+} from "@/server/actions/competition-rosters";
 import {
   formatCampusCompetitionTeamName,
   formatCompetitionSquadDisplay,
@@ -20,6 +23,7 @@ type Props = {
 
 type ScopedProps = Omit<Props, "program" | "availablePrograms"> & {
   program: string;
+  showRefreshTeams?: boolean;
 };
 
 const PROGRAM_ORDER = ["futbol_para_todos", "selectivo", "little_dragons"];
@@ -82,6 +86,7 @@ export function CompetitionRosterLiveView({
         tournamentId={tournamentId}
         campusId={campusId}
         program={program}
+        showRefreshTeams
       />
     );
   }
@@ -100,7 +105,7 @@ export function CompetitionRosterLiveView({
       <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
         Mostrando todos los equipos del campus. La edicion y las excepciones permanecen separadas por programa.
       </div>
-      {programs.map((currentProgram) => (
+      {programs.map((currentProgram, index) => (
         <section key={currentProgram} className="space-y-3" aria-labelledby={`teams-${currentProgram}`}>
           <div className="border-b border-slate-300 pb-2 dark:border-slate-700">
             <h3 id={`teams-${currentProgram}`} className="text-lg font-semibold text-slate-950 dark:text-slate-50">
@@ -112,6 +117,7 @@ export function CompetitionRosterLiveView({
             tournamentId={tournamentId}
             campusId={campusId}
             program={currentProgram}
+            showRefreshTeams={index === 0}
           />
         </section>
       ))}
@@ -119,7 +125,7 @@ export function CompetitionRosterLiveView({
   );
 }
 
-function CompetitionRosterProgramView({ active, tournamentId, campusId, program }: ScopedProps) {
+function CompetitionRosterProgramView({ active, tournamentId, campusId, program, showRefreshTeams = false }: ScopedProps) {
   const [data, setData] = useState<CompetitionRosterLiveViewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +134,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program 
   const [dropTargetSquadId, setDropTargetSquadId] = useState<string | null>(null);
   const [movingEnrollmentId, setMovingEnrollmentId] = useState<string | null>(null);
   const [moveNotice, setMoveNotice] = useState<{ tone: "success" | "error" | "saving"; message: string } | null>(null);
+  const [refreshingTeams, setRefreshingTeams] = useState(false);
 
   const loadData = useCallback(async (signal?: AbortSignal, background = false) => {
     if (!active || !tournamentId) return;
@@ -160,6 +167,12 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program 
 
     return () => controller.abort();
   }, [active, tournamentId, program, loadData]);
+
+  useEffect(() => {
+    const refresh = () => void loadData(undefined, true);
+    window.addEventListener("competition-rosters-refreshed", refresh);
+    return () => window.removeEventListener("competition-rosters-refreshed", refresh);
+  }, [loadData]);
 
   if (!active) return null;
   if (!tournamentId) {
@@ -243,6 +256,21 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program 
   };
 
   const organizerHref = `/sports-signups/squads?tournament=${encodeURIComponent(data.tournamentId)}&campus=${encodeURIComponent(data.campusId)}&program=${encodeURIComponent(data.program)}`;
+  const refreshTeams = async () => {
+    if (refreshingTeams) return;
+    setRefreshingTeams(true);
+    setMoveNotice({ tone: "saving", message: "Actualizando todos los equipos..." });
+    const result = await refreshCompetitionRosterTeamsInlineAction({
+      tournamentId: data.tournamentId,
+      campusId: data.campusId,
+    });
+    setMoveNotice({ tone: result.ok ? "success" : "error", message: result.message });
+    setRefreshingTeams(false);
+    if (result.ok) {
+      window.dispatchEvent(new Event("competition-rosters-refreshed"));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between dark:border-slate-700 dark:bg-slate-950">
@@ -254,6 +282,16 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program 
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {data.canManage && showRefreshTeams ? (
+            <button
+              type="button"
+              onClick={() => void refreshTeams()}
+              disabled={refreshingTeams}
+              className="rounded-md border border-portoBlue px-4 py-2 text-sm font-semibold text-portoBlue hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60"
+            >
+              {refreshingTeams ? "Actualizando..." : "Actualizar todos los equipos"}
+            </button>
+          ) : null}
           {data.canManage && data.squads.length > 1 ? (
             <button
               type="button"
