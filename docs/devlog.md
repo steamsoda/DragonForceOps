@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-12 (session 314)
+
+### Product Purchase Ledger Detail And Date Filter (v1.17.48 Preview)
+
+- Expanded `Productos > Ultimos cargos emitidos` with campus, YOB, current training group, payment status, charge-issued timestamp, and the first timestamp at which posted allocations fully paid the charge. All timestamps are displayed explicitly in Monterrey time.
+- Added an inclusive `Pagado desde` / `Pagado hasta` filter using Monterrey calendar-day boundaries. With no filter, the ledger continues to show both paid and pending non-void charges; with a date filter, it returns only purchases fully paid in that period.
+- Moved filtering, exact count, and pagination into one read-only, product-scoped SQL RPC so products with more than 25 charges are filtered before pagination and the query does not scan unrelated allocation history.
+- Kept the pass diagnostic-only: no charge, payment, allocation, enrollment, player, campus, or training-group write behavior changed.
+- Verification: focused product-ledger regression, TypeScript, production build, `git diff --check`, Preview migration dry run/application, and a live paginated RPC smoke test against a product with 67 charges. The filtered smoke test returned only purchases inside the selected Monterrey calendar day.
+
 ## 2026-08-12 (session 313)
 
 ### Historical Tournament Payment Registration Sync (v1.17.47 Preview)

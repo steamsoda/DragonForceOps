@@ -87,6 +87,11 @@ export type ProductSale = {
   playerName: string;
   enrollmentId: string;
   currency: string;
+  birthYear: number | null;
+  campusName: string;
+  trainingGroupName: string | null;
+  paymentStatus: "paid" | "pending";
+  paidAt: string | null;
 };
 
 export type ProductPagedSales = {
@@ -551,7 +556,12 @@ export async function getProductSizeStats(productId: string): Promise<ProductSiz
 
 // ── Recent sales ──────────────────────────────────────────────────────────────
 
-export async function getProductRecentSalesPage(productId: string, page = 1): Promise<ProductPagedSales> {
+export async function getProductRecentSalesPage(
+  productId: string,
+  page = 1,
+  paidFrom: string | null = null,
+  paidTo: string | null = null,
+): Promise<ProductPagedSales> {
   const permissionContext = await getPermissionContext();
   if (!permissionContext?.isDirector) {
     return {
@@ -566,53 +576,58 @@ export async function getProductRecentSalesPage(productId: string, page = 1): Pr
   const supabase = await createClient();
 
   type Row = {
-    id: string;
+    charge_id: string;
+    enrollment_id: string;
+    player_name: string;
+    birth_year: number | null;
+    campus_name: string;
+    training_group_name: string | null;
     description: string;
     amount: number;
-    size: string | null;
-    is_goalkeeper: boolean | null;
-    created_at: string;
     currency: string;
-    enrollments: {
-      id: string;
-      players: { first_name: string; last_name: string } | null;
-    } | null;
+    payment_status: "paid" | "pending";
+    issued_at: string;
+    paid_at: string | null;
+    total_count: number;
   };
 
   const safePage = normalizePage(page);
+  const { data, error } = await supabase.rpc("get_product_charge_ledger", {
+    p_product_id: productId,
+    p_paid_from: paidFrom,
+    p_paid_to: paidTo,
+    p_offset: (safePage - 1) * PRODUCT_PAGE_SIZE,
+    p_limit: PRODUCT_PAGE_SIZE,
+  });
 
-  const { data, count } = await supabase
-    .from("charges")
-    .select("id, description, amount, size, is_goalkeeper, created_at, currency, enrollments(id, players(first_name, last_name))", {
-      count: "exact",
-    })
-    .eq("product_id", productId)
-    .neq("status", "void")
-    .order("created_at", { ascending: false })
-    .range((safePage - 1) * PRODUCT_PAGE_SIZE, safePage * PRODUCT_PAGE_SIZE - 1)
-    .returns<Row[]>();
+  if (error) throw error;
 
-  const rows = (data ?? []).map((row) => ({
-    chargeId: row.id,
+  const ledgerRows = (data ?? []) as Row[];
+  const rows = ledgerRows.map((row) => ({
+    chargeId: row.charge_id,
     description: row.description,
     amount: row.amount,
-    size: row.size,
-    isGoalkeeper: row.is_goalkeeper,
-    createdAt: row.created_at,
-    playerName: row.enrollments?.players
-      ? `${row.enrollments.players.first_name} ${row.enrollments.players.last_name}`
-      : "—",
-    enrollmentId: row.enrollments?.id ?? "",
-    currency: row.currency
+    size: null,
+    isGoalkeeper: null,
+    createdAt: row.issued_at,
+    playerName: row.player_name || "—",
+    enrollmentId: row.enrollment_id,
+    currency: row.currency,
+    birthYear: row.birth_year,
+    campusName: row.campus_name,
+    trainingGroupName: row.training_group_name,
+    paymentStatus: row.payment_status,
+    paidAt: row.paid_at,
   }));
 
-  const pageMeta = buildPageMeta(count ?? 0, safePage, PRODUCT_PAGE_SIZE);
+  const totalCount = Number(ledgerRows[0]?.total_count ?? 0);
+  const pageMeta = buildPageMeta(totalCount, safePage, PRODUCT_PAGE_SIZE);
 
   return {
     rows,
     page: pageMeta.safePage,
     pageSize: pageMeta.pageSize,
-    totalCount: count ?? 0,
+    totalCount,
     hasPreviousPage: pageMeta.hasPreviousPage,
     hasNextPage: pageMeta.hasNextPage,
   };

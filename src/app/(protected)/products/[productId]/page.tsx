@@ -14,6 +14,7 @@ import {
 } from "@/lib/queries/products";
 import { deleteProductAction, updateProductAction } from "@/server/actions/products";
 import { saveSportsSignupTournamentSettingsAction } from "@/server/actions/sports-signups";
+import { formatDateTimeMonterrey, getMonterreyDayBounds, parseDateOnlyInput } from "@/lib/time";
 
 const inputClass =
   "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none dark:border-slate-600";
@@ -38,11 +39,19 @@ function formatMoney(amount: number, currency: string) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-MX", {
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Monterrey",
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
+  }).format(new Date(iso));
+}
+
+function buildSalesPageHref(productId: string, page: number, paidFrom: string, paidTo: string) {
+  const params = new URLSearchParams({ salesPage: String(page) });
+  if (paidFrom) params.set("paidFrom", paidFrom);
+  if (paidTo) params.set("paidTo", paidTo);
+  return `/products/${productId}?${params.toString()}#product-charge-ledger`;
 }
 
 function formatReconciliationReason(reason: "not_fully_paid" | "duplicate_fully_paid_charge_same_enrollment") {
@@ -55,18 +64,24 @@ export default async function ProductDetailPage({
   searchParams,
 }: {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ err?: string; ok?: string; salesPage?: string }>;
+  searchParams: Promise<{ err?: string; ok?: string; salesPage?: string; paidFrom?: string; paidTo?: string }>;
 }) {
   const { productId } = await params;
   const query = await searchParams;
   const salesPage = Math.max(1, Number.parseInt(query.salesPage ?? "1", 10) || 1);
+  const paidFrom = parseDateOnlyInput(query.paidFrom) ?? "";
+  const paidTo = parseDateOnlyInput(query.paidTo) ?? "";
+  const paidRangeIsValid = !paidFrom || !paidTo || paidFrom <= paidTo;
+  const paidFromTimestamp = paidRangeIsValid && paidFrom ? getMonterreyDayBounds(paidFrom).start : null;
+  const paidToTimestamp = paidRangeIsValid && paidTo ? getMonterreyDayBounds(paidTo).end : null;
+  const hasPaidDateFilter = Boolean(paidFrom || paidTo);
 
   const permissionContext = await requireDirectorContext("/unauthorized");
 
   const [product, sizeStats, recentSales, restrictionOptions] = await Promise.all([
     getProductDetail(productId),
     getProductSizeStats(productId),
-    getProductRecentSalesPage(productId, salesPage),
+    getProductRecentSalesPage(productId, salesPage, paidFromTimestamp, paidToTimestamp),
     getProductTrainingGroupOptions(),
   ]);
 
@@ -446,24 +461,55 @@ export default async function ProductDetailPage({
           </div>
         ) : null}
 
-        <div>
-          <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Ultimos cargos emitidos {recentSales.totalCount > 0 ? `(${recentSales.totalCount})` : ""}
-          </h2>
+        <div id="product-charge-ledger" className="scroll-mt-4">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Ultimos cargos emitidos {recentSales.totalCount > 0 ? `(${recentSales.totalCount})` : ""}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Fechas y horas mostradas en horario de Monterrey. El grupo corresponde a la asignacion actual.
+              </p>
+            </div>
+            <form className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:w-auto sm:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_auto_auto] sm:items-end">
+              <label className="space-y-1 text-xs font-medium text-slate-600">
+                Pagado desde
+                <input type="date" name="paidFrom" defaultValue={paidFrom} className={inputClass} />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600">
+                Pagado hasta
+                <input type="date" name="paidTo" defaultValue={paidTo} className={inputClass} />
+              </label>
+              <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                Filtrar
+              </button>
+              <Link href={`/products/${productId}#product-charge-ledger`} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm hover:bg-slate-100">
+                Limpiar
+              </Link>
+            </form>
+          </div>
+          {!paidRangeIsValid ? (
+            <div className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              La fecha final no puede ser anterior a la fecha inicial. No se aplico el filtro.
+            </div>
+          ) : null}
           {recentSales.rows.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">
-              Sin cargos registrados para este producto.
+              {hasPaidDateFilter ? "No hay compras pagadas en el periodo seleccionado." : "Sin cargos registrados para este producto."}
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                <table className="min-w-[1080px] w-full text-sm">
                   <thead className="border-b border-slate-100 bg-slate-50 dark:bg-slate-800">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
-                      <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Descripcion</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus / categoria</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Grupo actual</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Estatus</th>
                       <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Monto</th>
-                      <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Fecha</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cargo emitido</th>
+                      <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Pagado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -478,11 +524,23 @@ export default async function ProductDetailPage({
                             <span className="text-slate-700 dark:text-slate-300">{sale.playerName}</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{sale.description}</td>
+                        <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                          <span className="block font-medium text-slate-700">{sale.campusName}</span>
+                          <span className="text-xs">Cat. {sale.birthYear ?? "Sin dato"}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{sale.trainingGroupName ?? "Sin grupo"}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${sale.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                            {sale.paymentStatus === "paid" ? "Pagado" : "Pendiente"}
+                          </span>
+                        </td>
                         <td className="px-4 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">
                           {formatMoney(sale.amount, sale.currency)}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-slate-500 dark:text-slate-400">{formatDate(sale.createdAt)}</td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-right text-slate-500 dark:text-slate-400">{formatDateTimeMonterrey(sale.createdAt)}</td>
+                        <td className="whitespace-nowrap px-4 py-2.5 text-right text-slate-500 dark:text-slate-400">
+                          {sale.paidAt ? formatDateTimeMonterrey(sale.paidAt) : "-"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -495,14 +553,14 @@ export default async function ProductDetailPage({
                 </p>
                 <div className="flex gap-3">
                   {recentSales.hasPreviousPage ? (
-                    <Link href={`/products/${productId}?salesPage=${recentSales.page - 1}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <Link href={buildSalesPageHref(productId, recentSales.page - 1, paidFrom, paidTo)} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                       Anterior
                     </Link>
                   ) : (
                     <span className="rounded border px-3 py-1.5 text-slate-400">Anterior</span>
                   )}
                   {recentSales.hasNextPage ? (
-                    <Link href={`/products/${productId}?salesPage=${recentSales.page + 1}`} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <Link href={buildSalesPageHref(productId, recentSales.page + 1, paidFrom, paidTo)} className="rounded border px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800">
                       Siguiente
                     </Link>
                   ) : (
