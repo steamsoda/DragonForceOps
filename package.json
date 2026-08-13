@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.50",
+  "version": "1.17.51",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -67,6 +67,7 @@
     "test:historical-tournament-sync": "node scripts/assert-historical-tournament-sync.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",
     "test:training-group-auto-assign": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-training-group-auto-assign.mjs",
+    "test:training-group-lifecycle": "node scripts/assert-training-group-lifecycle.mjs",
     "test:enrollment-training-group-selection": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-enrollment-training-group-selection.mjs",
     "test:player-rpc-batching": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/assert-player-rpc-batching.mjs",
     "test:program-model-deprecation": "node scripts/assert-program-model-deprecation.mjs",

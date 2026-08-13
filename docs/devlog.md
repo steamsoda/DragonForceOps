@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-12 (session 317)
+
+### Training-Group Lifecycle Repair And Contry Selectivo Deactivation (v1.17.51)
+
+- Audited the production `Selectivo 2010/2011` Contry group after Configuracion grupos showed two active players that were absent from Jugadores. Both rows were open training-group assignments attached to enrollments that had already ended.
+- Found 196 production assignment rows with the same stale lifecycle shape, while Preview had none. Added a constrained backfill that closes those rows using each enrollment's recorded end date without deleting assignment or attendance history.
+- Added a database trigger so every future enrollment transition to `ended` or `cancelled` closes its open training-group assignment regardless of whether the change came from the dedicated Baja screen, Llamadas, or enrollment editing.
+- Corrected Configuracion grupos so its active-player count independently requires both an open assignment and an active enrollment.
+- Deactivated the now-empty Contry `Selectivo 2010/2011` group behind a migration safety assertion; no active enrollment assignment may remain when the transition runs.
+- No player, enrollment, attendance record, training-group history, finance record, or competition roster is deleted.
+
 ## 2026-08-12 (session 316)
 
 ### Stable Competition-Team Ordering After Player Moves (v1.17.50 Preview)

@@ -52,6 +52,7 @@ type ActiveAssignmentRow = {
   enrollment_id: string;
   player_id: string;
   start_date: string;
+  enrollments: { status: string } | null;
   training_groups: { id: string; name: string | null } | null;
 };
 
@@ -286,8 +287,9 @@ export async function getTrainingGroupsManagementData(filters: TrainingGroupFilt
         .returns<GroupCoachRow[]>(),
       admin
         .from("training_group_assignments")
-        .select("id, training_group_id, enrollment_id, player_id, start_date, training_groups(id, name)")
+        .select("id, training_group_id, enrollment_id, player_id, start_date, enrollments!inner(status), training_groups(id, name)")
         .is("end_date", null)
+        .eq("enrollments.status", "active")
         .returns<ActiveAssignmentRow[]>(),
       admin
         .from("coaches")
