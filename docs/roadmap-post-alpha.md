@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.49`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.50`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.48`
-- Current preview candidate: `v1.17.49` adds canonical current-group labels, product-matched competition-team context, and a full-width compact layout to the read-only product purchase ledger.
+- Current production line: `v1.17.49`
+- Current preview candidate: `v1.17.50` keeps tournament-team cards in stable YOB order after guarded drag/drop player moves.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -199,6 +199,7 @@ Staff approved a simpler sporting model and superseded the prior `Futbol Para To
 25. 🟢 `v1.17.42` adds campus-scoped `CO`/`LV` identity and visible professor ownership across `Inscripciones Torneos`, team organization, coach schedules, and `Convocatorias`. This is display-only and does not rewrite squads or registrations.
 26. 🟢 `v1.17.43` adds an instant `Por grupo` visibility toggle between groups with confirmed registrations and all eligible groups, preserving explicit zero-registration visibility without changing product eligibility or adding queries.
 27. 🟢 `v1.17.44` adds guarded `Editar jugadores` drag/drop and `Mover a...` controls to `Equipos`, backed by one transactional audited same-tournament/campus/program membership move. It never duplicates members, alters paid registration, creates reinforcements, changes training groups, or rewrites snapshots.
+28. 🟢 `v1.17.50` makes the `Equipos` grid order depend only on immutable team category/YOB metadata, so moving a player cannot scramble source or destination cards.
 
 Detailed model, audit map, and safety boundaries: `docs/planning/training-groups-model-analysis.md`.
 

@@ -55,8 +55,7 @@ function kindLabel(kind: string) {
 
 function getSquadBirthYear(squad: CompetitionRosterLiveViewData["squads"][number]) {
   const categoryYears = squad.categoryLabel?.match(/(?:19|20)\d{2}/g)?.map(Number) ?? [];
-  const memberYears = squad.members.flatMap((member) => member.birthYear == null ? [] : [member.birthYear]);
-  return Math.max(...categoryYears, ...memberYears, 0);
+  return Math.max(...categoryYears, 0);
 }
 
 function sortMembers(squad: CompetitionRosterLiveViewData["squads"][number]) {

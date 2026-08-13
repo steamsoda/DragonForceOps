@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-12 (session 316)
+
+### Stable Competition-Team Ordering After Player Moves (v1.17.50 Preview)
+
+- Fixed `Inscripciones Torneos > Equipos > Editar jugadores` so moving a player between teams cannot reorder the team cards.
+- Team ordering now uses the immutable team category/YOB metadata only. A moved player's own YOB no longer changes the destination team's grid position.
+- Preserved the existing guarded move transaction, alphabetical player order, paid registration, training-group assignment, team membership, and finance behavior.
+- Added a focused regression assertion that rejects any future attempt to derive the team-card sort key from mutable squad members.
+
 ## 2026-08-12 (session 315)
 
 ### Product Ledger Canonical Group, Team Context, And Wide Layout (v1.17.49 Preview)

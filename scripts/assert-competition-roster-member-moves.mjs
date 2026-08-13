@@ -65,4 +65,8 @@ assert.match(liveView, /setData\(previousData\)/);
 assert.match(liveView, /data\.canManage && data\.squads\.length > 1/);
 assert.match(liveView, /members: \[\.\.\.squad\.members, member\]\.sort/);
 
+const squadBirthYearHelper = liveView.match(/function getSquadBirthYear[\s\S]*?\n}/)?.[0] ?? "";
+assert.match(squadBirthYearHelper, /squad\.categoryLabel/);
+assert.doesNotMatch(squadBirthYearHelper, /squad\.members/);
+
 console.log("competition roster member move regression assertions passed");
