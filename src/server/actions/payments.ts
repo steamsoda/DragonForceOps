@@ -21,6 +21,7 @@ import {
   syncPaidUniformOrders,
   writePostedPaymentAudit
 } from "@/server/actions/payment-posting";
+import { syncPaidCompetitionSignupsForCharges } from "@/server/actions/tournament-signup-sync";
 
 export type PostedPaymentReceipt = {
   playerName: string;
@@ -259,8 +260,18 @@ async function postEnrollmentPaymentInternal(
 
   await clearPendingFollowUpIfResolved(supabase, enrollmentId);
 
+  const affectedTournamentIds = await syncPaidCompetitionSignupsForCharges(
+    enrollmentId,
+    Array.from(new Set(allocations.map((allocation) => allocation.chargeId))),
+  );
+
   await revalidatePaymentSurfaces(ledger);
   for (const path of mode.extraRevalidatePaths ?? []) revalidatePath(path);
+  if (affectedTournamentIds.length > 0) {
+    revalidatePath("/sports-signups");
+    revalidatePath("/convocatorias");
+    revalidatePath("/mis-horarios");
+  }
   await writeEnrollmentAnomalyAuditTrail({
     enrollmentId,
     actorUserId: user.id,

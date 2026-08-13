@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-12 (session 313)
+
+### Historical Tournament Payment Registration Sync (v1.17.47 Preview)
+
+- Fixed the Regularizacion Historica payment path so fully settled tournament-product charges now create the same confirmed tournament registration and competition-team routing used by Caja.
+- Added a constrained backfill for missing registrations backed by posted, fully allocated, non-void exact-product charges in the same campus. This repairs the identified Superliga gap without changing charges, payments, allocations, enrollments, attendance, or training-group assignments.
+- Added focused regression coverage for the payment hook, backfill boundaries, and roster queue handoff.
+
 ## 2026-08-12 (session 312)
 
 ### Training-Group-Aware Tournament-Team Refresh (v1.17.46 Preview)

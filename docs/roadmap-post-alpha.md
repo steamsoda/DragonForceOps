@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.46`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.47`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.37`
-- Current preview candidate: `v1.17.46` adds a guarded bulk team refresh and deterministic automatic team reassignment after training-group changes; split destinations stay pending for sporting review.
+- Current preview candidate: `v1.17.47` synchronizes tournament registrations and team routing for future historical-regularization payments, with a constrained backfill for fully paid exact-product registrations that were previously missing.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
