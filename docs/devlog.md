@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-12 (session 315)
+
+### Product Ledger Canonical Group, Team Context, And Wide Layout (v1.17.49 Preview)
+
+- Replaced legacy training-group names in `Productos > Ultimos cargos emitidos` with current program/YOB labels while preserving the underlying assignment data.
+- Added the competition team assigned for the charged tournament, including campus and tournament context; multiple matching assignments remain visible instead of being collapsed or guessed.
+- Expanded the product page to the wide application layout and converted the ledger to a compact fixed grid so the complete ledger fits standard desktop screens without horizontal scrolling.
+- Kept the pass read-only: no product, charge, payment, allocation, training-group, tournament-registration, or competition-team write behavior changed.
+
 ## 2026-08-12 (session 314)
 
 ### Product Purchase Ledger Detail And Date Filter (v1.17.48 Preview)

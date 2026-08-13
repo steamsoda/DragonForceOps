@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
+import {
+  formatCampusCompetitionTeamName,
+  formatCompetitionSquadDisplay,
+  formatTournamentGroupCardDisplay,
+} from "@/lib/training-groups/shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -90,6 +95,7 @@ export type ProductSale = {
   birthYear: number | null;
   campusName: string;
   trainingGroupName: string | null;
+  assignedTeamNames: string[];
   paymentStatus: "paid" | "pending";
   paidAt: string | null;
 };
@@ -575,6 +581,16 @@ export async function getProductRecentSalesPage(
   }
   const supabase = await createClient();
 
+  type AssignedTeamRow = {
+    name?: string;
+    kind?: string | null;
+    program?: string | null;
+    category_label?: string | null;
+    campus_name?: string | null;
+    tournament_name?: string | null;
+    source_group_count?: number | null;
+  };
+
   type Row = {
     charge_id: string;
     enrollment_id: string;
@@ -582,6 +598,10 @@ export async function getProductRecentSalesPage(
     birth_year: number | null;
     campus_name: string;
     training_group_name: string | null;
+    training_group_program: string | null;
+    training_group_birth_year_min: number | null;
+    training_group_birth_year_max: number | null;
+    assigned_teams: AssignedTeamRow[] | null;
     description: string;
     amount: number;
     currency: string;
@@ -603,7 +623,37 @@ export async function getProductRecentSalesPage(
   if (error) throw error;
 
   const ledgerRows = (data ?? []) as Row[];
-  const rows = ledgerRows.map((row) => ({
+  const rows = ledgerRows.map((row) => {
+    const groupDisplay = row.training_group_name
+      ? formatTournamentGroupCardDisplay({
+          name: row.training_group_name,
+          program: row.training_group_program,
+          birthYearMin: row.training_group_birth_year_min,
+          birthYearMax: row.training_group_birth_year_max,
+        })
+      : null;
+    const trainingGroupName = groupDisplay
+      ? row.training_group_program === "futbol_para_todos"
+        ? `${groupDisplay.title} Futbol Para Todos`
+        : groupDisplay.title
+      : null;
+    const assignedTeamNames = Array.isArray(row.assigned_teams)
+      ? row.assigned_teams.flatMap((team) => {
+          if (!team?.name) return [];
+          const display = formatCompetitionSquadDisplay({
+            name: team.name,
+            program: team.program,
+            categoryLabel: team.category_label,
+            kind: team.kind,
+            sourceGroupCount: Number(team.source_group_count ?? 0),
+          });
+          return [
+            `${team.tournament_name ? `${team.tournament_name}: ` : ""}${formatCampusCompetitionTeamName(team.campus_name, display.title)}`,
+          ];
+        })
+      : [];
+
+    return {
     chargeId: row.charge_id,
     description: row.description,
     amount: row.amount,
@@ -615,10 +665,12 @@ export async function getProductRecentSalesPage(
     currency: row.currency,
     birthYear: row.birth_year,
     campusName: row.campus_name,
-    trainingGroupName: row.training_group_name,
+    trainingGroupName,
+    assignedTeamNames,
     paymentStatus: row.payment_status,
     paidAt: row.paid_at,
-  }));
+    };
+  });
 
   const totalCount = Number(ledgerRows[0]?.total_count ?? 0);
   const pageMeta = buildPageMeta(totalCount, safePage, PRODUCT_PAGE_SIZE);

@@ -124,6 +124,7 @@ export default async function ProductDetailPage({
 
   return (
     <PageShell
+      wide
       title={product.name}
       subtitle={product.chargeTypeName}
       breadcrumbs={[
@@ -500,12 +501,23 @@ export default async function ProductDetailPage({
           ) : (
             <div className="space-y-3">
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                <table className="min-w-[1080px] w-full text-sm">
+                <table className="w-full table-fixed text-xs xl:text-sm">
+                  <colgroup>
+                    <col className="w-[15%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[14%]" />
+                  </colgroup>
                   <thead className="border-b border-slate-100 bg-slate-50 dark:bg-slate-800">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Alumno</th>
                       <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Campus / categoria</th>
                       <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Grupo actual</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Equipo asignado</th>
                       <th className="px-4 py-2.5 text-left font-medium text-slate-600 dark:text-slate-400">Estatus</th>
                       <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Monto</th>
                       <th className="px-4 py-2.5 text-right font-medium text-slate-600 dark:text-slate-400">Cargo emitido</th>
@@ -529,6 +541,15 @@ export default async function ProductDetailPage({
                           <span className="text-xs">Cat. {sale.birthYear ?? "Sin dato"}</span>
                         </td>
                         <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{sale.trainingGroupName ?? "Sin grupo"}</td>
+                        <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                          {sale.assignedTeamNames.length > 0 ? (
+                            <span className="space-y-1">
+                              {sale.assignedTeamNames.map((teamName) => <span key={teamName} className="block">{teamName}</span>)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">Sin equipo</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5">
                           <span className={`rounded-full px-2 py-1 text-xs font-semibold ${sale.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                             {sale.paymentStatus === "paid" ? "Pagado" : "Pendiente"}
