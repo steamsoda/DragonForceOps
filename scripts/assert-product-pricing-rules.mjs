@@ -251,7 +251,8 @@ assert.equal(resolveJ5({ campusId: "contry", program: "selectivo", gender: "male
 assert.equal(resolveJ5({ campusId: "linda", program: "selectivo", gender: "male", birthYear: 2013 }), null);
 
 const cajaSource = fs.readFileSync(new URL("../src/server/actions/caja.ts", import.meta.url), "utf8");
-assert.match(cajaSource, /product\.requires_pricing_rule_match && ruleAmount === null/);
-assert.match(cajaSource, /row\.requires_pricing_rule_match && defaultAmount === null/);
+assert.match(cajaSource, /!catalogException && product\.requires_pricing_rule_match && ruleAmount === null/);
+assert.match(cajaSource, /normallyAvailable = groupMatches && \(!row\.requires_pricing_rule_match \|\| defaultAmount !== null\)/);
+assert.match(cajaSource, /if \(!normallyAvailable && !allowEligibilityExceptions\) return null/);
 
 console.log("Product pricing rule assertions passed.");

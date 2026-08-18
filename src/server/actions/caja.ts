@@ -46,6 +46,7 @@ import {
 } from "@/lib/products/bundle-entitlements";
 import {
   hasActiveProductPricingRules,
+  isRuleActiveOnDate,
   resolveProductPricingRuleAmount,
   type ProductPricingRuleInput,
 } from "@/lib/products/pricing-rules";
@@ -178,6 +179,8 @@ export type CajaProduct = {
   hasSizes: boolean;
   sortOrder: number;
   isRestricted: boolean;
+  isEligibilityException: boolean;
+  configuredPriceOptions: number[];
 };
 
 export type CajaProductCategory = {
@@ -219,6 +222,8 @@ export type CajaCartItemInput =
       size?: string | null;
       goalkeeper?: boolean;
       uniformFulfillmentMode?: "deliver_now" | "pending_order" | null;
+      catalogException?: boolean;
+      exceptionConfirmed?: boolean;
     }
   | {
       kind: "tuition";
@@ -328,6 +333,8 @@ function parseCheckoutCartItems(raw: string): CajaCartItemInput[] | null {
           (item as { uniformFulfillmentMode?: unknown }).uniformFulfillmentMode === "pending_order"
             ? ((item as { uniformFulfillmentMode: "deliver_now" | "pending_order" }).uniformFulfillmentMode)
             : null,
+        catalogException: (item as { catalogException?: unknown }).catalogException === true,
+        exceptionConfirmed: (item as { exceptionConfirmed?: unknown }).exceptionConfirmed === true,
       });
       continue;
     }
@@ -519,6 +526,34 @@ function resolveCajaProductAmount({
   });
 }
 
+function getConfiguredExceptionPriceOptions({
+  rules,
+  businessDate,
+  paidProductIds,
+  fallbackAmount,
+}: {
+  rules: ProductPricingRuleInput[];
+  businessDate: string;
+  paidProductIds: ReadonlySet<string>;
+  fallbackAmount: number | null;
+}) {
+  const amounts = rules
+    .filter((rule) => isRuleActiveOnDate(rule, businessDate))
+    .filter((rule) => !rule.requiredPaidProductId || paidProductIds.has(rule.requiredPaidProductId))
+    .map((rule) => Math.round(Number(rule.amount) * 100) / 100)
+    .filter((amount) => Number.isFinite(amount) && amount > 0);
+
+  if (rules.length === 0 && fallbackAmount != null && fallbackAmount > 0) {
+    amounts.push(Math.round(fallbackAmount * 100) / 100);
+  }
+
+  return Array.from(new Set(amounts)).sort((a, b) => a - b);
+}
+
+function canUseCajaCatalogException(context: Awaited<ReturnType<typeof getPermissionContext>>) {
+  return Boolean(context?.isDirector || context?.isFrontDesk);
+}
+
 async function isProductAvailableForEnrollment(
   supabase: Awaited<ReturnType<typeof createClient>>,
   productId: string,
@@ -706,12 +741,24 @@ async function createResolvedAdvanceTuitionCharge(
   };
 }
 
-export async function getProductsForCajaAction(enrollmentId?: string): Promise<CajaProductCategory[]> {
+export async function getCajaCatalogExceptionAccessAction() {
+  return canUseCajaCatalogException(await getPermissionContext());
+}
+
+export async function getProductsForCajaAction(
+  enrollmentId?: string,
+  includeEligibilityExceptions = false,
+): Promise<CajaProductCategory[]> {
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) return [];
+  const permissionContext = includeEligibilityExceptions ? await getPermissionContext() : null;
+  const allowEligibilityExceptions = includeEligibilityExceptions && canUseCajaCatalogException(permissionContext);
+  if (allowEligibilityExceptions && enrollmentId && !(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+    return [];
+  }
 
   type ProductRow = {
     id: string;
@@ -765,6 +812,7 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
       .filter((row) => row.charge_types && (group.codes as readonly string[]).includes(row.charge_types.code))
       .filter((row) => {
         const allowedGroupIds = restrictionsByProduct.get(row.id) ?? [];
+        if (allowEligibilityExceptions) return true;
         if (allowedGroupIds.length === 0) return true;
         if (!activeGroupIds) return false;
         return allowedGroupIds.some((groupId) => activeGroupIds.has(groupId));
@@ -787,17 +835,31 @@ export async function getProductsForCajaAction(enrollmentId?: string): Promise<C
           paidProductIds,
           fallbackAmount: row.default_amount,
         });
-        if (row.requires_pricing_rule_match && defaultAmount === null) return null;
+        const allowedGroupIds = restrictionsByProduct.get(row.id) ?? [];
+        const groupMatches = allowedGroupIds.length === 0 || Boolean(
+          activeGroupIds && allowedGroupIds.some((groupId) => activeGroupIds.has(groupId)),
+        );
+        const normallyAvailable = groupMatches && (!row.requires_pricing_rule_match || defaultAmount !== null);
+        const configuredPriceOptions = getConfiguredExceptionPriceOptions({
+          rules,
+          businessDate,
+          paidProductIds,
+          fallbackAmount: row.default_amount,
+        });
+        if (!normallyAvailable && !allowEligibilityExceptions) return null;
+        if (!normallyAvailable && configuredPriceOptions.length === 0) return null;
         return {
           id: row.id,
           name: row.name,
           categorySlug: group.key,
           categoryName: group.label,
           chargeTypeId: row.charge_type_id,
-          defaultAmount,
+          defaultAmount: normallyAvailable ? defaultAmount : null,
           hasSizes: row.has_sizes,
           sortOrder: row.sort_order,
           isRestricted: (restrictionsByProduct.get(row.id) ?? []).length > 0,
+          isEligibilityException: !normallyAvailable,
+          configuredPriceOptions,
         };
       })
       .filter((product) => product !== null);
@@ -829,6 +891,8 @@ export async function postCajaChargeAction(
       ? uniformFulfillmentModeRaw
       : null;
   const periodMonthRaw = formData.get("period_month")?.toString().trim() || null;
+  const catalogException = formData.get("catalogException") === "1";
+  const exceptionConfirmed = formData.get("exceptionConfirmed") === "1";
 
   if (!productId) {
     return { ok: false, error: "invalid_form" };
@@ -840,6 +904,16 @@ export async function postCajaChargeAction(
     error: userError
   } = await supabase.auth.getUser();
   if (userError || !user) return { ok: false, error: "unauthenticated" };
+  const permissionContext = catalogException ? await getPermissionContext() : null;
+  if (catalogException) {
+    if (!exceptionConfirmed) return { ok: false, error: "catalog_exception_confirmation_required" };
+    if (!canUseCajaCatalogException(permissionContext)) {
+      return { ok: false, error: "catalog_exception_forbidden" };
+    }
+    if (!(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+      return { ok: false, error: "enrollment_not_found" };
+    }
+  }
 
   type ProductLookup = {
     id: string;
@@ -859,12 +933,16 @@ export async function postCajaChargeAction(
     .returns<ProductLookup | null>();
 
   if (!product) return { ok: false, error: "product_not_found" };
-  if (!(await isProductAvailableForEnrollment(supabase, product.id, enrollmentId))) {
+  const productMatchesTrainingGroup = await isProductAvailableForEnrollment(supabase, product.id, enrollmentId);
+  if (!catalogException && !productMatchesTrainingGroup) {
     return { ok: false, error: "product_not_available" };
   }
 
   const isTuition = product.charge_types?.code === "monthly_tuition";
   const isUniform = product.charge_types?.code === "uniform_training" || product.charge_types?.code === "uniform_game";
+  if (catalogException && isTuition) {
+    return { ok: false, error: "catalog_exception_forbidden" };
+  }
   let createdChargeId: string | undefined;
   const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
   if (isTuition) {
@@ -944,10 +1022,22 @@ export async function postCajaChargeAction(
         paidProductIds,
         fallbackAmount: product.default_amount,
       });
-    if (product.requires_pricing_rule_match && ruleAmount === null) {
+    if (!catalogException && product.requires_pricing_rule_match && ruleAmount === null) {
       return { ok: false, error: "product_not_available" };
     }
-    const resolvedAmount = ruleAmount ?? amount;
+    const configuredExceptionPrices = getConfiguredExceptionPriceOptions({
+      rules: productRules,
+      businessDate,
+      paidProductIds,
+      fallbackAmount: product.default_amount,
+    });
+    if (
+      catalogException &&
+      !configuredExceptionPrices.some((option) => Math.abs(option - amount) < 0.009)
+    ) {
+      return { ok: false, error: "catalog_exception_price_invalid" };
+    }
+    const resolvedAmount = catalogException ? amount : (ruleAmount ?? amount);
     if (!resolvedAmount || isNaN(resolvedAmount) || resolvedAmount <= 0) {
       return { ok: false, error: "invalid_form" };
     }
@@ -991,6 +1081,25 @@ export async function postCajaChargeAction(
             amount: resolvedAmount,
             source: "caja",
           }
+        });
+      }
+
+      if (catalogException) {
+        await writeAuditLog(supabase, {
+          actorUserId: user.id,
+          actorEmail: user.email ?? null,
+          action: "charge.created.catalog_exception",
+          tableName: "charges",
+          recordId: newCharge.id,
+          afterData: {
+            enrollment_id: enrollmentId,
+            product_id: productId,
+            description,
+            amount: resolvedAmount,
+            configured_price_options: configuredExceptionPrices,
+            training_group_matched: productMatchesTrainingGroup,
+            source: "caja_full_catalog",
+          },
         });
       }
 
@@ -1838,6 +1947,8 @@ export async function checkoutCajaCartAction(
     if (item.size) chargeForm.set("size", item.size);
     if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
     if (item.uniformFulfillmentMode) chargeForm.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
+    if (item.catalogException) chargeForm.set("catalogException", "1");
+    if (item.exceptionConfirmed) chargeForm.set("exceptionConfirmed", "1");
     chargeForm.set("suppressAudit", "1");
     chargeForm.set("skipReload", "1");
 

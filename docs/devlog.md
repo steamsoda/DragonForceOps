@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-17 (session 318)
+
+### Caja Full-Catalog Eligibility Exception (v1.17.52 Preview)
+
+- Added an authorized `Mostrar catalogo completo` mode in Caja for Super Admin, Director Admin, and Front Desk. Normal product eligibility remains the default, and other roles cannot request or submit an exception from either the UI or server action.
+- Exceptional products expose only active, configured price options; operators cannot type an arbitrary amount. Monthly tuition is excluded from this path, existing prerequisite-product rules remain enforced, and the final selection requires an explicit confirmation checkbox.
+- Added a dedicated audit event with actor, player enrollment, product, selected configured amount, and whether the normal training-group rule matched.
+- Preserved the existing financial and tournament pipeline: Caja creates and allocates the charge normally, and only a fully paid tournament charge creates the confirmed tournament registration. Training groups and competition-team membership are not changed; exceptional squad placement remains a separate sporting action.
+- Added focused Caja exception assertions and updated the pricing-rule guard assertion. Existing targeted tournament-registration synchronization and product-pricing regressions remain green. No database migration is required.
+
 ## 2026-08-12 (session 317)
 
 ### Training-Group Lifecycle Repair And Contry Selectivo Deactivation (v1.17.51)

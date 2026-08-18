@@ -10,6 +10,7 @@ import {
   searchPlayersForCajaAction,
   getEnrollmentForCajaAction,
   postCajaPaymentAction,
+  getCajaCatalogExceptionAccessAction,
   getProductsForCajaAction,
   postCajaChargeAction,
   voidCajaChargeAction,
@@ -1337,13 +1338,27 @@ function PosEnrollmentPanel({
   const [panelError, setPanelError] = useState<string | null>(null);
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [canUseFullCatalog, setCanUseFullCatalog] = useState(false);
+  const [fullCatalogEnabled, setFullCatalogEnabled] = useState(false);
+  const [exceptionConfirmationOpen, setExceptionConfirmationOpen] = useState(false);
+  const [exceptionAcknowledged, setExceptionAcknowledged] = useState(false);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+    getCajaCatalogExceptionAccessAction().then((allowed) => {
+      if (!cancelled) setCanUseFullCatalog(allowed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     setProductsLoading(true);
     setSelectedProduct(null);
-    getProductsForCajaAction(data.enrollmentId).then((nextProducts) => {
+    getProductsForCajaAction(data.enrollmentId, fullCatalogEnabled).then((nextProducts) => {
       if (cancelled) return;
       setProducts(nextProducts);
       setProductsLoading(false);
@@ -1351,7 +1366,7 @@ function PosEnrollmentPanel({
     return () => {
       cancelled = true;
     };
-  }, [data.enrollmentId]);
+  }, [data.enrollmentId, fullCatalogEnabled]);
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -1457,7 +1472,12 @@ function PosEnrollmentPanel({
     setSize("");
     setGoalkeeper(false);
     setUniformFulfillmentMode("pending_order");
-    setManualAmount(nextProduct?.defaultAmount != null ? nextProduct.defaultAmount.toFixed(2) : "");
+    const initialAmount = nextProduct?.isEligibilityException
+      ? (nextProduct.configuredPriceOptions[0] ?? null)
+      : (nextProduct?.defaultAmount ?? nextProduct?.configuredPriceOptions[0] ?? null);
+    setManualAmount(initialAmount != null ? initialAmount.toFixed(2) : "");
+    setExceptionConfirmationOpen(false);
+    setExceptionAcknowledged(false);
     setPanelError(null);
   }
 
@@ -1497,7 +1517,7 @@ function PosEnrollmentPanel({
   }
 
   function handleProductTile(product: CajaProduct) {
-    if (product.categorySlug === "tuition" || product.hasSizes || product.defaultAmount == null) {
+    if (product.isEligibilityException || product.categorySlug === "tuition" || product.hasSizes || product.defaultAmount == null) {
       resetConfigurator(product);
       return;
     }
@@ -1510,7 +1530,7 @@ function PosEnrollmentPanel({
     });
   }
 
-  function addConfiguredProduct() {
+  function addConfiguredProduct(exceptionConfirmed = false) {
     if (!selectedProduct) return;
 
     if (selectedProduct.categorySlug === "tuition") {
@@ -1518,12 +1538,18 @@ function PosEnrollmentPanel({
       return;
     }
 
-    const resolvedAmount =
-      selectedProduct.defaultAmount != null
+    const resolvedAmount = selectedProduct.isEligibilityException
+      ? Number.parseFloat(manualAmount)
+      : selectedProduct.defaultAmount != null
         ? selectedProduct.defaultAmount
         : Number.parseFloat(manualAmount);
     if (!Number.isFinite(resolvedAmount) || resolvedAmount <= 0) {
       setPanelError("Captura un monto válido para este cargo especial.");
+      return;
+    }
+    if (selectedProduct.isEligibilityException && !exceptionConfirmed) {
+      setExceptionAcknowledged(false);
+      setExceptionConfirmationOpen(true);
       return;
     }
 
@@ -1533,6 +1559,7 @@ function PosEnrollmentPanel({
     if (selectedProduct.categorySlug === "uniforms") {
       detailParts.push(uniformFulfillmentMode === "deliver_now" ? "Entregar ahora" : "Dejar pendiente");
     }
+    if (selectedProduct.isEligibilityException) detailParts.push("Excepcion autorizada");
 
     addStagedItem({
       id: makeCartItemId(),
@@ -1546,6 +1573,8 @@ function PosEnrollmentPanel({
         size: size || null,
         goalkeeper,
         uniformFulfillmentMode: selectedProduct.categorySlug === "uniforms" ? uniformFulfillmentMode : null,
+        catalogException: selectedProduct.isEligibilityException,
+        exceptionConfirmed: selectedProduct.isEligibilityException,
       }
     });
   }
@@ -1806,8 +1835,31 @@ function PosEnrollmentPanel({
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Menú POS</p>
                 <p className="text-xs text-slate-400">Productos cerrados y cargos especiales con más espacio para configurar.</p>
               </div>
-              {productsLoading && <span className="text-xs text-slate-400">Cargando productos…</span>}
+              <div className="flex items-center gap-3">
+                {productsLoading && <span className="text-xs text-slate-400">Cargando productos…</span>}
+                {canUseFullCatalog ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFullCatalogEnabled((value) => !value);
+                      resetConfigurator(null);
+                    }}
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                      fullCatalogEnabled
+                        ? "border-amber-500 bg-amber-50 text-amber-800"
+                        : "border-slate-300 bg-white text-slate-600 hover:border-amber-400 hover:text-amber-700"
+                    }`}
+                  >
+                    {fullCatalogEnabled ? "Catálogo completo activo" : "Mostrar catálogo completo"}
+                  </button>
+                ) : null}
+              </div>
             </div>
+            {fullCatalogEnabled ? (
+              <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Modo excepcional: muestra productos activos fuera de la elegibilidad normal. Cada cargo requiere un precio configurado y confirmación.
+              </p>
+            ) : null}
             {productsLoading ? (
               <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">
                 Preparando catálogo…
@@ -1833,13 +1885,20 @@ function PosEnrollmentPanel({
                           >
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{product.name}</p>
                             <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                              {product.defaultAmount != null
+                              {product.isEligibilityException
+                                ? "Elegir precio configurado"
+                                : product.defaultAmount != null
                                 ? formatMoney(product.defaultAmount, data.currency)
                                 : "Cargo especial"}
                             </p>
                             {product.isRestricted ? (
                               <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                                 Grupo especifico
+                              </span>
+                            ) : null}
+                            {product.isEligibilityException ? (
+                              <span className="mt-2 inline-flex rounded-full border border-rose-300 bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                                Excepción de elegibilidad
                               </span>
                             ) : null}
                           </button>
@@ -1859,6 +1918,8 @@ function PosEnrollmentPanel({
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {selectedProduct.categorySlug === "tuition"
                         ? "La mensualidad se crea hasta cobrar el carrito."
+                        : selectedProduct.isEligibilityException
+                        ? "Selecciona un precio configurado y confirma la excepción."
                         : selectedProduct.defaultAmount != null
                         ? "Precio bloqueado del catálogo."
                         : "Cargo especial con monto abierto."}
@@ -1947,7 +2008,22 @@ function PosEnrollmentPanel({
                       </div>
                     )}
 
-                    {selectedProduct.defaultAmount == null ? (
+                    {selectedProduct.isEligibilityException ? (
+                      <label className="block space-y-1 text-sm">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Precio configurado</span>
+                        <select
+                          value={manualAmount}
+                          onChange={(event) => setManualAmount(event.target.value)}
+                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 focus:border-amber-500 focus:outline-none"
+                        >
+                          {selectedProduct.configuredPriceOptions.map((option) => (
+                            <option key={option} value={option.toFixed(2)}>
+                              {formatMoney(option, data.currency)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : selectedProduct.defaultAmount == null ? (
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Monto</span>
                         <input
@@ -1973,7 +2049,7 @@ function PosEnrollmentPanel({
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={addConfiguredProduct}
+                    onClick={() => addConfiguredProduct()}
                     disabled={(selectedProduct.hasSizes && !size) || (selectedProduct.categorySlug === "tuition" && availableTuitionOptions.length === 0)}
                     className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
                   >
@@ -2270,6 +2346,67 @@ function PosEnrollmentPanel({
           </form>
         </div>
       </div>
+
+      {exceptionConfirmationOpen && selectedProduct ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="catalog-exception-title"
+            className="w-full max-w-lg rounded-xl border border-amber-300 bg-white p-5 shadow-2xl dark:border-amber-700 dark:bg-slate-900"
+          >
+            <div className="space-y-2">
+              <p id="catalog-exception-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+                Confirmar producto fuera de elegibilidad
+              </p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {data.playerName} no cumple las reglas normales de grupo o categoria para este producto.
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+              <p className="font-semibold">{selectedProduct.name}</p>
+              <p className="mt-1">Precio seleccionado: {formatMoney(Number.parseFloat(manualAmount), data.currency)}</p>
+              <p className="mt-2 text-xs leading-5">
+                Si el cargo queda pagado por completo, la inscripcion al torneo se registrara normalmente. El equipo de competencia se ajusta por separado cuando este jugador participa como excepcion.
+              </p>
+            </div>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm dark:border-slate-700">
+              <input
+                type="checkbox"
+                checked={exceptionAcknowledged}
+                onChange={(event) => setExceptionAcknowledged(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-portoBlue focus:ring-portoBlue"
+              />
+              <span className="text-slate-700 dark:text-slate-200">
+                Confirmo que este jugador fue autorizado como excepcion y que el precio seleccionado es correcto.
+              </span>
+            </label>
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setExceptionConfirmationOpen(false);
+                  setExceptionAcknowledged(false);
+                }}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!exceptionAcknowledged}
+                onClick={() => addConfiguredProduct(true)}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirmar y agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <CajaOperationalNotesPanel data={data} onDataUpdate={onDataUpdate} />
 
@@ -3060,6 +3197,9 @@ function errorMessage(code: string): string {
     product_not_found: "Producto no encontrado o inactivo.",
     product_not_available: "Este producto no esta disponible para el grupo de entrenamiento del alumno.",
     product_requires_gender: "Completa el genero del jugador antes de registrar este combo.",
+    catalog_exception_confirmation_required: "Confirma la excepcion antes de agregar el producto.",
+    catalog_exception_forbidden: "Tu rol no permite agregar productos fuera de elegibilidad.",
+    catalog_exception_price_invalid: "Selecciona uno de los precios configurados para este producto.",
     charge_insert_failed: "Error al crear el cargo del carrito. Intenta de nuevo.",
     reload_failed: "Se cobro, pero no se pudo refrescar la vista. Busca al alumno de nuevo.",
     duplicate_period: "Ya existe una mensualidad para ese periodo.",
@@ -3082,6 +3222,9 @@ function chargeErrorMessage(code: string): string {
     product_not_found: "Producto no encontrado o inactivo.",
     product_not_available: "Este producto no esta disponible para el grupo de entrenamiento del alumno.",
     product_requires_gender: "Completa el genero del jugador antes de registrar este combo.",
+    catalog_exception_confirmation_required: "Confirma la excepcion antes de crear el cargo.",
+    catalog_exception_forbidden: "Tu rol no permite crear cargos fuera de elegibilidad.",
+    catalog_exception_price_invalid: "Selecciona uno de los precios configurados para este producto.",
     enrollment_not_found: "No se encontró la inscripción.",
     enrollment_inactive: "Esta inscripción está inactiva.",
     charge_insert_failed: "Error al crear el cargo. Intenta de nuevo.",

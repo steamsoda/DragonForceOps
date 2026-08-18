@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.51`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.52`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.51`
-- Current preview candidate: production-aligned after the `v1.17.51` training-group lifecycle repair and Contry Selectivo 2010/2011 deactivation.
+- Current preview candidate: `v1.17.52` adds the guarded Caja full-catalog eligibility exception for authorized staff; production remains unchanged pending Preview validation.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -328,6 +328,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | 🟢 | Caja account credit ledger / automatic FIFO | Planning spec in `docs/planning/caja-account-credit-ledger-plan.md`; `v1.16.154`-`v1.16.157` add the explicit ledger and reassignment remainders, production `v1.16.226` adds transactional paid-charge annulment into explicit credit, and preview candidate `v1.16.228` applies explicit credit automatically FIFO while making Caja charge-centric. Future passes: legacy implicit-credit review/conversion and deeper credit reporting. Legacy implicit credits stay warning-only until manually reviewed. |
 | 🟢 | Batch 360Player monthly posting | Preview `v1.16.143` adds `/admin/360player-posting` for manual 360Player monthly tuition posting with early/late price calculation, exact single-charge allocation, repricing where needed, audit entries, explicit confirmation, submit-loading feedback, and prior-month arrears lock. Validate with May 2026 360Player checks before production promotion. |
 | 🟢 | Tournament product pricing rules and bundles | Preview `v1.16.183` adds additive July pricing rules. Preview `v1.16.200` adds the Combo as one financial charge; `v1.16.201` hardens both-campus tournament destinations and registration visibility; `v1.16.202` changes the Combo standard price to `$300` and resolves `$150` only after a fully paid direct Leyendas charge. Production `v1.16.223` permanently restores new Superliga 17 and Rosa Power 13 charges to `$300` from July 27 without touching historical charges. Future pass: product archive/pricing-rule/bundle admin UI. |
+| 🟢 | Caja full-catalog eligibility exception | Preview `v1.17.52` lets Super Admin, Director Admin, and Front Desk select active products outside normal group/YOB/program eligibility using configured prices only, explicit confirmation, and a dedicated audit event. Fully paid tournament charges still create registrations through the canonical sync; training groups and competition squads remain separate. |
 | 🟡 | Uniform quantity/payment mismatch guardrail | Production repair on 2026-07-03 showed Front Desk can overtype one product payment to cover multiple physical items while only one charge exists. Future UX should make quantity/add-another-item obvious and prevent payments from being partially misapplied to tuition by accident. |
 | ✅ | General player notes workflow | Shipped in `v1.16.190`: adds a dated, operational notes history for player context that can be viewed/added from Caja and the player profile. Keep separate from finance ledger/audit notes and attendance records unless a workflow intentionally links them. |
 | ✅ | Charge/payment ledger traceability | Production `v1.16.227` shows charge creation and settlement timestamps, every attached payment folio or explicit-credit application, and each payment's destination charges on both shared account surfaces. Read-only; no ledger mutation or drift exposure. |
