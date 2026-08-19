@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { CompetitionRosterInvitationReview } from "@/components/sports/competition-roster-invitation-review";
 import { CompetitionRosterLiveView } from "@/components/sports/competition-roster-live-view";
 import { SportsSignupsPacketExport } from "@/components/sports/sports-signups-packet-export";
 import type {
@@ -283,13 +284,18 @@ export function SportsSignupsBoard({
     [dashboard.campusBoards, selectedCampusId],
   );
 
-  const selectedCompetition = useMemo(() => {
-    const competition =
+  const selectedCompetitionBase = useMemo(
+    () =>
       selectedBoard?.competitions.find((item) => item.id === selectedCompetitionId) ??
       selectedBoard?.competitions[0] ??
-      null;
-    return competition ? filterCompetitionByProgram(competition, selectedProgram) : null;
-  }, [selectedBoard, selectedCompetitionId, selectedProgram]);
+      null,
+    [selectedBoard, selectedCompetitionId],
+  );
+
+  const selectedCompetition = useMemo(
+    () => selectedCompetitionBase ? filterCompetitionByProgram(selectedCompetitionBase, selectedProgram) : null,
+    [selectedCompetitionBase, selectedProgram],
+  );
 
   const visibleCompetitions = useMemo(
     () => (selectedBoard?.competitions ?? []).map((competition) =>
@@ -657,11 +663,15 @@ export function SportsSignupsBoard({
             </div>
           ) : null}
 
-          {selectedCompetition.eligibilityReviewPlayers.length > 0 ? (
-            <div className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-              {selectedCompetition.eligibilityReviewPlayers.length} registro(s) pagado(s) requieren revision porque el grupo actual ya no coincide con los grupos invitados o las reglas del torneo.
-            </div>
-          ) : null}
+          <CompetitionRosterInvitationReview
+            tournamentId={selectedCompetition.tournamentId}
+            campusId={selectedCampusId}
+            campusName={selectedBoard.campusName}
+            availablePrograms={selectedCompetitionBase?.availablePrograms ?? []}
+            reviewPlayers={selectedCompetitionBase?.eligibilityReviewPlayers ?? []}
+            expanded={viewMode === "teams"}
+            onOpenTeams={() => setViewMode("teams")}
+          />
 
           {viewMode === "teams" ? (
             <CompetitionRosterLiveView

@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-18 (session 319)
+
+### Paid Tournament Invitation Review (v1.17.53 Preview)
+
+- Replaced the passive paid-registration eligibility warning in `Inscripciones Torneos` with a guided `Revisar invitados` workflow.
+- The helper lists every fully paid player whose current YOB, program, or training group falls outside the tournament's normal rules, then requires an existing same-campus tournament team and an operational reason before assignment.
+- Uses the existing audited manual roster-membership layer so `Actualizar todos los equipos` does not erase the invited placement. Resolved players leave the pending queue and appear in `Equipos`, Convocatorias, exports, and professor rosters.
+- The confirmation explicitly preserves the player's training group, enrollment, attendance, and payment. There is no `No participara` shortcut; mistaken payments remain the responsibility of the existing annulment, credit, or cash-refund workflows.
+- No database migration or finance mutation was added. The server continues to require sports-management permission for the roster assignment.
+
 ## 2026-08-17 (session 318)
 
 ### Caja Full-Catalog Eligibility Exception (v1.17.52 Preview)

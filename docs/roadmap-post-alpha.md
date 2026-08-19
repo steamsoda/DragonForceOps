@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.52`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.53`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.51`
-- Current preview candidate: `v1.17.52` adds the guarded Caja full-catalog eligibility exception for authorized staff; production remains unchanged pending Preview validation.
+- Current preview candidate: `v1.17.53` completes the guarded Caja full-catalog exception with an `Invitado` team-assignment review in `Inscripciones Torneos`; production remains unchanged pending Preview validation.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -219,6 +219,7 @@ Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visi
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
+| 🟢 | Paid tournament invitation review | Preview `v1.17.53` turns exceptional fully paid registrations into a visible assignment queue. Directors choose an existing tournament team without changing training group, enrollment, attendance, or finance, and the audited placement survives team refreshes. | Inscripciones Torneos / Equipos, `v1.17.52`-`v1.17.53` devlog |
 | 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
@@ -240,6 +241,7 @@ Important, but not necessarily the next edit.
 
 | Status | Item | Notes |
 |---|---|---|
+| 🟢 | Guarded paid tournament invitations | Preview `v1.17.52` allows configured-price exceptional sales; `v1.17.53` adds the required sports-side `Invitado` assignment wizard and keeps unresolved paid registrations visible until assigned. |
 | 🟢 | `Inscripciones Torneos` tournament-squad workflow | Production through `v1.17.18` includes Azul/Blanco, combined sources, audited exceptions, automatic routing, the live `Equipos` view/export, and hidden convocatoria snapshots. Preview `v1.17.19` adds direct split-pending placement and compact exception controls; `v1.17.20` adds scoped coach schedule reporting. |
 | 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
 | 🔴 | Baja re-enrollment / reactivation workflow | Create a new enrollment while preserving prior baja and finance history; expose only safe handling for fully unpaid prior charges and retain an auditable Caja handoff. |
