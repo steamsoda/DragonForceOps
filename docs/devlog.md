@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-08-18 (session 321)
+
+### Guarded Baja Re-enrollment And Historical Credit Reconciliation (v1.17.55 Preview)
+
+- Added `Reinscribir` entry points to the Baja roster and archived player profile for operational roles. Existing Office Admin and other restricted-role visibility does not gain enrollment or finance write access.
+- Re-entry keeps the existing enrollment pipeline: returning-price selection, active campus, mandatory compatible training group, inscription/monthly charges, assignment audit, and redirect to the new Caja account.
+- Added a service-role-only, idempotent reconciliation function for ended/cancelled historical enrollments. It allocates legacy posted-payment remainder and explicit account credit FIFO to the oldest live historical charges while excluding refunded payments, explicit-credit source amounts, and charge-level cash refunds.
+- Reconciliation never creates or changes payments, receipts, cash-session entries, charges, Baja status, or historical enrollment identity. No-credit accounts continue normally; unconsumed credit remains visible and traceable.
+- The re-entry form now summarizes historical balance and explicit/legacy credit, explains the preserved-history behavior, and requires confirmation of the old account plus the new training group before submission.
+- Added focused `test:reenrollment` assertions and reran enrollment group-selection and returning-pricing regressions.
+- Hardened the server action so any player with ended/cancelled enrollment history must use the explicit re-entry path; a manually constructed normal-enrollment URL cannot bypass credit reconciliation.
+- Verification: `npm run typecheck`, `npm run build`, `npm run test:reenrollment`, `npm run test:enrollment-training-group-selection`, `npm run test:pricing`, and `git diff --check` passed. Migration `20260818130000` is recorded on Preview project `eqefgwdsqabnmpnbpqbq`; anonymous RPC execution returns `permission denied`, while service-role execution reaches the function guard as expected.
+
 ## 2026-08-18 (session 320)
 
 ### Paid Tournament Invitation Reconciliation Fix (v1.17.54 Preview)

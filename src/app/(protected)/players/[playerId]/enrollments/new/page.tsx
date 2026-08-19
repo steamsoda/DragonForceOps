@@ -11,11 +11,13 @@ const errorMessages: Record<string, string> = {
   unauthenticated: "Tu sesion no es valida. Vuelve a iniciar sesion.",
   player_not_found: "No se encontro al jugador.",
   already_enrolled: "El jugador ya tiene una inscripcion activa.",
+  returning_required: "Este jugador tiene una inscripcion anterior. Confirma su reinscripcion y la conciliacion de credito antes de continuar.",
   config_error: "Error de configuracion: tipos de cargo no encontrados. Contacta al administrador.",
   enrollment_failed: "No se pudo crear la inscripcion. Intenta de nuevo.",
   charges_failed: "No se pudo completar la inscripcion ni generar sus cargos. Intenta de nuevo.",
   training_group_invalid: "El grupo seleccionado ya no es compatible. Revisa campus, programa, categoria y genero.",
   training_group_assignment_failed: "No se pudo asignar el grupo. La inscripcion no fue creada; intenta de nuevo.",
+  credit_reconciliation_failed: "No se pudo conciliar el credito de la cuenta anterior. No se creo la nueva inscripcion.",
 };
 
 export default async function EnrollmentCreatePage({
@@ -37,15 +39,16 @@ export default async function EnrollmentCreatePage({
   const initialReturnInscriptionMode =
     query.returnMode === "inscription_only" || query.returnMode === "waived" ? query.returnMode : "full";
   const submit = createEnrollmentAction.bind(null, playerId);
+  const pageTitle = isReturning ? "Reinscribir jugador" : "Nueva inscripcion";
 
   return (
     <PageShell
-      title="Nueva inscripcion"
+      title={pageTitle}
       subtitle={isReturning ? `${context.player.fullName} - Reingreso` : context.player.fullName}
       breadcrumbs={[
         { label: "Jugadores", href: "/players" },
         { label: context.player.fullName, href: `/players/${playerId}` },
-        { label: "Nueva inscripcion" }
+        { label: pageTitle }
       ]}
     >
       <div className="space-y-4">
@@ -82,6 +85,7 @@ export default async function EnrollmentCreatePage({
             playerBirthDate={context.player.birthDate}
             playerGender={context.player.gender}
             trainingGroups={context.trainingGroups}
+            returningAccountSummary={context.returningAccountSummary}
             action={submit}
           />
         )}
