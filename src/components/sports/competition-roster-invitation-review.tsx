@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
 import type { CompetitionSignupPlayerRow } from "@/lib/queries/sports-signups";
 import { formatCampusCompetitionTeamName, formatCompetitionSquadDisplay } from "@/lib/training-groups/shared";
-import { setCompetitionRosterManualMemberInlineAction } from "@/server/actions/competition-rosters";
+import { assignCompetitionRosterInvitedMemberInlineAction } from "@/server/actions/competition-rosters";
 
 type Props = {
   tournamentId: string | null;
@@ -97,13 +97,26 @@ export function CompetitionRosterInvitationReview({
     }),
     [campusName, programData],
   );
-  const assignedIds = useMemo(
-    () => new Set(programData.flatMap((data) => data.squads.flatMap((squad) => squad.members.map((member) => member.enrollmentId)))),
+  const reviewedInvitationIds = useMemo(
+    () => new Set(programData.flatMap((data) => data.squads.flatMap((squad) => squad.members
+      .filter((member) => member.source === "manual")
+      .map((member) => member.enrollmentId)))),
     [programData],
   );
+  const provisionalSquadByEnrollment = useMemo(() => {
+    const result = new Map<string, DestinationSquad>();
+    for (const squad of destinations) {
+      for (const member of squad.members) {
+        if (member.source === "paid" && !result.has(member.enrollmentId)) {
+          result.set(member.enrollmentId, squad);
+        }
+      }
+    }
+    return result;
+  }, [destinations]);
   const unresolvedPlayers = useMemo(
-    () => reviewPlayers.filter((player) => !assignedIds.has(player.enrollmentId)),
-    [assignedIds, reviewPlayers],
+    () => reviewPlayers.filter((player) => !reviewedInvitationIds.has(player.enrollmentId)),
+    [reviewPlayers, reviewedInvitationIds],
   );
   const canManage = programData.some((data) => data.canManage);
 
@@ -147,7 +160,8 @@ export function CompetitionRosterInvitationReview({
       {!loading && unresolvedPlayers.length > 0 ? (
         <div className="space-y-3">
           {unresolvedPlayers.map((player) => {
-            const destinationId = destinationByEnrollment[player.enrollmentId] ?? "";
+            const provisionalSquad = provisionalSquadByEnrollment.get(player.enrollmentId) ?? null;
+            const destinationId = destinationByEnrollment[player.enrollmentId] ?? provisionalSquad?.id ?? "";
             const selectedDestination = destinations.find((squad) => squad.id === destinationId) ?? null;
             const reason = reasonByEnrollment[player.enrollmentId] ?? "";
             const disabled = isPending || !canManage || !selectedDestination || reason.trim().length < 3;
@@ -161,6 +175,11 @@ export function CompetitionRosterInvitationReview({
                       Cat. {player.birthYear ?? "-"} · {player.trainingGroupLabel || "Sin grupo"}
                     </p>
                     <p className="mt-1 text-xs font-medium text-emerald-700">Pago confirmado</p>
+                    {provisionalSquad ? (
+                      <p className="mt-1 text-xs text-amber-800">
+                        Ubicacion provisional: {destinationName(campusName, provisionalSquad)}
+                      </p>
+                    ) : null}
                   </div>
                   <label className="text-xs font-semibold uppercase text-slate-600 dark:text-slate-300">
                     Equipo destino
@@ -201,14 +220,13 @@ export function CompetitionRosterInvitationReview({
                       setMessage(null);
                       setSavingEnrollmentId(player.enrollmentId);
                       startTransition(() => {
-                        void setCompetitionRosterManualMemberInlineAction({
+                        void assignCompetitionRosterInvitedMemberInlineAction({
                           tournamentId,
                           campusId,
                           program: selectedDestination.program,
                           squadId: selectedDestination.id,
                           enrollmentId: player.enrollmentId,
                           reason: reason.trim(),
-                          added: true,
                         }).then(async (result) => {
                           if (!result.ok) {
                             setMessage({ tone: "error", text: result.message });

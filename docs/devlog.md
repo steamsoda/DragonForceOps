@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-18 (session 320)
+
+### Paid Tournament Invitation Reconciliation Fix (v1.17.54 Preview)
+
+- Preview exposed a lifecycle edge case in the new `Invitado` wizard: exceptional payments were automatically routed into a provisional `paid` squad before review, so the helper briefly appeared and then treated that provisional membership as resolved.
+- The queue now resolves only after an audited `manual` invited placement. Existing provisional placement is shown and preselected so staff can confirm it or choose another team.
+- Added `assign_competition_roster_invited_member(...)`, which atomically removes all provisional live memberships for the player/tournament and writes one durable invited membership plus a `member.invited_assigned` audit event.
+- The migration and server action remain roster-only: payment, charge, allocation, enrollment, attendance, and training-group records are unchanged.
+
 ## 2026-08-18 (session 319)
 
 ### Paid Tournament Invitation Review (v1.17.53 Preview)

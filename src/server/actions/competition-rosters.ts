@@ -465,6 +465,56 @@ export async function setCompetitionRosterManualMemberInlineAction(input: {
   return { ok: true, message: input.added ? "Refuerzo agregado." : "Refuerzo retirado." };
 }
 
+export async function assignCompetitionRosterInvitedMemberInlineAction(input: {
+  tournamentId: string;
+  campusId: string;
+  program: string;
+  squadId: string;
+  enrollmentId: string;
+  reason: string;
+}): Promise<CompetitionRosterInlineActionResult> {
+  const tournamentId = clean(input.tournamentId);
+  const campusId = clean(input.campusId);
+  const program = clean(input.program);
+  const squadId = clean(input.squadId);
+  const enrollmentId = clean(input.enrollmentId);
+  const reason = clean(input.reason);
+  if (
+    ![tournamentId, campusId, squadId, enrollmentId].every(isUuid)
+    || !PROGRAMS.has(program)
+    || reason.length < 3
+    || reason.length > 240
+  ) {
+    return { ok: false, message: inlineErrorMessage("invalid_exception_reason") };
+  }
+
+  const context = await inlineManagerContext({ tournamentId, campusId, program });
+  if (!context) return { ok: false, message: inlineErrorMessage("squad_permission_denied") };
+
+  const result = await context.supabase.rpc("assign_competition_roster_invited_member", {
+    p_tournament_id: tournamentId,
+    p_squad_id: squadId,
+    p_enrollment_id: enrollmentId,
+    p_reason: reason,
+  });
+  if (result.error) {
+    const code = squadSyncErrorCode(result.error);
+    console.error("inline competition roster invited assignment failed", {
+      code: result.error.code,
+      message: result.error.message,
+      tournamentId,
+      squadId,
+      enrollmentId,
+    });
+    return { ok: false, message: inlineErrorMessage(code) };
+  }
+
+  revalidateCompetitionRosterPaths();
+  revalidatePath("/convocatorias");
+  revalidatePath("/mis-horarios");
+  return { ok: true, message: "Invitado asignado al equipo seleccionado." };
+}
+
 async function validateCombinedOrganizerScope(params: {
   tournamentId: string;
   campusId: string;
