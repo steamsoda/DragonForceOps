@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.54`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.56`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.51`
-- Current preview candidate: `v1.17.54` fixes provisional paid memberships so the `Invitado` review remains visible until staff confirms one durable audited team placement; production remains unchanged pending Preview validation.
+- Current production line: `v1.17.56` adds complete filtered PNG/Excel exports to the product charge ledger.
+- Current preview candidate: guarded Baja re-enrollment remains preview-only and is not included in the `v1.17.56` production promotion.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -219,6 +219,7 @@ Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visi
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
+| 🟢 | Product paid-ledger exports | Production `v1.17.56` exports the complete filtered product ledger to PNG or Excel, preserving Monterrey paid-date boundaries and the same player/campus/group/team/status context shown on screen. | Productos, `v1.17.56` devlog |
 | 🟢 | Paid tournament invitation review | Preview `v1.17.54` keeps provisional auto-routed payments pending until staff confirms an existing team, then atomically stores one audited invited placement without changing training group, enrollment, attendance, or finance. | Inscripciones Torneos / Equipos, `v1.17.52`-`v1.17.54` devlog |
 | 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
