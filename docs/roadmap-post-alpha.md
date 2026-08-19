@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.55`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active preview: `v1.17.56`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.54`
-- Current preview candidate: `v1.17.55` adds guarded Baja re-enrollment with historical credit reconciliation, mandatory training-group confirmation, and the normal Caja handoff; production remains unchanged pending Preview validation.
+- Current preview candidate: `v1.17.56` adds complete filtered PNG/Excel exports to the product charge ledger; `v1.17.55` remains the guarded Baja re-enrollment candidate. Production remains unchanged pending Preview validation.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -219,6 +219,7 @@ Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visi
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
+| 🟢 | Product paid-ledger exports | Preview `v1.17.56` exports the complete filtered product ledger to PNG or Excel, preserving Monterrey paid-date boundaries and the same player/campus/group/team/status context shown on screen. | Productos, `v1.17.56` devlog |
 | 🟢 | Baja re-enrollment / reactivation | Preview `v1.17.55` creates a new enrollment through the existing pricing, mandatory training-group, charge, and Caja flow while preserving the old Baja/account history. Historical explicit and legacy credit is applied FIFO to old pending charges first; any remainder stays traceable and no credit condition blocks re-entry. | Jugadores / Bajas / Enrollment / Caja, `v1.17.55` devlog |
 | 🟢 | Paid tournament invitation review | Preview `v1.17.54` keeps provisional auto-routed payments pending until staff confirms an existing team, then atomically stores one audited invited placement without changing training group, enrollment, attendance, or finance. | Inscripciones Torneos / Equipos, `v1.17.52`-`v1.17.54` devlog |
 | 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |

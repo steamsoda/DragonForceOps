@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-19 (session 322)
+
+### Filtered Product Ledger PNG And Excel Exports (v1.17.56 Preview)
+
+- Added `Exportar PNG` and `Exportar Excel` beside `Productos > Ultimos cargos emitidos`. Both exports use the current `Pagado desde` / `Pagado hasta` filters and include only the ledger, not the rest of the product dashboard.
+- Export data reuses the existing secured, read-only product-ledger RPC and walks its 100-row pages until every filtered row is loaded. The on-screen 25-row pagination remains unchanged, while the files include the complete filtered result.
+- Both formats preserve player, campus, YOB, current training group, assigned tournament team, payment status, amount, charge-issued time, and fully-paid time. Date filters and displayed timestamps use Monterrey boundaries/time.
+- Excel remains the unrestricted full-data format. PNG is generated client-side without a new image dependency and asks staff to narrow the paid-date range above 500 rows rather than silently clipping or omitting records.
+- No product, charge, payment, allocation, tournament registration, team membership, enrollment, or finance mutation was added; no database migration is required.
+
 ## 2026-08-18 (session 321)
 
 ### Guarded Baja Re-enrollment And Historical Credit Reconciliation (v1.17.55 Preview)

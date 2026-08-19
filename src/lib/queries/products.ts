@@ -109,6 +109,45 @@ export type ProductPagedSales = {
   hasNextPage: boolean;
 };
 
+export type ProductChargeLedgerExportData = {
+  productId: string;
+  productName: string;
+  currency: string;
+  paidFrom: string | null;
+  paidTo: string | null;
+  rows: ProductSale[];
+};
+
+type ProductLedgerAssignedTeamRow = {
+  name?: string;
+  kind?: string | null;
+  program?: string | null;
+  category_label?: string | null;
+  campus_name?: string | null;
+  tournament_name?: string | null;
+  source_group_count?: number | null;
+};
+
+type ProductLedgerRow = {
+  charge_id: string;
+  enrollment_id: string;
+  player_name: string;
+  birth_year: number | null;
+  campus_name: string;
+  training_group_name: string | null;
+  training_group_program: string | null;
+  training_group_birth_year_min: number | null;
+  training_group_birth_year_max: number | null;
+  assigned_teams: ProductLedgerAssignedTeamRow[] | null;
+  description: string;
+  amount: number;
+  currency: string;
+  payment_status: "paid" | "pending";
+  issued_at: string;
+  paid_at: string | null;
+  total_count: number;
+};
+
 export type ProductMetricChargeRow = {
   chargeId: string;
   enrollmentId: string;
@@ -562,6 +601,55 @@ export async function getProductSizeStats(productId: string): Promise<ProductSiz
 
 // ── Recent sales ──────────────────────────────────────────────────────────────
 
+function mapProductLedgerRow(row: ProductLedgerRow): ProductSale {
+  const groupDisplay = row.training_group_name
+    ? formatTournamentGroupCardDisplay({
+        name: row.training_group_name,
+        program: row.training_group_program,
+        birthYearMin: row.training_group_birth_year_min,
+        birthYearMax: row.training_group_birth_year_max,
+      })
+    : null;
+  const trainingGroupName = groupDisplay
+    ? row.training_group_program === "futbol_para_todos"
+      ? `${groupDisplay.title} Futbol Para Todos`
+      : groupDisplay.title
+    : null;
+  const assignedTeamNames = Array.isArray(row.assigned_teams)
+    ? row.assigned_teams.flatMap((team) => {
+        if (!team?.name) return [];
+        const display = formatCompetitionSquadDisplay({
+          name: team.name,
+          program: team.program,
+          categoryLabel: team.category_label,
+          kind: team.kind,
+          sourceGroupCount: Number(team.source_group_count ?? 0),
+        });
+        return [
+          `${team.tournament_name ? `${team.tournament_name}: ` : ""}${formatCampusCompetitionTeamName(team.campus_name, display.title)}`,
+        ];
+      })
+    : [];
+
+  return {
+    chargeId: row.charge_id,
+    description: row.description,
+    amount: row.amount,
+    size: null,
+    isGoalkeeper: null,
+    createdAt: row.issued_at,
+    playerName: row.player_name || "-",
+    enrollmentId: row.enrollment_id,
+    currency: row.currency,
+    birthYear: row.birth_year,
+    campusName: row.campus_name,
+    trainingGroupName,
+    assignedTeamNames,
+    paymentStatus: row.payment_status,
+    paidAt: row.paid_at,
+  };
+}
+
 export async function getProductRecentSalesPage(
   productId: string,
   page = 1,
@@ -682,6 +770,61 @@ export async function getProductRecentSalesPage(
     totalCount,
     hasPreviousPage: pageMeta.hasPreviousPage,
     hasNextPage: pageMeta.hasNextPage,
+  };
+}
+
+export async function getProductChargeLedgerExportData({
+  productId,
+  paidFrom,
+  paidTo,
+  paidFromTimestamp,
+  paidToTimestamp,
+}: {
+  productId: string;
+  paidFrom: string | null;
+  paidTo: string | null;
+  paidFromTimestamp: string | null;
+  paidToTimestamp: string | null;
+}): Promise<ProductChargeLedgerExportData | null> {
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext?.isDirector) return null;
+
+  const product = await getProductDetail(productId);
+  if (!product) return null;
+
+  const supabase = await createClient();
+  const pageSize = 100;
+  const maximumRows = 20_000;
+  const rows: ProductSale[] = [];
+  let totalCount = 0;
+
+  do {
+    const { data, error } = await supabase.rpc("get_product_charge_ledger", {
+      p_product_id: productId,
+      p_paid_from: paidFromTimestamp,
+      p_paid_to: paidToTimestamp,
+      p_offset: rows.length,
+      p_limit: pageSize,
+    });
+    if (error) throw error;
+
+    const batch = (data ?? []) as ProductLedgerRow[];
+    if (batch.length === 0) break;
+    totalCount = Number(batch[0]?.total_count ?? batch.length);
+    rows.push(...batch.map(mapProductLedgerRow));
+
+    if (rows.length >= maximumRows && rows.length < totalCount) {
+      throw new Error("product_charge_ledger_export_limit_exceeded");
+    }
+  } while (rows.length < totalCount);
+
+  return {
+    productId,
+    productName: product.name,
+    currency: product.currency,
+    paidFrom,
+    paidTo,
+    rows,
   };
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProductLedgerExportButtons } from "@/components/products/product-ledger-export-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireDirectorContext } from "@/lib/auth/permissions";
 import {
@@ -472,22 +473,30 @@ export default async function ProductDetailPage({
                 Fechas y horas mostradas en horario de Monterrey. El grupo corresponde a la asignacion actual.
               </p>
             </div>
-            <form className="grid w-full gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:w-auto sm:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_auto_auto] sm:items-end">
-              <label className="space-y-1 text-xs font-medium text-slate-600">
-                Pagado desde
-                <input type="date" name="paidFrom" defaultValue={paidFrom} className={inputClass} />
-              </label>
-              <label className="space-y-1 text-xs font-medium text-slate-600">
-                Pagado hasta
-                <input type="date" name="paidTo" defaultValue={paidTo} className={inputClass} />
-              </label>
-              <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-                Filtrar
-              </button>
-              <Link href={`/products/${productId}#product-charge-ledger`} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm hover:bg-slate-100">
-                Limpiar
-              </Link>
-            </form>
+            <div className="w-full space-y-2 sm:w-auto">
+              <form className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_auto_auto] sm:items-end">
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Pagado desde
+                  <input type="date" name="paidFrom" defaultValue={paidFrom} className={inputClass} />
+                </label>
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  Pagado hasta
+                  <input type="date" name="paidTo" defaultValue={paidTo} className={inputClass} />
+                </label>
+                <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                  Filtrar
+                </button>
+                <Link href={`/products/${productId}#product-charge-ledger`} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm hover:bg-slate-100">
+                  Limpiar
+                </Link>
+              </form>
+              <ProductLedgerExportButtons
+                productId={productId}
+                paidFrom={paidFrom}
+                paidTo={paidTo}
+                disabled={!paidRangeIsValid || recentSales.totalCount === 0}
+              />
+            </div>
           </div>
           {!paidRangeIsValid ? (
             <div className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
