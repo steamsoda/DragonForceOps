@@ -11,6 +11,7 @@ import {
 } from "@/lib/pricing/plans";
 import type { EnrollmentTrainingGroupOption, EnrollmentTrainingProgram } from "@/lib/training-groups/enrollment-selection";
 import { formatTrainingGroupDisplayName } from "@/lib/training-groups/shared";
+import { getEnrollmentLedger } from "@/lib/queries/billing";
 
 const PAGE_SIZE = 20;
 
@@ -467,6 +468,15 @@ export type EnrollmentCreateFormContext = {
   pricingVersions: PricingPlanVersionSnapshot[];
   defaultStartDate: string;
   trainingGroups: EnrollmentTrainingGroupOption[];
+  returningAccountSummary: {
+    enrollmentCount: number;
+    latestEndDate: string | null;
+    campusNames: string[];
+    historicalBalance: number;
+    explicitCreditAmount: number;
+    legacyCreditAmount: number;
+    totalCreditAmount: number;
+  } | null;
 };
 
 export type EnrollmentIntakeContext = {
@@ -601,7 +611,7 @@ export async function getEnrollmentCreateFormContext(
     pricingVersions = await fetchActivePricingPlanVersions(admin);
   }
 
-  const [playerResult, campusResult, activeEnrollmentResult, trainingGroupResult] = await Promise.all([
+  const [playerResult, campusResult, activeEnrollmentResult, trainingGroupResult, historicalEnrollmentResult] = await Promise.all([
     supabase
       .from("players")
       .select("id, first_name, last_name, birth_date, gender")
@@ -628,10 +638,55 @@ export async function getEnrollmentCreateFormContext(
       .eq("status", "active")
       .order("name")
       .returns<EnrollmentTrainingGroupRow[]>(),
+    admin
+      .from("enrollments")
+      .select("id, end_date, campus_id, campuses(name)")
+      .eq("player_id", playerId)
+      .in("campus_id", campusAccess.campusIds)
+      .in("status", ["ended", "cancelled"])
+      .order("end_date", { ascending: false })
+      .returns<Array<{
+        id: string;
+        end_date: string | null;
+        campus_id: string;
+        campuses: { name: string | null } | null;
+      }>>(),
   ]);
 
   if (!playerResult.data) return null;
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
+  const historicalEnrollments = historicalEnrollmentResult.data ?? [];
+  const historicalLedgers = await Promise.all(
+    historicalEnrollments.map((enrollment) => getEnrollmentLedger(enrollment.id)),
+  );
+  const visibleHistoricalLedgers = historicalLedgers.filter(
+    (ledger): ledger is NonNullable<typeof ledger> => ledger !== null,
+  );
+  const returningAccountSummary = historicalEnrollments.length > 0
+    ? {
+        enrollmentCount: historicalEnrollments.length,
+        latestEndDate: historicalEnrollments[0]?.end_date ?? null,
+        campusNames: Array.from(new Set(
+          historicalEnrollments.map((enrollment) => enrollment.campuses?.name ?? "-")
+        )),
+        historicalBalance: visibleHistoricalLedgers.reduce(
+          (sum, ledger) => Math.round((sum + ledger.totals.balance) * 100) / 100,
+          0,
+        ),
+        explicitCreditAmount: visibleHistoricalLedgers.reduce(
+          (sum, ledger) => Math.round((sum + ledger.accountCredit.explicitAvailableAmount) * 100) / 100,
+          0,
+        ),
+        legacyCreditAmount: visibleHistoricalLedgers.reduce(
+          (sum, ledger) => Math.round((sum + ledger.accountCredit.legacyImplicitCreditAmount) * 100) / 100,
+          0,
+        ),
+        totalCreditAmount: visibleHistoricalLedgers.reduce(
+          (sum, ledger) => Math.round((sum + ledger.accountCredit.totalVisibleCreditAmount) * 100) / 100,
+          0,
+        ),
+      }
+    : null;
 
   const p = playerResult.data;
   return {
@@ -647,5 +702,6 @@ export async function getEnrollmentCreateFormContext(
     pricingVersions,
     defaultStartDate,
     trainingGroups: mapEnrollmentTrainingGroups(trainingGroupResult.data ?? []),
+    returningAccountSummary,
   };
 }

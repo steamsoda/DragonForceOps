@@ -15,6 +15,7 @@ export type ParsedEnrollmentInput = {
   trainingProgram: EnrollmentTrainingProgram;
   trainingGroupId: string;
   trainingGroupOverrideConfirmed: boolean;
+  returningAccountConfirmed: boolean;
 };
 
 function parseDate(value: string | null): string | null {
@@ -125,9 +126,11 @@ export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInp
   ) ? trainingProgramRaw as EnrollmentTrainingProgram : null;
   const trainingGroupId = String(formData.get("trainingGroupId") ?? "").trim();
   const trainingGroupOverrideConfirmed = String(formData.get("trainingGroupOverrideConfirmed") ?? "") === "1";
+  const returningAccountConfirmed = String(formData.get("returningAccountConfirmed") ?? "") === "1";
 
   if (!campusId || !pricingPlanCode || !startDate || !trainingProgram || !trainingGroupId) return null;
   if (isReturning && !returnInscriptionMode) return null;
+  if (isReturning && !returningAccountConfirmed) return null;
 
   return {
     campusId,
@@ -139,5 +142,6 @@ export function parseEnrollmentFormData(formData: FormData): ParsedEnrollmentInp
     trainingProgram,
     trainingGroupId,
     trainingGroupOverrideConfirmed,
+    returningAccountConfirmed,
   };
 }

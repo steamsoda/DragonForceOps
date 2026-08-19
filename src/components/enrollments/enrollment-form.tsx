@@ -24,6 +24,15 @@ type EnrollmentCreateFormProps = {
   playerBirthDate: string;
   playerGender: string | null;
   trainingGroups: EnrollmentTrainingGroupOption[];
+  returningAccountSummary: {
+    enrollmentCount: number;
+    latestEndDate: string | null;
+    campusNames: string[];
+    historicalBalance: number;
+    explicitCreditAmount: number;
+    legacyCreditAmount: number;
+    totalCreditAmount: number;
+  } | null;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -37,6 +46,7 @@ export function EnrollmentCreateForm({
   playerBirthDate,
   playerGender,
   trainingGroups,
+  returningAccountSummary,
   action,
 }: EnrollmentCreateFormProps) {
   const [campusId, setCampusId] = useState("");
@@ -44,12 +54,14 @@ export function EnrollmentCreateForm({
   const [returnInscriptionMode, setReturnInscriptionMode] =
     useState<ReturningInscriptionMode>(initialReturnInscriptionMode);
   const [trainingGroupValid, setTrainingGroupValid] = useState(false);
+  const [returningAccountConfirmed, setReturningAccountConfirmed] = useState(false);
   const calendarInputRef = useRef<HTMLInputElement | null>(null);
 
   const startDate = useMemo(() => parseDateOnlyInput(startDateText), [startDateText]);
   const quote = startDate ? quoteEnrollmentPricingFromVersions(pricingVersions, startDate) : null;
   const startDay = startDate ? Number(startDate.slice(8, 10)) : null;
   const selectedReturnOption = getReturningInscriptionOption(returnInscriptionMode);
+  const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 
   function formatDateMask(rawValue: string) {
     const digits = rawValue.replace(/\D/g, "").slice(0, 8);
@@ -79,11 +91,37 @@ export function EnrollmentCreateForm({
       <input type="hidden" name="returnInscriptionMode" value={isReturning ? returnInscriptionMode : ""} />
 
       {isReturning && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reingreso</p>
-          <p className="mt-1 text-sm text-slate-700">
-            Este flujo aplica opciones especiales de inscripcion para reingreso. La mensualidad se calcula con las
-            mismas reglas automaticas del alta normal.
+          <p className="text-sm text-slate-700">
+            La baja y toda la cuenta anterior se conservan. Al confirmar, cualquier credito historico se aplicara por
+            antiguedad a cargos pendientes de esa cuenta; el remanente seguira visible y auditable.
+          </p>
+          {returningAccountSummary ? (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                <p className="text-xs uppercase text-slate-500">Cuentas anteriores</p>
+                <p className="font-semibold text-slate-900">{returningAccountSummary.enrollmentCount}</p>
+              </div>
+              <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                <p className="text-xs uppercase text-slate-500">Saldo historico</p>
+                <p className="font-semibold text-slate-900">{money.format(returningAccountSummary.historicalBalance)}</p>
+              </div>
+              <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                <p className="text-xs uppercase text-slate-500">Credito registrado</p>
+                <p className="font-semibold text-slate-900">{money.format(returningAccountSummary.explicitCreditAmount)}</p>
+              </div>
+              <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                <p className="text-xs uppercase text-slate-500">Credito legado</p>
+                <p className="font-semibold text-slate-900">{money.format(returningAccountSummary.legacyCreditAmount)}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-600">No se encontro una cuenta historica visible para conciliar.</p>
+          )}
+          <p className="text-xs text-slate-600">
+            Despues se creara una inscripcion nueva con el grupo obligatorio y los cargos normales. No se anulan cargos
+            ni se borra el historial de la baja.
           </p>
         </div>
       )}
@@ -263,12 +301,29 @@ export function EnrollmentCreateForm({
         />
       </label>
 
+      {isReturning ? (
+        <label className="flex items-start gap-3 rounded-md border border-slate-300 bg-slate-50 px-3 py-3 text-sm dark:border-slate-600 dark:bg-slate-800">
+          <input
+            type="checkbox"
+            name="returningAccountConfirmed"
+            value="1"
+            checked={returningAccountConfirmed}
+            onChange={(event) => setReturningAccountConfirmed(event.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Confirmo que revise la cuenta anterior y el grupo de reingreso. El credito se aplicara primero a los cargos
+            historicos pendientes y la nueva inscripcion conservara todo el historial.
+          </span>
+        </label>
+      ) : null}
+
       <button
         type="submit"
-        disabled={!quote || !campusId || !trainingGroupValid}
+        disabled={!quote || !campusId || !trainingGroupValid || (isReturning && !returningAccountConfirmed)}
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Crear inscripcion
+        {isReturning ? "Reinscribir jugador" : "Crear inscripcion"}
       </button>
     </form>
   );

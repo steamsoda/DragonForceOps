@@ -147,7 +147,7 @@ function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSetting
   );
 }
 
-function BajaCards({ rows }: { rows: BajaRow[] }) {
+function BajaCards({ rows, canReenroll }: { rows: BajaRow[]; canReenroll: boolean }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
@@ -191,6 +191,15 @@ function BajaCards({ rows }: { rows: BajaRow[] }) {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Motivo: {getCategorizedDropoutReasonLabel(row.dropoutReason)}
           </p>
+          {canReenroll ? (
+            <Link
+              href={`/players/${row.playerId}/enrollments/new?returning=1`}
+              prefetch={false}
+              className="mt-2 inline-flex rounded-md border border-portoBlue px-3 py-1.5 text-sm font-medium text-portoBlue hover:bg-blue-50 dark:hover:bg-slate-800"
+            >
+              Reinscribir
+            </Link>
+          ) : null}
         </div>
       ))}
     </div>
@@ -760,7 +769,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         ) : (
           <>
             {bajaSummary ? <BajaReasonSummaryPanel summary={bajaSummary} filterLabel={bajaFilterLabel} /> : null}
-            <BajaCards rows={bajaRows} />
+            <BajaCards rows={bajaRows} canReenroll={permissionContext.hasOperationalAccess} />
             <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
@@ -773,12 +782,13 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                     <th className="px-3 py-2">Dias inscrito</th>
                     <th className="px-3 py-2">Motivo</th>
                     <th className="px-3 py-2">Saldo</th>
+                    {permissionContext.hasOperationalAccess ? <th className="px-3 py-2">Accion</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {bajaRows.length === 0 ? (
                     <tr>
-                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={8}>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={permissionContext.hasOperationalAccess ? 9 : 8}>
                         No se encontraron jugadores dados de baja con esos filtros.
                       </td>
                     </tr>
@@ -807,6 +817,17 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
                             {row.pendingBalance > 0 ? "Saldo pendiente" : "Sin saldo"}
                           </span>
                         </td>
+                        {permissionContext.hasOperationalAccess ? (
+                          <td className="px-3 py-2">
+                            <Link
+                              href={`/players/${row.playerId}/enrollments/new?returning=1`}
+                              prefetch={false}
+                              className="inline-flex rounded-md border border-portoBlue px-3 py-1.5 text-sm font-medium text-portoBlue hover:bg-blue-50 dark:hover:bg-slate-800"
+                            >
+                              Reinscribir
+                            </Link>
+                          </td>
+                        ) : null}
                       </tr>
                     ))
                   )}

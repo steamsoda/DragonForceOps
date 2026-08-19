@@ -489,10 +489,10 @@ export default async function PlayerDetailPage({
                   </Link>
                 ) : (
                   <Link
-                    href={`/players/${player.id}/enrollments/new`}
+                    href={`/players/${player.id}/enrollments/new${archiveEnrollment ? "?returning=1" : ""}`}
                     className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                   >
-                    Nueva inscripcion
+                    {archiveEnrollment ? "Reinscribir" : "Nueva inscripcion"}
                   </Link>
                 )
               ) : null}
@@ -846,10 +846,10 @@ export default async function PlayerDetailPage({
                   Ver cuenta anterior
                 </Link>
                 <Link
-                  href={`/players/${player.id}/enrollments/new`}
+                  href={`/players/${player.id}/enrollments/new?returning=1`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
-                  Nueva inscripcion
+                  Reinscribir
                 </Link>
               </div>
             </div>
@@ -926,10 +926,10 @@ export default async function PlayerDetailPage({
             {!activeEnrollment ? (
               canViewFinanceDetails ? (
                 <Link
-                  href={`/players/${player.id}/enrollments/new`}
+                  href={`/players/${player.id}/enrollments/new${archiveEnrollment ? "?returning=1" : ""}`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
-                  Nueva inscripcion
+                  {archiveEnrollment ? "Reinscribir" : "Nueva inscripcion"}
                 </Link>
               ) : null
             ) : null}

@@ -264,6 +264,74 @@ async function rollbackCreatedEnrollment(
   await admin.from("enrollments").delete().eq("id", enrollmentId);
 }
 
+type ReturningCreditReconciliationRow = {
+  legacy_applied_amount: number;
+  legacy_allocation_count: number;
+  explicit_applied_amount: number;
+  explicit_application_count: number;
+  remaining_legacy_credit_amount: number;
+  remaining_explicit_credit_amount: number;
+};
+
+async function reconcileReturningEnrollmentAccounts({
+  admin,
+  playerId,
+  campusIds,
+  actorId,
+}: {
+  admin: ReturnType<typeof createAdminClient>;
+  playerId: string;
+  campusIds: string[];
+  actorId: string;
+}) {
+  const { data: historicalEnrollments, error: historicalEnrollmentError } = await admin
+    .from("enrollments")
+    .select("id")
+    .eq("player_id", playerId)
+    .in("campus_id", campusIds)
+    .in("status", ["ended", "cancelled"])
+    .order("end_date", { ascending: true });
+
+  if (historicalEnrollmentError) {
+    return { ok: false as const, error: historicalEnrollmentError.message };
+  }
+
+  const totals = {
+    historicalEnrollmentCount: historicalEnrollments?.length ?? 0,
+    legacyAppliedAmount: 0,
+    legacyAllocationCount: 0,
+    explicitAppliedAmount: 0,
+    explicitApplicationCount: 0,
+    remainingLegacyCreditAmount: 0,
+    remainingExplicitCreditAmount: 0,
+  };
+
+  for (const historicalEnrollment of historicalEnrollments ?? []) {
+    const { data, error } = await admin.rpc("reconcile_returning_enrollment_credit_fifo", {
+      p_enrollment_id: historicalEnrollment.id,
+      p_actor_id: actorId,
+    });
+    if (error) {
+      return { ok: false as const, error: error.message };
+    }
+
+    const row = ((data ?? [])[0] ?? null) as ReturningCreditReconciliationRow | null;
+    if (!row) continue;
+    totals.legacyAppliedAmount = roundMoney(totals.legacyAppliedAmount + Number(row.legacy_applied_amount ?? 0));
+    totals.legacyAllocationCount += Number(row.legacy_allocation_count ?? 0);
+    totals.explicitAppliedAmount = roundMoney(totals.explicitAppliedAmount + Number(row.explicit_applied_amount ?? 0));
+    totals.explicitApplicationCount += Number(row.explicit_application_count ?? 0);
+    totals.remainingLegacyCreditAmount = roundMoney(
+      totals.remainingLegacyCreditAmount + Number(row.remaining_legacy_credit_amount ?? 0),
+    );
+    totals.remainingExplicitCreditAmount = roundMoney(
+      totals.remainingExplicitCreditAmount + Number(row.remaining_explicit_credit_amount ?? 0),
+    );
+  }
+
+  return { ok: true as const, totals };
+}
+
 export async function createEnrollmentAction(playerId: string, formData: FormData) {
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
@@ -295,13 +363,20 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
     });
   }
 
-  const [{ data: player }, { data: existingEnrollment }] = await Promise.all([
+  const [{ data: player }, { data: existingEnrollment }, { data: historicalEnrollment }] = await Promise.all([
     supabase.from("players").select("id, birth_date, gender").eq("id", playerId).maybeSingle(),
     supabase
       .from("enrollments")
       .select("id")
       .eq("player_id", playerId)
       .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("enrollments")
+      .select("id")
+      .eq("player_id", playerId)
+      .in("status", ["ended", "cancelled"])
+      .limit(1)
       .maybeSingle(),
   ]);
 
@@ -458,6 +533,33 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       returnMode: parsed.returnInscriptionMode,
     });
   }
+  if (historicalEnrollment && !parsed.isReturning) {
+    return redirectWithError(playerId, "returning_required", {
+      isReturning: true,
+      returnMode: "full",
+    });
+  }
+
+  const returningCreditReconciliation = parsed.isReturning
+    ? await reconcileReturningEnrollmentAccounts({
+        admin,
+        playerId,
+        campusIds: campusAccess.campusIds,
+        actorId: user.id,
+      })
+    : null;
+  if (returningCreditReconciliation && !returningCreditReconciliation.ok) {
+    console.error("[enrollments] returning account reconciliation failed", {
+      playerId,
+      enrollmentId,
+      error: returningCreditReconciliation.error,
+    });
+    await rollbackCreatedEnrollment(admin, enrollmentId);
+    return redirectWithError(playerId, "credit_reconciliation_failed", {
+      isReturning: parsed.isReturning,
+      returnMode: parsed.returnInscriptionMode,
+    });
+  }
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,
@@ -474,6 +576,9 @@ export async function createEnrollmentAction(playerId: string, formData: FormDat
       training_program: parsed.trainingProgram,
       training_group_id: trainingGroupSelection.group.id,
       training_group_birth_year_override_confirmed: parsed.trainingGroupOverrideConfirmed,
+      returning_account_confirmed: parsed.returningAccountConfirmed,
+      returning_credit_reconciliation:
+        returningCreditReconciliation?.ok ? returningCreditReconciliation.totals : null,
     },
   });
 
