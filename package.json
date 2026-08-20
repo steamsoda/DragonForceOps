@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.57",
+  "version": "1.17.58",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -66,6 +66,7 @@
     "test:competition-roster-member-moves": "node scripts/assert-competition-roster-member-moves.mjs",
     "test:competition-roster-all-programs": "node scripts/assert-competition-roster-all-programs.mjs",
     "test:competition-roster-refresh": "node scripts/assert-competition-roster-refresh.mjs",
+    "test:competition-roster-team-png": "node --experimental-strip-types scripts/assert-competition-roster-team-png.mjs",
     "test:competition-roster-invitations": "node scripts/assert-competition-roster-invitations.mjs",
     "test:historical-tournament-sync": "node scripts/assert-historical-tournament-sync.mjs",
     "test:director-deportivo-player-roster": "node scripts/assert-director-deportivo-player-roster-access.mjs",

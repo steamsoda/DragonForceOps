@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-19 (session 324)
+
+### Individual Tournament Team PNG Export (v1.17.58 Preview)
+
+- Added `Exportar PNG` to every team card in `Inscripciones Torneos > Equipos` so staff can download one team without exporting the complete campus/tournament packet.
+- The team-only image reuses the secured live roster already visible on screen and includes tournament, campus, formatted team name, professor, player count, ID, compact player name, and YOB in alphabetical order.
+- The exported PNG is generated entirely in the browser and includes a standards-based `pHYs` metadata chunk set to 300 DPI. It does not issue another query or mutate products, charges, payments, registrations, training groups, or team assignments.
+- Added a focused assertion for card integration, read-only behavior, and the encoded 300 DPI metadata. No database migration is required.
+
 ## 2026-08-19 (session 323)
 
 ### Credit-Funded Caja Checkout And Tournament Registration Repair (v1.17.57)

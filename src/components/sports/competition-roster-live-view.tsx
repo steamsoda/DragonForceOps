@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CompetitionRosterLiveControls } from "@/components/sports/competition-roster-live-controls";
+import { CompetitionRosterTeamPngButton } from "@/components/sports/competition-roster-team-png-button";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
 import {
   moveCompetitionRosterMemberInlineAction,
@@ -388,9 +389,23 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
                       </p>
                     ) : null}
                   </div>
-                  <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
-                    {kindLabel(squad.kind)} · {squad.members.length}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
+                      {kindLabel(squad.kind)} · {squad.members.length}
+                    </span>
+                    <CompetitionRosterTeamPngButton
+                      tournamentName={data.tournamentName}
+                      campusName={data.campusName}
+                      teamName={teamName}
+                      categoryLabel={squad.categoryLabel}
+                      professorNames={squad.professorNames}
+                      players={sortMembers(squad).map((member) => ({
+                        id: member.publicPlayerId ?? member.enrollmentId,
+                        playerName: member.playerName,
+                        birthYear: member.birthYear,
+                      }))}
+                    />
+                  </div>
                 </div>
               </header>
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
