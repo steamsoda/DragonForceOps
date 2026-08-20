@@ -2917,6 +2917,7 @@ function ReceiptPanel({
     amount: receipt.amount,
     currency: receipt.currency,
     remainingBalance: receipt.remainingBalance,
+    creditAppliedAmount: receipt.creditAppliedAmount,
     chargesPaid: receipt.chargesPaid,
     paymentId: receipt.paymentId,
     folio: receipt.folio,
@@ -2936,6 +2937,11 @@ function ReceiptPanel({
         <p className="text-lg font-semibold text-emerald-700">Pago registrado</p>
         <p className="text-2xl font-bold text-emerald-800 mt-1">{formatMoney(receipt.amount, receipt.currency)}</p>
         <p className="text-sm text-emerald-600 mt-1">{receipt.playerName} · {methodLabel(receipt.method)}</p>
+        {receipt.creditAppliedAmount > 0.009 && (
+          <p className="mt-1 text-sm font-medium text-emerald-700">
+            Credito aplicado: {formatMoney(receipt.creditAppliedAmount, receipt.currency)}
+          </p>
+        )}
         {receipt.remainingBalance > 0 && (
           <p className="mt-2 text-sm text-rose-600">Saldo restante: {formatMoney(receipt.remainingBalance, receipt.currency)}</p>
         )}

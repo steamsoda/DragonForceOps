@@ -223,6 +223,7 @@ export type EnrollmentLedger = {
     notes: string | null;
     createdAt: string;
     allocatedAmount: number;
+    explicitCreditOriginalAmount: number;
     chargeCashRefundedAmount: number;
     operatorCampusId: string;
     operatorCampusName: string;
@@ -720,6 +721,7 @@ export async function getEnrollmentLedger(
         notes: row.notes,
         createdAt: row.created_at,
         allocatedAmount: allocatedByPayment.get(row.id) ?? 0,
+        explicitCreditOriginalAmount: explicitCreditOriginalByPayment.get(row.id) ?? 0,
         chargeCashRefundedAmount: cashRefundedByPaymentId.get(row.id) ?? 0,
         operatorCampusId: row.operator_campus_id,
         operatorCampusName: campusById.get(row.operator_campus_id)?.name ?? "-",

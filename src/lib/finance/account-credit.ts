@@ -39,6 +39,16 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+export function getReusablePaymentRemainder(payment: CreditPaymentInput) {
+  if (payment.status !== "posted") return 0;
+  return positiveMoney(
+    payment.amount
+      - payment.allocatedAmount
+      - (payment.explicitCreditOriginalAmount ?? 0)
+      - (payment.chargeCashRefundedAmount ?? 0),
+  );
+}
+
 function positiveMoney(value: number) {
   return Math.max(roundMoney(value), 0);
 }
@@ -60,15 +70,7 @@ export function summarizeAccountCredit({
   const explicitOriginal = positiveMoney(explicitOriginalAmount);
   const explicitApplied = positiveMoney(explicitAppliedAmount);
   const legacyImplicit = payments.reduce((sum, payment) => {
-    if (payment.status !== "posted") return sum;
-    return roundMoney(
-      sum + positiveMoney(
-        payment.amount
-          - payment.allocatedAmount
-          - (payment.explicitCreditOriginalAmount ?? 0)
-          - (payment.chargeCashRefundedAmount ?? 0),
-      ),
-    );
+    return roundMoney(sum + getReusablePaymentRemainder(payment));
   }, 0);
   const totalVisibleCredit = roundMoney(explicitAvailable + legacyImplicit);
 

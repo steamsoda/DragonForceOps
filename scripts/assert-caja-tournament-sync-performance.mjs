@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migration = await readFile(
-  "supabase/migrations/20260811140000_fast_caja_tournament_signup.sql",
+  "supabase/migrations/20260819120000_credit_aware_tournament_signup.sql",
   "utf8",
 );
 const signupSync = await readFile("src/server/actions/tournament-signup-sync.ts", "utf8");
@@ -11,7 +11,9 @@ const cajaClient = await readFile("src/components/caja/caja-client.tsx", "utf8")
 
 assert.match(migration, /create or replace function public\.sync_paid_tournament_entries_for_charges/i);
 assert.match(migration, /charge\.id = any\(coalesce\(p_charge_ids/i);
-assert.match(migration, /paid\.allocated_amount \+ 0\.009 >= charge\.amount/i);
+assert.match(migration, /payment_allocations allocation/i);
+assert.match(migration, /enrollment_credit_applications application/i);
+assert.match(migration, /paid\.funded_amount \+ 0\.009 >= charge\.amount/i);
 assert.match(migration, /tournament\.product_id = charge\.product_id/i);
 assert.match(migration, /product_bundle_entitlements entitlement/i);
 assert.match(migration, /on conflict \(tournament_id, enrollment_id\) do update/i);
@@ -24,6 +26,7 @@ assert.doesNotMatch(
 
 assert.match(signupSync, /export async function syncPaidCompetitionSignupsForCharges/i);
 assert.match(signupSync, /admin\.rpc\("sync_paid_tournament_entries_for_charges"/i);
+assert.match(signupSync, /\.from\("enrollment_credit_applications"\)/i);
 const targetedFunction = signupSync.match(
   /export async function syncPaidCompetitionSignupsForCharges[\s\S]*?\n}\n\nexport async function syncCompetitionSignupsForEnrollment/,
 )?.[0] ?? "";

@@ -20,6 +20,7 @@ type ReceiptData = {
   amount: number;
   currency: string;
   remainingBalance: number;
+  creditAppliedAmount: number;
   chargesPaid: { description: string; amount: number }[];
   paymentId: string;
   folio: string | null;
@@ -48,7 +49,12 @@ type PaymentRow = {
 
 type AllocationRow = {
   amount: number;
+  charge_id: string;
   charges: { description: string | null } | null;
+};
+
+type CreditApplicationRow = {
+  amount: number;
 };
 
 type ChargeBalanceRow = {
@@ -103,7 +109,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
   const [{ data: allocations }, { data: charges }, { data: payments }] = await Promise.all([
     supabase
       .from("payment_allocations")
-      .select("amount, charges(description)")
+      .select("amount, charge_id, charges(description)")
       .eq("payment_id", paymentId)
       .returns<AllocationRow[]>(),
     supabase
@@ -140,6 +146,18 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
       }))
     : [{ description: "Abono", amount: payment.amount }];
 
+  const allocatedChargeIds = [...new Set((allocations ?? []).map((row) => row.charge_id))];
+  const { data: creditApplications } = allocatedChargeIds.length > 0
+    ? await supabase
+        .from("enrollment_credit_applications")
+        .select("amount")
+        .in("charge_id", allocatedChargeIds)
+        .returns<CreditApplicationRow[]>()
+    : { data: [] as CreditApplicationRow[] };
+  const creditAppliedAmount = roundMoney(
+    (creditApplications ?? []).reduce((sum, row) => sum + row.amount, 0),
+  );
+
   const paidAt = new Date(payment.paid_at);
   perf.mark("build_receipt");
   perf.end({
@@ -158,6 +176,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
       amount: payment.amount,
       currency: payment.currency,
       remainingBalance,
+      creditAppliedAmount,
       chargesPaid,
       paymentId: payment.id,
       folio: payment.folio,

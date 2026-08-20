@@ -26,6 +26,11 @@ type AllocationRow = {
   amount: number;
 };
 
+type CreditApplicationRow = {
+  charge_id: string;
+  amount: number;
+};
+
 type EntryRow = {
   id: string;
   tournament_id: string;
@@ -130,17 +135,30 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
     .returns<SquadTeamRow[]>();
 
   const chargeIds = (charges ?? []).map((charge) => charge.id);
-  const allocations =
+  const [allocations, creditApplications] =
     chargeIds.length > 0
-      ? await admin
-          .from("payment_allocations")
-          .select("charge_id, amount")
-          .in("charge_id", chargeIds)
-          .returns<AllocationRow[]>()
-      : { data: [] as AllocationRow[] };
+      ? await Promise.all([
+          admin
+            .from("payment_allocations")
+            .select("charge_id, amount")
+            .in("charge_id", chargeIds)
+            .returns<AllocationRow[]>(),
+          admin
+            .from("enrollment_credit_applications")
+            .select("charge_id, amount")
+            .in("charge_id", chargeIds)
+            .returns<CreditApplicationRow[]>(),
+        ])
+      : [
+          { data: [] as AllocationRow[] },
+          { data: [] as CreditApplicationRow[] },
+        ];
 
   const allocationTotals = new Map<string, number>();
   for (const row of allocations.data ?? []) {
+    allocationTotals.set(row.charge_id, Math.round(((allocationTotals.get(row.charge_id) ?? 0) + row.amount) * 100) / 100);
+  }
+  for (const row of creditApplications.data ?? []) {
     allocationTotals.set(row.charge_id, Math.round(((allocationTotals.get(row.charge_id) ?? 0) + row.amount) * 100) / 100);
   }
 
