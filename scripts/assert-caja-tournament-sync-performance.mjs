@@ -28,7 +28,7 @@ assert.match(signupSync, /export async function syncPaidCompetitionSignupsForCha
 assert.match(signupSync, /admin\.rpc\("sync_paid_tournament_entries_for_charges"/i);
 assert.match(signupSync, /\.from\("enrollment_credit_applications"\)/i);
 const targetedFunction = signupSync.match(
-  /export async function syncPaidCompetitionSignupsForCharges[\s\S]*?\n}\n\nexport async function syncCompetitionSignupsForEnrollment/,
+  /export async function syncPaidCompetitionSignupsForCharges[\s\S]*?\r?\n}\r?\n\r?\nexport async function syncCompetitionSignupsForEnrollment/,
 )?.[0] ?? "";
 assert.doesNotMatch(targetedFunction, /process_competition_roster_sync_queue/i);
 assert.match(targetedFunction, /falling back to full reconciliation/i);
