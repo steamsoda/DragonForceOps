@@ -10,6 +10,8 @@
 - Added an exact-state, auditable repair for Reynold Elias Villarreal and Alejandro Leon Pinales. Historical payments, methods, dates, folios, and Corte records are preserved; duplicate/invalid credit state is normalized, intended J5/uniform allocations are restored, canonical balance is required to finish at zero, and J5 registration/team synchronization runs inside the repair.
 - Alejandro's Front Desk-confirmed invalid `$1,200` historical overpayment is offset by a fully funded corrective ledger charge rather than deleting or changing historical payment amounts. His `$1,300` card payment is allocated to J5 and the goalkeeper uniform with the valid `$300` Superliga credit completing J5.
 - Added focused checkout assertions plus the existing tournament-sync, charge-annulment, finance-sanity, typecheck, and production-build verification gates.
+- Promoted the database changes to production and verified the guarded repairs after execution. Reynold now has `$0` balance, J5 funded by `$1,000` of direct payment, no active duplicate credit, a confirmed tournament entry, and one live squad membership. Alejandro now has `$0` balance, J5 funded by `$700` payment plus `$300` valid credit, the goalkeeper uniform funded by `$600`, the invalid `$1,200` legacy overpayment neutralized by a fully funded corrective entry, a confirmed tournament entry, and one live squad membership.
+- Confirmed production recorded migrations `20260818130000`, `20260819120000`, and `20260819130000`; each repair audit request appears exactly once.
 
 ## 2026-08-19 (session 322)
 
