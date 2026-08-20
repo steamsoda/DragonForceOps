@@ -1,5 +1,28 @@
 import assert from "node:assert/strict";
-import { planAccountCreditApplications, summarizeAccountCredit } from "./account-credit";
+import {
+  getReusablePaymentRemainder,
+  planAccountCreditApplications,
+  summarizeAccountCredit,
+} from "./account-credit";
+
+assert.equal(
+  getReusablePaymentRemainder({
+    status: "posted",
+    amount: 1_000,
+    allocatedAmount: 700,
+    explicitCreditOriginalAmount: 300,
+  }),
+  0,
+);
+assert.equal(
+  getReusablePaymentRemainder({
+    status: "posted",
+    amount: 1_000,
+    allocatedAmount: 700,
+    chargeCashRefundedAmount: 300,
+  }),
+  0,
+);
 
 const summary = summarizeAccountCredit({
   explicitAvailableAmount: 250,

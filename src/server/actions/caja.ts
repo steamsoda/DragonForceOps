@@ -30,7 +30,10 @@ import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parse
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { createPerfTimer } from "@/lib/perf/timing";
-import type { AccountCreditSummary } from "@/lib/finance/account-credit";
+import {
+  getReusablePaymentRemainder,
+  type AccountCreditSummary,
+} from "@/lib/finance/account-credit";
 import {
   syncCompetitionSignupsForEnrollment,
   syncPaidCompetitionSignupsForCharges,
@@ -138,7 +141,7 @@ export type CajaEnrollmentData = {
 };
 
 export type CajaPaymentResult =
-  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; currency: string; sessionWarning: boolean; competitionRosterSyncPending: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
+  | { ok: true; paymentId: string; folio: string | null; amount: number; playerName: string; campusName: string; birthYear: number | null; method: string; splitPayment?: { amount: number; method: string }; remainingBalance: number; creditAppliedAmount: number; currency: string; sessionWarning: boolean; competitionRosterSyncPending: boolean; chargesPaid: Array<{ description: string; amount: number }>; paidAt: string; date: string; time: string }
   | { ok: false; error: string };
 
 export type CajaCheckoutResult =
@@ -2077,8 +2080,15 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     pendingCharges.map((c) => [c.id, c.pendingAmount])
   );
   const priorAllocations: Array<{ paymentId: string; chargeId: string; amount: number }> = [];
-  for (const prior of ledger.payments.filter((p) => p.status === "posted" && p.allocatedAmount < p.amount)) {
-    let available = Math.round((prior.amount - prior.allocatedAmount) * 100) / 100;
+  for (const prior of ledger.payments) {
+    let available = getReusablePaymentRemainder({
+      status: prior.status,
+      amount: prior.amount,
+      allocatedAmount: prior.allocatedAmount,
+      explicitCreditOriginalAmount: prior.explicitCreditOriginalAmount,
+      chargeCashRefundedAmount: prior.chargeCashRefundedAmount,
+    });
+    if (available <= 0) continue;
     for (const charge of pendingCharges) {
       if (available <= 0) break;
       const ep = effectivePending.get(charge.id) ?? 0;
@@ -2298,6 +2308,10 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   const chargesPaid = [...allocations1, ...allocations2]
     .filter((a) => a.amount > 0)
     .map((a) => ({ description: chargeMap.get(a.chargeId) ?? "Cargo", amount: a.amount }));
+  const newlyFundedChargeIds = new Set([...allocations1, ...allocations2].map((allocation) => allocation.chargeId));
+  const creditAppliedAmount = pendingCharges
+    .filter((charge) => newlyFundedChargeIds.has(charge.id))
+    .reduce((sum, charge) => Math.round((sum + charge.creditAppliedAmount) * 100) / 100, 0);
 
   const splitPayment = parsed.split
     ? { amount: parsed.split.amount, method: parsed.split.method }
@@ -2325,6 +2339,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
     method: parsed.method,
     splitPayment,
     remainingBalance: newBalance,
+    creditAppliedAmount,
     currency: ledger.enrollment.currency,
     sessionWarning,
     competitionRosterSyncPending: affectedTournamentIds.length > 0,

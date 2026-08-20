@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-19 (session 323)
+
+### Credit-Funded Caja Checkout And Tournament Registration Repair (v1.17.57)
+
+- Fixed a double-use defect in Caja: posted-payment remainder now subtracts both explicit credit already created from that payment and charge-level cash refunds before any older money can be swept into a new charge.
+- Tournament registration now treats a charge as fully funded by the combined total of direct payment allocations and explicit account-credit applications. The fast RPC and complete TypeScript fallback use the same rule, so a tournament paid partly with credit appears in `Inscripciones Torneos` and proceeds through normal live-team routing.
+- Caja confirmation and printed/reprinted receipts now state `Credito aplicado` when an explicit credit helped fund the newly paid charges. Direct payment lines remain attached to their actual products instead of presenting the unused remainder as new credit.
+- Added an exact-state, auditable repair for Reynold Elias Villarreal and Alejandro Leon Pinales. Historical payments, methods, dates, folios, and Corte records are preserved; duplicate/invalid credit state is normalized, intended J5/uniform allocations are restored, canonical balance is required to finish at zero, and J5 registration/team synchronization runs inside the repair.
+- Alejandro's Front Desk-confirmed invalid `$1,200` historical overpayment is offset by a fully funded corrective ledger charge rather than deleting or changing historical payment amounts. His `$1,300` card payment is allocated to J5 and the goalkeeper uniform with the valid `$300` Superliga credit completing J5.
+- Added focused checkout assertions plus the existing tournament-sync, charge-annulment, finance-sanity, typecheck, and production-build verification gates.
+
 ## 2026-08-19 (session 322)
 
 ### Filtered Product Ledger PNG And Excel Exports (v1.17.56 Production)

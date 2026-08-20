@@ -200,6 +200,7 @@ export type ReceiptData = {
   amount: number;
   currency: string;
   remainingBalance: number;
+  creditAppliedAmount?: number;
   chargesPaid: { description: string; amount: number }[];
   paymentId: string;
   folio: string | null;
@@ -259,6 +260,9 @@ function buildReceipt(receipt: ReceiptData, logoESCPOS: string | null): QZDataIt
   ];
 
   const chargeLines = receipt.chargesPaid.map((charge) => t(row(charge.description, fmt(charge.amount)) + "\n"));
+  if ((receipt.creditAppliedAmount ?? 0) > 0.009) {
+    chargeLines.push(t(row("Credito aplicado", fmt(receipt.creditAppliedAmount ?? 0)) + "\n"));
+  }
 
   function footer(label: string): QZDataItem[] {
     const items: QZDataItem[] = [
