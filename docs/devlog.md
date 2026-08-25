@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-25 (session 326)
+
+### v1.17.59 Production Acceptance Checkpoint
+
+- Production smoke testing accepted the guarded `Caja > Nueva inscripción > Reingreso` workflow, including existing-record lookup, active-enrollment collision blocking, manual pre-Invicta fallback, historical credit reconciliation, required training-group selection, charge creation, and Caja handoff.
+- Confirmed production `main` at `73d52af`. Typecheck, focused re-enrollment/training-group/pricing tests, production build, secret scan, dependency audit, and the production database migration workflow passed; Supabase reported the remote database up to date.
+- Reorganized the roadmap `Now` lane so completed finance, export, tournament, attendance, re-enrollment, and weekly-convocatoria work remains documented but no longer crowds the active shortlist.
+- No application code, database schema, permissions, or production data changed in this checkpoint.
+
 ## 2026-08-24 (session 325)
 
 ### Caja Re-entry Lookup And Guarded Routing (v1.17.59 Preview)
