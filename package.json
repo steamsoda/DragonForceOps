@@ -78,6 +78,7 @@
     "test:tournament-team-routing": "node scripts/assert-tournament-team-routing.mjs",
     "test:tournament-team-campus-identity": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/assert-tournament-team-campus-identity.mjs",
     "test:pricing": "node scripts/assert-enrollment-pricing-rules.mjs && node scripts/assert-returning-enrollment-pricing.mjs",
+    "test:reenrollment": "node scripts/assert-reenrollment-workflow.mjs",
     "diagnose:finance": "node scripts/export-finance-anomaly-report.mjs",
     "plan:finance-repair": "node scripts/plan-finance-repair-pass.mjs",
     "apply:finance-repair": "node scripts/apply-finance-repair-pass.mjs",

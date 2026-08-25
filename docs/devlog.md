@@ -4,6 +4,7 @@
 
 ### Caja Re-entry Lookup And Guarded Routing (v1.17.59 Preview)
 
+- Promoted the guarded Baja foundation and Caja Reingreso integration together to production after the preview acceptance gate.
 - Wired the main `Caja > Nueva inscripcion > Reingreso` path into the guarded Baja re-enrollment workflow instead of requiring Front Desk to find the archived profile first.
 - Reingreso now searches campus-scoped historical records by player name, public ID, tutor name, or phone. Inactive matches continue through the existing player record and guarded credit reconciliation; active matches are blocked from duplicate enrollment and link back to the player profile.
 - Preserved a separate `No aparece en Invicta - Capturar manualmente` path for returning players whose older academy history predates Invicta. That path creates the player's first digital record with returning pricing, standard training-group confirmation, charges, and Caja handoff, without inventing historical balances or credit.

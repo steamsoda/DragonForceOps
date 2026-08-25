@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.58`
-- Current preview line: `v1.17.59` connects Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
+- Current production line: `v1.17.59`
+- Current preview line: `v1.17.59` matches production after connecting Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
