@@ -268,7 +268,13 @@ export function EnrollmentIntakeForm({
           </button>
           <button
             type="button"
-            onClick={() => setIsReturning(true)}
+            onClick={() => {
+              if (!isReturning) {
+                window.location.assign("/players/new?returning=1");
+                return;
+              }
+              setIsReturning(true);
+            }}
             className={`rounded-md border px-3 py-3 text-left text-sm transition ${
               isReturning
                 ? "border-emerald-500 bg-emerald-50 text-slate-900"
@@ -387,10 +393,14 @@ export function EnrollmentIntakeForm({
                       </p>
                     </div>
                     <Link
-                      href={`/players/${match.playerId}`}
+                      href={
+                        match.hasActiveEnrollment
+                          ? `/players/${match.playerId}`
+                          : `/players/${match.playerId}/enrollments/new?returning=1`
+                      }
                       className="inline-flex items-center justify-center rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100"
                     >
-                      Ver jugador
+                      {match.hasActiveEnrollment ? "Abrir jugador" : "Usar expediente existente"}
                     </Link>
                   </div>
                 ))}

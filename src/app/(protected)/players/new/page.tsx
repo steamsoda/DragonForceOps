@@ -5,6 +5,7 @@ import { requireOperationalContext } from "@/lib/auth/permissions";
 import { getEnrollmentIntakeContext } from "@/lib/queries/enrollments";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 import { getTrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
+import { ReturningPlayerLookup } from "@/components/enrollments/returning-player-lookup";
 
 const errorMessages: Record<string, string> = {
   invalid_form: "Los datos del formulario son invalidos.",
@@ -24,7 +25,7 @@ const errorMessages: Record<string, string> = {
 export default async function NewPlayerPage({
   searchParams
 }: {
-  searchParams: Promise<{ err?: string; returning?: string; returnMode?: string; trialProspectId?: string }>;
+  searchParams: Promise<{ err?: string; returning?: string; manual?: string; returnMode?: string; trialProspectId?: string }>;
 }) {
   await requireOperationalContext("/unauthorized");
   const query = await searchParams;
@@ -40,15 +41,23 @@ export default async function NewPlayerPage({
     ? errorMessages.trial_conversion_invalid
     : query.err ? (errorMessages[query.err] ?? "Ocurrio un error.") : null;
   const isReturning = query.returning === "1";
+  const isManualReturning = isReturning && (query.manual === "1" || Boolean(query.err));
   const initialReturnMode: ReturningInscriptionMode = isReturningInscriptionMode(query.returnMode)
     ? query.returnMode
     : "full";
 
   return (
     <PageShell
-      title="Nuevo jugador"
-      subtitle="Registro completo: jugador, tutor, inscripcion y envio directo a Caja"
-      breadcrumbs={[{ label: "Jugadores", href: "/players" }, { label: "Nuevo jugador" }]}
+      title={isReturning ? "Reingreso" : "Nuevo jugador"}
+      subtitle={
+        isReturning
+          ? "Recupera el expediente anterior o captura el primer expediente digital del jugador"
+          : "Registro completo: jugador, tutor, inscripcion y envio directo a Caja"
+      }
+      breadcrumbs={[
+        { label: isReturning ? "Caja" : "Jugadores", href: isReturning ? "/caja" : "/players" },
+        { label: isReturning ? "Reingreso" : "Nuevo jugador" },
+      ]}
     >
       <div className="space-y-4">
         {errorMessage && (
@@ -58,21 +67,28 @@ export default async function NewPlayerPage({
         )}
 
         <div className="text-sm">
-          <Link href={query.trialProspectId ? "/trial-classes" : "/players"} className="text-portoBlue hover:underline">
-            {query.trialProspectId ? "Volver a Clases de prueba" : "Volver a Jugadores"}
+          <Link
+            href={query.trialProspectId ? "/trial-classes" : isReturning ? "/caja" : "/players"}
+            className="text-portoBlue hover:underline"
+          >
+            {query.trialProspectId ? "Volver a Clases de prueba" : isReturning ? "Volver a Caja" : "Volver a Jugadores"}
           </Link>
         </div>
 
-        {!invalidTrialSource ? <EnrollmentIntakeForm
-          campuses={intakeContext.campuses}
-          planCode={intakeContext.planCode}
-          pricingVersions={intakeContext.pricingVersions}
-          defaultStartDate={intakeContext.defaultStartDate}
-          initialIsReturning={isReturning}
-          initialReturnInscriptionMode={initialReturnMode}
-          trialPrefill={trialPrefill}
-          trainingGroups={intakeContext.trainingGroups}
-        /> : null}
+        {!invalidTrialSource && isReturning && !isManualReturning ? <ReturningPlayerLookup /> : null}
+
+        {!invalidTrialSource && (!isReturning || isManualReturning) ? (
+          <EnrollmentIntakeForm
+            campuses={intakeContext.campuses}
+            planCode={intakeContext.planCode}
+            pricingVersions={intakeContext.pricingVersions}
+            defaultStartDate={intakeContext.defaultStartDate}
+            initialIsReturning={isReturning}
+            initialReturnInscriptionMode={initialReturnMode}
+            trialPrefill={trialPrefill}
+            trainingGroups={intakeContext.trainingGroups}
+          />
+        ) : null}
       </div>
     </PageShell>
   );
