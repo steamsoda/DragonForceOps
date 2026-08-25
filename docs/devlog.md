@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-24 (session 325)
+
+### Caja Re-entry Lookup And Guarded Routing (v1.17.59 Preview)
+
+- Wired the main `Caja > Nueva inscripcion > Reingreso` path into the guarded Baja re-enrollment workflow instead of requiring Front Desk to find the archived profile first.
+- Reingreso now searches campus-scoped historical records by player name, public ID, tutor name, or phone. Inactive matches continue through the existing player record and guarded credit reconciliation; active matches are blocked from duplicate enrollment and link back to the player profile.
+- Preserved a separate `No aparece en Invicta - Capturar manualmente` path for returning players whose older academy history predates Invicta. That path creates the player's first digital record with returning pricing, standard training-group confirmation, charges, and Caja handoff, without inventing historical balances or credit.
+- Strengthened the existing manual intake duplicate warning so an inactive match links directly to the guarded existing-record flow. Form errors remain in manual re-entry mode instead of returning staff to the search screen.
+- No new financial mutation, charge rule, enrollment schema, or database migration was added in this pass. The previously validated `20260818130000_reenrollment_credit_reconciliation.sql` remains the only required re-enrollment migration.
+- Verification: `npm run typecheck`, `npm run test:reenrollment`, `npm run test:enrollment-training-group-selection`, `npm run test:pricing`, and `npm run build` passed.
+
 ## 2026-08-19 (session 324)
 
 ### Individual Tournament Team PNG Export (v1.17.58 Preview)

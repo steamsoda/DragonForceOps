@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active release: `v1.17.58`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active release: `v1.17.59`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.57`
-- Current preview line: `v1.17.58` adds a read-only 300 DPI PNG download to every individual team in `Inscripciones Torneos > Equipos`, without changing registrations, payments, or squad membership.
+- Current production line: `v1.17.58`
+- Current preview line: `v1.17.59` connects Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -221,7 +221,7 @@ Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visi
 |---|---|---|---|
 | 🟢 | Credit-funded Caja and tournament consistency | `v1.17.57` prevents explicit credit from being reused as implicit payment remainder, counts payment plus credit toward tournament registration, clarifies applied credit on receipts, and contains guarded repairs for Reynold and Alejandro. | Caja / Inscripciones Torneos / Finanzas, `v1.17.57` devlog |
 | 🟢 | Product paid-ledger exports | Preview `v1.17.56` exports the complete filtered product ledger to PNG or Excel, preserving Monterrey paid-date boundaries and the same player/campus/group/team/status context shown on screen. | Productos, `v1.17.56` devlog |
-| 🟢 | Baja re-enrollment / reactivation | Preview `v1.17.55` creates a new enrollment through the existing pricing, mandatory training-group, charge, and Caja flow while preserving the old Baja/account history. Historical explicit and legacy credit is applied FIFO to old pending charges first; any remainder stays traceable and no credit condition blocks re-entry. | Jugadores / Bajas / Enrollment / Caja, `v1.17.55` devlog |
+| 🟢 | Baja re-enrollment / reactivation | Preview `v1.17.55` preserves the old Baja/account history and reconciles historical credit FIFO. Preview `v1.17.59` routes Caja re-entry through an existing-player search first, blocks duplicate active enrollments, and keeps a separate full-data path for players whose prior academy history predates Invicta. | Jugadores / Bajas / Enrollment / Caja, `v1.17.55` and `v1.17.59` devlogs |
 | 🟢 | Paid tournament invitation review | Preview `v1.17.54` keeps provisional auto-routed payments pending until staff confirms an existing team, then atomically stores one audited invited placement without changing training group, enrollment, attendance, or finance. | Inscripciones Torneos / Equipos, `v1.17.52`-`v1.17.54` devlog |
 | 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |
 | ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
@@ -247,7 +247,7 @@ Important, but not necessarily the next edit.
 | 🟢 | Guarded paid tournament invitations | Preview `v1.17.52` allows configured-price exceptional sales; `v1.17.54` reconciles provisional auto-routing into one durable reviewed `Invitado` placement and keeps unresolved registrations visible until confirmed. |
 | 🟢 | `Inscripciones Torneos` tournament-squad workflow | Production through `v1.17.18` includes Azul/Blanco, combined sources, audited exceptions, automatic routing, the live `Equipos` view/export, and hidden convocatoria snapshots. Preview `v1.17.19` adds direct split-pending placement and compact exception controls; `v1.17.20` adds scoped coach schedule reporting. |
 | 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
-| 🟢 | Baja re-enrollment / reactivation workflow | Preview `v1.17.55` preserves prior Baja and finance history, reconciles historical explicit/legacy credit FIFO without deleting remainder, requires a confirmed training group, and hands the new account to Caja. |
+| 🟢 | Baja re-enrollment / reactivation workflow | Preview `v1.17.55` preserves prior Baja and finance history, reconciles historical explicit/legacy credit FIFO, requires a confirmed training group, and hands the new account to Caja. Preview `v1.17.59` makes Caja search for the archived record first, blocks active-account duplication, and supports manual re-entry only when no Invicta record exists. |
 | 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🟢 | Coach match posting v1 | Preview `v1.17.20`-`v1.17.27` links one auth account to one coach, allows schedule-only reporting for assigned groups, keeps submissions visibly editable, hands all reported games and their game-specific squad selections to the final convocatoria/PNG, adds direct current-week navigation, and compacts history without overwriting admin edits. Final UI polish remains. |
@@ -342,7 +342,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Single-page new enrollment intake | Intake, duplicate warning, pricing, uniform decision, and Caja handoff are shipped. |
 | 🟡 | Refund workflow | `v1.16.147` adds stronger source-charge guardrails; `v1.16.148`-`v1.16.149` add and polish Caja shortcuts; `v1.16.153` protects inscriptions like tuition. Future scope includes receipt printing for refunds, possible policy windows, and a deliberate account-credit model for mixed payments. |
 | ✅ | Re-enrollment pricing tier fix | Preview `v1.16.159` updates returning-enrollment `Solo inscripcion` to `$700` and adds a regression assertion. |
-| 🟢 | Baja re-enrollment / reactivation | Implemented in Preview `v1.17.55`: preserved history, guarded FIFO credit reconciliation, mandatory group selection, actor audit, and Caja handoff. |
+| 🟢 | Baja re-enrollment / reactivation | Implemented in Preview `v1.17.55` and integrated into Caja in `v1.17.59`: preserved history, guarded FIFO credit reconciliation, mandatory group selection, actor audit, existing-record lookup, active-enrollment collision protection, manual pre-Invicta fallback, and Caja handoff. |
 | 🟢 | Pendientes attendance context | Production `v1.16.168` adds recent last-five attendance chips to pending detail rows. Preview `v1.16.171` adds tiered confirmed-absence / inactive badges beside those chips. |
 | ✅ | Recent attendance at-a-glance | Production `v1.16.168` adds a compact last-5-sessions summary to pending detail rows using the shared batch attendance source. Money fields remain finance-only; attendance-only roles do not get debt amounts through this feature. |
 | ✅ | Corte Diario revamp | Automatic checkpoints, detailed reports, 360Player visibility, historical browsing, and receipt/corte print improvements are shipped. |

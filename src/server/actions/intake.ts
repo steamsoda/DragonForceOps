@@ -16,6 +16,7 @@ import {
   validateEnrollmentTrainingGroupSelection,
 } from "@/lib/training-groups/enrollment-selection";
 import { createPerfTimer } from "@/lib/perf/timing";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -45,12 +46,51 @@ export type IntakeMatch = {
   lastEnrollmentDate: string | null;
 };
 
+export type ReturningPlayerSearchResult = {
+  playerId: string;
+  publicPlayerId: string | null;
+  fullName: string;
+  birthDate: string;
+  hasActiveEnrollment: boolean;
+  campusLabel: string;
+  lastEnrollmentDate: string;
+  lastEnrollmentStatus: string;
+};
+
+type ReturningPlayerRow = {
+  id: string;
+  public_player_id: string | null;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+};
+
+type ReturningGuardianRow = {
+  id: string;
+};
+
+type ReturningPlayerGuardianRow = {
+  player_id: string;
+};
+
+type ReturningEnrollmentRow = {
+  player_id: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  campus_id: string;
+  campuses: { name: string | null } | null;
+};
+
 function redirectWithError(
   code: string,
   options?: { isReturning?: boolean; returnMode?: string | null; trialProspectId?: string | null }
 ): never {
   const params = new URLSearchParams({ err: code });
-  if (options?.isReturning) params.set("returning", "1");
+  if (options?.isReturning) {
+    params.set("returning", "1");
+    params.set("manual", "1");
+  }
   if (options?.isReturning && options.returnMode) params.set("returnMode", options.returnMode);
   if (options?.trialProspectId) params.set("trialProspectId", options.trialProspectId);
   redirect(`/players/new?${params.toString()}`);
@@ -172,6 +212,134 @@ export async function searchLikelyPlayersForIntakeAction(input: {
       };
     })
     .filter((match): match is IntakeMatch => match !== null);
+}
+
+export async function searchReturningPlayersForIntakeAction(
+  rawQuery: string
+): Promise<ReturningPlayerSearchResult[]> {
+  const query = rawQuery
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (query.length < 2) return [];
+
+  const context = await getPermissionContext();
+  if (!context?.hasOperationalAccess || !context.campusAccess || context.campusAccess.campusIds.length === 0) {
+    return [];
+  }
+
+  const admin = createAdminClient();
+  const terms = Array.from(new Set([query, ...query.split(" ").filter((term) => term.length >= 2)]))
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 3);
+  const phoneDigits = query.replace(/\D/g, "");
+
+  const [playerSearches, guardianSearches] = await Promise.all([
+    Promise.all(
+      terms.map((term) =>
+        admin
+          .from("players")
+          .select("id, public_player_id, first_name, last_name, birth_date")
+          .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,public_player_id.ilike.%${term}%`)
+          .limit(20)
+          .returns<ReturningPlayerRow[]>()
+      )
+    ),
+    Promise.all(
+      terms.map((term) => {
+        const filters = [
+          `first_name.ilike.%${term}%`,
+          `last_name.ilike.%${term}%`,
+        ];
+        if (phoneDigits.length >= 4) {
+          filters.push(`phone_primary.ilike.%${phoneDigits}%`, `phone_secondary.ilike.%${phoneDigits}%`);
+        }
+        return admin
+          .from("guardians")
+          .select("id")
+          .or(filters.join(","))
+          .limit(20)
+          .returns<ReturningGuardianRow[]>();
+      })
+    ),
+  ]);
+  if (playerSearches.some((result) => result.error) || guardianSearches.some((result) => result.error)) {
+    throw new Error("returning_player_search_failed");
+  }
+
+  const playerMap = new Map<string, ReturningPlayerRow>();
+  for (const result of playerSearches) {
+    for (const player of result.data ?? []) playerMap.set(player.id, player);
+  }
+
+  const guardianIds = Array.from(
+    new Set(guardianSearches.flatMap((result) => (result.data ?? []).map((guardian) => guardian.id)))
+  );
+  if (guardianIds.length > 0) {
+    const { data: links, error: linksError } = await admin
+      .from("player_guardians")
+      .select("player_id")
+      .in("guardian_id", guardianIds)
+      .returns<ReturningPlayerGuardianRow[]>();
+    if (linksError) throw new Error("returning_player_guardian_links_failed");
+    const linkedPlayerIds = Array.from(new Set((links ?? []).map((link) => link.player_id)));
+    if (linkedPlayerIds.length > 0) {
+      const { data: linkedPlayers, error: linkedPlayersError } = await admin
+        .from("players")
+        .select("id, public_player_id, first_name, last_name, birth_date")
+        .in("id", linkedPlayerIds)
+        .returns<ReturningPlayerRow[]>();
+      if (linkedPlayersError) throw new Error("returning_linked_players_failed");
+      for (const player of linkedPlayers ?? []) playerMap.set(player.id, player);
+    }
+  }
+
+  const playerIds = Array.from(playerMap.keys());
+  if (playerIds.length === 0) return [];
+
+  const { data: enrollments, error: enrollmentsError } = await admin
+    .from("enrollments")
+    .select("player_id, status, start_date, end_date, campus_id, campuses(name)")
+    .in("player_id", playerIds)
+    .order("start_date", { ascending: false })
+    .returns<ReturningEnrollmentRow[]>();
+  if (enrollmentsError) throw new Error("returning_player_enrollments_failed");
+
+  const enrollmentMap = new Map<string, ReturningEnrollmentRow[]>();
+  for (const enrollment of enrollments ?? []) {
+    const current = enrollmentMap.get(enrollment.player_id) ?? [];
+    current.push(enrollment);
+    enrollmentMap.set(enrollment.player_id, current);
+  }
+
+  const allowedCampusIds = new Set(context.campusAccess.campusIds);
+  return Array.from(playerMap.values())
+    .map((player): ReturningPlayerSearchResult | null => {
+      const playerEnrollments = enrollmentMap.get(player.id) ?? [];
+      const activeEnrollment = playerEnrollments.find((enrollment) => enrollment.status === "active") ?? null;
+      if (activeEnrollment && !allowedCampusIds.has(activeEnrollment.campus_id)) return null;
+
+      const visibleEnrollments = playerEnrollments.filter((enrollment) => allowedCampusIds.has(enrollment.campus_id));
+      const latestEnrollment = visibleEnrollments[0] ?? null;
+      if (!latestEnrollment) return null;
+
+      return {
+        playerId: player.id,
+        publicPlayerId: player.public_player_id,
+        fullName: `${player.first_name} ${player.last_name}`.trim(),
+        birthDate: player.birth_date,
+        hasActiveEnrollment: Boolean(activeEnrollment),
+        campusLabel: latestEnrollment.campuses?.name ?? "-",
+        lastEnrollmentDate: latestEnrollment.end_date ?? latestEnrollment.start_date,
+        lastEnrollmentStatus: latestEnrollment.status,
+      };
+    })
+    .filter((player): player is ReturningPlayerSearchResult => player !== null)
+    .sort((a, b) => {
+      if (a.hasActiveEnrollment !== b.hasActiveEnrollment) return a.hasActiveEnrollment ? 1 : -1;
+      return a.fullName.localeCompare(b.fullName, "es", { sensitivity: "base" });
+    })
+    .slice(0, 12);
 }
 
 export async function createEnrollmentIntakeAction(formData: FormData) {
