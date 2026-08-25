@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-11 (`v1.17.37`). Active release: `v1.17.59`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Active release: `v1.17.59`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.59`
-- Current preview line: `v1.17.59` matches production after connecting Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
+- Current production line: `v1.17.59` connects Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
+- Current preview line: `v1.17.59`; production acceptance is complete and new implementation can resume from `preview`.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -211,24 +211,23 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 - ✅ This polish lane is closed. Future convocatoria feedback should enter as a new scoped item instead of keeping the completed pass permanently active.
 - ➡️ Next integrity work returns to the legacy assignment-review matcher, followed by an individual production review of unassigned players and YOB-range mismatches without rewriting attendance history.
 
+## Checkpoint: 2026-08-25 - v1.17.59 Production Acceptance
+
+- ✅ Production smoke testing accepted the guarded `Caja > Nueva inscripción > Reingreso` workflow: existing-record search, active-enrollment collision blocking, manual pre-Invicta fallback, credit reconciliation, required training-group selection, charges, and Caja handoff are operating together.
+- ✅ Production `main` is at `73d52af`; typecheck, focused enrollment/pricing tests, production build, dependency/secret checks, and the production migration workflow passed. Supabase reported the remote database up to date.
+- ✅ Completed finance, product-export, tournament-invitation, lifecycle, attendance-repair, re-enrollment, and weekly-convocatoria rows were removed from `Now`; their history remains in the devlog, `Next`, and product-area lanes.
+- ✅ This checkpoint changes documentation only. It does not alter application code, database schema, permissions, or production data.
+- ➡️ The next integrity lane remains the historical assignment-review matcher, followed by read-only production review and individual repair of confirmed assignment issues.
+
 ## Now
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
-Active tournament-team polish: `v1.17.42` adds CO/LV identity and professor visibility; `v1.17.43` adds eligible-group visibility; `v1.17.44` completes guarded same-context player moves between existing teams.
-
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Credit-funded Caja and tournament consistency | `v1.17.57` prevents explicit credit from being reused as implicit payment remainder, counts payment plus credit toward tournament registration, clarifies applied credit on receipts, and contains guarded repairs for Reynold and Alejandro. | Caja / Inscripciones Torneos / Finanzas, `v1.17.57` devlog |
-| 🟢 | Product paid-ledger exports | Preview `v1.17.56` exports the complete filtered product ledger to PNG or Excel, preserving Monterrey paid-date boundaries and the same player/campus/group/team/status context shown on screen. | Productos, `v1.17.56` devlog |
-| 🟢 | Baja re-enrollment / reactivation | Preview `v1.17.55` preserves the old Baja/account history and reconciles historical credit FIFO. Preview `v1.17.59` routes Caja re-entry through an existing-player search first, blocks duplicate active enrollments, and keeps a separate full-data path for players whose prior academy history predates Invicta. | Jugadores / Bajas / Enrollment / Caja, `v1.17.55` and `v1.17.59` devlogs |
-| 🟢 | Paid tournament invitation review | Preview `v1.17.54` keeps provisional auto-routed payments pending until staff confirms an existing team, then atomically stores one audited invited placement without changing training group, enrollment, attendance, or finance. | Inscripciones Torneos / Equipos, `v1.17.52`-`v1.17.54` devlog |
-| 🟢 | Tournament lifecycle and coach schedule reliability | Preview `v1.17.38` hardens schedule saves; `v1.17.39` adds controlled Super Admin finalization, archives operational squads, and removes ended tournaments from current professor/convocatoria work without deleting historical truth. | Inscripciones Torneos / Convocatorias / Mis horarios, `v1.17.38`-`v1.17.39` devlog |
-| ✅ | `Jugadores` attendance batch-cap repair | Production `v1.17.2` prevents truncated histories, requests only five rows on screen, and preserves 15 for Excel. Risk tags remain independent. | Jugadores, `docs/planning/training-groups-model-analysis.md`, `v1.17.1`-`v1.17.2` devlog |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
-| ✅ | Weekly WhatsApp convocatorias / `Rol de juegos` | Accepted in Preview through `v1.17.37`, including current-week control, team-level reporting, exclusions, director fallback, guarded preparation, adaptive PNG layout, parent-safe labels, and load-sized validation. Remove from `Now` at the next checkpoint after production promotion. | `docs/planning/weekly-callups-plan.md`, Competencias, `v1.17.20`-`v1.17.37` devlog |
 | 🔴 | Attendance special-day and cancellation workflow | Resume after the attendance display and enrollment/group integrity passes. | Checkpoint 2026-07-11, Asistencia lane |
 
 **How `Now` Works**
