@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-25 (session 327)
+
+### Weekly Attendance Frequency Report Planning
+
+- Parked a new read-only report named `Frecuencia semanal de asistencia` for implementation after the current urgent operational work.
+- The report will measure distinct physical `A Asistió` sessions per player and complete Monday-Sunday Monterrey week, grouped into `0`, `1`, `2`, `3`, and `4+` session buckets. Lesión, justificada, cancelled sessions, unregistered sessions, and trial players will not count as physical academy attendance.
+- Frequency will always be paired with opportunity: sessions offered, average sessions attended per player-week, and attendance percentage. The recommended default is the latest eight complete weeks so a partial current week cannot distort the trend.
+- Planned first-pass presentation: KPI cards, a weekly 100% stacked distribution chart, and a compact campus/coach/group table. Player drilldown, printing/export, and broader period controls remain a later pass.
+- No application code, attendance data, database schema, or permissions changed in this planning note.
+
 ## 2026-08-25 (session 326)
 
 ### v1.17.59 Production Acceptance Checkpoint
