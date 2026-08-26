@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Active release: `v1.17.59`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Active release: `v1.17.60`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.59` connects Caja's Reingreso entry to an existing-record search and guarded Baja re-enrollment, while preserving manual historical capture when no Invicta record exists.
-- Current preview line: `v1.17.59`; production acceptance is complete and new implementation can resume from `preview`.
+- Current production line: `v1.17.60` extends J5 Caja pricing availability through September 3 without repricing or mutating existing finance records.
+- Current preview line: `v1.17.60`; the next pass will harden the Productos editor so tournament and Caja availability dates stay aligned.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -423,6 +423,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Dashboard KPI verification | Canonical finance sources and `/admin/finance-sanity` reconciliation are established; continue sanity checks after finance-sensitive edits. |
 | 🟡 | Panel KPI drilldowns + trends | Add pending-tuition breakdowns and richer trend charts deliberately; the canonical-source prerequisite is complete. |
 | ✅ | Monthly attendance participation chart | Production `v1.16.199` counts unique active players with at least one `A Asistió` versus no confirmed attendance for the selected campus/month, with paginated reads and no finance-RPC changes. |
+| 🧊 | Weekly attendance frequency report | Planned read-only `Frecuencia semanal de asistencia` report using complete Monday-Sunday Monterrey weeks. Count physical `A Asistió` sessions per player-week in `0`, `1`, `2`, `3`, and `4+` buckets; always pair frequency with sessions offered, exclude cancelled/unregistered sessions and trial players, and default to the latest eight complete weeks. First pass: campus/coach/group KPIs, weekly 100% stacked trend, and compact comparison table. Later pass: player drilldown, print/export, and wider period controls. |
 | 🔴 | Folio → payment lookup in Actividad | Surface payment ID in audit/activity so staff can trace transactions by folio. |
 | 🔴 | Caja pending charge detail | Expandable rows showing period month and charge type before payment. |
 | ✅ | Collections + attendance relation report | Production `v1.16.179` adds the operational relation report using pending-month counts plus attendance risk/recent chips and no peso amounts. |

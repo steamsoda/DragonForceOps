@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-08-26 (session 328)
+
+### J5 Caja Availability Extension (v1.17.60)
+
+- Audited production after the J5 tournament dates were extended in Productos but the product remained unavailable in Caja.
+- Confirmed tournament scheduling metadata had moved through September 3 while all J5 product pricing rules still expired on August 20; Caja correctly hid the product because pricing-rule availability is enforced independently from tournament display dates.
+- Added a narrow migration extending only `J5 San Pedro Agosto 2026` pricing-rule availability through September 3. Prices, campus/program/YOB eligibility, existing charges, payments, tournament registrations, and team assignments remain unchanged.
+- Live audit confirmed Damián Torres Hernández (Linda Vista, YOB 2015) is active in `Selectivo 2015` and resolves to the existing $1,000 MXN J5 rule once the window is active.
+- Follow-up: harden the Productos tournament editor so registration-date extensions cannot silently diverge from Caja pricing availability.
+
+## 2026-08-25 (session 327)
+
+### Weekly Attendance Frequency Report Planning
+
+- Parked a new read-only report named `Frecuencia semanal de asistencia` for implementation after the current urgent operational work.
+- The report will measure distinct physical `A Asistió` sessions per player and complete Monday-Sunday Monterrey week, grouped into `0`, `1`, `2`, `3`, and `4+` session buckets. Lesión, justificada, cancelled sessions, unregistered sessions, and trial players will not count as physical academy attendance.
+- Frequency will always be paired with opportunity: sessions offered, average sessions attended per player-week, and attendance percentage. The recommended default is the latest eight complete weeks so a partial current week cannot distort the trend.
+- Planned first-pass presentation: KPI cards, a weekly 100% stacked distribution chart, and a compact campus/coach/group table. Player drilldown, printing/export, and broader period controls remain a later pass.
+- No application code, attendance data, database schema, or permissions changed in this planning note.
+
 ## 2026-08-25 (session 326)
 
 ### v1.17.59 Production Acceptance Checkpoint
@@ -52,6 +72,19 @@
 - Both formats preserve player, campus, YOB, current training group, assigned tournament team, payment status, amount, charge-issued time, and fully-paid time. Date filters and displayed timestamps use Monterrey boundaries/time.
 - Excel remains the unrestricted full-data format. PNG is generated client-side without a new image dependency and asks staff to narrow the paid-date range above 500 rows rather than silently clipping or omitting records.
 - No product, charge, payment, allocation, tournament registration, team membership, enrollment, or finance mutation was added; no database migration was required.
+
+## 2026-08-18 (session 321)
+
+### Guarded Baja Re-enrollment And Historical Credit Reconciliation (v1.17.55 Preview)
+
+- Added `Reinscribir` entry points to the Baja roster and archived player profile for operational roles. Existing Office Admin and other restricted-role visibility does not gain enrollment or finance write access.
+- Re-entry keeps the existing enrollment pipeline: returning-price selection, active campus, mandatory compatible training group, inscription/monthly charges, assignment audit, and redirect to the new Caja account.
+- Added a service-role-only, idempotent reconciliation function for ended/cancelled historical enrollments. It allocates legacy posted-payment remainder and explicit account credit FIFO to the oldest live historical charges while excluding refunded payments, explicit-credit source amounts, and charge-level cash refunds.
+- Reconciliation never creates or changes payments, receipts, cash-session entries, charges, Baja status, or historical enrollment identity. No-credit accounts continue normally; unconsumed credit remains visible and traceable.
+- The re-entry form now summarizes historical balance and explicit/legacy credit, explains the preserved-history behavior, and requires confirmation of the old account plus the new training group before submission.
+- Added focused `test:reenrollment` assertions and reran enrollment group-selection and returning-pricing regressions.
+- Hardened the server action so any player with ended/cancelled enrollment history must use the explicit re-entry path; a manually constructed normal-enrollment URL cannot bypass credit reconciliation.
+- Verification: `npm run typecheck`, `npm run build`, `npm run test:reenrollment`, `npm run test:enrollment-training-group-selection`, `npm run test:pricing`, and `git diff --check` passed. Migration `20260818130000` is recorded on Preview project `eqefgwdsqabnmpnbpqbq`; anonymous RPC execution returns `permission denied`, while service-role execution reaches the function guard as expected.
 
 ## 2026-08-18 (session 320)
 
