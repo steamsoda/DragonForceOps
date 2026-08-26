@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-26 (session 328)
+
+### J5 Caja Availability Extension (v1.17.60)
+
+- Audited production after the J5 tournament dates were extended in Productos but the product remained unavailable in Caja.
+- Confirmed tournament scheduling metadata had moved through September 3 while all J5 product pricing rules still expired on August 20; Caja correctly hid the product because pricing-rule availability is enforced independently from tournament display dates.
+- Added a narrow migration extending only `J5 San Pedro Agosto 2026` pricing-rule availability through September 3. Prices, campus/program/YOB eligibility, existing charges, payments, tournament registrations, and team assignments remain unchanged.
+- Live audit confirmed Damián Torres Hernández (Linda Vista, YOB 2015) is active in `Selectivo 2015` and resolves to the existing $1,000 MXN J5 rule once the window is active.
+- Follow-up: harden the Productos tournament editor so registration-date extensions cannot silently diverge from Caja pricing availability.
+
 ## 2026-08-25 (session 327)
 
 ### Weekly Attendance Frequency Report Planning
