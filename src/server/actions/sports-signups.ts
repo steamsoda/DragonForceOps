@@ -51,6 +51,7 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
   const startDate = normalizeDateInput(formData.get("startDate"));
   const endDate = normalizeDateInput(formData.get("endDate"));
   const signupDeadline = normalizeDateInput(formData.get("signupDeadline"));
+  const cajaAvailableUntil = normalizeDateInput(formData.get("cajaAvailableUntil"));
 
   const targetCampusIds = campusId === ALL_CAMPUSES_VALUE ? campusIds : [campusId];
 
@@ -62,56 +63,89 @@ export async function saveSportsSignupTournamentSettingsAction(formData: FormDat
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=invalid_tournament_dates`);
   }
 
+  if (signupDeadline && cajaAvailableUntil && cajaAvailableUntil < signupDeadline) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=caja_before_signup_deadline`);
+  }
+
   const product = await validateCompetitionProduct(admin, productId);
   if (!product) {
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=invalid_tournament_product`);
   }
 
-  const savedTournamentIds: string[] = [];
-  for (const targetCampusId of targetCampusIds) {
-    const existing = await admin
+  const [{ data: beforeTournaments }, { data: beforePricingRules }] = await Promise.all([
+    admin
       .from("tournaments")
-      .select("id")
-      .eq("campus_id", targetCampusId)
+      .select("id, campus_id, start_date, end_date, signup_deadline")
       .eq("product_id", productId)
       .eq("is_active", true)
-      .maybeSingle<{ id: string } | null>();
+      .in("campus_id", targetCampusIds),
+    admin
+      .from("product_pricing_rules")
+      .select("id, campus_id, starts_on, ends_on, amount, priority")
+      .eq("product_id", productId),
+  ]);
 
-    const payload = {
-      name: name || product.name,
-      campus_id: targetCampusId,
-      product_id: productId,
-      gender: "mixed",
+  const { data: saveResult, error: saveError } = await admin.rpc("save_sports_signup_tournament_settings", {
+    p_actor_user_id: context.user.id,
+    p_product_id: productId,
+    p_campus_ids: targetCampusIds,
+    p_all_campuses: campusId === ALL_CAMPUSES_VALUE,
+    p_name: name || product.name,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_signup_deadline: signupDeadline,
+    p_caja_available_until: cajaAvailableUntil,
+  });
+
+  if (saveError) {
+    const message = saveError.message.toLowerCase();
+    const errorCode = message.includes("caja_availability_required")
+      ? "caja_availability_required"
+      : message.includes("caja_before_signup_deadline")
+        ? "caja_before_signup_deadline"
+        : message.includes("caja_before_final_pricing_tier")
+          ? "caja_before_final_pricing_tier"
+          : message.includes("global_pricing_requires_all_campuses")
+            ? "global_pricing_requires_all_campuses"
+            : message.includes("pricing_rules_missing_for_campus")
+              ? "pricing_rules_missing_for_campus"
+              : "tournament_settings_failed";
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=${errorCode}`);
+  }
+
+  const normalizedSaveResult = saveResult && typeof saveResult === "object"
+    ? saveResult as {
+        tournament_ids?: unknown;
+        pricing_rule_count?: unknown;
+        pricing_rules_updated?: unknown;
+        caja_available_until?: unknown;
+      }
+    : {};
+  const savedTournamentIds = Array.isArray(normalizedSaveResult.tournament_ids)
+    ? normalizedSaveResult.tournament_ids.filter((value): value is string => typeof value === "string")
+    : [];
+
+  await writeAuditLog(admin, {
+    actorUserId: context.user.id,
+    actorEmail: context.user.email ?? null,
+    action: "sports_signups.tournament_and_caja_settings_updated",
+    tableName: "products",
+    recordId: productId,
+    beforeData: {
+      tournaments: beforeTournaments ?? [],
+      pricing_rules: beforePricingRules ?? [],
+    },
+    afterData: {
+      campus_ids: targetCampusIds,
       start_date: startDate,
       end_date: endDate,
       signup_deadline: signupDeadline,
-      is_active: true,
-      is_mandatory: false,
-      updated_at: new Date().toISOString(),
-    };
-
-    const result = existing.data?.id
-      ? await admin.from("tournaments").update(payload).eq("id", existing.data.id).select("id").single<{ id: string }>()
-      : await admin
-          .from("tournaments")
-          .insert({ ...payload, created_by: context.user.id })
-          .select("id")
-          .single<{ id: string }>();
-
-    if (result.error || !result.data) {
-      redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=tournament_settings_failed`);
-    }
-    savedTournamentIds.push(result.data.id);
-
-    await writeAuditLog(admin, {
-      actorUserId: context.user.id,
-      actorEmail: context.user.email ?? null,
-      action: existing.data?.id ? "sports_signups.tournament_settings_updated" : "sports_signups.tournament_settings_created",
-      tableName: "tournaments",
-      recordId: result.data.id,
-      afterData: payload,
-    });
-  }
+      caja_available_until: cajaAvailableUntil,
+      pricing_rule_count: normalizedSaveResult.pricing_rule_count ?? null,
+      pricing_rules_updated: normalizedSaveResult.pricing_rules_updated ?? null,
+      tournament_ids: savedTournamentIds,
+    },
+  });
 
   try {
     for (const tournamentId of savedTournamentIds) {
