@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-08-27 (session 330)
+
+### Weekly Attendance Frequency Report (v1.17.62 Preview)
+
+- Added the read-only `Reportes > Frecuencia semanal` surface for the latest eight complete Monday-Sunday weeks in Monterrey time; the current partial week is deliberately excluded.
+- Added campus, professor, and training-group filters; KPI cards; a weekly 100% stacked `0`, `1`, `2`, `3`, and `4+` player-week chart; and compact weekly/group comparison tables.
+- Moved the aggregation into one stable, security-invoker database RPC. It counts only physical `A Asistió` records from completed training sessions, excludes trial players and cancelled/unregistered sessions, and returns all report rows without browser-side attendance-history fan-out.
+- Empty weeks remain visible as zero rows so the eight-week timeline does not silently compress during holidays or closures.
+- This pass is read-only and does not modify attendance, training groups, finance data, permissions, or player records. Player drilldown, printing/export, and wider date controls remain later work.
+- Preview project `eqefgwdsqabnmpnbpqbq` records migration `20260827100000`. Live RPC checks returned coherent historical rows and buckets, anonymous execution was denied, and current-window empty preview data returned cleanly.
+- Verification passed: focused frequency assertions, coach-report/workload/group-pagination/attendance-risk regressions, typecheck, production build, migration dry run/application/listing, and protected-route redirect smoke testing. Authenticated visual review remains the operator acceptance step on Preview.
+
 ## 2026-08-26 (session 329)
 
 ### Productos Tournament And Caja Date Hardening (v1.17.61)
