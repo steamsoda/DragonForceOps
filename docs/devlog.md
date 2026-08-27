@@ -2,7 +2,7 @@
 
 ## 2026-08-26 (session 329)
 
-### Productos Tournament And Caja Date Hardening (v1.17.61 Preview)
+### Productos Tournament And Caja Date Hardening (v1.17.61)
 
 - Replaced the tournament-only settings write with one guarded, service-role-only RPC that saves active tournament dates and the terminal Caja pricing windows in the same database transaction.
 - Added a Super Admin `Disponible en Caja hasta` field with campus-aware defaults, registration-deadline synchronization, and clear validation when the Caja cutoff precedes registration or the final pricing tier.
@@ -10,7 +10,7 @@
 - Added guards for incomplete campus pricing, global pricing rules edited from a partial-campus selection, and mixed terminal dates. Existing campus settings remain visible for comparison before saving.
 - Added before/after audit evidence for tournament settings and pricing windows, plus focused assertions for terminal-tier selection, campus summaries, permissions, and mutation boundaries.
 - Verification passed: typecheck, production build, pricing-rule tests, tournament finalization, sports-signup eligibility/group-view regressions, Caja tournament-sync performance, and migration dry run. Preview project `eqefgwdsqabnmpnbpqbq` recorded migration `20260826110000`; anonymous RPC access is denied and a service-role request with a non-Super-Admin actor stops at `superadmin_required`.
-- Production remains on `v1.17.60`; this pass is preview-only until the Productos editor is validated with an active tournament that has multiple pricing tiers.
+- Promoted to production after preview validation. Production project `hjvytfaalnfcqfgbxsmj` records migration `20260826110000`; `main` and `preview` are aligned on the released implementation and documentation.
 
 ## 2026-08-26 (session 328)
 
