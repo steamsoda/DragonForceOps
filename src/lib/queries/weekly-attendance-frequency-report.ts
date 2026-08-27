@@ -1,5 +1,5 @@
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyWeekBounds } from "@/lib/time";
 
 const WEEK_COUNT = 8;
@@ -123,7 +123,8 @@ export async function getWeeklyAttendanceFrequencyReport(filters: { campusId?: s
   const requestedCampusId = filters.campusId?.trim() || "";
   const selectedCampusId = requestedCampusId && canAccessAttendanceCampus(access, requestedCampusId) ? requestedCampusId : "";
   const campusIds = selectedCampusId ? [selectedCampusId] : campuses.map((campus) => campus.id);
-  const supabase = await createClient();
+  // Campus access is resolved above before bypassing per-row attendance RLS.
+  const supabase = createAdminClient();
 
   const results = await Promise.all(
     campusIds.map((campusId) =>

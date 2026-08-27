@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-27 (session 332)
+
+### Weekly Attendance Frequency Production Timeout Hotfix (v1.17.63)
+
+- Traced production error digest `1486658037` to PostgreSQL cancelling `get_weekly_attendance_frequency_v1` at the statement timeout while the report ran through authenticated attendance RLS.
+- Benchmarked the unchanged production RPC directly: Contry completed in about 20 ms and Linda Vista in about 26 ms, confirming the aggregation itself and its indexes were healthy.
+- Kept the existing application-side attendance permission and campus-scope checks, then moved only the report RPC call to the established server-side admin client pattern used by adjacent attendance reports. This removes repeated per-row RLS evaluation without widening the page, role, or campus boundary.
+- Added a regression assertion requiring the guarded admin-client path. No migration, attendance calculation, attendance record, player, group, finance, or permission change is included.
+
 ## 2026-08-27 (session 331)
 
 ### Weekly Attendance Frequency Production Promotion (v1.17.62)
