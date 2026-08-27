@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.62`. Preview: `v1.17.63`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.63`. Preview: `v1.17.63`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current release line: production `v1.17.62` adds the read-only weekly attendance-frequency report; preview `v1.17.63` removes its production RLS timeout while preserving application-side role and campus authorization.
+- Current production and preview line: `v1.17.63` keeps the read-only weekly attendance-frequency report while removing its production RLS timeout and preserving application-side role and campus authorization.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
