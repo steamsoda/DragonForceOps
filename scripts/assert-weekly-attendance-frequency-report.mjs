@@ -32,15 +32,22 @@ assert.match(query, /getMonterreyWeekBounds/);
 assert.match(query, /Array\.from\(\{ length: WEEK_COUNT \}/);
 assert.match(query, /averageSessionsAttended/);
 assert.match(query, /attendanceRate/);
+assert.match(query, /averageBuckets/);
+assert.match(query, /bucketRates/);
+assert.match(query, /evaluatedWeeks/);
+assert.match(query, /asNumber\(row\.bucket_3\) \+ asNumber\(row\.bucket_4_plus\)/);
 
 assert.match(page, /requireAttendanceReadContext/);
 assert.match(page, /WeeklyAttendanceFrequencyChart/);
 assert.match(page, /Frecuencia semanal de asistencia/);
-assert.match(page, /0<\/th>/);
-assert.match(page, /4\+<\/th>/);
+assert.match(page, /Asistieron 1 vez/);
+assert.match(page, /Asistieron 3 veces/);
+assert.match(page, /Promedio semanal/);
+assert.doesNotMatch(page, /4\+<\/th>/);
 assert.match(page, /sesiones canceladas, sesiones sin registrar y clases de prueba no alteran este reporte/);
 assert.match(chart, /stackId="frequency"/);
 assert.match(chart, /domain=\{\[0, 100\]\}/);
+assert.doesNotMatch(chart, /4\+ sesiones/);
 assert.match(layout, /\/reports\/frecuencia-semanal/);
 
 console.log("Weekly attendance frequency report assertions passed.");

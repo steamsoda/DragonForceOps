@@ -7,8 +7,7 @@ const SERIES = [
   { key: "zero", label: "0 sesiones", color: "#e11d48" },
   { key: "one", label: "1 sesion", color: "#f59e0b" },
   { key: "two", label: "2 sesiones", color: "#2563eb" },
-  { key: "three", label: "3 sesiones", color: "#059669" },
-  { key: "fourPlus", label: "4+ sesiones", color: "#0f766e" },
+  { key: "three", label: "3 veces", color: "#059669" },
 ] as const;
 
 function shortDate(value: string) {
@@ -27,8 +26,8 @@ export function WeeklyAttendanceFrequencyChart({ weeks }: { weeks: WeeklyAttenda
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-base font-semibold">Distribucion semanal</h2>
-      <p className="text-xs text-slate-500">Porcentaje de jugadores evaluados segun cuantas sesiones asistieron fisicamente.</p>
+      <h2 className="text-base font-semibold">Frecuencia por semana</h2>
+      <p className="text-xs text-slate-500">Porcentaje del plantel semanal que no asistio o asistio una, dos o tres veces.</p>
       {data.length > 0 ? (
         <div className="mt-4 h-[360px] w-full">
           <ResponsiveContainer width="100%" height="100%">

@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-08-27 (session 333)
+
+### Weekly Attendance Frequency Clarity (v1.17.64 Preview)
+
+- Reframed the frequency report around the operational question: how many players, on average, attend zero, one, two, or three times in a normal evaluated week.
+- Replaced accumulated headline totals with four weekly-average cards that also show each bucket's share of evaluated player-weeks.
+- Changed the group comparison from cumulative eight-week bucket counts to average players per evaluated week, while retaining the attendance rate and sessions-per-player context.
+- Folded exceptional fourth-or-later weekly attendance into the visible `3 veces` category. The underlying RPC output remains unchanged, so historical information is not deleted and no attendance records are mutated.
+- No database migration, attendance write, player/group change, permission change, or finance change is included.
+
 ## 2026-08-27 (session 332)
 
 ### Weekly Attendance Frequency Production Timeout Hotfix (v1.17.63)
