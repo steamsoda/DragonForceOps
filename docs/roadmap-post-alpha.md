@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.61`. Preview: `v1.17.62`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.62`. Preview: `v1.17.62`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.61` hardens the Productos tournament editor so schedule/registration metadata and final Caja pricing windows save atomically without repricing existing charges or changing eligibility.
-- Current preview line: `v1.17.62` adds the read-only weekly attendance-frequency report for the latest eight complete Monterrey weeks, with campus/professor/group filters and `0`, `1`, `2`, `3`, and `4+` attendance buckets.
+- Current production and preview line: `v1.17.62` adds the read-only weekly attendance-frequency report for the latest eight complete Monterrey weeks, with campus/professor/group filters and `0`, `1`, `2`, `3`, and `4+` attendance buckets.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -225,7 +224,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟢 | Weekly attendance frequency report | Preview `v1.17.62` makes once/twice/three-times-per-week attendance behavior visible without recalculating player histories in the browser. Validate the eight-week distribution and group comparisons against live attendance data. | Reportes > Frecuencia semanal, session 330 |
+| ✅ | Weekly attendance frequency report | Production `v1.17.62` makes once/twice/three-times-per-week attendance behavior visible without recalculating player histories in the browser. | Reportes > Frecuencia semanal, sessions 330-331 |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
@@ -424,7 +423,7 @@ Use this lane for fresh operator/admin feedback before it becomes roadmap work. 
 | ✅ | Dashboard KPI verification | Canonical finance sources and `/admin/finance-sanity` reconciliation are established; continue sanity checks after finance-sensitive edits. |
 | 🟡 | Panel KPI drilldowns + trends | Add pending-tuition breakdowns and richer trend charts deliberately; the canonical-source prerequisite is complete. |
 | ✅ | Monthly attendance participation chart | Production `v1.16.199` counts unique active players with at least one `A Asistió` versus no confirmed attendance for the selected campus/month, with paginated reads and no finance-RPC changes. |
-| 🟢 | Weekly attendance frequency report | Preview `v1.17.62` implements the read-only first pass using complete Monday-Sunday Monterrey weeks. It counts physical `A Asistió` sessions per player-week in `0`, `1`, `2`, `3`, and `4+` buckets, pairs frequency with sessions offered and weighted attendance rates, excludes cancelled/unregistered sessions and trial players, and defaults to the latest eight complete weeks. Player drilldown, print/export, and wider period controls remain later passes. |
+| ✅ | Weekly attendance frequency report | Production `v1.17.62` implements the read-only first pass using complete Monday-Sunday Monterrey weeks. It counts physical `A Asistió` sessions per player-week in `0`, `1`, `2`, `3`, and `4+` buckets, pairs frequency with sessions offered and weighted attendance rates, excludes cancelled/unregistered sessions and trial players, and defaults to the latest eight complete weeks. Player drilldown, print/export, and wider period controls remain later passes. |
 | 🔴 | Folio → payment lookup in Actividad | Surface payment ID in audit/activity so staff can trace transactions by folio. |
 | 🔴 | Caja pending charge detail | Expandable rows showing period month and charge type before payment. |
 | ✅ | Collections + attendance relation report | Production `v1.16.179` adds the operational relation report using pending-month counts plus attendance risk/recent chips and no peso amounts. |

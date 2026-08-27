@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-08-27 (session 331)
+
+### Weekly Attendance Frequency Production Promotion (v1.17.62)
+
+- Promoted the accepted read-only `Frecuencia semanal de asistencia` report from Preview to production without changing its data contract or operational scope.
+- Production project `hjvytfaalnfcqfgbxsmj` records migration `20260827100000`; the production dry run showed only that migration pending and the post-apply migration list matched local history.
+- The release remains read-only: no attendance records, groups, players, permissions, finance data, or trial-class data are mutated.
+- Focused frequency assertions, TypeScript validation, neighboring attendance regressions, and the production build had already passed on the exact promoted feature commit.
+
 ## 2026-08-27 (session 330)
 
 ### Weekly Attendance Frequency Report (v1.17.62 Preview)
