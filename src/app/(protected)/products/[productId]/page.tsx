@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductLedgerExportButtons } from "@/components/products/product-ledger-export-buttons";
+import {
+  TournamentSettingsForm,
+  type TournamentCampusSetting,
+} from "@/components/products/tournament-settings-form";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireDirectorContext } from "@/lib/auth/permissions";
+import {
+  summarizeTournamentPricingWindow,
+  type TournamentPricingWindowRule,
+} from "@/lib/products/tournament-pricing-windows";
 import {
   getProductDetail,
   getProductKpis,
@@ -14,7 +22,6 @@ import {
   type ProductTrainingGroupOption,
 } from "@/lib/queries/products";
 import { deleteProductAction, updateProductAction } from "@/server/actions/products";
-import { saveSportsSignupTournamentSettingsAction } from "@/server/actions/sports-signups";
 import { formatDateTimeMonterrey, getMonterreyDayBounds, parseDateOnlyInput } from "@/lib/time";
 
 const inputClass =
@@ -31,6 +38,11 @@ const ERROR_MESSAGES: Record<string, string> = {
   restriction_update_failed: "No se pudo actualizar la restriccion por grupo.",
   invalid_tournament_settings: "Selecciona campus y producto validos.",
   invalid_tournament_dates: "La fecha final no puede ser anterior al inicio.",
+  caja_availability_required: "Define hasta que dia estara disponible en Caja.",
+  caja_before_signup_deadline: "Caja no puede cerrar antes del cierre de inscripcion.",
+  caja_before_final_pricing_tier: "La fecha de Caja cortaria el ultimo periodo de precio antes de que empiece.",
+  global_pricing_requires_all_campuses: "Este producto usa precios globales. Guarda la configuracion para ambos campus.",
+  pricing_rules_missing_for_campus: "El campus seleccionado no tiene una regla de precio que se pueda actualizar.",
   tournament_settings_failed: "No se pudo guardar la configuracion del torneo.",
   tournament_signup_backfill_failed: "El torneo se guardo, pero no se pudieron sincronizar las inscripciones existentes.",
 };
@@ -89,7 +101,7 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const isCompetitionProduct = ["tournament", "cup", "league"].includes(product.chargeTypeCode);
-  const [campusesResult, tournamentsResult] = permissionContext.isSuperAdmin && isCompetitionProduct
+  const [campusesResult, tournamentsResult, pricingRulesResult] = permissionContext.isSuperAdmin && isCompetitionProduct
     ? await Promise.all([
         permissionContext.supabase
           .from("campuses")
@@ -102,8 +114,12 @@ export default async function ProductDetailPage({
           .eq("product_id", productId)
           .eq("is_active", true)
           .order("start_date", { ascending: true, nullsFirst: false }),
+        permissionContext.supabase
+          .from("product_pricing_rules")
+          .select("id, campus_id, training_program, gender, birth_year_min, birth_year_max, required_paid_product_id, priority, starts_on, ends_on")
+          .eq("product_id", productId),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
   const tournamentCampuses = (campusesResult.data ?? []) as Array<{ id: string; name: string }>;
   const tournamentSettings = (tournamentsResult.data ?? []) as Array<{
     id: string;
@@ -113,6 +129,42 @@ export default async function ProductDetailPage({
     end_date: string | null;
     signup_deadline: string | null;
   }>;
+  const tournamentPricingRules = ((pricingRulesResult.data ?? []) as Array<{
+    id: string;
+    campus_id: string | null;
+    training_program: string | null;
+    gender: string | null;
+    birth_year_min: number | null;
+    birth_year_max: number | null;
+    required_paid_product_id: string | null;
+    priority: number;
+    starts_on: string;
+    ends_on: string | null;
+  }>).map<TournamentPricingWindowRule>((rule) => ({
+    id: rule.id,
+    campusId: rule.campus_id,
+    trainingProgram: rule.training_program,
+    gender: rule.gender,
+    birthYearMin: rule.birth_year_min,
+    birthYearMax: rule.birth_year_max,
+    requiredPaidProductId: rule.required_paid_product_id,
+    priority: rule.priority,
+    startsOn: rule.starts_on,
+    endsOn: rule.ends_on,
+  }));
+  const tournamentCampusSettings = tournamentCampuses.map<TournamentCampusSetting>((campus) => {
+    const tournament = tournamentSettings.find((setting) => setting.campus_id === campus.id);
+    const pricing = summarizeTournamentPricingWindow(tournamentPricingRules, campus.id);
+    return {
+      campusId: campus.id,
+      startDate: tournament?.start_date ?? null,
+      endDate: tournament?.end_date ?? null,
+      signupDeadline: tournament?.signup_deadline ?? null,
+      cajaAvailableUntil: pricing.availableUntil,
+      hasPricingRules: pricing.hasRules,
+      hasMixedPricingEndDates: pricing.hasMixedEndDates,
+    };
+  });
 
   const [kpis, reconciliation] = await Promise.all([
     getProductKpis(productId, product.currency),
@@ -141,7 +193,7 @@ export default async function ProductDetailPage({
         ) : null}
         {query.ok === "tournament_settings_saved" ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            Configuracion del torneo guardada.
+            Configuracion del torneo y disponibilidad en Caja guardadas.
           </div>
         ) : null}
 
@@ -218,47 +270,30 @@ export default async function ProductDetailPage({
               Configuracion de Torneos
             </summary>
             <p className="mt-3 text-sm text-slate-500">
-              Controla las fechas y la visibilidad operativa en Inscripciones Torneos. El producto sigue siendo el cobro de Caja.
+              Controla las fechas operativas y el ultimo dia disponible en Caja. Los precios, reglas de elegibilidad y cargos existentes no cambian.
             </p>
-            <form action={saveSportsSignupTournamentSettingsAction} className="mt-4 grid gap-3 lg:grid-cols-5">
-              <input type="hidden" name="returnTo" value={`/products/${productId}`} />
-              <input type="hidden" name="productId" value={productId} />
-              <input type="hidden" name="name" value={product.name} />
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Campus</span>
-                <select name="campusId" defaultValue="__all__" className={inputClass}>
-                  <option value="__all__">Ambos campus</option>
-                  {tournamentCampuses.map((campus) => (
-                    <option key={campus.id} value={campus.id}>{campus.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Inicio</span>
-                <input name="startDate" type="date" className={inputClass} />
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Fin</span>
-                <input name="endDate" type="date" className={inputClass} />
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Cierre de inscripcion</span>
-                <input name="signupDeadline" type="date" defaultValue={tournamentSettings[0]?.signup_deadline ?? ""} className={inputClass} />
-              </label>
-              <div className="flex items-end">
-                <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
-                  Guardar configuracion
-                </button>
-              </div>
-            </form>
+            <TournamentSettingsForm
+              productId={productId}
+              productName={product.name}
+              campuses={tournamentCampuses}
+              settings={tournamentCampusSettings}
+            />
             {tournamentSettings.length > 0 ? (
               <div className="mt-4 overflow-hidden rounded-md border border-slate-200 text-sm">
                 {tournamentSettings.map((setting) => (
-                  <div key={setting.id} className="grid gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0 sm:grid-cols-4">
+                  <div key={setting.id} className="grid gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0 sm:grid-cols-5">
                     <span className="font-medium">{tournamentCampuses.find((campus) => campus.id === setting.campus_id)?.name ?? "Campus"}</span>
                     <span>Inicio: {setting.start_date ?? "Por confirmar"}</span>
                     <span>Fin: {setting.end_date ?? "Por confirmar"}</span>
                     <span>Cierre: {setting.signup_deadline ?? "Sin definir"}</span>
+                    <span>
+                      Caja: {(() => {
+                        const campusSetting = tournamentCampusSettings.find((campus) => campus.campusId === setting.campus_id);
+                        return campusSetting?.hasPricingRules
+                          ? campusSetting.cajaAvailableUntil ?? "Fechas distintas"
+                          : "Mientras el producto este activo";
+                      })()}
+                    </span>
                   </div>
                 ))}
               </div>

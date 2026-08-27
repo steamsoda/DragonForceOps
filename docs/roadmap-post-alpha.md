@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Active release: `v1.17.60`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.60`. Preview: `v1.17.61`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -39,7 +39,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 ## Current Release State
 
 - Current production line: `v1.17.60` extends J5 Caja pricing availability through September 3 without repricing or mutating existing finance records.
-- Current preview line: `v1.17.60`; the next pass will harden the Productos editor so tournament and Caja availability dates stay aligned.
+- Current preview line: `v1.17.61` hardens the Productos tournament editor so schedule/registration metadata and final Caja pricing windows save atomically without repricing existing charges or changing eligibility.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -247,7 +247,7 @@ Important, but not necessarily the next edit.
 | 🟢 | `Inscripciones Torneos` tournament-squad workflow | Production through `v1.17.18` includes Azul/Blanco, combined sources, audited exceptions, automatic routing, the live `Equipos` view/export, and hidden convocatoria snapshots. Preview `v1.17.19` adds direct split-pending placement and compact exception controls; `v1.17.20` adds scoped coach schedule reporting. |
 | 🟡 | Legacy level/team containment | Preview `v1.17.3` removed the dormant enrollment B2 hook; `v1.17.5` hides legacy Nivel; `v1.17.6` removes B1-dependent intake ranking. Retire remaining repair/admin level dependencies and decide whether hidden `/teams` and `/tournaments` routes are removed or absorbed into `Inscripciones Torneos`. |
 | 🟢 | Baja re-enrollment / reactivation workflow | Preview `v1.17.55` preserves prior Baja and finance history, reconciles historical explicit/legacy credit FIFO, requires a confirmed training group, and hands the new account to Caja. Preview `v1.17.59` makes Caja search for the archived record first, blocks active-account duplication, and supports manual re-entry only when no Invicta record exists. |
-| 🟡 | Product archive and pricing-rule admin | Keep historical products and paid registrations intact while separating active, archived, and date/rule configuration for Super Admin. |
+| 🟢 | Product archive and pricing-rule admin | Preview `v1.17.61` adds guarded Super Admin tournament/Caja date editing and terminal-tier synchronization. Product archival and broader price/eligibility rule editing remain open. |
 | 🧊 | Favicon / app icon pass | Choose or create the square source mark, then add the required Next metadata/icons. Keep this as app-shell polish, not an operational blocker. |
 | 🟢 | Coach match posting v1 | Preview `v1.17.20`-`v1.17.27` links one auth account to one coach, allows schedule-only reporting for assigned groups, keeps submissions visibly editable, hands all reported games and their game-specific squad selections to the final convocatoria/PNG, adds direct current-week navigation, and compacts history without overwriting admin edits. Final UI polish remains. |
 | 🟡 | Offline/outage mitigation plan | Plan a pragmatic fallback for front desk when internet is down: printable queues, local notes, retry-safe capture, and clear limits around payments. |
