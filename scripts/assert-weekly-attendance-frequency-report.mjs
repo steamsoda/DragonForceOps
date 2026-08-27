@@ -25,6 +25,8 @@ assert.doesNotMatch(migration, /\b(insert|update|delete)\b\s+(into|public\.)/i, 
 assert.match(query, /WEEK_COUNT = 8/);
 assert.match(query, /getAttendanceCampusAccess/);
 assert.match(query, /canAccessAttendanceCampus/);
+assert.match(query, /createAdminClient/);
+assert.doesNotMatch(query, /createClient/);
 assert.match(query, /get_weekly_attendance_frequency_v1/);
 assert.match(query, /getMonterreyWeekBounds/);
 assert.match(query, /Array\.from\(\{ length: WEEK_COUNT \}/);
