@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-08-27 (session 334)
+
+### Weekly Attendance Frequency Clarity Production Promotion (v1.17.64)
+
+- Promoted the tested weekly attendance-frequency clarity pass from `preview` to production.
+- Production now presents zero, one, two, and three-times-per-week attendance as weekly player averages with percentages instead of cumulative player-week totals.
+- No database migration, attendance mutation, permission change, or finance change is included in the promotion.
+
 ## 2026-08-27 (session 333)
 
 ### Weekly Attendance Frequency Clarity (v1.17.64 Preview)
