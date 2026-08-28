@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AzureSignInButton } from "@/components/auth/azure-sign-in-button";
+import { PortoEmailSignIn } from "@/components/auth/porto-email-sign-in";
+import { isPortoEmailProofEnabled } from "@/lib/auth/porto-email-proof";
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -21,6 +23,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   }
 
   const { error } = await searchParams;
+  const showPortoEmailProof = isPortoEmailProofEnabled();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-6">
@@ -47,6 +50,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           )}
 
           <AzureSignInButton />
+          {showPortoEmailProof ? <PortoEmailSignIn /> : null}
         </div>
       </div>
     </main>

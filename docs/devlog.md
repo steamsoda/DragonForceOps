@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-08-28 (session 335)
+
+### Porto Passwordless Authentication Proof (v1.17.65 Preview)
+
+- Added a Preview/development-only passwordless email proof for the allowlisted Porto contact `Rita.Cabral@fcporto.pt`; production continues to show only the existing Microsoft 365 login.
+- The request uses Supabase passwordless email with `shouldCreateUser: false`, preserves PKCE cookies, returns one neutral response for authorized and unauthorized addresses, and never exposes the service-role key or performs application/database writes.
+- Successful authentication lands on a dedicated confirmation page that verifies the authenticated email against the server-side allowlist and explicitly grants no INVICTA role, protected-route access, or application data.
+- This pass does not add the future `porto_viewer` role, change navigation, RLS, finance visibility, player/guardian visibility, or mutation permissions. Those remain separate implementation and authenticated-security-test passes.
+- External delivery to `@fcporto.pt` still requires custom SMTP in the Preview Supabase project plus a pre-created Rita Auth user. The default Supabase SMTP service does not deliver to arbitrary external addresses.
+- Verification passed: `npm run test:porto-passwordless-proof`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-08-27 (session 334)
 
 ### Weekly Attendance Frequency Clarity Production Promotion (v1.17.64)

@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.64`. Preview: `v1.17.64`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.64`. Preview: `v1.17.65`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,7 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production and preview line: `v1.17.64` expresses weekly-frequency buckets as average players per evaluated week and folds exceptional fourth-or-later attendance into the visible `3 veces` category.
+- Current production line: `v1.17.64` expresses weekly-frequency buckets as average players per evaluated week and folds exceptional fourth-or-later attendance into the visible `3 veces` category.
+- Current Preview line: `v1.17.65` adds an isolated, allowlisted passwordless-email authentication proof for the Porto demonstration. It grants no INVICTA role or data access.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -221,6 +222,8 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 ## Now
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
+
+Porto buyer demonstration access is now active work. Preview `v1.17.65` proves allowlisted passwordless authentication without granting application access. The next passes are external SMTP delivery testing, a dedicated global `porto_viewer` role with curated read-only workflows, centralized mutation blocking, hidden sensitive admin tools, RLS verification, and an authenticated Rita smoke/security test.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|

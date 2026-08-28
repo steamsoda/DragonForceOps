@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.64",
+  "version": "1.17.65",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,6 +17,7 @@
     "test:dashboard-attendance-participation": "node scripts/assert-dashboard-attendance-participation.mjs",
     "test:coach-attendance-report": "node scripts/assert-coach-attendance-report.mjs",
     "test:weekly-attendance-frequency": "node scripts/assert-weekly-attendance-frequency-report.mjs",
+    "test:porto-passwordless-proof": "node scripts/assert-porto-passwordless-proof.mjs",
     "test:training-workload-foundation": "node scripts/assert-training-workload-foundation.mjs",
     "test:training-workload-coach-view": "node scripts/assert-training-workload-coach-view.mjs",
     "test:training-workload-schedule-view": "node scripts/assert-training-workload-schedule-view.mjs",
