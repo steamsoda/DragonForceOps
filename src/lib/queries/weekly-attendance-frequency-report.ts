@@ -28,7 +28,7 @@ type FrequencyRpcRow = {
   attendance_rate: number | string | null;
 };
 
-export type WeeklyFrequencyBucketKey = "zero" | "one" | "two" | "three" | "fourPlus";
+export type WeeklyFrequencyBucketKey = "zero" | "one" | "two" | "three";
 
 export type WeeklyAttendanceFrequencyRow = {
   campusId: string;
@@ -55,8 +55,12 @@ export type WeeklyAttendanceFrequencySummary = {
   weekStart?: string;
   weekEnd?: string;
   sessionsOffered: number;
+  evaluatedWeeks: number;
   playerWeeks: number;
+  averagePlayersPerWeek: number | null;
   buckets: Record<WeeklyFrequencyBucketKey, number>;
+  averageBuckets: Record<WeeklyFrequencyBucketKey, number | null>;
+  bucketRates: Record<WeeklyFrequencyBucketKey, number | null>;
   attendedSessionRecords: number;
   opportunityRecords: number;
   averageSessionsAttended: number | null;
@@ -82,6 +86,10 @@ function birthYearLabel(min: number | null, max: number | null) {
   return `${min}/${max}`;
 }
 
+function roundOne(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
 function summarizeRows(key: string, label: string, rows: WeeklyAttendanceFrequencyRow[], dates?: { weekStart: string; weekEnd: string }): WeeklyAttendanceFrequencySummary {
   const totals = rows.reduce(
     (acc, row) => {
@@ -91,21 +99,27 @@ function summarizeRows(key: string, label: string, rows: WeeklyAttendanceFrequen
       acc.one += row.buckets.one;
       acc.two += row.buckets.two;
       acc.three += row.buckets.three;
-      acc.fourPlus += row.buckets.fourPlus;
       acc.attended += row.attendedSessionRecords;
       acc.opportunities += row.opportunityRecords;
       return acc;
     },
-    { sessionsOffered: 0, playerWeeks: 0, zero: 0, one: 0, two: 0, three: 0, fourPlus: 0, attended: 0, opportunities: 0 },
+    { sessionsOffered: 0, playerWeeks: 0, zero: 0, one: 0, two: 0, three: 0, attended: 0, opportunities: 0 },
   );
+  const evaluatedWeeks = new Set(rows.filter((row) => row.playerWeeks > 0).map((row) => row.weekStart)).size;
+  const averageFor = (value: number) => evaluatedWeeks > 0 ? roundOne(value / evaluatedWeeks) : null;
+  const rateFor = (value: number) => totals.playerWeeks > 0 ? roundOne((value / totals.playerWeeks) * 100) : null;
 
   return {
     key,
     label,
     ...dates,
     sessionsOffered: totals.sessionsOffered,
+    evaluatedWeeks,
     playerWeeks: totals.playerWeeks,
-    buckets: { zero: totals.zero, one: totals.one, two: totals.two, three: totals.three, fourPlus: totals.fourPlus },
+    averagePlayersPerWeek: averageFor(totals.playerWeeks),
+    buckets: { zero: totals.zero, one: totals.one, two: totals.two, three: totals.three },
+    averageBuckets: { zero: averageFor(totals.zero), one: averageFor(totals.one), two: averageFor(totals.two), three: averageFor(totals.three) },
+    bucketRates: { zero: rateFor(totals.zero), one: rateFor(totals.one), two: rateFor(totals.two), three: rateFor(totals.three) },
     attendedSessionRecords: totals.attended,
     opportunityRecords: totals.opportunities,
     averageSessionsAttended: totals.playerWeeks > 0 ? Math.round((totals.attended / totals.playerWeeks) * 100) / 100 : null,
@@ -154,8 +168,7 @@ export async function getWeeklyAttendanceFrequencyReport(filters: { campusId?: s
       zero: asNumber(row.bucket_0),
       one: asNumber(row.bucket_1),
       two: asNumber(row.bucket_2),
-      three: asNumber(row.bucket_3),
-      fourPlus: asNumber(row.bucket_4_plus),
+      three: asNumber(row.bucket_3) + asNumber(row.bucket_4_plus),
     },
     attendedSessionRecords: asNumber(row.attended_session_records),
     opportunityRecords: asNumber(row.opportunity_records),

@@ -15,6 +15,15 @@ function formatAverage(value: number | null) {
   return value == null ? "Sin datos" : value.toLocaleString("es-MX", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 }
 
+function frequencyCell(average: number | null, rate: number | null) {
+  return (
+    <>
+      <span className="font-semibold">{formatAverage(average)}</span>
+      <span className="ml-1 text-xs text-slate-500">({formatRate(rate)})</span>
+    </>
+  );
+}
+
 function weekLabel(start: string, end: string) {
   const format = (value: string) => {
     const [year, month, day] = value.split("-");
@@ -69,18 +78,23 @@ export default async function WeeklyAttendanceFrequencyPage({ searchParams }: { 
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Semanas completas", data.weeklySummaries.length],
-            ["Sesiones ofrecidas", data.totals.sessionsOffered],
-            ["Promedio por jugador/semana", formatAverage(data.totals.averageSessionsAttended)],
-            ["Porcentaje de asistencia", formatRate(data.totals.attendanceRate)],
-          ].map(([label, value]) => (
-            <article key={label} className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+          {([
+            ["No asistieron", "zero", "text-rose-700"],
+            ["Asistieron 1 vez", "one", "text-amber-700"],
+            ["Asistieron 2 veces", "two", "text-blue-700"],
+            ["Asistieron 3 veces", "three", "text-emerald-700"],
+          ] as const).map(([label, key, color]) => (
+            <article key={key} className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
               <p className="text-[11px] font-semibold uppercase text-slate-500">{label}</p>
-              <p className="mt-1 text-xl font-semibold">{value}</p>
+              <p className={`mt-1 text-xl font-semibold ${color}`}>{formatAverage(data.totals.averageBuckets[key])} jugadores</p>
+              <p className="text-xs text-slate-500">Promedio semanal · {formatRate(data.totals.bucketRates[key])}</p>
             </article>
           ))}
         </section>
+
+        <p className="text-xs text-slate-500">
+          Alcance: {data.totals.evaluatedWeeks} semanas con jugadores evaluados · {data.totals.sessionsOffered} sesiones de grupo · {formatAverage(data.totals.averageSessionsAttended)} sesiones promedio por jugador/semana.
+        </p>
 
         <WeeklyAttendanceFrequencyChart weeks={data.weeklySummaries} />
 
@@ -90,17 +104,17 @@ export default async function WeeklyAttendanceFrequencyPage({ searchParams }: { 
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900">
                 <tr>
-                  <th className="px-3 py-2">Semana</th><th className="px-3 py-2 text-center">Sesiones</th><th className="px-3 py-2 text-center">Evaluados</th><th className="px-3 py-2 text-center">0</th><th className="px-3 py-2 text-center">1</th><th className="px-3 py-2 text-center">2</th><th className="px-3 py-2 text-center">3</th><th className="px-3 py-2 text-center">4+</th><th className="px-3 py-2 text-center">Promedio</th><th className="px-3 py-2 text-center">Asistencia</th>
+                  <th className="px-3 py-2">Semana</th><th className="px-3 py-2 text-center">Sesiones</th><th className="px-3 py-2 text-center">Plantel</th><th className="px-3 py-2 text-center">No asistio</th><th className="px-3 py-2 text-center">1 vez</th><th className="px-3 py-2 text-center">2 veces</th><th className="px-3 py-2 text-center">3 veces</th><th className="px-3 py-2 text-center">Sesiones por jugador</th><th className="px-3 py-2 text-center">Asistencia</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {data.weeklySummaries.map((week) => (
                   <tr key={week.key}>
                     <td className="whitespace-nowrap px-3 py-2 font-medium">{week.weekStart && week.weekEnd ? weekLabel(week.weekStart, week.weekEnd) : week.label}</td>
-                    <td className="px-3 py-2 text-center">{week.sessionsOffered}</td><td className="px-3 py-2 text-center">{week.playerWeeks}</td><td className="px-3 py-2 text-center text-rose-700">{week.buckets.zero}</td><td className="px-3 py-2 text-center text-amber-700">{week.buckets.one}</td><td className="px-3 py-2 text-center">{week.buckets.two}</td><td className="px-3 py-2 text-center text-emerald-700">{week.buckets.three}</td><td className="px-3 py-2 text-center text-teal-700">{week.buckets.fourPlus}</td><td className="px-3 py-2 text-center">{formatAverage(week.averageSessionsAttended)}</td><td className="px-3 py-2 text-center font-semibold">{formatRate(week.attendanceRate)}</td>
+                    <td className="px-3 py-2 text-center">{week.sessionsOffered}</td><td className="px-3 py-2 text-center">{week.playerWeeks}</td><td className="px-3 py-2 text-center text-rose-700">{week.buckets.zero}</td><td className="px-3 py-2 text-center text-amber-700">{week.buckets.one}</td><td className="px-3 py-2 text-center">{week.buckets.two}</td><td className="px-3 py-2 text-center text-emerald-700">{week.buckets.three}</td><td className="px-3 py-2 text-center">{formatAverage(week.averageSessionsAttended)}</td><td className="px-3 py-2 text-center font-semibold">{formatRate(week.attendanceRate)}</td>
                   </tr>
                 ))}
-                {data.weeklySummaries.length === 0 ? <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-500">Sin asistencia registrada en semanas completas para este alcance.</td></tr> : null}
+                {data.weeklySummaries.length === 0 ? <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500">Sin asistencia registrada en semanas completas para este alcance.</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -111,15 +125,15 @@ export default async function WeeklyAttendanceFrequencyPage({ searchParams }: { 
           <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 dark:bg-slate-900">
-                <tr><th className="px-3 py-2">Campus | Categoria | Grupo | Profesor</th><th className="px-3 py-2 text-center">Sesiones</th><th className="px-3 py-2 text-center">Jugador-semana</th><th className="px-3 py-2 text-center">0</th><th className="px-3 py-2 text-center">1</th><th className="px-3 py-2 text-center">2</th><th className="px-3 py-2 text-center">3</th><th className="px-3 py-2 text-center">4+</th><th className="px-3 py-2 text-center">Promedio</th><th className="px-3 py-2 text-center">Asistencia</th></tr>
+                <tr><th className="px-3 py-2">Campus | Categoria | Grupo | Profesor</th><th className="px-3 py-2 text-center">Semanas</th><th className="px-3 py-2 text-center">Plantel prom.</th><th className="px-3 py-2 text-center">No asistio</th><th className="px-3 py-2 text-center">1 vez</th><th className="px-3 py-2 text-center">2 veces</th><th className="px-3 py-2 text-center">3 veces</th><th className="px-3 py-2 text-center">Sesiones por jugador</th><th className="px-3 py-2 text-center">Asistencia</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {data.groupSummaries.map((group) => (
                   <tr key={group.key}>
-                    <td className="px-3 py-2 font-medium">{group.label}</td><td className="px-3 py-2 text-center">{group.sessionsOffered}</td><td className="px-3 py-2 text-center">{group.playerWeeks}</td><td className="px-3 py-2 text-center text-rose-700">{group.buckets.zero}</td><td className="px-3 py-2 text-center text-amber-700">{group.buckets.one}</td><td className="px-3 py-2 text-center">{group.buckets.two}</td><td className="px-3 py-2 text-center text-emerald-700">{group.buckets.three}</td><td className="px-3 py-2 text-center text-teal-700">{group.buckets.fourPlus}</td><td className="px-3 py-2 text-center">{formatAverage(group.averageSessionsAttended)}</td><td className="px-3 py-2 text-center font-semibold">{formatRate(group.attendanceRate)}</td>
+                    <td className="px-3 py-2 font-medium">{group.label}</td><td className="px-3 py-2 text-center">{group.evaluatedWeeks}</td><td className="px-3 py-2 text-center">{formatAverage(group.averagePlayersPerWeek)}</td><td className="px-3 py-2 text-center text-rose-700">{frequencyCell(group.averageBuckets.zero, group.bucketRates.zero)}</td><td className="px-3 py-2 text-center text-amber-700">{frequencyCell(group.averageBuckets.one, group.bucketRates.one)}</td><td className="px-3 py-2 text-center text-blue-700">{frequencyCell(group.averageBuckets.two, group.bucketRates.two)}</td><td className="px-3 py-2 text-center text-emerald-700">{frequencyCell(group.averageBuckets.three, group.bucketRates.three)}</td><td className="px-3 py-2 text-center">{formatAverage(group.averageSessionsAttended)}</td><td className="px-3 py-2 text-center font-semibold">{formatRate(group.attendanceRate)}</td>
                   </tr>
                 ))}
-                {data.groupSummaries.length === 0 ? <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-500">Sin grupos evaluados.</td></tr> : null}
+                {data.groupSummaries.length === 0 ? <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-500">Sin grupos evaluados.</td></tr> : null}
               </tbody>
             </table>
           </div>
