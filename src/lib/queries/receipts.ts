@@ -84,14 +84,16 @@ export async function searchReceipts({
   if (error) {
     console.error("[searchReceipts] rpc failed:", error);
     const isMissingFunction =
-      error.code === "42883" || error.message.toLowerCase().includes("search_receipts");
+      error.code === "42883" || error.code === "PGRST202";
     return {
       rows: [],
       total: 0,
       pageSize: PAGE_SIZE,
-      error: isMissingFunction
-        ? "La busqueda de recibos no esta disponible en esta base de datos. Falta aplicar la migracion requerida para `search_receipts(...)`."
-        : "No se pudo cargar la busqueda de recibos. Revisa la configuracion de la base de datos o intenta de nuevo.",
+      error: error.code === "57014"
+        ? "La busqueda tardo demasiado. Intenta buscar por folio o nombre del alumno. Si continua, avisa a administracion."
+        : isMissingFunction
+        ? "La busqueda de recibos no esta disponible. Avisa a administracion para revisar la actualizacion del sistema."
+        : "No se pudo cargar la busqueda de recibos. Intenta de nuevo; si continua, avisa a administracion.",
     };
   }
 

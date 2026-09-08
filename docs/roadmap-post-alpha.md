@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-08-25 (`v1.17.59`). Production: `v1.17.64`. Preview: `v1.17.64`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07 (`v1.17.64` production / `v1.17.65` Preview). Production: `v1.17.64`. Preview: `v1.17.65`.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,7 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production and preview line: `v1.17.64` expresses weekly-frequency buckets as average players per evaluated week and folds exceptional fourth-or-later attendance into the visible `3 veces` category.
+- Current production line: `v1.17.64` expresses weekly-frequency buckets as average players per evaluated week and folds exceptional fourth-or-later attendance into the visible `3 veces` category.
+- Current Preview line: `v1.17.65` adds an isolated, allowlisted passwordless-email authentication proof for the Porto demonstration. It grants no INVICTA role or data access.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -218,13 +219,26 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 - ✅ This checkpoint changes documentation only. It does not alter application code, database schema, permissions, or production data.
 - ➡️ The next integrity lane remains the historical assignment-review matcher, followed by read-only production review and individual repair of confirmed assignment issues.
 
+## Checkpoint: 2026-09-07 - Return To Work
+
+- Remote Git refs verified after fetch: production `main` is `8100bc4` (`v1.17.64`); Preview is `b3ece7a` (`v1.17.65`). The only additional Preview implementation is the passwordless-email proof; it adds no migration. Live deployment settings, database migration history, balances, and external SMTP/DNS were not re-audited at this checkpoint.
+- Porto access remains unfinished: confirm Resend/IONOS DNS and Supabase SMTP delivery, implement the dedicated read-only role and mutation restrictions, and verify real authenticated permissions before releasing access. The existing proof is gated to Preview/development and does not assign an application role.
+- Await the user's new urgent errors/fixes before selecting the next implementation pass. Keep Porto access parked until explicitly resumed; preserve the group-integrity and attendance-operations priorities below.
+- Historical assignment repair still requires a matcher independent of legacy B1/B2 metadata. The August 6 counts of 9 unassigned players and 9 YOB-range mismatches are historical leads, not current totals; re-audit production before individual repairs.
+- Continue account-by-account legacy-credit review and finance-sanity monitoring when finance work resumes; prior clean scans do not establish current account correctness.
+- Known local planning documents, the logo asset, and Playwright artifacts remain outside the checkpoint. Commit only the checkpoint documentation; no version bump, deployment, or database change is needed.
+- Before the next production release, review the Preview-only authentication diff deliberately. The one-commit divergence on each branch is the production merge commit plus the Preview proof, not missing operational work.
+
 ## Now
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
+Immediate priority: the user's upcoming urgent errors/fixes, pending details. Porto buyer demonstration access is parked at Preview `v1.17.65`, which proves allowlisted passwordless authentication without granting application access. On resumption, the remaining passes are external SMTP delivery testing, a dedicated global `porto_viewer` role with curated read-only workflows, centralized mutation blocking, hidden sensitive admin tools, RLS verification, abuse/rate-limit review, and an authenticated Rita smoke/security test.
+
+September 7 incident pass: receipt-search timeout reproduced and local scoped SQL fix tested against production roles using a temporary function with rollback; Preview validation/release and Front Desk physical-print verification remain next. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog session 336).
+
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| ✅ | Weekly attendance frequency report | Production `v1.17.62` makes once/twice/three-times-per-week attendance behavior visible without recalculating player histories in the browser. | Reportes > Frecuencia semanal, sessions 330-331 |
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
 | 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
 | 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |

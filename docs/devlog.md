@@ -1,5 +1,37 @@
 # Devlog
 
+## 2026-09-07 (session 336)
+
+### Front Desk Incidents: Receipts, J5 Visibility, And Damian DF-0634
+
+- Reproduced production `search_receipts` timeout (`57014`) using authenticated Front Desk database claims. Repeated row-level permission checks across receipt history caused the failure; the function was present. Prepared local migration `20260907120000` with explicit finance-role and campus checks evaluated once, a fixed search path, anonymous execution revoked, and deterministic pagination.
+- Tested the candidate as a temporary function against production records inside a rolled-back transaction. Current staff role totals, pagination, folio search, explicit cross-campus filters and payment-ID access passed; non-finance roles returned no receipts and anonymous execution was denied. Initial search/page checks took approximately 0.25-0.32 seconds versus the original 8-second timeout. The deployed function has not been changed.
+- Removed developer SQL instructions from the local receipt error panel and added an actionable timeout message. Printer notes identify Epson TM-T20IV via QZ Tray; the saved production certificate expires in 2036, but the Front Desk workstation/network and physical printing remain unverified.
+- Production J5 squads were present and ready; both active tournament rows had an end date of September 2, causing the current signup screen to hide them. Owner confirmed October 31. Applied the guarded, audited correction in `docs/support/2026-09-07-j5-end-date.sql` to both campuses, preserving registration/pricing deadlines and all squads.
+- Audited Damian Torres Hernandez (DF-0634): payment `LINDA_VISTA-202608-00392` was recorded as $2,000 against two $1,000 J5 charges; one was voided to explicit credit, then $700 paid September automatically, leaving $300. Owner confirmed actual receipt was $1,700. Applied `docs/support/2026-09-07-damian-payment-correction.sql`, preserving date/method/folio, J5 allocation and September application. Verified canonical balance $0.00, available credit $0.00, and zero open credits.
+- Receipt code/migration remain local pending release; the two owner-confirmed data corrections are applied in production. No version bump or branch push is included.
+- Final local validation passed: TypeScript, production build, and diff whitespace checks. Physical printing and deployed receipt-page validation remain outstanding.
+
+### Return-To-Work Documentation Checkpoint
+
+- Recorded the verified Git release boundary: `origin/main` at `8100bc4` (`v1.17.64`), and local/remote Preview at `b3ece7a` (`v1.17.65`) before this documentation commit. Preview's only additional implementation is the isolated Porto passwordless proof, with no additional SQL migration.
+- Parked Porto access pending new user priorities. SMTP/DNS delivery remains unconfirmed; the read-only application role, mutation restrictions, and authenticated security validation remain unimplemented. The proof itself is gated to Preview/development and assigns no application role.
+- Preserved historical group-assignment matcher work, individual production assignment review, attendance special-day/cancellation operations, and finance/legacy-credit monitoring. Old production counts and clean finance scans require fresh verification before use.
+- Updated the roadmap checkpoint date and removed the completed weekly-frequency report from `Now`; its shipped history remains in this devlog and the reporting lane.
+- Continuity checks passed: remote fetch, Git diff review, `npm run typecheck`, and `npm run test:porto-passwordless-proof`. These checks do not establish current production database balances, external SMTP settings, or a full authenticated production smoke test.
+- Existing unrelated local changes remain untouched: planning index/document drafts, the Invicta logo asset, and Playwright artifacts. This checkpoint changes only roadmap/devlog documentation, with no application version bump, production promotion, or database mutation.
+
+## 2026-08-28 (session 335)
+
+### Porto Passwordless Authentication Proof (v1.17.65 Preview)
+
+- Added a Preview/development-only passwordless email proof for the allowlisted Porto contact `Rita.Cabral@fcporto.pt`; production continues to show only the existing Microsoft 365 login.
+- The request uses Supabase passwordless email with `shouldCreateUser: false`, preserves PKCE cookies, returns one neutral response for authorized and unauthorized addresses, and never exposes the service-role key or performs application/database writes.
+- Successful authentication lands on a dedicated confirmation page that verifies the authenticated email against the server-side allowlist and explicitly grants no INVICTA role, protected-route access, or application data.
+- This pass does not add the future `porto_viewer` role, change navigation, RLS, finance visibility, player/guardian visibility, or mutation permissions. Those remain separate implementation and authenticated-security-test passes.
+- External delivery to `@fcporto.pt` still requires custom SMTP in the Preview Supabase project plus a pre-created Rita Auth user. The default Supabase SMTP service does not deliver to arbitrary external addresses.
+- Verification passed: `npm run test:porto-passwordless-proof`, `npm run typecheck`, and `npm run build`.
+
 ## 2026-08-27 (session 334)
 
 ### Weekly Attendance Frequency Clarity Production Promotion (v1.17.64)
