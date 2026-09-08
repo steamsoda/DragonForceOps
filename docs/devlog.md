@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-09-07 (session 336)
+
+### Return-To-Work Documentation Checkpoint
+
+- Recorded the verified Git release boundary: `origin/main` at `8100bc4` (`v1.17.64`), and local/remote Preview at `b3ece7a` (`v1.17.65`) before this documentation commit. Preview's only additional implementation is the isolated Porto passwordless proof, with no additional SQL migration.
+- Parked Porto access pending new user priorities. SMTP/DNS delivery remains unconfirmed; the read-only application role, mutation restrictions, and authenticated security validation remain unimplemented. The proof itself is gated to Preview/development and assigns no application role.
+- Preserved historical group-assignment matcher work, individual production assignment review, attendance special-day/cancellation operations, and finance/legacy-credit monitoring. Old production counts and clean finance scans require fresh verification before use.
+- Updated the roadmap checkpoint date and removed the completed weekly-frequency report from `Now`; its shipped history remains in this devlog and the reporting lane.
+- Continuity checks passed: remote fetch, Git diff review, `npm run typecheck`, and `npm run test:porto-passwordless-proof`. These checks do not establish current production database balances, external SMTP settings, or a full authenticated production smoke test.
+- Existing unrelated local changes remain untouched: planning index/document drafts, the Invicta logo asset, and Playwright artifacts. This checkpoint changes only roadmap/devlog documentation, with no application version bump, production promotion, or database mutation.
+
 ## 2026-08-28 (session 335)
 
 ### Porto Passwordless Authentication Proof (v1.17.65 Preview)
