@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-09-07 (session 337)
+
+### Receipt Fix Production Release (v1.17.66)
+
+- Preview commit `db0ed84` passed the Vercel deployment and migration workflow `34178100555`; only `20260907120000_receipt_search_scoped_performance.sql` was applied by that migration run.
+- Promoted the receipt fix from an isolated checkout of production as `12fad85`. The unfinished Porto authentication proof and its callback/login changes remain exclusively in Preview.
+- Production migration workflow `34178329506`, Vercel deployment, and automated advisory workflows completed successfully.
+- Rechecked the deployed RPC in a read-only repeatable-read transaction using current staff database roles. Receipt totals, pagination, folio lookup, targeted payment requests and cross-campus restrictions passed. Non-finance roles returned no data; anonymous execution was denied.
+- J5 and Damian's audited production data corrections remain applied. The user is checking the physical Epson/QZ Tray setup; physical printing has not been certified by these database/application deployment checks.
+
 ## 2026-09-07 (session 336)
 
 ### Front Desk Incidents: Receipts, J5 Visibility, And Damian DF-0634

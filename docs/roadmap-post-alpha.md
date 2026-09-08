@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07 (`v1.17.64` production / `v1.17.65` Preview). Production: `v1.17.64`. Preview: `v1.17.65`.
+Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Production: `v1.17.66`. Preview: `v1.17.66` (also retains the parked Porto email proof).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,8 +38,8 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.64` expresses weekly-frequency buckets as average players per evaluated week and folds exceptional fourth-or-later attendance into the visible `3 veces` category.
-- Current Preview line: `v1.17.65` adds an isolated, allowlisted passwordless-email authentication proof for the Porto demonstration. It grants no INVICTA role or data access.
+- Current production line: `v1.17.66` restores fast campus-scoped receipt search and replaces developer-facing receipt errors with operator guidance. Weekly-frequency averages remain shipped.
+- Current Preview line: `v1.17.66` includes the receipt fix and retains the isolated Porto email proof introduced in `v1.17.65`. The proof grants no application role and was excluded from the production release.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
 - Devlog source of truth: `docs/devlog.md`
@@ -235,7 +235,7 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 Immediate priority: the user's upcoming urgent errors/fixes, pending details. Porto buyer demonstration access is parked at Preview `v1.17.65`, which proves allowlisted passwordless authentication without granting application access. On resumption, the remaining passes are external SMTP delivery testing, a dedicated global `porto_viewer` role with curated read-only workflows, centralized mutation blocking, hidden sensitive admin tools, RLS verification, abuse/rate-limit review, and an authenticated Rita smoke/security test.
 
-September 7 incident pass: receipt-search timeout reproduced and local scoped SQL fix tested against production roles using a temporary function with rollback; Preview validation/release and Front Desk physical-print verification remain next. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog session 336).
+September 7 incident pass: receipt fix deployed through Preview to production as `v1.17.66`; deployed database-role, campus, folio and pagination checks passed. Front Desk physical-print verification remains with the user. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog sessions 336-337).
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
