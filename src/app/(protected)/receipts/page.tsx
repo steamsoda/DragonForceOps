@@ -97,10 +97,6 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
           <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
             <p className="font-medium">Error operativo en Recibos</p>
             <p>{result.error}</p>
-            <p className="mt-2 font-mono text-xs">
-              Validacion sugerida en preview SQL editor: `select count(*) from public.payments where status = 'posted';`
-              y `select * from public.search_receipts(null, null, null, 5, 0);`
-            </p>
           </div>
         ) : (
           <p className="text-sm text-slate-600 dark:text-slate-400">

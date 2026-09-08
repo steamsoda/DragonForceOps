@@ -235,6 +235,8 @@ These are the highest-value items to consider next. Keep this list short: usuall
 
 Immediate priority: the user's upcoming urgent errors/fixes, pending details. Porto buyer demonstration access is parked at Preview `v1.17.65`, which proves allowlisted passwordless authentication without granting application access. On resumption, the remaining passes are external SMTP delivery testing, a dedicated global `porto_viewer` role with curated read-only workflows, centralized mutation blocking, hidden sensitive admin tools, RLS verification, abuse/rate-limit review, and an authenticated Rita smoke/security test.
 
+September 7 incident pass: receipt-search timeout reproduced and local scoped SQL fix tested against production roles using a temporary function with rollback; Preview validation/release and Front Desk physical-print verification remain next. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog session 336).
+
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
 | 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |

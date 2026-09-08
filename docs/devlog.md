@@ -2,6 +2,16 @@
 
 ## 2026-09-07 (session 336)
 
+### Front Desk Incidents: Receipts, J5 Visibility, And Damian DF-0634
+
+- Reproduced production `search_receipts` timeout (`57014`) using authenticated Front Desk database claims. Repeated row-level permission checks across receipt history caused the failure; the function was present. Prepared local migration `20260907120000` with explicit finance-role and campus checks evaluated once, a fixed search path, anonymous execution revoked, and deterministic pagination.
+- Tested the candidate as a temporary function against production records inside a rolled-back transaction. Current staff role totals, pagination, folio search, explicit cross-campus filters and payment-ID access passed; non-finance roles returned no receipts and anonymous execution was denied. Initial search/page checks took approximately 0.25-0.32 seconds versus the original 8-second timeout. The deployed function has not been changed.
+- Removed developer SQL instructions from the local receipt error panel and added an actionable timeout message. Printer notes identify Epson TM-T20IV via QZ Tray; the saved production certificate expires in 2036, but the Front Desk workstation/network and physical printing remain unverified.
+- Production J5 squads were present and ready; both active tournament rows had an end date of September 2, causing the current signup screen to hide them. Owner confirmed October 31. Applied the guarded, audited correction in `docs/support/2026-09-07-j5-end-date.sql` to both campuses, preserving registration/pricing deadlines and all squads.
+- Audited Damian Torres Hernandez (DF-0634): payment `LINDA_VISTA-202608-00392` was recorded as $2,000 against two $1,000 J5 charges; one was voided to explicit credit, then $700 paid September automatically, leaving $300. Owner confirmed actual receipt was $1,700. Applied `docs/support/2026-09-07-damian-payment-correction.sql`, preserving date/method/folio, J5 allocation and September application. Verified canonical balance $0.00, available credit $0.00, and zero open credits.
+- Receipt code/migration remain local pending release; the two owner-confirmed data corrections are applied in production. No version bump or branch push is included.
+- Final local validation passed: TypeScript, production build, and diff whitespace checks. Physical printing and deployed receipt-page validation remain outstanding.
+
 ### Return-To-Work Documentation Checkpoint
 
 - Recorded the verified Git release boundary: `origin/main` at `8100bc4` (`v1.17.64`), and local/remote Preview at `b3ece7a` (`v1.17.65`) before this documentation commit. Preview's only additional implementation is the isolated Porto passwordless proof, with no additional SQL migration.
