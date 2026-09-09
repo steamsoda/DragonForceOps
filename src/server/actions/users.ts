@@ -28,7 +28,7 @@ async function assertSuperAdmin() {
 
 export async function grantRoleAction(formData: FormData) {
   await assertDebugWritesAllowed(BASE);
-  const { supabase } = await assertSuperAdmin();
+  const { supabase, user: actor } = await assertSuperAdmin();
 
   const targetUserId = formData.get("user_id")?.toString().trim() ?? "";
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
@@ -42,6 +42,13 @@ export async function grantRoleAction(formData: FormData) {
     .maybeSingle<{ id: string }>();
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
+
+  if (roleCode === "porto_viewer") {
+    const { data: target, error: targetError } = await createAdminClient().auth.admin.getUserById(targetUserId);
+    if (targetError || target.user?.email?.toLowerCase() !== "rita.cabral@fcporto.pt" || !target.user.email_confirmed_at) {
+      redirect(`${BASE}?err=invalid_form`);
+    }
+  }
 
   let campusId: string | null = null;
   if (roleCode === "front_desk" || roleCode === "nutritionist" || roleCode === "attendance_admin") {
@@ -71,6 +78,11 @@ export async function grantRoleAction(formData: FormData) {
 
   if (error && error.code !== "23505" && !error.message.toLowerCase().includes("duplicate")) {
     redirect(`${BASE}?err=grant_failed`);
+  }
+
+  if (roleCode === "porto_viewer" && !error) {
+    await writeAuditLog(supabase, { action: "user.porto_viewer.granted", tableName: "user_roles", recordId: targetUserId,
+      actorUserId: actor.id, afterData: { role: roleCode, financialAccess: false, writeAccess: false } });
   }
 
   revalidatePath(BASE);

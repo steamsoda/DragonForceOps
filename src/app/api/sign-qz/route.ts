@@ -1,20 +1,20 @@
 import { createSign } from "crypto";
-import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 
 export async function POST(req: Request) {
-  // Only allow authenticated users
+  // Authentication alone is not authority to sign printer commands.
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return new Response("Unauthorized", { status: 401 });
+    const context = await getPermissionContext();
+    if (!context) return new Response("Unauthorized", { status: 401 });
+    if (!context.hasOperationalAccess) return new Response("Forbidden", { status: 403 });
   } catch {
     return new Response("Unauthorized", { status: 401 });
   }
 
   const rawKey = process.env.QZ_PRIVATE_KEY;
   if (!rawKey) {
-    return new Response("QZ_PRIVATE_KEY not configured", { status: 500 });
+    return new Response("Printer signing unavailable", { status: 500 });
   }
 
   // Restore newlines and PEM headers if stripped by Vercel
@@ -24,7 +24,8 @@ export async function POST(req: Request) {
     privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
   }
 
-  const { message } = await req.json();
+  let message: unknown;
+  try { ({ message } = await req.json()); } catch { return new Response("Bad request", { status: 400 }); }
   if (typeof message !== "string") {
     return new Response("Bad request", { status: 400 });
   }
@@ -35,9 +36,8 @@ export async function POST(req: Request) {
     sign.update(message);
     sign.end();
     signature = sign.sign(privateKey, "base64");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return new Response(`Sign error: ${msg}`, { status: 500 });
+  } catch {
+    return new Response("Printer signing unavailable", { status: 500 });
   }
 
   return new Response(signature, { headers: { "Content-Type": "text/plain" } });

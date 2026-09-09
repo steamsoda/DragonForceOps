@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-09-09 (session 341)
+
+### Porto Viewer Preview Release (v1.17.67)
+
+- Owner approved the next Preview deployment and deployed verification, not production promotion. Preparing the isolated Porto/non-financial authorization changes and runtime security updates; unrelated account repairs and planning files are excluded.
+- Preview database migration was already applied and recorded during session 340. Production remains v1.17.66 with no Rita role grant. Deployment and post-release checks are pending below.
+
+## 2026-09-09 (session 340)
+
+### Porto Non-Financial Viewer And Authorization Audit
+
+- Owner changed Rita's access to operational read-only with no financial information. Added isolated `/porto` views for players, guardians, training groups, attendance, squads, games, enrollments, and trial classes. Existing mixed financial/staff screens redirect away; monetary data, payment status, scholarships, and internal collection notes are not projected into viewer responses.
+- Added confirmed exact-email `porto_viewer` assignment for Rita.Cabral@fcporto.pt, global scope only, with database protection against combining staff roles. Viewer actions are blocked centrally and raw business-table access is restricted with RLS; a narrow authenticated RPC returns fixed operational fields.
+- Audit reproduced an unapproved Azure user's access to professor/area-map rows. Hardened four broad authenticated read policies, two financial report functions, legacy team listing, and authenticated-only QZ signing. Printer signing now requires operational authorization and does not expose key/signing errors.
+- Verification: 123 production-shaped database checks in an always-rolled-back transaction; real temporary Preview authenticated RPC/financial denial checks; all eight browser views, search, staff-page redirect, finance/raw-roster API denial, QZ HTTP 403, desktop/mobile inspection, TypeScript and production build passed. Five existing focused regression suites passed. Temporary Preview role/session removed; no email was sent.
+- Upgraded Next.js/eslint-config-next to 16.3.3 and vulnerable transitive runtime packages. Runtime npm audit now reports two moderate Excel-export dependency advisories and no high/critical findings. Checked 118 built browser files against configured private credential values: no matches. This is not a claim of exhaustive penetration testing.
+- Release boundary: migration 20260909120000 applied/recorded in Preview only; local code is not committed/pushed; production unchanged and Rita has no production grant. Actual Rita Microsoft SSO remains unverified. Resend stays parked. Evidence, residual risks and rollout checklist: `docs/support/2026-09-09-porto-viewer-security.md`.
+
 ## 2026-09-07 (session 337)
 
 ### Receipt Fix Production Release (v1.17.66)
