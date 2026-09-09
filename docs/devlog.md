@@ -5,7 +5,9 @@
 ### Porto Viewer Preview Release (v1.17.67)
 
 - Owner approved the next Preview deployment and deployed verification, not production promotion. Preparing the isolated Porto/non-financial authorization changes and runtime security updates; unrelated account repairs and planning files are excluded.
-- Preview database migration was already applied and recorded during session 340. Production remains v1.17.66 with no Rita role grant. Deployment and post-release checks are pending below.
+- Preview database migration was already applied and recorded during session 340. Production remains v1.17.66 with no Rita role grant.
+- Preview commit `e462afb` deployed successfully to Vercel (`dpl_Gva1zcydH7ZhRQQgbNnj3Sphvzxe`). Migration workflow `34384870939`, secret scan and dependency audit completed successfully.
+- Deployed authenticated checks passed: all eight operational views; redirects from Caja, receipts, users administration and staff players; HTTP 403 for financial export, staff roster API and QZ signing; anonymous redirect to login. Removed temporary Preview role/session and verified the old session loses access (17 deployed checks including revocation). No email sent. Rita's actual Microsoft sign-in remains unverified.
 
 ## 2026-09-09 (session 340)
 

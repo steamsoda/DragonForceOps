@@ -32,7 +32,8 @@ Date: 2026-09-09. Scope: Rita.Cabral@fcporto.pt, operational read-only, no finan
 ## Release Boundary And Next Steps
 
 - Preview DB has migration `20260909120000`; its migration history is recorded. No production schema or account grant persists from this audit.
-- Application changes are local, not pushed. Do not authorize Rita in production before the code and DB protections are released together.
-- Review changes and deploy Preview; repeat authenticated smoke checks on the deployment. Obtain explicit production approval, apply migration/deploy, repeat denial checks, then have Rita try Microsoft login and grant only the dedicated role to her confirmed identity.
+- Application deployed to Preview as v1.17.67 (`e462afb`), Vercel deployment `dpl_Gva1zcydH7ZhRQQgbNnj3Sphvzxe`. Migration workflow `34384870939` and security workflows passed. Do not authorize Rita in production before code and DB protections are released together.
+- Deployed verification: all eight views, four staff-route redirects, three API denials, anonymous redirect, and post-cleanup access revocation passed (17 checks). Temporary role/session removed; no email sent. Preview alias: https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/porto.
+- Obtain explicit production approval, apply migration/deploy, repeat denial checks, then have Rita try Microsoft login and grant only the dedicated role to her confirmed identity.
 - If Microsoft rejects her account, reconsider email delivery. The administrative test session does not establish Microsoft compatibility. No invitation or OTP email was sent in this pass.
 - Existing test helpers are audit/support scripts, not automatic enrollment or production provisioning jobs. Do not run temporary-role setup against production.
