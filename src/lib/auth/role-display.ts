@@ -16,6 +16,7 @@ export type RoleScope = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
+  porto_viewer: "Porto - Solo lectura, sin finanzas",
   superadmin: "Super Admin",
   director_admin: "Director Admin",
   director_deportivo: "Director Deportivo",

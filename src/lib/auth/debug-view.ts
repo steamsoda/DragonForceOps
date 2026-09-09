@@ -188,7 +188,7 @@ function withErrorParam(path: string, errorCode: string) {
 
 export async function isDebugWriteBlocked() {
   const context = await getDebugViewContext();
-  return Boolean(context?.isReadOnly);
+  return Boolean(context?.isReadOnly || context?.actor.roleCodes.includes(APP_ROLES.PORTO_VIEWER));
 }
 
 export async function assertDebugWritesAllowed(redirectTo?: string) {

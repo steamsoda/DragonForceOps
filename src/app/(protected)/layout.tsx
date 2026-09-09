@@ -127,6 +127,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const actorRoleSummary = summarizeRoleScopes(debugContext.actor.roleScopes).join(" | ");
   const effectiveRoleSummary = summarizeRoleScopes(debugContext.effective.roleScopes).join(" | ");
   const roleCodes = debugContext.effective.roleCodes;
+  if (debugContext.actor.roleCodes.includes(APP_ROLES.PORTO_VIEWER)) redirect("/porto");
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));

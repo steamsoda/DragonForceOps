@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { grantRoleAction, linkCoachUserAction, revokeRoleAction, unlinkCoachUserAction } from "@/server/actions/users";
 
 const ALL_ROLES = [
+  { code: "porto_viewer", label: "Porto - Solo lectura, sin finanzas (Rita)" },
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
   { code: "director_deportivo", label: "Director Deportivo" },
