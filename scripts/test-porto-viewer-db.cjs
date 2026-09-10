@@ -7,7 +7,7 @@ const url=new URL(env.SUPABASE_PROD_DB_URL);url.searchParams.delete('sslmode');
 const db=new Client({connectionString:url.toString(),ssl:{rejectUnauthorized:false},connectionTimeoutMillis:15000});
 const assert=(v,msg)=>{if(!v)throw Error(msg);};
 const migration=fs.readFileSync('supabase/migrations/20260909120000_porto_nonfinancial_viewer.sql','utf8');
-const viewer='bd926e67-e847-44a6-836f-f51aa621b350';
+let viewer='bd926e67-e847-44a6-836f-f51aa621b350';
 let checks=0;
 async function query(sql,params=[]) {return (await db.query(sql,params)).rows;}
 async function asUser(id) {await db.query('RESET ROLE');await query("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify({sub:id,role:'authenticated'}),id]);await db.query('SET LOCAL ROLE authenticated');}
@@ -19,9 +19,15 @@ async function denied(sql,params=[]) {
 }
 async function main(){
  await db.connect();await db.query('BEGIN');await db.query("SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='5s'");
- await db.query(migration);
- assert(!(await query("select id from auth.users where lower(email)='rita.cabral@fcporto.pt'")).length,'Rita already exists; adapt fixture without touching her account');
- await query("insert into auth.users(id,email,email_confirmed_at,created_at,updated_at) values($1,'rita.cabral@fcporto.pt',now(),now(),now())",[viewer]);
+ if(process.argv.includes('--verify-live')) {
+  assert((await query("select version from supabase_migrations.schema_migrations where version='20260909120000'")).length===1,'Production migration is not recorded');
+ } else await db.query(migration);
+ const existing=(await query("select id,email_confirmed_at from auth.users where lower(email)='rita.cabral@fcporto.pt'"))[0];
+ if(existing){
+  assert(existing.email_confirmed_at,'Rita identity is not confirmed');
+  viewer=existing.id;
+  assert(!(await query('select id from user_roles where user_id=$1',[viewer])).length,'Existing Rita permissions must not be changed by this test');
+ } else await query("insert into auth.users(id,email,email_confirmed_at,created_at,updated_at) values($1,'rita.cabral@fcporto.pt',now(),now(),now())",[viewer]);
  await query("insert into user_roles(user_id,role_id) select $1,id from app_roles where code='porto_viewer'",[viewer]);
  const roleId=(await query("select id from app_roles where code='porto_viewer'"))[0].id;
  const tables=await query("select tablename from pg_tables where schemaname='public' and tablename not in ('app_roles','user_roles') order by tablename");

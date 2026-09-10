@@ -1,6 +1,6 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verification: 2026-09-09. Production: `v1.17.66`. Preview: `v1.17.67` (non-financial Porto viewer; email proof remains parked).
+Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verification: 2026-09-09. Production: `v1.17.67`. Preview: `v1.17.67` (email proof remains parked and excluded from production).
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
@@ -38,7 +38,7 @@ Full pre-reorg roadmap snapshot is preserved at:
 
 ## Current Release State
 
-- Current production line: `v1.17.66` restores fast campus-scoped receipt search and replaces developer-facing receipt errors with operator guidance. Weekly-frequency averages remain shipped.
+- Current production line: `v1.17.67` adds the isolated non-financial Porto viewer and database/API authorization hardening. Installed-policy checks (123), staff receipt-search regression and public login/anonymous denial checks passed. Rita's actual sign-in and dedicated role grant remain pending; no access granted by deployment.
 - Current Preview line: `v1.17.67` adds the non-financial Porto viewer and authorization hardening. Vercel, Preview migration and security workflows passed; deployed authenticated denial/read/revocation checks passed. The older email proof remains parked; Rita has no production grant.
 - `v1.16` closeout: production includes the finance/credit hardening, attendance and collections reporting, trial-class workflow, tournament/product rules, training workload reports, and weekly WhatsApp convocatoria workflow documented through `v1.16.243`.
 - Working branch policy: new implementation continues on `preview`; merge to `main` only after explicit production approval.
@@ -233,9 +233,9 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
-Immediate priority (2026-09-09): Rita access resumed with **no financial information**, superseding the earlier finance-visible demonstration plan. Preview v1.17.67 adds an isolated `/porto` operational viewer, confirmed-email-only `porto_viewer` role, mutation/raw-table restrictions, and repairs to overly broad authenticated reads/RPCs. Application and migration are deployed to Preview only; production is unchanged. Production-shaped rollback tests passed 123 checks; local browser checks and 17 deployed access/read/revocation checks passed. See `docs/support/2026-09-09-porto-viewer-security.md` and devlog sessions 340-341.
+Immediate priority (2026-09-09): Rita access with **no financial information**, superseding the earlier finance-visible demonstration plan. v1.17.67 is deployed to production and Preview with an isolated `/porto` operational viewer, confirmed-email-only `porto_viewer` role, mutation/raw-table restrictions, and repairs to overly broad authenticated reads/RPCs. Production installed-policy tests passed 123 checks plus staff receipt regression and public HTTP tests; Preview authenticated access/read/revocation tests passed. See `docs/support/2026-09-09-porto-viewer-security.md` and devlog sessions 340-342.
 
-Next for Porto: owner Preview review, then explicit production release approval. Rita must test her own Microsoft sign-in before her confirmed account is assigned the dedicated role; never substitute Director or Front Desk. Resend/SMTP remains parked if Microsoft works. Keep the two moderate runtime Excel dependency advisories tracked separately; no high/critical runtime findings remain in this candidate.
+Next for Porto: Rita must test her own Microsoft sign-in before her confirmed account is assigned the dedicated role; never substitute Director or Front Desk. Validate her production session after the owner-authorized grant. Resend/SMTP remains parked if Microsoft works. Keep the two moderate runtime Excel dependency advisories tracked separately; no high/critical runtime findings remain in this release.
 
 September 7 incident pass: receipt fix deployed through Preview to production as `v1.17.66`; deployed database-role, campus, folio and pagination checks passed. Front Desk physical-print verification remains with the user. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog sessions 336-337).
 

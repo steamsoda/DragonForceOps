@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-09-09 (session 342)
+
+### Porto Viewer Production Release (v1.17.67)
+
+- Owner explicitly approved production deployment. Prepared an isolated checkout from main containing the tested viewer/security release only; parked email-proof routes and unrelated local account/planning work are excluded.
+- Repeated all 123 production-schema security rehearsal checks successfully, with the migration and fixtures rolled back. Added `--verify-live` to the DB test for post-deployment validation of the installed migration, still rolling back every fixture/probe.
+- Rita had not yet created a production identity at the pre-release check. No persistent role or account grant is included. Actual Microsoft sign-in and owner-authorized role assignment remain separate from deployment.
+- Production commit `6b4d285` deployed successfully as Vercel `dpl_EpFtJ3TT4h8sddnrXpkUwRK8pscV`, serving the main alias. Production migration workflow `34423411742`, dependency audit and secret scan passed.
+- Post-deployment: all 123 installed-policy tests passed and rolled back their fixtures. Staff receipt-search role/campus/pagination checks and anonymous database denial passed. Five public HTTP checks passed: Microsoft login (normal `/login` to `/` redirect), portal/Caja/receipts login redirects and printer signing HTTP 401. A production Rita browser session remains untested because she has no authorized production role; the real authenticated viewer browser/API tests were performed on Preview.
+
 ## 2026-09-09 (session 341)
 
 ### Porto Viewer Preview Release (v1.17.67)
