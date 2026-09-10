@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-09-09 (session 342)
+
+### Porto Viewer Production Release (v1.17.67)
+
+- Owner explicitly approved production deployment. Prepared an isolated checkout from main containing the tested viewer/security release only; parked email-proof routes and unrelated local account/planning work are excluded.
+- Repeated all 123 production-schema security rehearsal checks successfully, with the migration and fixtures rolled back. Added `--verify-live` to the DB test for post-deployment validation of the installed migration, still rolling back every fixture/probe.
+- Rita had not yet created a production identity at the pre-release check. No persistent role or account grant is included. Actual Microsoft sign-in and owner-authorized role assignment remain separate from deployment.
+
 ## 2026-09-09 (session 341)
 
 ### Porto Viewer Preview Release (v1.17.67)
