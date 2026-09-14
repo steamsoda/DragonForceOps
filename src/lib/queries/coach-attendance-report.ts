@@ -1,12 +1,14 @@
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { getReadOnlyCoachAttendanceInputs } from "@/lib/queries/attendance-readonly-report-data";
 import { getMonterreyMonthBounds, getMonterreyMonthString } from "@/lib/time";
 
 const PAGE_SIZE = 1000;
 const SESSION_CHUNK_SIZE = 100;
 const UNASSIGNED_COACH_ID = "__unassigned__";
 
-type AssignmentRow = {
+export type AssignmentRow = {
   id: string;
   training_group_id: string;
   player_id: string;
@@ -30,7 +32,7 @@ type AssignmentRow = {
   } | null;
 };
 
-type CoachLinkRow = {
+export type CoachLinkRow = {
   id: string;
   training_group_id: string;
   coach_id: string;
@@ -43,12 +45,12 @@ type CoachLinkRow = {
   } | null;
 };
 
-type SessionRow = {
+export type SessionRow = {
   id: string;
   training_group_id: string;
 };
 
-type AttendanceRecordRow = {
+export type AttendanceRecordRow = {
   id: string;
   session_id: string;
   player_id: string;
@@ -285,6 +287,8 @@ function summarizeCoachMetrics(metrics: CoachAttendanceGroupMetric[]) {
 }
 
 export async function getCoachAttendanceReport(filters: { campusId?: string; month?: string; coachId?: string }): Promise<CoachAttendanceReportData> {
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceReadAccess) throw new Error("attendance_read_required");
   const access = await getAttendanceCampusAccess();
   const selectedMonth = normalizeMonth(filters.month);
   const emptyTotals = {
@@ -304,13 +308,16 @@ export async function getCoachAttendanceReport(filters: { campusId?: string; mon
 
   const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId) ? filters.campusId : null;
   const campusIds = selectedCampusId ? [selectedCampusId] : access.campusIds;
-  const assignments = await loadActiveAssignments(campusIds);
+  const readOnly = context.isDirectorReadOnly
+    ? await getReadOnlyCoachAttendanceInputs(context.supabase, campusIds, selectedMonth)
+    : null;
+  const assignments = readOnly ? readOnly.assignments : await loadActiveAssignments(campusIds);
   const groupIds = [...new Set(assignments.map((row) => row.training_group_id))];
-  const [coachLinks, sessions] = await Promise.all([
+  const [coachLinks, sessions] = readOnly ? [readOnly.coachLinks, readOnly.sessions] : await Promise.all([
     loadCoachLinks(groupIds),
     loadCompletedSessions(groupIds, selectedMonth),
   ]);
-  const presentRecords = await loadPresentRecords(sessions.map((session) => session.id));
+  const presentRecords = readOnly ? readOnly.presentRecords : await loadPresentRecords(sessions.map((session) => session.id));
 
   const coachesByGroup = new Map<string, CoachAssignment[]>();
   for (const row of coachLinks) {

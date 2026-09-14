@@ -6,6 +6,7 @@ import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { writeAuditLog } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { directorReadOnlyEnabled } from "@/lib/auth/director-readonly-policy";
 
 const BASE = "/admin/users";
 
@@ -34,6 +35,7 @@ export async function grantRoleAction(formData: FormData) {
   const roleCode = formData.get("role_code")?.toString().trim() ?? "";
   const campusIdRaw = formData.get("campus_id")?.toString().trim() ?? "";
   if (!targetUserId || !roleCode || roleCode === "coach") redirect(`${BASE}?err=invalid_form`);
+  if (roleCode === "director_readonly" && !directorReadOnlyEnabled()) redirect(`${BASE}?err=invalid_form`);
 
   const { data: role } = await supabase
     .from("app_roles")
@@ -43,11 +45,11 @@ export async function grantRoleAction(formData: FormData) {
 
   if (!role) redirect(`${BASE}?err=role_not_found`);
 
-  if (roleCode === "porto_viewer") {
+  if (roleCode === "porto_viewer" || roleCode === "director_readonly") {
     const { data: target, error: targetError } = await createAdminClient().auth.admin.getUserById(targetUserId);
-    // The database validates the private allowlist and disallows mixed staff roles.
+    // The database requires a verified identity and disallows mixed staff roles.
     if (targetError || !target.user?.email_confirmed_at) {
-      redirect(`${BASE}?err=invalid_form`);
+      redirect(`${BASE}?err=readonly_unverified`);
     }
   }
 
@@ -78,11 +80,21 @@ export async function grantRoleAction(formData: FormData) {
     .insert({ user_id: targetUserId, role_id: role.id, campus_id: campusId });
 
   if (error && error.code !== "23505" && !error.message.toLowerCase().includes("duplicate")) {
+    if (error.message.includes("director_readonly_requires_verified_account")) redirect(`${BASE}?err=readonly_unverified`);
+    if (error.message.includes("director_readonly_cannot_combine_staff_roles")) redirect(`${BASE}?err=readonly_role_conflict`);
+    if (error.message.includes("porto_requires_verified_account")) redirect(`${BASE}?err=porto_unverified`);
+    if (error.message.includes("porto_cannot_combine_staff_roles") || error.message.includes("remove_porto_role_before_granting_staff_access")) {
+      redirect(`${BASE}?err=porto_role_conflict`);
+    }
     redirect(`${BASE}?err=grant_failed`);
   }
 
   if (roleCode === "porto_viewer" && !error) {
     await writeAuditLog(supabase, { action: "user.porto_viewer.granted", tableName: "user_roles", recordId: targetUserId,
+      actorUserId: actor.id, afterData: { role: roleCode, financialAccess: false, writeAccess: false } });
+  }
+  if (roleCode === "director_readonly" && !error) {
+    await writeAuditLog(supabase, { action: "user.director_readonly.granted", tableName: "user_roles", recordId: targetUserId,
       actorUserId: actor.id, afterData: { role: roleCode, financialAccess: false, writeAccess: false } });
   }
 

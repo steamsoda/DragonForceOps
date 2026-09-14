@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
 import { getTeamDetail, listTeams } from "@/lib/queries/teams";
 import { TeamRosterClient } from "@/components/teams/team-roster-client";
 import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
@@ -28,16 +28,16 @@ export default async function TeamDetailPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
 
   const [team, allTeams] = await Promise.all([
     getTeamDetail(teamId),
-    listTeams(),
+    permission.isDirectorReadOnly ? Promise.resolve([]) : listTeams(),
   ]);
 
   if (!team) notFound();
 
-  const isDirector = true;
+  const isDirector = !permission.isDirectorReadOnly && permission.hasSportsAccess;
 
   return (
     <PageShell

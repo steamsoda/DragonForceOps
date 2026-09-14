@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PendingTable } from "@/components/pending/pending-table";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalReadContext } from "@/lib/auth/permissions";
+import { ManagementReadUnavailable } from "../../dashboard/management-read";
 import { getCallsDetailData } from "@/lib/queries/calls";
 import type { PendingFollowUpFilter } from "@/lib/queries/enrollments";
 import { PageShell } from "@/components/ui/page-shell";
@@ -57,7 +58,8 @@ function statusTone(status: PendingFollowUpFilter) {
 }
 
 export default async function CallsDetailPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireOperationalContext("/unauthorized");
+  const context = await requireOperationalReadContext("/unauthorized");
+  if (context.isDirectorReadOnly || !context.canViewFinancials) return <ManagementReadUnavailable title="Llamadas" />;
   const params = await searchParams;
   const followUp = normalizeFollowUp(params.followUp);
   const data = await getCallsDetailData({

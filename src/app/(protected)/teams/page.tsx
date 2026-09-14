@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { BaseTeamBoardClient } from "@/components/teams/base-team-board-client";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
 import { getBaseTeamBoardData } from "@/lib/queries/teams";
 import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
 
@@ -10,14 +10,15 @@ export default async function TeamsPage({
 }: {
   searchParams: Promise<{ campusId?: string; birthYear?: string; gender?: string }>;
 }) {
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
+  const readOnly = permission.isDirectorReadOnly;
   const query = await searchParams;
   const board = await getBaseTeamBoardData(query);
 
   return (
     <PageShell
       title="Equipos Base"
-      subtitle="Tablero deportivo para crear, asignar y mover jugadores entre sus equipos base."
+      subtitle={readOnly ? "Equipos base y jugadores por campus y categoria." : "Tablero deportivo para crear, asignar y mover jugadores entre sus equipos base."}
       breadcrumbs={[{ label: "Equipos Base" }]}
       wide
     >
@@ -30,12 +31,12 @@ export default async function TeamsPage({
                 Elige campus, categoria y genero para trabajar el armado base del dia.
               </p>
             </div>
-            <Link
+            {!readOnly && <Link
               href="/teams/new"
               className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Crear equipo manual
-            </Link>
+            </Link>}
           </div>
 
           <form method="get" className="grid gap-3 md:grid-cols-4">
@@ -112,7 +113,7 @@ export default async function TeamsPage({
           </div>
         </section>
 
-        <BaseTeamBoardClient data={board} />
+        <BaseTeamBoardClient data={board} readOnly={readOnly} />
       </div>
     </PageShell>
   );

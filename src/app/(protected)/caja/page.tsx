@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CajaClient } from "@/components/caja/caja-client";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalReadContext } from "@/lib/auth/permissions";
+import { NonfinancialCaja } from "./nonfinancial";
 import { getPrinterName } from "@/lib/queries/settings";
 import { getEnrollmentForCajaAction } from "@/server/actions/caja";
 
@@ -9,9 +10,10 @@ export const metadata = { title: "Caja - Dragon Force Ops" };
 export default async function CajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ enrollmentId?: string }>;
+  searchParams: Promise<{ enrollmentId?: string; campus?: string; q?: string }>;
 }) {
-  const permissionContext = await requireOperationalContext("/unauthorized");
+  const permissionContext = await requireOperationalReadContext("/unauthorized");
+  if (permissionContext.isDirectorReadOnly || !permissionContext.canViewFinancials) return <NonfinancialCaja filters={await searchParams} />;
   const [printerName, sp] = await Promise.all([
     getPrinterName(),
     searchParams,

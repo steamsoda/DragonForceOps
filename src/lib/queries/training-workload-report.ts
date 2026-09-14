@@ -1,4 +1,5 @@
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyDateString } from "@/lib/time";
 
@@ -207,7 +208,20 @@ function timeBlock(row: WorkloadRpcRow) {
 }
 
 export async function getTrainingWorkloadReport(filters: { campusId?: string }): Promise<TrainingWorkloadReportData> {
-  const access = await getAttendanceCampusAccess();
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceReadAccess) throw new Error("attendance_read_required");
+  const access = context.isDirectorReadOnly ? null : await getAttendanceCampusAccess();
+  const campuses = access?.campuses ?? [];
+  if (context.isDirectorReadOnly) {
+    for (let from = 0; ; from += 500) {
+      const result = await context.supabase.from("v_director_readonly_campuses")
+        .select("id,code,name").eq("is_active", true).order("name").order("id")
+        .range(from, from + 499).returns<Array<{ id: string; code: string; name: string }>>();
+      if (result.error) throw new Error("attendance_readonly_campuses_unavailable");
+      campuses.push(...(result.data ?? []));
+      if ((result.data?.length ?? 0) < 500) break;
+    }
+  }
   const periodEnd = getMonterreyDateString();
   const periodStart = addDays(periodEnd, -29);
   const emptyTotals = {
@@ -226,7 +240,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
     missingSnapshotSessions: 0,
   };
 
-  if (!access || access.campuses.length === 0) {
+  if (campuses.length === 0) {
     return {
       campuses: [],
       selectedCampusId: null,
@@ -239,14 +253,18 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
     };
   }
 
-  const selectedCampusId = filters.campusId && canAccessAttendanceCampus(access, filters.campusId)
+  const canAccessSelectedCampus = context.isDirectorReadOnly
+    ? campuses.some(campus => campus.id === filters.campusId)
+    : canAccessAttendanceCampus(access, filters.campusId);
+  if (context.isDirectorReadOnly && filters.campusId && !canAccessSelectedCampus) throw new Error("attendance_campus_denied");
+  const selectedCampusId = filters.campusId && canAccessSelectedCampus
     ? filters.campusId
-    : access.defaultCampusId ?? access.campuses[0]?.id ?? null;
-  const selectedCampus = access.campuses.find((campus) => campus.id === selectedCampusId) ?? null;
+    : access?.defaultCampusId ?? campuses[0]?.id ?? null;
+  const selectedCampus = campuses.find((campus) => campus.id === selectedCampusId) ?? null;
 
   if (!selectedCampusId) {
     return {
-      campuses: access.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
+      campuses: campuses.map((campus) => ({ id: campus.id, name: campus.name })),
       selectedCampusId: null,
       selectedCampusName: null,
       periodStart,
@@ -257,9 +275,10 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
     };
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .rpc("get_training_workload_30d", {
+  const client = context.isDirectorReadOnly ? context.supabase : createAdminClient();
+  const rpcName = context.isDirectorReadOnly ? "director_readonly_training_workload_30d" : "get_training_workload_30d";
+  const { data, error } = await client
+    .rpc(rpcName, {
       p_campus_id: selectedCampusId,
       p_as_of: new Date().toISOString(),
     });
@@ -360,7 +379,7 @@ export async function getTrainingWorkloadReport(filters: { campusId?: string }):
   const exactSnapshotSources = new Set(["creation", "completion"]);
 
   return {
-    campuses: access.campuses.map((campus) => ({ id: campus.id, name: campus.name })),
+    campuses: campuses.map((campus) => ({ id: campus.id, name: campus.name })),
     selectedCampusId,
     selectedCampusName: selectedCampus?.name ?? null,
     periodStart,

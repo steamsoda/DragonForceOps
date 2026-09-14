@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
+import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, listAttendanceScheduleTemplates, listAttendanceSessions } from "@/lib/queries/attendance";
 import { getMonterreyDateString } from "@/lib/time";
 import { createManualAttendanceSessionAction, generateAttendanceSessionsAction } from "@/server/actions/attendance";
@@ -31,10 +31,11 @@ function sessionActionLabel(status: string) {
 }
 
 export default async function AttendanceTodayPage({ searchParams }: { searchParams: SearchParams }) {
-  const context = await requireAttendanceWriteContext("/unauthorized");
+  const context = await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
-  const canManageAttendanceSetup = context.isDirector || context.isSportsDirector;
-  const canUseGenerationTool = context.isDirector || context.isSportsDirector;
+  const canWrite = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess;
+  const canManageAttendanceSetup = canWrite && (context.isDirector || context.isSportsDirector);
+  const canUseGenerationTool = canManageAttendanceSetup;
   const data = await listAttendanceSessions({ date: params.date, campusId: params.campus });
   const setup = canManageAttendanceSetup ? await listAttendanceScheduleTemplates() : null;
   const selectedCampus = data.campuses.find((campus) => campus.id === data.selectedCampusId) ?? null;
@@ -71,7 +72,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
           </div>
         ) : null}
 
-        {!canManageAttendanceSetup ? (
+        {canWrite && !canManageAttendanceSetup ? (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
             Flujo de campo: abre un grupo, marca solo las ausencias o cambios necesarios y guarda. Los horarios y grupos se configuran por direccion.
           </div>
@@ -229,7 +230,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                             {session.recordedCount}/{session.rosterCount} registros
                           </span>
                           <span className="rounded-md bg-portoBlue px-3 py-2 text-sm font-semibold text-white">
-                            {sessionActionLabel(session.status)}
+                            {canWrite ? sessionActionLabel(session.status) : "Ver asistencia"}
                           </span>
                         </div>
                       </div>

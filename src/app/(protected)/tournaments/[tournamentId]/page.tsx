@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
+import { CompetitionReadPage } from "@/components/sports/competition-read-views";
 import { getTournamentDetailData, TEAM_GENDER_LABELS } from "@/lib/queries/tournaments";
 import {
   approveTournamentSourceRosterAction,
@@ -58,11 +59,12 @@ export default async function TournamentDetailPage({
   searchParams,
 }: {
   params: Promise<{ tournamentId: string }>;
-  searchParams: Promise<{ ok?: string; err?: string; sourceTeamId?: string }>;
+  searchParams: Promise<{ ok?: string; err?: string; sourceTeamId?: string; campus?: string; competition?: string; program?: string; week?: string; birthYear?: string; trainingGroup?: string; q?: string }>;
 }) {
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
   const { tournamentId } = await params;
   const query = await searchParams;
+  if (permission.isDirectorReadOnly) return <CompetitionReadPage filters={{ ...query, tournament: tournamentId }} mode="tournament" />;
   const data = await getTournamentDetailData(tournamentId, query.sourceTeamId);
   if (!data) notFound();
   const selectedSourceTeam = data.selectedSourceTeam;

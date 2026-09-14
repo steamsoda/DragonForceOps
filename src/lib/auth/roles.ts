@@ -1,4 +1,5 @@
 export const APP_ROLES = {
+  DIRECTOR_READONLY: "director_readonly",
   PORTO_VIEWER: "porto_viewer",
   SUPERADMIN: "superadmin",
   DIRECTOR_ADMIN: "director_admin",

@@ -12,6 +12,7 @@ import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
 
 type Props = {
   data: BaseTeamBoardData;
+  readOnly?: boolean;
 };
 
 const LEVEL_TONES: Record<string, string> = {
@@ -32,7 +33,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   create_failed: "No se pudo crear el equipo base.",
 };
 
-export function BaseTeamBoardClient({ data }: Props) {
+export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [banner, setBanner] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -59,6 +60,7 @@ export function BaseTeamBoardClient({ data }: Props) {
   }
 
   function handleCreate(level: string) {
+    if (readOnly) return;
     setBanner(null);
     startTransition(async () => {
       const formData = new FormData();
@@ -77,6 +79,7 @@ export function BaseTeamBoardClient({ data }: Props) {
   }
 
   function handleMove(teamId: string, level: string) {
+    if (readOnly) return;
     if (selectedIds.length === 0) {
       setBanner({ tone: "error", text: `Selecciona al menos un jugador antes de moverlo a ${level}.` });
       return;
@@ -131,14 +134,14 @@ export function BaseTeamBoardClient({ data }: Props) {
                 {data.selectedCampusName} · Cat. {data.selectedBirthYear} · {TEAM_GENDER_LABELS[data.selectedGender] ?? data.selectedGender}
               </p>
             </div>
-            <div className="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/70">
+            {!readOnly && <div className="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/70">
               <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Seleccionados</p>
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedCount}</p>
-            </div>
+            </div>}
           </div>
 
           <div className="mb-3 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800/60">
-            <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
+            {!readOnly && <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -146,7 +149,7 @@ export function BaseTeamBoardClient({ data }: Props) {
                 className="rounded border-slate-300"
               />
               Seleccionar todos
-            </label>
+            </label>}
             <span className="text-slate-500 dark:text-slate-400">{data.players.length} jugadores visibles</span>
           </div>
 
@@ -156,12 +159,12 @@ export function BaseTeamBoardClient({ data }: Props) {
                 key={player.enrollmentId}
                 className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/60"
               >
-                <input
+                {!readOnly && <input
                   type="checkbox"
                   checked={selectedSet.has(player.enrollmentId)}
                   onChange={() => toggleOne(player.enrollmentId)}
                   className="mt-1 rounded border-slate-300"
-                />
+                />}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium text-slate-900 dark:text-slate-100">{player.playerName}</p>
@@ -243,14 +246,14 @@ export function BaseTeamBoardClient({ data }: Props) {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <button
+                    {!readOnly && <button
                       type="button"
                       disabled={isPending || selectedCount === 0 || !slot.team}
                       onClick={() => slot.team && handleMove(slot.team.id, level)}
                       className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {selectedCount > 0 ? `Mover ${selectedCount} aqui` : "Selecciona jugadores"}
-                    </button>
+                    </button>}
                     {slot.team ? (
                       <Link
                         href={`/teams/${slot.team.id}`}
@@ -271,7 +274,7 @@ export function BaseTeamBoardClient({ data }: Props) {
             </p>
           ) : null}
 
-          {data.suggestedLevels.length > 0 ? (
+          {!readOnly && data.suggestedLevels.length > 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700">
               <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Niveles sugeridos</p>
               <div className="flex flex-wrap gap-2">

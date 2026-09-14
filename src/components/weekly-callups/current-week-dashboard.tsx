@@ -14,11 +14,17 @@ import {
   type WeeklyCallupComposerState,
 } from "@/server/actions/weekly-callups";
 
+export type ReadableWeekDashboardData = Pick<WeeklyCallupsFoundationData, "campuses" | "currentWeekStart" | "scheduleUnits"> & {
+  tournaments: Array<Pick<WeeklyCallupsFoundationData["tournaments"][number], "id" | "name">>;
+  coachScheduleDefaults: Record<string, Omit<WeeklyCallupsFoundationData["coachScheduleDefaults"][string], "notes">>;
+  callups: Array<Pick<WeeklyCallupListRow, "id" | "campusId" | "program" | "weekStart">>;
+};
 type Props = {
-  data: WeeklyCallupsFoundationData;
+  data: ReadableWeekDashboardData;
   selectedCampusId: string;
   selectedProgram: WeeklyCallupProgram;
   canManageSchedules: boolean;
+  readOnly?: boolean;
 };
 
 const PROGRAMS: Array<{ value: WeeklyCallupProgram; label: string }> = [
@@ -89,16 +95,18 @@ function CurrentWeekCard({
   selected,
   onSelect,
   canManageSchedules,
+  readOnly,
 }: {
   campus: { id: string; name: string };
   program: { value: WeeklyCallupProgram; label: string };
   groups: WeeklyCallupsFoundationData["scheduleUnits"];
-  reports: WeeklyCallupsFoundationData["coachScheduleDefaults"];
-  callup: WeeklyCallupListRow | undefined;
+  reports: ReadableWeekDashboardData["coachScheduleDefaults"];
+  callup: ReadableWeekDashboardData["callups"][number] | undefined;
   weekStart: string;
   selected: boolean;
   onSelect: () => void;
   canManageSchedules: boolean;
+  readOnly: boolean;
 }) {
   const [state, action, pending] = useActionState<WeeklyCallupComposerState, FormData>(
     createWeeklyCallupComposerAction,
@@ -127,12 +135,12 @@ function CurrentWeekCard({
       <div className="border-t border-slate-200 p-2">
         {callup ? (
           <div className="grid grid-cols-2 gap-2">
-            <DirectPngButton callupId={callup.id} />
+            {!readOnly && <DirectPngButton callupId={callup.id} />}
             {canManageSchedules ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">
               Ver detalle
             </Link> : <Link href={`/convocatorias/${callup.id}`} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Abrir convocatoria</Link>}
           </div>
-        ) : complete ? (
+        ) : complete && !readOnly ? (
           <div className={`grid gap-2 ${canManageSchedules ? "grid-cols-2" : ""}`}>
           <form action={action} className="space-y-2">
             <input type="hidden" name="campusId" value={campus.id} />
@@ -149,7 +157,7 @@ function CurrentWeekCard({
         ) : (
           <div className="grid gap-2">
             <p className="min-h-9 rounded-md bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-500">{groups.length === 0 ? "Sin equipos configurados" : "Faltan reportes"}</p>
-            {canManageSchedules && groups.length ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Ver detalle</Link> : null}
+            {(canManageSchedules || readOnly) && groups.length ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Ver detalle</Link> : null}
           </div>
         )}
       </div>
@@ -157,7 +165,7 @@ function CurrentWeekCard({
   );
 }
 
-export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram, canManageSchedules }: Props) {
+export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram, canManageSchedules, readOnly = false }: Props) {
   const [selection, setSelection] = useState({ campusId: selectedCampusId, program: selectedProgram });
   const week = weekDetails(data.currentWeekStart);
   const tournamentById = new Map(data.tournaments.map((tournament) => [tournament.id, tournament.name]));
@@ -198,7 +206,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram, 
           <h2 className="text-xl font-semibold">Semana {week.weekNumber} <span className="font-normal text-slate-500">| {week.range}</span></h2>
           <p className="text-sm text-slate-500">Selecciona una tarjeta para revisar sus equipos. Rojo requiere seguimiento; verde confirma reporte o descanso.</p>
         </div>
-        <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium">Actualiza automaticamente</span>
+        {!readOnly && <span className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium">Actualiza automaticamente</span>}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -217,6 +225,7 @@ export function CurrentWeekDashboard({ data, selectedCampusId, selectedProgram, 
               selected={campus.id === selection.campusId && program.value === selection.program}
               onSelect={() => select(campus.id, program.value)}
               canManageSchedules={canManageSchedules}
+              readOnly={readOnly}
             />
           );
         }))}

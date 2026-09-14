@@ -4,9 +4,11 @@ import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { formatRoleWithCampus } from "@/lib/auth/role-display";
 import { createClient } from "@/lib/supabase/server";
 import { grantRoleAction, linkCoachUserAction, revokeRoleAction, unlinkCoachUserAction } from "@/server/actions/users";
+import { directorReadOnlyEnabled } from "@/lib/auth/director-readonly-policy";
 
 const ALL_ROLES = [
-  { code: "porto_viewer", label: "Porto - Solo lectura, sin finanzas (Rita)" },
+  ...(directorReadOnlyEnabled() ? [{ code: "director_readonly", label: "Director - Solo lectura, sin finanzas" }] : []),
+  { code: "porto_viewer", label: "Porto - Solo lectura, sin finanzas" },
   { code: "superadmin", label: "Super Admin" },
   { code: "director_admin", label: "Director Admin" },
   { code: "director_deportivo", label: "Director Deportivo" },
@@ -20,6 +22,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_form: "Datos invalidos.",
   role_not_found: "Rol no encontrado.",
   grant_failed: "No se pudo asignar el rol.",
+  porto_unverified: "La cuenta debe confirmar su correo antes de recibir acceso Porto.",
+  readonly_unverified: "La cuenta debe confirmar su correo antes de recibir acceso de solo lectura.",
+  readonly_role_conflict: "El acceso de solo lectura no se puede combinar con otros roles. Revoca el rol existente antes de cambiar el acceso.",
+  porto_role_conflict: "Porto no se puede combinar con roles de personal. Revoca el rol existente antes de cambiar el acceso.",
   revoke_failed: "No se pudo revocar el rol.",
   invalid_coach_link: "Selecciona una cuenta y un coach activo.",
   coach_already_linked: "Ese coach ya esta vinculado a otra cuenta.",

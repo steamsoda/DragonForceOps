@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { MeasurementActivityBar } from "@/components/nutrition/charts";
-import { requireNutritionContext } from "@/lib/auth/permissions";
+import { requireNutritionReadContext } from "@/lib/auth/permissions";
 import { getNutritionDashboardData, listNutritionCampuses } from "@/lib/queries/nutrition";
 import { formatDateTimeMonterrey } from "@/lib/time";
 
@@ -19,7 +19,7 @@ type SearchParams = Promise<{
 }>;
 
 export default async function NutritionDashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireNutritionContext("/unauthorized");
+  await requireNutritionReadContext("/unauthorized");
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const requestedMonth = params.month;
@@ -39,7 +39,7 @@ export default async function NutritionDashboardPage({ searchParams }: { searchP
       breadcrumbs={[{ label: "Nutricion" }]}
     >
       <div className="space-y-4">
-        <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_auto_auto]">
+        <form method="get" className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_auto_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}

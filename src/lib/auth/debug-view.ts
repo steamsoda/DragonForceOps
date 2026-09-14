@@ -140,8 +140,12 @@ export const getDebugViewContext = cache(async function getDebugViewContext(): P
 
   const actorRoleRows = await loadRoleRows(supabase, admin, user.id);
   const actor = buildResolvedUser(user.id, user.email ?? null, actorRoleRows);
+  if (actor.roleCodes.includes(APP_ROLES.DIRECTOR_READONLY)) {
+    const verified = await supabase.rpc("is_director_readonly");
+    if (verified.error || verified.data !== true) return null;
+  }
   const enabled = isPreviewDebugEnabled();
-  const canManage = enabled && actor.isSuperAdmin;
+  const canManage = enabled && actor.isSuperAdmin && !actor.roleCodes.includes(APP_ROLES.DIRECTOR_READONLY);
 
   let activeView: DebugViewContext["activeView"] = null;
   let effective = actor;
@@ -188,7 +192,8 @@ function withErrorParam(path: string, errorCode: string) {
 
 export async function isDebugWriteBlocked() {
   const context = await getDebugViewContext();
-  return Boolean(context?.isReadOnly || context?.actor.roleCodes.includes(APP_ROLES.PORTO_VIEWER));
+  return Boolean(context?.isReadOnly || context?.actor.roleCodes.includes(APP_ROLES.PORTO_VIEWER) ||
+    context?.actor.roleCodes.includes(APP_ROLES.DIRECTOR_READONLY));
 }
 
 export async function assertDebugWritesAllowed(redirectTo?: string) {

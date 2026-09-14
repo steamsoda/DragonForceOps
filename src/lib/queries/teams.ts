@@ -239,7 +239,7 @@ type PrimaryAssignmentBoardRow = {
 
 async function getSportsTeamsContext(): Promise<SportsTeamContext | null> {
   const context = await getPermissionContext();
-  if (!context?.hasSportsAccess) return null;
+  if (!context || (!context.hasSportsAccess && !context.isDirectorReadOnly)) return null;
   const campuses = context.campusAccess?.campuses ?? [];
   if (campuses.length === 0) return null;
   return {
@@ -312,9 +312,19 @@ export async function listTeams(): Promise<TeamListItem[]> {
 }
 
 export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> {
+  const permission = await getPermissionContext();
+  if (!permission) return null;
   const admin = createAdminClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const campusAccess = permission.isDirectorReadOnly ? permission.campusAccess : await getOperationalCampusAccess();
   if (!campusAccess) return null;
+
+  // Authorize the team before service-role roster/history reads.
+  if (permission.isDirectorReadOnly) {
+    const { data: scopedTeam, error } = await admin.from("teams")
+      .select("id").eq("id", teamId).in("campus_id", campusAccess.campusIds).maybeSingle();
+    if (error) throw error;
+    if (!scopedTeam) return null;
+  }
 
   const [{ data: team }, { data: rosterRows }, { data: historyRows }] = await Promise.all([
     admin
@@ -691,6 +701,8 @@ export async function getBaseTeamBoardData(filters?: {
 }
 
 export async function listBulkChargeTypes(): Promise<BulkChargeType[]> {
+  const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return [];
   const supabase = await createClient();
   const { data } = await supabase
     .from("charge_types")

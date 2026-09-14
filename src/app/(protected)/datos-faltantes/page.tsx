@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { requirePlayerDataContext } from "@/lib/auth/permissions";
+import { requirePlayerDataReadContext } from "@/lib/auth/permissions";
+import { readManagementData, ManagementReadUnavailable } from "../dashboard/management-read";
+import { contactsReadSchema } from "./read-contract";
 import {
   getContactCleanupData,
   type ContactCleanupGuardian,
@@ -86,6 +88,7 @@ function ContactForm({
   title,
   submitLabel,
   showAdditionalTutor = false,
+  readOnly = false,
 }: {
   row: ContactCleanupRow;
   guardian: ContactCleanupGuardian | null;
@@ -94,7 +97,12 @@ function ContactForm({
   title?: string;
   submitLabel?: string;
   showAdditionalTutor?: boolean;
+  readOnly?: boolean;
 }) {
+  if (readOnly) return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    {[["Nombre", guardian?.firstName], ["Apellido", guardian?.lastName], ["Telefono principal", guardian?.phonePrimary], ["Telefono secundario", guardian?.phoneSecondary], ["Email", guardian?.email], ["Parentesco", guardian?.relationshipLabel]].map(([label, value]) =>
+      <label key={label} className="grid gap-1 text-xs">{label}<input readOnly value={value ?? ""} className={inputClass()} /></label>)}
+  </div>;
   return (
     <form action={saveContactCleanupGuardianAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
       <input type="hidden" name="playerId" value={row.playerId} />
@@ -164,7 +172,7 @@ function ContactForm({
   );
 }
 
-function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo: string }) {
+function PlayerContactCard({ row, returnTo, readOnly = false }: { row: ContactCleanupRow; returnTo: string; readOnly?: boolean }) {
   const badges = [
     row.missingGuardian ? "Sin tutor" : null,
     row.missingGuardianName ? "Nombre tutor incompleto" : null,
@@ -178,9 +186,9 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
+            {readOnly ? <span className="text-base font-semibold text-portoBlue">{row.playerName}</span> : <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
               {row.playerName}
-            </Link>
+            </Link>}
             <span className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
               {row.publicPlayerId}
             </span>
@@ -209,17 +217,17 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
                 {guardian.isPrimary ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-portoBlue dark:bg-blue-950/30 dark:text-blue-200">Principal</span> : null}
                 {guardian.relationshipLabel ? <span className="text-slate-500 dark:text-slate-400">{guardian.relationshipLabel}</span> : null}
               </div>
-              <ContactForm row={row} guardian={guardian} returnTo={returnTo} />
+              <ContactForm row={row} guardian={guardian} returnTo={returnTo} readOnly={readOnly} />
             </div>
           ))}
-          {row.guardians.length < 2 ? (
+          {!readOnly && row.guardians.length < 2 ? (
             <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary={false} title="Segundo tutor opcional" submitLabel="Guardar datos" />
           ) : null}
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm text-slate-600 dark:text-slate-400">No hay tutor vinculado. Captura los datos que tengas y guarda una sola vez.</p>
-          <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary title="Tutor principal" submitLabel="Guardar datos" showAdditionalTutor />
+          <p className="text-sm text-slate-600 dark:text-slate-400">{readOnly ? "No hay tutor vinculado." : "No hay tutor vinculado. Captura los datos que tengas y guarda una sola vez."}</p>
+          <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary title="Tutor principal" submitLabel="Guardar datos" showAdditionalTutor readOnly={readOnly} />
         </div>
       )}
     </article>
@@ -227,15 +235,18 @@ function PlayerContactCard({ row, returnTo }: { row: ContactCleanupRow; returnTo
 }
 
 export default async function DatosFaltantesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requirePlayerDataContext("/unauthorized");
+  const context = await requirePlayerDataReadContext("/unauthorized");
   const params = await searchParams;
-  const data = await getContactCleanupData({
+  const data = context.isDirectorReadOnly
+    ? await readManagementData("director_readonly_contacts_v1", { campus: params.campus, year: params.year, gender: params.gender, q: params.q, status: params.status }, contactsReadSchema)
+    : await getContactCleanupData({
     campusId: params.campus,
     birthYear: params.year,
     gender: params.gender,
     q: params.q,
     status: params.status,
   });
+  if (!data) return <ManagementReadUnavailable title="Datos faltantes" />;
   const selectedYearParam = data.selectedBirthYear ? String(data.selectedBirthYear) : "all";
   const returnTo = withParams("/datos-faltantes", {
     campus: data.selectedCampusId,
@@ -253,12 +264,12 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
       wide
     >
       <div className="space-y-4">
-        {params.ok === "contact_saved" ? (
+        {!context.isDirectorReadOnly && params.ok === "contact_saved" ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
             Contacto guardado correctamente.
           </div>
         ) : null}
-        {params.err ? (
+        {!context.isDirectorReadOnly && params.err ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
             {ERROR_MESSAGES[params.err] ?? "No se pudo guardar el contacto."}
           </div>
@@ -400,7 +411,7 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
         {data.rows.length > 0 ? (
           <div className="space-y-3">
             {data.rows.map((row) => (
-              <PlayerContactCard key={row.enrollmentId} row={row} returnTo={returnTo} />
+              <PlayerContactCard key={row.enrollmentId} row={row} returnTo={returnTo} readOnly={context.isDirectorReadOnly} />
             ))}
           </div>
         ) : (

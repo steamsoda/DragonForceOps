@@ -49,7 +49,10 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   const params = await searchParams;
   const periodDays = Number(params.period ?? 30);
   const birthYear = params.birthYear ? Number(params.birthYear) : undefined;
-  const canViewCollectionsRisk = context.hasOperationalAccess;
+  const canViewFinancials = !context.isDirectorReadOnly && context.canViewFinancials;
+  const canViewCollectionsRisk = canViewFinancials && context.hasOperationalAccess;
+  // Preserve the existing staff packet contract; the new viewer never reads it.
+  const canViewWeeklyCoachPacket = !context.isDirectorReadOnly;
   const [data, daily, collectionsRisk, weeklyCoachPacket] = await Promise.all([
     getAttendanceReports({
       campusId: params.campus,
@@ -67,11 +70,11 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           birthYear: Number.isFinite(birthYear) ? birthYear : undefined,
         })
       : Promise.resolve(null),
-    getWeeklyCoachPacket({
+    canViewWeeklyCoachPacket ? getWeeklyCoachPacket({
       campusId: params.campus,
       week: params.week,
       coach: params.coach,
-    }),
+    }) : Promise.resolve(null),
   ]);
 
   const birthYears = Array.from(new Set(data.inactivePlayers.map((row) => row.birthYear).filter((value): value is number => Boolean(value)))).sort((a, b) => b - a);
@@ -92,7 +95,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
             pathname="/attendance/reports"
             campuses={data.campuses}
             selectedCampusId={data.selectedCampusId}
-            params={{ period: data.periodDays, birthYear, month: data.month, date: daily.selectedDate, week: weeklyCoachPacket.week.value, coach: weeklyCoachPacket.selectedCoachKey }}
+            params={{ period: data.periodDays, birthYear, month: data.month, date: daily.selectedDate, week: weeklyCoachPacket?.week.value, coach: weeklyCoachPacket?.selectedCoachKey }}
             allLabel="Todos"
           />
           <form className="grid gap-3 md:grid-cols-4">
@@ -126,6 +129,7 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
           </form>
         </section>
 
+        {weeklyCoachPacket ? <>
         <section className="space-y-3 print:hidden">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reporte semanal para coaches</h2>
@@ -257,6 +261,8 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
             </div>
           ) : null}
         </section>
+
+        </> : null}
 
         <section className="space-y-3 print:hidden">
           <div>

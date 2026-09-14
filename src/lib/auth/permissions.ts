@@ -26,6 +26,8 @@ export type PermissionContext = {
   nutritionCampusAccess: NutritionCampusAccess | null;
   attendanceCampusAccess: AttendanceCampusAccess | null;
   isSuperAdmin: boolean;
+  isDirectorReadOnly: boolean;
+  canViewFinancials: boolean;
   isDirector: boolean;
   isSportsDirector: boolean;
   isNutritionist: boolean;
@@ -37,8 +39,12 @@ export type PermissionContext = {
   hasPlayerRosterAccess: boolean;
   hasPlayerDataAccess: boolean;
   hasOperationalAccess: boolean;
+  hasOperationalReadAccess: boolean;
+  hasPlayerDataReadAccess: boolean;
+  hasSportsReadAccess: boolean;
   hasSportsAccess: boolean;
   hasNutritionAccess: boolean;
+  hasNutritionReadAccess: boolean;
   hasAttendanceReadAccess: boolean;
   hasAttendanceWriteAccess: boolean;
   hasTuitionStatusReportAccess: boolean;
@@ -56,14 +62,16 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     getAttendanceCampusAccess(),
   ]);
   const roleCodes = debugContext.effective.roleCodes;
-  const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
-  const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
-  const isSportsDirector = isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO);
-  const isNutritionist = roleCodes.includes(APP_ROLES.NUTRITIONIST);
-  const isAttendanceAdmin = roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN);
-  const isOfficeAdmin = roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
-  const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
-  const isCoach = roleCodes.includes(APP_ROLES.COACH);
+  const isDirectorReadOnly = roleCodes.includes(APP_ROLES.DIRECTOR_READONLY);
+  // Read-only wins even if an invalid mixed assignment reaches the application.
+  const isSuperAdmin = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.SUPERADMIN);
+  const isDirector = !isDirectorReadOnly && (isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN));
+  const isSportsDirector = !isDirectorReadOnly && (isDirector || roleCodes.includes(APP_ROLES.DIRECTOR_DEPORTIVO));
+  const isNutritionist = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.NUTRITIONIST);
+  const isAttendanceAdmin = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN);
+  const isOfficeAdmin = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.OFFICE_ADMIN);
+  const isFrontDesk = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.FRONT_DESK);
+  const isCoach = !isDirectorReadOnly && roleCodes.includes(APP_ROLES.COACH);
   const coachResult = isCoach
     ? await supabase
         .from("coaches")
@@ -83,6 +91,8 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     nutritionCampusAccess,
     attendanceCampusAccess,
     isSuperAdmin,
+    isDirectorReadOnly,
+    canViewFinancials: !isDirectorReadOnly && (isDirector || isFrontDesk),
     isDirector,
     isSportsDirector,
     isNutritionist,
@@ -91,12 +101,16 @@ export async function getPermissionContext(): Promise<PermissionContext | null> 
     isFrontDesk,
     isCoach,
     coachId,
-    hasPlayerRosterAccess: isDirector || isFrontDesk || isOfficeAdmin || isSportsDirector,
+    hasPlayerRosterAccess: isDirector || isFrontDesk || isOfficeAdmin || isSportsDirector || isDirectorReadOnly,
     hasPlayerDataAccess: isDirector || isFrontDesk || isOfficeAdmin,
     hasOperationalAccess: isDirector || isFrontDesk,
+    hasOperationalReadAccess: isDirector || isFrontDesk || isDirectorReadOnly,
+    hasPlayerDataReadAccess: isDirector || isFrontDesk || isOfficeAdmin || isDirectorReadOnly,
+    hasSportsReadAccess: isSportsDirector || isDirectorReadOnly,
     hasSportsAccess: isSportsDirector,
     hasNutritionAccess: isDirector || isNutritionist,
-    hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
+    hasNutritionReadAccess: isDirector || isNutritionist || isDirectorReadOnly,
+    hasAttendanceReadAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin || isDirectorReadOnly,
     hasAttendanceWriteAccess: isDirector || isSportsDirector || isAttendanceAdmin || isOfficeAdmin,
     hasTuitionStatusReportAccess: isDirector || isSportsDirector || isAttendanceAdmin || isFrontDesk || isOfficeAdmin,
     hasCoachScheduleAccess: isCoach && Boolean(coachId),
@@ -148,6 +162,37 @@ export async function requireAttendanceReadContext(redirectTo = "/unauthorized")
 export async function requireAttendanceWriteContext(redirectTo = "/unauthorized") {
   const context = await getPermissionContext();
   if (!context?.hasAttendanceWriteAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireNutritionReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasNutritionReadAccess) redirect(redirectTo);
+  return context;
+}
+
+// Read helpers are for reviewed loaders/pages only, never mutation actions.
+export async function requireOperationalReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasOperationalReadAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requirePlayerDataReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasPlayerDataReadAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireSportsReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context?.hasSportsReadAccess) redirect(redirectTo);
+  return context;
+}
+
+export async function requireDirectorReadContext(redirectTo = "/unauthorized") {
+  const context = await getPermissionContext();
+  if (!context || (!context.isDirector && !context.isDirectorReadOnly)) redirect(redirectTo);
   return context;
 }
 

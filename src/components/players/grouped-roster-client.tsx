@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
 import type { PlayerRosterGroupsData, RosterTuitionCell } from "@/lib/queries/player-roster-groups";
+import type { DirectorReadOnlyRosterData } from "./director-readonly-roster-types";
 import { updatePlayerRosterTrainingGroupsAction } from "@/server/actions/training-groups";
 
 type GroupedRosterFilters = {
@@ -13,9 +14,14 @@ type GroupedRosterFilters = {
   birthYear?: string;
 };
 
+type RosterData = PlayerRosterGroupsData | DirectorReadOnlyRosterData;
+type RosterRow = RosterData["sections"][number]["rows"][number];
+function rosterMonths(data: RosterData) { return "months" in data ? data.months : []; }
+function rosterTuition(row: RosterRow) { return "tuition" in row ? row.tuition : []; }
+
 type LoadState =
   | { status: "loading"; data: null; message: null }
-  | { status: "ready"; data: PlayerRosterGroupsData | null; message: null }
+  | { status: "ready"; data: RosterData | null; message: null }
   | { status: "error"; data: null; message: string };
 
 const ATTENDANCE_PRINT_LIMIT = 15;
@@ -75,7 +81,7 @@ function attendanceSymbol(status: PlayerRosterGroupsData["sections"][number]["ro
   return "-";
 }
 
-type RosterPrintRow = PlayerRosterGroupsData["sections"][number]["rows"][number];
+type RosterPrintRow = RosterRow;
 
 function getSectionAttendanceDates(rows: RosterPrintRow[]) {
   const dates = new Set<string>();
@@ -94,7 +100,7 @@ function getAttendanceSymbolForDate(row: RosterPrintRow, sessionDate: string | u
   return item ? attendanceSymbol(item.status) : "-";
 }
 
-function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
+function CoachRosterPrintSheet({ data }: { data: RosterData }) {
   const printedAt = todayLabel();
   const genderLabel = data.selectedGender === "male" ? "Varonil" : data.selectedGender === "female" ? "Femenil" : "Todos los generos";
   const categoryLabel = data.selectedBirthYear ? `Cat. ${data.selectedBirthYear}` : "Todas las categorias";
@@ -164,7 +170,7 @@ function CoachRosterPrintSheet({ data }: { data: PlayerRosterGroupsData }) {
   );
 }
 
-function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) {
+function RosterAttendancePrintSheet({ data }: { data: RosterData }) {
   const printedAt = todayLabel();
   const genderLabel = data.selectedGender === "male" ? "Varonil" : data.selectedGender === "female" ? "Femenil" : "Todos los generos";
   const categoryLabel = data.selectedBirthYear ? `Cat. ${data.selectedBirthYear}` : "Todas las categorias";
@@ -203,7 +209,7 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
                   <th className="roster-print-col-cat">Cat</th>
                   <th className="roster-print-col-level">Nivel</th>
                   <th className="roster-print-col-date">Insc</th>
-                  {data.months.map((month) => (
+                  {rosterMonths(data).map((month) => (
                     <th key={month.periodMonth} className="roster-print-col-money">{month.label.slice(0, 3)}</th>
                   ))}
                   {attendanceHeaders.map((header) => (
@@ -214,7 +220,7 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6 + data.months.length + attendanceHeaders.length}>Sin jugadores activos en este grupo.</td>
+                    <td colSpan={6 + rosterMonths(data).length + attendanceHeaders.length}>Sin jugadores activos en este grupo.</td>
                   </tr>
                 ) : (
                   rows.map((row, index) => (
@@ -225,7 +231,7 @@ function RosterAttendancePrintSheet({ data }: { data: PlayerRosterGroupsData }) 
                       <td className="roster-print-col-cat">{row.birthYear ?? "-"}</td>
                       <td className="roster-print-col-level">{row.levelGroup}</td>
                       <td className="roster-print-col-date">{row.inscriptionDate}</td>
-                      {row.tuition.map((cell) => (
+                      {rosterTuition(row).map((cell) => (
                         <td key={cell.periodMonth} className="roster-print-col-money">{cell.value}</td>
                       ))}
                       {attendanceHeaders.map((header, attendanceIndex) => (
@@ -277,7 +283,7 @@ const ASSIGNMENT_ERROR_LABELS: Record<string, string> = {
   assignment_failed: "No se pudo guardar uno de los cambios.",
 };
 
-function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; onReload: () => Promise<void> }) {
+function GroupedRosterView({ data, onReload }: { data: RosterData; onReload: () => Promise<void> }) {
   const initialAssignments = useMemo(() => {
     const entries: Array<[string, string]> = [];
     for (const section of data.sections) {
@@ -305,6 +311,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
   );
 
   function saveAssignments() {
+    if (!data.canEditTrainingGroups) return;
     if (changedEnrollmentIds.length === 0) {
       setSaveMessage("No hay cambios por guardar.");
       return;
@@ -395,7 +402,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 >
                   Imprimir listas
                 </button>
-                <a
+                {!("canViewFinancials" in data) ? <a
                   href={groupedRosterExportHref({
                     campusId: data.selectedCampusId,
                     gender: data.selectedGender,
@@ -404,13 +411,13 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                   className="block rounded-md px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-portoBlue dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Exportar Excel
-                </a>
+                </a> : null}
               </div>
             </details>
           </div>
         </div>
 
-        {editMode ? (
+        {data.canEditTrainingGroups && editMode ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -564,7 +571,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                     <th className="border-b border-slate-200 px-2 py-2 dark:border-slate-700">Nivel/Grupo</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">INSC</th>
                     <th className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">ULT. ASIST.</th>
-                    {data.months.map((month) => (
+                    {rosterMonths(data).map((month) => (
                       <th key={month.periodMonth} className="border-b border-slate-200 px-2 py-2 text-center dark:border-slate-700">
                         {month.label}
                       </th>
@@ -574,7 +581,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {section.rows.length === 0 ? (
                     <tr>
-                      <td colSpan={7 + data.months.length} className="px-3 py-4 text-slate-500 dark:text-slate-400">
+                      <td colSpan={7 + rosterMonths(data).length} className="px-3 py-4 text-slate-500 dark:text-slate-400">
                         Sin jugadores activos en este grupo.
                       </td>
                     </tr>
@@ -590,7 +597,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                         </td>
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.birthYear ?? "-"}</td>
                         <td className="px-2 py-2 text-slate-700 dark:text-slate-300">
-                          {editMode ? (
+                          {data.canEditTrainingGroups && editMode ? (
                             <select
                               value={assignments[row.enrollmentId] ?? ""}
                               onChange={(event) => {
@@ -617,7 +624,7 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
                             <AttendanceRiskBadge risk={row.attendanceRisk} compact />
                           </div>
                         </td>
-                        {row.tuition.map((cell) => (
+                        {rosterTuition(row).map((cell) => (
                           <td key={cell.periodMonth} className="px-2 py-2 text-center">
                             <span className={`inline-flex min-h-6 min-w-20 items-center justify-center rounded border px-2 py-1 font-medium leading-none ${tuitionCellClass(cell.state)}`}>
                               {cell.value}
@@ -912,9 +919,10 @@ function GroupedRosterView({ data, onReload }: { data: PlayerRosterGroupsData; o
   );
 }
 
-export function GroupedRosterClient({ filters }: { filters: GroupedRosterFilters }) {
+export function GroupedRosterClient({ filters, initialData }: { filters: GroupedRosterFilters; initialData?: DirectorReadOnlyRosterData | null }) {
   const apiHref = useMemo(() => groupedRosterApiHref(filters), [filters.campusId, filters.gender, filters.birthYear]);
-  const [state, setState] = useState<LoadState>({ status: "loading", data: null, message: null });
+  const [state, setState] = useState<LoadState>(initialData !== undefined
+    ? { status: "ready", data: initialData, message: null } : { status: "loading", data: null, message: null });
 
   const loadRoster = useCallback(async (signal?: AbortSignal) => {
     setState({ status: "loading", data: null, message: null });
@@ -929,7 +937,7 @@ export function GroupedRosterClient({ filters }: { filters: GroupedRosterFilters
         if (!response.ok) {
           throw new Error(json?.message ?? "No se pudo cargar el roster.");
         }
-        setState({ status: "ready", data: json as PlayerRosterGroupsData | null, message: null });
+        setState({ status: "ready", data: json as RosterData | null, message: null });
       })
       .catch((error: unknown) => {
         if (signal?.aborted) return;
@@ -942,11 +950,16 @@ export function GroupedRosterClient({ filters }: { filters: GroupedRosterFilters
   }, [apiHref]);
 
   useEffect(() => {
+    if (initialData !== undefined) {
+      setState({ status: "ready", data: initialData, message: null });
+      return;
+    }
     const controller = new AbortController();
     loadRoster(controller.signal);
     return () => controller.abort();
-  }, [loadRoster]);
+  }, [loadRoster, initialData]);
 
+  if (initialData !== undefined) return initialData ? <GroupedRosterView data={initialData} onReload={loadRoster} /> : <EmptyRoster />;
   if (state.status === "loading") return <LoadingRoster />;
   if (state.status === "error") return <ErrorRoster message={state.message} />;
   if (!state.data) return <EmptyRoster />;

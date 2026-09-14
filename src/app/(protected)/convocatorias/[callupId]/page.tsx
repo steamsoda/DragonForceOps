@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { CallupReadDetail } from "@/components/sports/competition-read-views";
 import { notFound } from "next/navigation";
 import { WeeklyCallupPngExportButton } from "@/components/weekly-callups/png-export-button";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
@@ -86,6 +88,8 @@ function statusLabel(status: string) {
 
 export default async function WeeklyCallupEditorPage({ params, searchParams }: PageProps) {
   const [{ callupId }, query] = await Promise.all([params, searchParams]);
+  const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return <CallupReadDetail id={callupId} />;
   const showComparison = query.compare === "1";
   const showExceptions = query.exceptions === "1";
   const callup = await getWeeklyCallupDetail(callupId, {

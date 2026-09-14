@@ -1,3 +1,4 @@
+import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
@@ -781,26 +782,34 @@ async function loadActiveEnrollmentsForCampus(admin: SupabaseQueryClient, campus
 }
 
 async function loadAllocationSummaries(admin: SupabaseQueryClient, chargeIds: string[]) {
-  const chunkSize = 500;
+  // PostgREST echoes the URL in Content-Location. 500 UUIDs can exceed Node's
+  // response-header budget before the body is read; keep each request bounded.
+  const chunkSize = 100;
+  const uniqueIds = [...new Set(chargeIds)];
   const allocationSummaries = new Map<string, AllocationSummary>();
 
-  for (let index = 0; index < chargeIds.length; index += chunkSize) {
-    const chunk = chargeIds.slice(index, index + chunkSize);
-    const { data, error } = await admin
-      .from("payment_allocations")
-      .select("charge_id, amount, created_at, payments(paid_at, created_at)")
-      .in("charge_id", chunk)
-      .returns<AllocationRow[]>();
+  for (let index = 0; index < uniqueIds.length; index += chunkSize) {
+    const chunk = uniqueIds.slice(index, index + chunkSize);
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await admin
+        .from("payment_allocations")
+        .select("charge_id, amount, created_at, payments(paid_at, created_at)")
+        .in("charge_id", chunk)
+        .order("id")
+        .range(offset, offset + 499)
+        .returns<AllocationRow[]>();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    for (const allocation of data ?? []) {
-      const current = allocationSummaries.get(allocation.charge_id) ?? { total: 0, paidAt: null };
-      const paidAt = allocation.payments?.paid_at ?? allocation.payments?.created_at ?? allocation.created_at;
-      allocationSummaries.set(allocation.charge_id, {
-        total: roundMoney(current.total + allocation.amount),
-        paidAt: !current.paidAt || paidAt > current.paidAt ? paidAt : current.paidAt,
-      });
+      for (const allocation of data ?? []) {
+        const current = allocationSummaries.get(allocation.charge_id) ?? { total: 0, paidAt: null };
+        const paidAt = allocation.payments?.paid_at ?? allocation.payments?.created_at ?? allocation.created_at;
+        allocationSummaries.set(allocation.charge_id, {
+          total: roundMoney(current.total + allocation.amount),
+          paidAt: !current.paidAt || paidAt > current.paidAt ? paidAt : current.paidAt,
+        });
+      }
+      if ((data?.length ?? 0) < 500) break;
     }
   }
 
@@ -810,28 +819,34 @@ async function loadAllocationSummaries(admin: SupabaseQueryClient, chargeIds: st
 async function loadActiveTrainingGroupAssignments(admin: SupabaseQueryClient, enrollmentIds: string[]) {
   if (enrollmentIds.length === 0) return new Map<string, TrainingGroupSummary>();
 
-  const chunkSize = 300;
+  const chunkSize = 100;
+  const uniqueIds = [...new Set(enrollmentIds)];
   const groupByEnrollment = new Map<string, TrainingGroupSummary>();
 
-  for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
-    const chunk = enrollmentIds.slice(index, index + chunkSize);
-    const { data, error } = await admin
-      .from("training_group_assignments")
-      .select("enrollment_id, training_group_id, training_groups(id, name, program, gender, birth_year_min, birth_year_max, status)")
-      .in("enrollment_id", chunk)
-      .is("end_date", null)
-      .returns<TrainingGroupAssignmentRow[]>();
+  for (let index = 0; index < uniqueIds.length; index += chunkSize) {
+    const chunk = uniqueIds.slice(index, index + chunkSize);
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await admin
+        .from("training_group_assignments")
+        .select("enrollment_id, training_group_id, training_groups(id, name, program, gender, birth_year_min, birth_year_max, status)")
+        .in("enrollment_id", chunk)
+        .is("end_date", null)
+        .order("id")
+        .range(offset, offset + 499)
+        .returns<TrainingGroupAssignmentRow[]>();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    for (const row of data ?? []) {
-      const group = getTrainingGroupSummary(row.training_groups);
-      if (!group) continue;
+      for (const row of data ?? []) {
+        const group = getTrainingGroupSummary(row.training_groups);
+        if (!group) continue;
 
-      const existing = groupByEnrollment.get(row.enrollment_id);
-      if (!existing || group.label.localeCompare(existing.label, "es-MX") < 0) {
-        groupByEnrollment.set(row.enrollment_id, group);
+        const existing = groupByEnrollment.get(row.enrollment_id);
+        if (!existing || group.label.localeCompare(existing.label, "es-MX") < 0) {
+          groupByEnrollment.set(row.enrollment_id, group);
+        }
       }
+      if ((data?.length ?? 0) < 500) break;
     }
   }
 
@@ -1228,14 +1243,21 @@ function resolveSelectedCompetitionId(
   return competitionOptions[0]?.id ?? "";
 }
 
-async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof startPerf> }) {
+async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof startPerf>; viewerCampusId?: string }) {
   const perf = options?.perf;
   const permissionContext = await getPermissionContext();
-  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
+  // Only the allowlisted membership projector below may opt into viewer reads.
+  const viewerAccess = permissionContext?.isDirectorReadOnly && permissionContext.hasSportsReadAccess
+    && options?.viewerCampusId && permissionContext.campusAccess?.campusIds.includes(options.viewerCampusId)
+    ? permissionContext.campusAccess : null;
+  if (permissionContext?.isDirectorReadOnly && !viewerAccess) return null;
+  if (!permissionContext || (!viewerAccess && !permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
   }
 
-  const campusAccess = await getOperationalCampusAccess();
+  const campusAccess = viewerAccess ? { ...viewerAccess, campusIds: [options!.viewerCampusId!],
+    campuses: viewerAccess.campuses.filter((c) => c.id === options!.viewerCampusId), defaultCampusId: options!.viewerCampusId! }
+    : await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) return null;
 
   const admin = createAdminClient();
@@ -1357,6 +1379,7 @@ async function getCompetitionSignupDetailBaseData(filters: {
 }) {
   const perf = startPerf(Boolean(filters.perf));
   const permissionContext = await getPermissionContext();
+  if (permissionContext?.isDirectorReadOnly) return null;
   if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
   }
@@ -1471,6 +1494,31 @@ async function getCompetitionSignupDetailBaseData(filters: {
     pricingRulesByProduct: groupProductPricingRules(pricingRuleRows),
     perf,
   };
+}
+
+/** Canonical board membership only; financial calculations never leave this function. */
+export async function getCompetitionRegistrationReadProjection(campusId: string, tournamentId: string) {
+  const boards = await getCompetitionBoardReadProjection(campusId);
+  return boards?.find((board) => board.tournamentId === tournamentId)?.players ?? null;
+}
+
+export async function getCompetitionBoardReadProjection(campusId: string) {
+  const permission = await getPermissionContext();
+  if (!permission?.isDirectorReadOnly || !permission.hasSportsReadAccess
+    || !permission.campusAccess?.campusIds.includes(campusId)) return null;
+  const base = await getCompetitionSignupBaseData({ viewerCampusId: campusId });
+  if (!base) return null;
+  const board = buildCampusBoard(campusId, base.campusAccess.campuses[0].name,
+    base.charges, base.activeEnrollments, base.allocationSummaries, { from: null, to: null },
+    base.competitionOptions, base.productBucketIds, base.bundleEntitlements, base.trainingGroupByEnrollment,
+    base.restrictionsByProduct, base.pricingRulesByProduct, null);
+  return board.competitions.map((competition) => ({ tournamentId: competition.tournamentId,
+    players: competition.categories.flatMap((category) => category.players.map((p) => ({
+    id: p.playerId, name: p.playerName, birthYear: p.birthYear,
+    groupIds: p.trainingGroupId ? [p.trainingGroupId] : [],
+    groups: p.trainingGroupId ? [p.trainingGroupLabel] : [],
+    programs: p.trainingProgram ? [p.trainingProgram] : [],
+  }))) }));
 }
 
 export async function getCompetitionSignupDashboardData(filters?: {

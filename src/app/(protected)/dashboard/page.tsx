@@ -5,7 +5,8 @@ import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { TrendCard } from "@/components/dashboard/trend-card";
 import { AttendanceParticipationPie, PaymentStatusPie, PaymentsByMethodBar } from "@/components/dashboard/charts";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorReadContext } from "@/lib/auth/permissions";
+import { NonfinancialDashboard } from "./nonfinancial";
 
 function buildNewEnrollmentsHref(campusId: string, month: string) {
   const params = new URLSearchParams();
@@ -28,8 +29,9 @@ type SearchParams = Promise<{
 }>;
 
 export default async function DashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireDirectorContext("/inicio");
+  const context = await requireDirectorReadContext("/inicio");
   const params = await searchParams;
+  if (context.isDirectorReadOnly || !context.canViewFinancials) return <NonfinancialDashboard filters={params} />;
   const selectedCampusId = params.campus ?? "";
   const requestedMonth = params.month;
 

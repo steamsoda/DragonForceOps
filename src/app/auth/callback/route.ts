@@ -10,7 +10,11 @@ export async function GET(request: Request) {
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
   const origin = `${proto}://${host}`;
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/inicio";
+  const requestedNext = searchParams.get("next");
+  const next =
+    requestedNext && ["/inicio", "/auth/email-confirmed"].includes(requestedNext)
+      ? requestedNext
+      : "/inicio";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/?error=missing_code`);

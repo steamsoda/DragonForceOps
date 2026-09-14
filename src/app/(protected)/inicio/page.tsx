@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { directorReadOnlyRequestAllowed } from "@/lib/auth/director-readonly-policy";
 
 export default async function InicioPage() {
   const context = await getPermissionContext();
 
   const cards = [
-    ...(context?.hasOperationalAccess
+    ...(context?.hasOperationalReadAccess
       ? [
           {
             href: "/caja",
             title: "Caja",
-            description: "Cobros, cuenta actual y operacion diaria.",
+            description: context.isDirectorReadOnly ? "Operacion diaria." : "Cobros, cuenta actual y operacion diaria.",
           },
           {
             href: "/players",
@@ -34,7 +35,7 @@ export default async function InicioPage() {
           },
         ]
       : []),
-    ...(context?.hasPlayerRosterAccess && !context.hasPlayerDataAccess && !context.hasOperationalAccess
+    ...(context?.hasPlayerRosterAccess && !context.hasPlayerDataAccess && !context.hasOperationalReadAccess
       ? [
           {
             href: "/players",
@@ -43,16 +44,16 @@ export default async function InicioPage() {
           },
         ]
       : []),
-    ...(context?.hasSportsAccess
+    ...(context?.hasSportsReadAccess
       ? [
           {
             href: "/sports-signups",
             title: "Inscripciones Torneos",
-            description: "Vista rapida de jugadores con productos de torneo pagados.",
+            description: context.isDirectorReadOnly ? "Equipos y jugadores inscritos." : "Vista rapida de jugadores con productos de torneo pagados.",
           },
         ]
       : []),
-    ...(context?.hasNutritionAccess
+    ...(context?.hasNutritionReadAccess
       ? [
           {
             href: "/nutrition",
@@ -80,12 +81,12 @@ export default async function InicioPage() {
           },
         ]
       : []),
-    ...(context?.isDirector
+    ...(context?.isDirector || context?.isDirectorReadOnly
       ? [
           {
             href: "/dashboard",
             title: "Panel",
-            description: "KPIs operativos, cobranza y tendencias.",
+            description: context.isDirectorReadOnly ? "Indicadores operativos y tendencias." : "KPIs operativos, cobranza y tendencias.",
           },
         ]
       : []),
@@ -102,7 +103,7 @@ export default async function InicioPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => (
+          {cards.filter((card) => !context?.isDirectorReadOnly || directorReadOnlyRequestAllowed("GET", card.href, true)).map((card) => (
             <Link
               key={card.href}
               href={card.href}

@@ -39,21 +39,25 @@ function chooseDefaultCampus(campuses: AccessibleCampus[]) {
   })[0];
 }
 
-const loadAllCampuses = cache(async function loadAllCampuses() {
+const loadAllCampuses = cache(async function loadAllCampuses(readOnly = false) {
   const supabase = await createClient();
-  const admin = tryCreateAdminClient();
 
   const primary = await supabase
-    .from("campuses")
+    .from(readOnly ? "v_director_readonly_campuses" : "campuses")
     .select("id, code, name")
     .eq("is_active", true)
     .order("name")
     .returns<AccessibleCampus[]>();
 
+  if (readOnly) {
+    if (primary.error) throw new Error("director_readonly_campus_read_failed");
+    return primary.data ?? [];
+  }
   if (!primary.error && (primary.data?.length ?? 0) > 0) {
     return primary.data ?? [];
   }
 
+  const admin = tryCreateAdminClient();
   if (!admin) {
     return primary.data ?? [];
   }
@@ -114,7 +118,7 @@ export const getOperationalCampusAccess = cache(async function getOperationalCam
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const allCampuses = await loadAllCampuses();
+  const allCampuses = await loadAllCampuses(debugContext.effective.roleCodes.includes("director_readonly"));
 
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
@@ -129,7 +133,7 @@ export const getOperationalCampusAccess = cache(async function getOperationalCam
   const isLegacyGlobalFrontDesk = frontDeskRows.some((row) => row.campus_id === null);
 
   let campuses: AccessibleCampus[] = [];
-  if (isDirector || isLegacyGlobalFrontDesk || isGlobalSportsDirector || isOfficeAdmin) {
+  if (isDirector || isLegacyGlobalFrontDesk || isGlobalSportsDirector || isOfficeAdmin || roleCodes.includes("director_readonly")) {
     campuses = allCampuses ?? [];
   } else if (isFrontDesk || isSportsDirector) {
     const seen = new Set<string>();
@@ -175,7 +179,7 @@ export const getAttendanceCampusAccess = cache(async function getAttendanceCampu
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const allCampuses = await loadAllCampuses();
+  const allCampuses = await loadAllCampuses(debugContext.effective.roleCodes.includes("director_readonly"));
 
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
@@ -191,7 +195,7 @@ export const getAttendanceCampusAccess = cache(async function getAttendanceCampu
   const isFrontDesk = frontDeskRows.length > 0;
 
   let campuses: AccessibleCampus[] = [];
-  if (isDirector || isGlobalSportsDirector || isOfficeAdmin) {
+  if (isDirector || isGlobalSportsDirector || isOfficeAdmin || roleCodes.includes("director_readonly")) {
     campuses = allCampuses ?? [];
   } else {
     const scopedRows = [...sportsRows, ...attendanceRows, ...frontDeskRows];
@@ -237,7 +241,7 @@ export const getNutritionCampusAccess = cache(async function getNutritionCampusA
   const debugContext = await getDebugViewContext();
   if (!debugContext) return null;
 
-  const allCampuses = await loadAllCampuses();
+  const allCampuses = await loadAllCampuses(debugContext.effective.roleCodes.includes("director_readonly"));
 
   const rows = (debugContext.effective.roleRows as RoleCampusRow[]) ?? [];
   const roleCodes = rows.map((row) => row.app_roles?.code).filter(Boolean);
@@ -247,7 +251,7 @@ export const getNutritionCampusAccess = cache(async function getNutritionCampusA
   const isGlobalNutritionist = nutritionRows.some((row) => row.campus_id === null);
 
   let campuses: AccessibleCampus[] = [];
-  if (isDirector || isGlobalNutritionist) {
+  if (isDirector || isGlobalNutritionist || roleCodes.includes("director_readonly")) {
     campuses = allCampuses ?? [];
   } else if (isNutritionist) {
     const seen = new Set<string>();

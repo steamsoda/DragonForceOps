@@ -349,6 +349,7 @@ function validMonday(value: string | undefined) {
 
 export async function getWeeklyCallupsFoundationData(week?: string): Promise<WeeklyCallupsFoundationData | null> {
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) return null;
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
 
   const campusAccess = context.campusAccess;
@@ -621,6 +622,8 @@ export async function getWeeklyCallupDetail(
   options: { includeComparison?: boolean; includeCandidates?: boolean } = {},
 ): Promise<WeeklyCallupDetailData | null> {
   const context = await getPermissionContext();
+  // Eligibility sources, exceptions and comparisons reveal payment status.
+  if (context?.isDirectorReadOnly) return null;
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
   const campusAccess = context.campusAccess;
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
