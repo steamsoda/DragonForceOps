@@ -45,7 +45,8 @@ export async function grantRoleAction(formData: FormData) {
 
   if (roleCode === "porto_viewer") {
     const { data: target, error: targetError } = await createAdminClient().auth.admin.getUserById(targetUserId);
-    if (targetError || target.user?.email?.toLowerCase() !== "rita.cabral@fcporto.pt" || !target.user.email_confirmed_at) {
+    // The database validates the private allowlist and disallows mixed staff roles.
+    if (targetError || !target.user?.email_confirmed_at) {
       redirect(`${BASE}?err=invalid_form`);
     }
   }

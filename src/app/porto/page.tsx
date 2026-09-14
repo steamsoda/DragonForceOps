@@ -14,7 +14,7 @@ export default async function PortoPage({ searchParams }: { searchParams: Promis
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const { data: allowed, error: roleError } = await supabase.rpc("is_porto_viewer");
-  if (roleError || !allowed || user.email?.toLowerCase() !== "rita.cabral@fcporto.pt") redirect("/unauthorized");
+  if (roleError || !allowed) redirect("/unauthorized");
   const params = await searchParams;
   const view = parsePortoView(params.view);
   const page = parsePortoPage(params.page);
