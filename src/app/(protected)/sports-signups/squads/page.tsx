@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { CompetitionReadPage } from "@/components/sports/competition-read-views";
 import { redirect } from "next/navigation";
 import { CompetitionRosterCombinedEditor } from "@/components/sports/competition-roster-combined-editor";
 import { CompetitionRosterExceptionsEditor } from "@/components/sports/competition-roster-exceptions-editor";
@@ -13,6 +15,8 @@ import { createOrSyncDefaultCompetitionSquadAction } from "@/server/actions/comp
 
 type SearchParams = Promise<{
   tournament?: string;
+  competition?: string;
+  week?: string;
   campus?: string;
   program?: string;
   ok?: string;
@@ -72,6 +76,8 @@ function formatStatus(status: "planning" | "ready" | "archived") {
 
 export default async function CompetitionSquadOrganizerPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return <CompetitionReadPage filters={params} mode="squads" />;
   const data = await getCompetitionRosterOrganizerData({
     tournamentId: params.tournament ?? "",
     campusId: params.campus ?? "",

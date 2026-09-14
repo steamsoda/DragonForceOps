@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireNutritionContext } from "@/lib/auth/permissions";
+import { requireNutritionReadContext } from "@/lib/auth/permissions";
 import {
   getNutritionGroupedRosterData,
   listNutritionCampuses,
@@ -311,7 +311,7 @@ function NutritionGroupedRoster({ data }: { data: NutritionGroupedRosterData | n
 }
 
 export default async function NutritionMeasurementsPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireNutritionContext("/unauthorized");
+  await requireNutritionReadContext("/unauthorized");
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const selectedGender = params.gender === "male" || params.gender === "female" ? params.gender : "";
@@ -353,7 +353,7 @@ export default async function NutritionMeasurementsPage({ searchParams }: { sear
           <NutritionGroupedRoster data={groupedData} />
         ) : (
           <>
-        <form className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
+        <form method="get" className="grid gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700 md:grid-cols-[1fr_1fr_1fr_auto_auto]">
           <select
             name="campus"
             defaultValue={selectedCampusId}

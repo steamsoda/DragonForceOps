@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CallupsReadPage } from "@/components/sports/competition-read-views";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
@@ -84,6 +85,7 @@ function SavedCallupCards({ callups, canDelete }: { callups: WeeklyCallupListRow
 export default async function WeeklyCallupsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return <CallupsReadPage filters={params} />;
   if (permission?.isCoach && !permission.isDirector && !permission.isSportsDirector && !permission.isFrontDesk) {
     const debugContext = await getDebugViewContext();
     const coachData = await getCoachSchedulePageData(params.week);

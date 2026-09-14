@@ -12,10 +12,10 @@ assert.match(route, /isAllowedPortoEmail/);
 assert.match(route, /isPortoEmailProofEnabled/);
 assert.match(route, /GENERIC_MESSAGE/);
 assert.match(helper, /rita\.cabral@fcporto\.pt/);
-assert.match(helper, /VERCEL_ENV === "preview"/);
+assert.match(helper, /return false/);
 assert.match(confirmed, /no concede acceso a datos ni permisos/i);
 assert.match(confirmed, /isAllowedPortoEmail/);
-assert.match(home, /showPortoEmailProof/);
-assert.match(callback, /!requestedNext\.startsWith\("\/\/"\)/);
+assert.doesNotMatch(home, /PortoEmailSignIn/);
+assert.match(callback, /\["\/inicio", "\/auth\/email-confirmed"\]\.includes/);
 
-console.log("Porto passwordless Preview proof assertions passed.");
+console.log("Retired Porto passwordless proof remains disabled; callback destinations allowlisted.");

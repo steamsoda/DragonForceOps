@@ -74,6 +74,7 @@ export async function getCompetitionRosterFoundation(
   tournamentId: string,
 ): Promise<CompetitionRosterFoundation | null> {
   const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return null;
   if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
 
   const admin = createAdminClient();
@@ -532,6 +533,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
   program: string;
 }): Promise<CompetitionRosterOrganizerData | null> {
   const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return null;
   if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
   if (!ORGANIZER_PROGRAM_LABELS[filters.program]) return null;
 
@@ -1026,6 +1028,7 @@ export async function getCompetitionRosterSnapshotExportData(
   snapshotId: string,
 ): Promise<CompetitionRosterSnapshotExportData | null> {
   const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) return null;
   if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
 
   const admin = createAdminClient();

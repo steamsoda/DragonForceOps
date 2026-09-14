@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { OMSGrowthChart, WaistTrendChart } from "@/components/nutrition/charts";
 import { recordPlayerMeasurementAction } from "@/server/actions/nutrition";
-import { requireNutritionContext } from "@/lib/auth/permissions";
+import { requireNutritionReadContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
 import type { GrowthClassificationTone } from "@/lib/nutrition/growth";
 import { formatDateMonterrey, formatDateTimeMonterrey, getMonterreyDateString, getMonterreyTimeString } from "@/lib/time";
@@ -38,16 +38,16 @@ export default async function NutritionPlayerProfilePage({
   params: PageParams;
   searchParams: SearchParams;
 }) {
-  const context = await requireNutritionContext("/unauthorized");
+  const context = await requireNutritionReadContext("/unauthorized");
   const { playerId } = await params;
   const query = await searchParams;
   const profile = await getNutritionPlayerProfile(playerId);
 
   if (!profile) notFound();
 
-  const successMessage = query.ok === "saved" ? "Medicion registrada." : null;
-  const errorMessage = query.err ? ERROR_MESSAGES[query.err] ?? "Ocurrio un error." : null;
-  const canRecordMeasurement = context.isNutritionist || context.isSuperAdmin;
+  const canRecordMeasurement = !context.isDirectorReadOnly && (context.isNutritionist || context.isSuperAdmin);
+  const successMessage = canRecordMeasurement && query.ok === "saved" ? "Medicion registrada." : null;
+  const errorMessage = canRecordMeasurement && query.err ? ERROR_MESSAGES[query.err] ?? "Ocurrio un error." : null;
 
   return (
     <PageShell
@@ -142,7 +142,7 @@ export default async function NutritionPlayerProfilePage({
               <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Notas medicas</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
-                  {profile.medicalNotes?.trim() || "Sin notas medicas."}
+                  {context.isDirectorReadOnly ? "No disponibles para este rol." : profile.medicalNotes?.trim() || "Sin notas medicas."}
                 </p>
               </div>
             </div>
@@ -285,7 +285,7 @@ export default async function NutritionPlayerProfilePage({
                 ) : (
                   <p className="text-slate-500 dark:text-slate-400">IMC OMS: requiere edad y genero dentro del rango OMS.</p>
                 )}
-                <p>Notas: {profile.latestSession.notes?.trim() || "-"}</p>
+                <p>Notas: {context.isDirectorReadOnly ? "No disponibles para este rol." : profile.latestSession.notes?.trim() || "-"}</p>
               </div>
             ) : (
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Aun no hay mediciones registradas.</p>
@@ -320,9 +320,9 @@ export default async function NutritionPlayerProfilePage({
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Historial</p>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sesiones registradas para este jugador.</p>
             </div>
-            <a href="#new-measurement" className="text-sm text-portoBlue hover:underline">
+            {canRecordMeasurement ? <a href="#new-measurement" className="text-sm text-portoBlue hover:underline">
               Registrar nueva
-            </a>
+            </a> : null}
           </div>
 
           <div className="mt-4 overflow-x-auto">
@@ -356,7 +356,7 @@ export default async function NutritionPlayerProfilePage({
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                         {session.waistCircumferenceCm != null ? `${session.waistCircumferenceCm.toFixed(1)} cm` : "-"}
                       </td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.notes?.trim() || "-"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{context.isDirectorReadOnly ? "No disponibles para este rol." : session.notes?.trim() || "-"}</td>
                     </tr>
                   ))
                 )}

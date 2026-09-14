@@ -519,6 +519,19 @@ async function getAttendanceScope() {
   return access;
 }
 
+async function canReadAttendanceFreeform() {
+  const context = await getPermissionContext();
+  return Boolean(context && !context.isDirectorReadOnly);
+}
+
+function sessionReadColumns(includeFreeform: boolean) {
+  return `id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, cancelled_reason_code${includeFreeform ? ", notes, cancelled_reason" : ""}, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)`;
+}
+
+function closureReadColumns(includeFreeform: boolean) {
+  return `id, campus_id, starts_on, ends_on, reason_code, title${includeFreeform ? ", notes" : ""}, campuses(name, code)`;
+}
+
 async function getTrainingGroupCoachMap(trainingGroupIds: string[]) {
   if (trainingGroupIds.length === 0) return new Map<string, string | null>();
   const admin = createAdminClient();
@@ -617,6 +630,7 @@ export async function listAttendanceCampuses(): Promise<AttendanceCampusOption[]
 
 export async function listAttendanceSessions(filters: { date?: string; campusId?: string }) {
   const access = await getAttendanceScope();
+  const canReadFreeform = await canReadAttendanceFreeform();
   const selectedDate = filters.date ?? getMonterreyDateString();
   if (!access) return { selectedDate, selectedCampusId: null, campuses: [], sessions: [] };
 
@@ -629,7 +643,7 @@ export async function listAttendanceSessions(filters: { date?: string; campusId?
   const [{ data: sessions }, { data: teamRosterRows }, { data: groupRosterRows }, { data: recordCounts }] = await Promise.all([
     admin
       .from("attendance_sessions")
-      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
+      .select(sessionReadColumns(canReadFreeform))
       .in("campus_id", selectedCampusIds)
       .eq("session_date", selectedDate)
       .order("campus_id", { ascending: true })
@@ -790,11 +804,12 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
   if (!access) return null;
   const context = await getPermissionContext();
   if (!context) return null;
+  const canReadFreeform = !context.isDirectorReadOnly;
   const admin = createAdminClient();
 
   const { data: session } = await admin
     .from("attendance_sessions")
-    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
+    .select(sessionReadColumns(canReadFreeform))
     .eq("id", sessionId)
     .maybeSingle<SessionRow | null>();
 
@@ -849,7 +864,9 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
   const [{ data: records }, incidentsResult] = await Promise.all([
     admin
       .from("attendance_records")
-      .select("id, team_assignment_id, training_group_assignment_id, enrollment_id, player_id, status, source, incident_id, note")
+      .select(canReadFreeform
+        ? "id, team_assignment_id, training_group_assignment_id, enrollment_id, player_id, status, source, incident_id, note"
+        : "id, team_assignment_id, training_group_assignment_id, enrollment_id, player_id, status, source")
       .eq("session_id", sessionId)
       .returns<Array<{
         id: string;
@@ -862,7 +879,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
         incident_id: string | null;
         note: string | null;
       }>>(),
-    rosterEnrollmentIds.length === 0
+    !canReadFreeform || rosterEnrollmentIds.length === 0
       ? Promise.resolve({ data: [] as Array<{ id: string; enrollment_id: string; incident_type: string; note: string | null }> })
       : admin
           .from("enrollment_incidents")
@@ -901,9 +918,9 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
         birthYear: birthYear(player.birth_date),
         currentStatus: record?.status ?? incidentStatus ?? "present",
         source: record?.source ?? (incident ? "incident" : "default"),
-        incidentId: record?.incident_id ?? incident?.id ?? null,
-        incidentNote: incident?.note ?? null,
-        note: record?.note ?? null,
+        incidentId: canReadFreeform ? record?.incident_id ?? incident?.id ?? null : null,
+        incidentNote: canReadFreeform ? incident?.note ?? null : null,
+        note: canReadFreeform ? record?.note ?? null : null,
         recordId: record?.id ?? null,
       };
     })
@@ -926,9 +943,9 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
     startTime: normalizeTime(session.start_time),
     endTime: normalizeTime(session.end_time),
     opponentName: session.opponent_name,
-    notes: session.notes,
+    notes: canReadFreeform ? session.notes : null,
     cancelledReasonCode: session.cancelled_reason_code,
-    cancelledReason: session.cancelled_reason,
+    cancelledReason: canReadFreeform ? session.cancelled_reason : null,
     rosterCount: roster.length,
     recordedCount: records?.length ?? 0,
     trialVisitors,
@@ -1126,8 +1143,8 @@ export async function getAttendanceGroupsMonthlyData(filters: {
 }): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
   const privateContext = filters.includePendingBalances || filters.includeGuardianPhones ? await getPermissionContext() : null;
-  const canViewPrivateDetails = Boolean(privateContext && (privateContext.isDirector || privateContext.isFrontDesk));
-  const includePendingBalances = Boolean(filters.includePendingBalances && canViewPrivateDetails);
+  const canViewPrivateDetails = Boolean(privateContext && !privateContext.isDirectorReadOnly && (privateContext.isDirector || privateContext.isFrontDesk));
+  const includePendingBalances = Boolean(filters.includePendingBalances && canViewPrivateDetails && privateContext?.canViewFinancials);
   const includeGuardianPhones = Boolean(filters.includeGuardianPhones && canViewPrivateDetails);
   const range = resolveAttendanceMonthRange({ ...filters, currentMonth: getMonterreyMonthString() });
   const selectedMonth = range.monthFrom;
@@ -1498,6 +1515,7 @@ export async function getAttendanceGroupsMonthlyData(filters: {
 
 export async function getAttendanceCalendarData(filters: { campusId?: string; month?: string }): Promise<AttendanceCalendarData> {
   const access = await getAttendanceScope();
+  const canReadFreeform = await canReadAttendanceFreeform();
   const selectedMonth = isMonthOnly(filters.month) ? filters.month! : getMonterreyMonthString();
   const monthBounds = getMonterreyMonthBounds(selectedMonth);
   const monthEndDate = monthBounds.end.slice(0, 10);
@@ -1545,7 +1563,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
   const [{ data: sessionRows }, { data: closureRows }] = await Promise.all([
     admin
       .from("attendance_sessions")
-      .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
+      .select(sessionReadColumns(canReadFreeform))
       .in("campus_id", selectedCampusIds)
       .gte("session_date", monthBounds.periodMonth)
       .lt("session_date", monthEndDate)
@@ -1554,7 +1572,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
       .returns<SessionRow[]>(),
     admin
       .from("attendance_closures")
-      .select("id, campus_id, starts_on, ends_on, reason_code, title, notes, campuses(name, code)")
+      .select(closureReadColumns(canReadFreeform))
       .lte("starts_on", monthEndDate)
       .gte("ends_on", monthBounds.periodMonth)
       .order("starts_on", { ascending: true })
@@ -1576,7 +1594,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
       endsOn: row.ends_on,
       reasonCode: row.reason_code,
       title: row.title,
-      notes: row.notes,
+      notes: canReadFreeform ? row.notes : null,
     };
     for (const date of dates) {
       if (date < row.starts_on || date > row.ends_on) continue;
@@ -1629,6 +1647,7 @@ export async function getAttendanceCalendarData(filters: { campusId?: string; mo
 }
 
 export async function getAttendanceDailyNotes(filters: { campusId?: string; date?: string }): Promise<AttendanceDailyNotesData> {
+  if (!(await canReadAttendanceFreeform())) throw new Error("attendance_freeform_denied");
   const access = await getAttendanceScope();
   const selectedDate = isDateOnly(filters.date) ? filters.date! : getMonterreyDateString();
 
@@ -1784,6 +1803,7 @@ export async function getAttendanceDailyNotes(filters: { campusId?: string; date
 
 export async function getAttendanceDailyReport(filters: { campusId?: string; date?: string }): Promise<AttendanceDailyReportData> {
   const access = await getAttendanceScope();
+  const canReadFreeform = await canReadAttendanceFreeform();
   const selectedDate = isDateOnly(filters.date) ? filters.date! : getMonterreyDateString();
 
   const emptyTotals = {
@@ -1832,7 +1852,7 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
   const admin = createAdminClient();
   const { data: sessionRows } = await admin
     .from("attendance_sessions")
-    .select("id, campus_id, team_id, training_group_id, session_type, status, session_date, start_time, end_time, opponent_name, notes, cancelled_reason_code, cancelled_reason, campuses(name, code), teams(name, coaches(first_name, last_name)), training_groups(name, birth_year_min, birth_year_max)")
+    .select(sessionReadColumns(canReadFreeform))
     .in("campus_id", selectedCampusIds)
     .eq("session_date", selectedDate)
     .order("campus_id", { ascending: true })
@@ -1855,7 +1875,7 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
   const [{ data: closureRows }, { data: teamRosterRows }, { data: groupRosterRows }, { data: recordRows }] = await Promise.all([
     admin
       .from("attendance_closures")
-      .select("id, campus_id, starts_on, ends_on, reason_code, title, notes, campuses(name, code)")
+      .select(closureReadColumns(canReadFreeform))
       .lte("starts_on", selectedDate)
       .gte("ends_on", selectedDate)
       .order("starts_on", { ascending: true })
@@ -1885,7 +1905,9 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
       ? Promise.resolve({ data: emptyRecordRows })
       : admin
           .from("attendance_records")
-          .select("id, session_id, player_id, status, note, players(first_name, last_name, birth_date)")
+          .select(canReadFreeform
+            ? "id, session_id, player_id, status, note, players(first_name, last_name, birth_date)"
+            : "id, session_id, player_id, status, players(first_name, last_name, birth_date)")
           .in("session_id", sessionIds)
           .order("recorded_at", { ascending: true })
           .returns<typeof emptyRecordRows>(),
@@ -1919,7 +1941,7 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
       : (row.team_id ? (teamRosterCountMap.get(row.team_id) ?? 0) : 0);
     const playerNotes: AttendanceDailyNotePlayer[] = records
       .map((record) => {
-        const note = record.note?.trim();
+        const note = canReadFreeform ? record.note?.trim() : null;
         if (!note) return null;
         return {
           recordId: record.id,
@@ -1943,7 +1965,7 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
     totals.absent += counts.absent;
     totals.injury += counts.injury;
     totals.justified += counts.justified;
-    if (row.notes?.trim()) totals.sessionNotes += 1;
+    if (canReadFreeform && row.notes?.trim()) totals.sessionNotes += 1;
     totals.playerNotes += playerNotes.length;
 
     return {
@@ -1962,9 +1984,9 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
       rosterCount,
       recordedCount: counts.total,
       sourceType: source.sourceType,
-      notes: row.notes?.trim() ? row.notes.trim() : null,
+      notes: canReadFreeform && row.notes?.trim() ? row.notes.trim() : null,
       cancelledReasonCode: row.cancelled_reason_code,
-      cancelledReason: row.cancelled_reason,
+      cancelledReason: canReadFreeform ? row.cancelled_reason : null,
       counts,
       playerNotes: playerNotes.sort((a, b) => a.playerName.localeCompare(b.playerName, "es-MX")),
     };
@@ -1980,7 +2002,7 @@ export async function getAttendanceDailyReport(filters: { campusId?: string; dat
       endsOn: row.ends_on,
       reasonCode: row.reason_code,
       title: row.title,
-      notes: row.notes,
+      notes: canReadFreeform ? row.notes : null,
     }));
 
   return {

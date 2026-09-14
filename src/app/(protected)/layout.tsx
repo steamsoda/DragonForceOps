@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PrinterTestButton } from "@/components/ui/printer-test-button";
 import { getPrinterName } from "@/lib/queries/settings";
 import { summarizeRoleScopes } from "@/lib/auth/role-display";
+import { directorReadOnlyEnabled, directorReadOnlyRequestAllowed } from "@/lib/auth/director-readonly-policy";
 import { clearDebugViewAction, setDebugViewUserAction } from "@/server/actions/debug-view";
 
 const DIRECTOR_GESTION_SECTION: NavSection = {
@@ -129,6 +130,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const roleCodes = debugContext.effective.roleCodes;
   if (debugContext.actor.roleCodes.includes(APP_ROLES.PORTO_VIEWER)) redirect("/porto");
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
+  const isDirectorReadOnly = roleCodes.includes(APP_ROLES.DIRECTOR_READONLY);
+  if (isDirectorReadOnly && !directorReadOnlyEnabled()) redirect("/unauthorized");
   const isDirectorOrAbove = DIRECTOR_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasSportsAccess = SPORTS_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
   const hasNutritionAccess = NUTRITION_STAFF_OR_ABOVE.some((roleCode) => roleCodes.includes(roleCode));
@@ -138,7 +141,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const canManageAttendanceSetup = isDirectorOrAbove || hasSportsAccess;
   const isFrontDesk = roleCodes.includes(APP_ROLES.FRONT_DESK);
   const isCoach = roleCodes.includes(APP_ROLES.COACH);
-  const canAccess = isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess || isCoach;
+  const canAccess = isDirectorReadOnly || isDirectorOrAbove || isFrontDesk || isOfficeAdmin || hasSportsAccess || hasNutritionAccess || hasAttendanceWriteAccess || isCoach;
 
   if (!canAccess) redirect("/unauthorized");
 
@@ -210,7 +213,11 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         : ATTENDANCE_BASE_SECTION.items.filter((item) => item.href === "/attendance/calendar" || item.href === "/attendance/groups" || item.href === "/attendance/reports"),
   };
 
-  const sections: NavSection[] = [
+  const sections: NavSection[] = isDirectorReadOnly ? [
+    staffSection, DIRECTOR_GESTION_SECTION, competitionSection,
+    NUTRITION_BASE_SECTION, ATTENDANCE_BASE_SECTION, DIRECTOR_REPORTES_SECTION,
+  ].map(section => ({ ...section, items: section.items.filter(item =>
+    directorReadOnlyRequestAllowed("GET", item.href, true)) })).filter(section => section.items.length > 0) : [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess ? [sportsStaffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : isCoach ? [coachCompetitionSection] : []),
@@ -249,7 +256,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   ];
 
   const [printerName, debugUsers, recentDebugUserIds] = await Promise.all([
-    getPrinterName(),
+    isDirectorReadOnly ? Promise.resolve("") : getPrinterName(),
     debugContext.canManage ? listDebuggableUsers(supabase) : Promise.resolve([]),
     debugContext.canManage ? getDebugRecentUserIds() : Promise.resolve([]),
   ]);
@@ -318,9 +325,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
             <div className="flex items-center gap-2 md:hidden">
               <ThemeToggle />
               <div className="hidden sm:block">
-                <PrinterTestButton printerName={printerName} />
+                {!isDirectorReadOnly && <PrinterTestButton printerName={printerName} />}
               </div>
-              <form action={signOut}>
+              <form action={isDirectorReadOnly ? "/api/auth/signout" : signOut} method={isDirectorReadOnly ? "post" : undefined}>
                 <button
                   type="submit"
                   className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -495,8 +502,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
             ) : null}
 
             <ThemeToggle />
-            <PrinterTestButton printerName={printerName} />
-            <form action={signOut}>
+            {!isDirectorReadOnly && <PrinterTestButton printerName={printerName} />}
+            <form action={isDirectorReadOnly ? "/api/auth/signout" : signOut} method={isDirectorReadOnly ? "post" : undefined}>
               <button
                 type="submit"
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -513,6 +520,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       </div>
 
       <div className="md:ml-48 md:pt-14 print:ml-0 print:pt-0">
+        {isDirectorReadOnly && <div className="border-b border-slate-200 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">Solo lectura</div>}
         {debugContext.isReadOnly ? (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30 sm:px-6 print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-3">

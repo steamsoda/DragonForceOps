@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { readManagementData, ManagementReadUnavailable } from "../dashboard/management-read";
+import { intakeReadSchema } from "./read-contract";
 import { PageShell } from "@/components/ui/page-shell";
 import { getNewEnrollmentIntakeData, type NewEnrollmentCampusBoard, type NewEnrollmentIntakeRow, type NewEnrollmentWorkflowFilter } from "@/lib/queries/new-enrollments";
 import { formatDateMonterrey, formatDateTimeMonterrey } from "@/lib/time";
@@ -79,7 +82,14 @@ function CampusCard({
   );
 }
 
-function ActionLinks({ row }: { row: NewEnrollmentIntakeRow }) {
+function ActionLinks({ row, readOnly = false }: { row: NewEnrollmentIntakeRow; readOnly?: boolean }) {
+  if (readOnly) return <details>
+    <summary className="cursor-pointer text-sm text-portoBlue">Consultar inscripcion</summary>
+    <div className="mt-3 grid gap-2">
+      {[["Jugador", row.playerName], ["Campus", row.campusName], ["Estado", row.status], ["Fecha de inscripcion", row.inscriptionDate], ["Categoria", row.birthYear], ["Grupo deportivo", row.currentTrainingGroupName], ["Equipo", row.currentTeamName]].map(([label, value]) =>
+        <label key={String(label)} className="grid gap-1 text-xs">{label}<input readOnly value={String(value ?? "")} className="min-w-0 w-full rounded-md border p-2" /></label>)}
+    </div>
+  </details>;
   const links = [
     row.sportsActionHref ? { href: row.sportsActionHref, label: "Grupo deportivo" } : null,
     row.nutritionActionHref ? { href: row.nutritionActionHref, label: "Nutricion" } : null,
@@ -104,8 +114,12 @@ function ActionLinks({ row }: { row: NewEnrollmentIntakeRow }) {
 }
 
 export default async function NewEnrollmentsPage({ searchParams }: { searchParams: SearchParams }) {
+  const context = await getPermissionContext();
+  if (!context) redirect("/unauthorized");
   const params = await searchParams;
-  const data = await getNewEnrollmentIntakeData({
+  const data = context.isDirectorReadOnly
+    ? await readManagementData("director_readonly_intake_v1", params, intakeReadSchema)
+    : await getNewEnrollmentIntakeData({
     campusId: params.campus,
     startDate: params.start,
     endDate: params.end,
@@ -113,6 +127,7 @@ export default async function NewEnrollmentsPage({ searchParams }: { searchParam
     status: params.status,
   });
 
+  if (!data && context.isDirectorReadOnly) return <ManagementReadUnavailable title="Nuevas inscripciones" />;
   if (!data) redirect("/unauthorized");
 
   const allCampusBoard = {
@@ -289,7 +304,7 @@ export default async function NewEnrollmentsPage({ searchParams }: { searchParam
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <ActionLinks row={row} />
+                        <ActionLinks row={row} readOnly={context.isDirectorReadOnly} />
                       </td>
                     </tr>
                   ))

@@ -1,4 +1,5 @@
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyWeekBounds } from "@/lib/time";
 
@@ -132,17 +133,34 @@ function compareGroupRows(a: WeeklyAttendanceFrequencySummary, b: WeeklyAttendan
 }
 
 export async function getWeeklyAttendanceFrequencyReport(filters: { campusId?: string; coachId?: string; trainingGroupId?: string } = {}) {
-  const access = await getAttendanceCampusAccess();
+  const context = await getPermissionContext();
+  if (!context?.hasAttendanceReadAccess) throw new Error("attendance_read_required");
+  const access = context.isDirectorReadOnly ? null : await getAttendanceCampusAccess();
   const campuses = access?.campuses ?? [];
+  if (context.isDirectorReadOnly) {
+    for (let from = 0; ; from += 500) {
+      const result = await context.supabase.from("v_director_readonly_campuses")
+        .select("id,code,name").eq("is_active", true).order("name").order("id")
+        .range(from, from + 499).returns<Array<{ id: string; code: string; name: string }>>();
+      if (result.error) throw new Error("attendance_readonly_campuses_unavailable");
+      campuses.push(...(result.data ?? []));
+      if ((result.data?.length ?? 0) < 500) break;
+    }
+  }
   const requestedCampusId = filters.campusId?.trim() || "";
-  const selectedCampusId = requestedCampusId && canAccessAttendanceCampus(access, requestedCampusId) ? requestedCampusId : "";
+  const canAccessSelectedCampus = context.isDirectorReadOnly
+    ? campuses.some(campus => campus.id === requestedCampusId)
+    : canAccessAttendanceCampus(access, requestedCampusId);
+  if (context.isDirectorReadOnly && requestedCampusId && !canAccessSelectedCampus) throw new Error("attendance_campus_denied");
+  const selectedCampusId = requestedCampusId && canAccessSelectedCampus ? requestedCampusId : "";
   const campusIds = selectedCampusId ? [selectedCampusId] : campuses.map((campus) => campus.id);
-  // Campus access is resolved above before bypassing per-row attendance RLS.
-  const supabase = createAdminClient();
+  // Viewer RPCs run as the authenticated user; failures never retry as service role.
+  const supabase = context.isDirectorReadOnly ? context.supabase : createAdminClient();
+  const rpcName = context.isDirectorReadOnly ? "director_readonly_weekly_attendance_frequency_v1" : "get_weekly_attendance_frequency_v1";
 
   const results = await Promise.all(
     campusIds.map((campusId) =>
-      supabase.rpc("get_weekly_attendance_frequency_v1", {
+      supabase.rpc(rpcName, {
         p_campus_id: campusId,
         p_week_count: WEEK_COUNT,
       }),

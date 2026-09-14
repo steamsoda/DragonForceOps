@@ -5,7 +5,9 @@ export function normalizeAuthEmail(value: string) {
 }
 
 export function isPortoEmailProofEnabled() {
-  return process.env.VERCEL_ENV === "preview" || process.env.NODE_ENV === "development";
+  // Superseded by the CAPTCHA-protected password flow. Do not leave an
+  // alternate unauthenticated email-sending endpoint enabled.
+  return false;
 }
 
 export function getPortoEmailAllowlist() {

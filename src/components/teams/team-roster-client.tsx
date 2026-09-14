@@ -34,6 +34,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
   const refuerzoTargets = allTeams.filter((t) => !playerTeamIds.has(t.id) && t.isActive);
 
   function handleClearNewArrival(player: RosterPlayer) {
+    if (!isDirector) return;
     setError(null);
     startTransition(async () => {
       const result = await clearNewArrivalAction(player.assignmentId, player.playerId, teamId);
@@ -43,6 +44,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
   }
 
   function handleRemoveRefuerzo(player: RosterPlayer) {
+    if (!isDirector) return;
     setError(null);
     startTransition(async () => {
       const result = await removeRefuerzoAction(player.assignmentId, player.playerId, teamId);
@@ -149,7 +151,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
       </div>
 
       {/* Transfer form */}
-      {transferFor && (
+      {isDirector && transferFor && (
         <form
           action={transferPlayerAction}
           className="rounded-md border border-portoBlue bg-blue-50 dark:bg-blue-950/20 p-4 space-y-3"
@@ -181,7 +183,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
       )}
 
       {/* Refuerzo form */}
-      {refuerzoFor && (
+      {isDirector && refuerzoFor && (
         <form
           action={addRefuerzoAction}
           className="rounded-md border border-violet-400 bg-violet-50 dark:bg-violet-950/20 p-4 space-y-3"

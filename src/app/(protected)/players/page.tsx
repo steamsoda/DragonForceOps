@@ -10,6 +10,8 @@ import { GroupedRosterClient } from "@/components/players/grouped-roster-client"
 import { PlayersDrilldown } from "@/components/players/players-drilldown";
 import { BajaReasonSummaryCopy } from "@/components/players/baja-reason-summary-copy";
 import { BajaPrintButton } from "@/components/players/baja-print-button";
+import { isDirectorReadOnly, readDirectorPlayers } from "./director-readonly-data";
+import { readDirectorRoster } from "./director-readonly-roster";
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
@@ -118,7 +120,7 @@ function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   return <div className="flex flex-wrap gap-1">{pills}</div>;
 }
 
-function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSettings }) {
+function ActivePlayerCards({ rows, tags, withdrawn = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
@@ -136,14 +138,64 @@ function ActivePlayerCards({ rows, tags }: { rows: PlayerRow[]; tags: TagSetting
               {row.fullName}
             </Link>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {row.publicPlayerId ?? "ID pendiente"} | Cat. {new Date(row.birthDate).getFullYear()} | {row.level ?? "Sin nivel"} | {row.campusName}
+              {row.publicPlayerId ?? "ID pendiente"} | Cat. {row.birthYear} | {row.level ?? "Sin nivel"} | {row.campusName}
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">Tutor: {row.primaryPhone ?? "-"}</p>
+            {withdrawn ? <p className="text-sm text-slate-500 dark:text-slate-400">Inscripcion: {fmtDate(row.startDate)} | Baja: {fmtDate(row.endDate)}</p> : null}
           </div>
           <PlayerTags row={row} tags={tags} />
         </div>
       ))}
     </div>
+  );
+}
+
+function ActivePlayerTable({ rows, tags, withdrawn = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean }) {
+  return (
+            <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
+              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">Jugador</th>
+                    {withdrawn ? <><th className="px-3 py-2">Inscripcion</th><th className="px-3 py-2">Baja</th></> : null}
+                    <th className="px-3 py-2">ID</th>
+                    <th className="px-3 py-2">Categoria</th>
+                    <th className="px-3 py-2">Nivel</th>
+                    <th className="px-3 py-2">Campus</th>
+                    <th className="px-3 py-2">Telefono</th>
+                    <th className="px-3 py-2">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={withdrawn ? 9 : 7}>
+                        No se encontraron jugadores con esos filtros.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="px-3 py-2">
+                          <Link href={`/players/${row.id}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
+                            {row.fullName}
+                          </Link>
+                        </td>
+                        {withdrawn ? <><td className="px-3 py-2">{fmtDate(row.startDate)}</td><td className="px-3 py-2">{fmtDate(row.endDate)}</td></> : null}
+                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">{row.publicPlayerId ?? "-"}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.birthYear}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          <PlayerTags row={row} tags={tags} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
   );
 }
 
@@ -430,6 +482,78 @@ type SearchParams = Promise<{
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
   const permissionContext = await requirePlayerRosterContext("/unauthorized");
   const params = await searchParams;
+  if (isDirectorReadOnly(permissionContext)) {
+    if (params.view !== "active" && params.view !== "bajas") {
+      const filters = { campusId: params.campus, gender: params.gender, birthYear: params.year };
+      const data = await readDirectorRoster(permissionContext, filters);
+      return <PageShell title="Jugadores por grupos" breadcrumbs={[{ label: "Jugadores" }]} wide>
+        <div className="space-y-4">
+          <PlayerViewTabs view="groups" canViewLists />
+          <GroupedRosterClient filters={filters} initialData={data} />
+        </div>
+      </PageShell>;
+    }
+    const allRows = await readDirectorPlayers(permissionContext);
+    const view = params.view === "bajas" ? "bajas" : "active";
+    const q = (params.q ?? "").trim().toLocaleLowerCase("es-MX");
+    const phone = (params.phone ?? "").replace(/\D/g, "");
+    const rows = allRows.filter((row) => row.active === (view === "active")
+      && (!q || `${row.fullName} ${row.publicPlayerId ?? ""}`.toLocaleLowerCase("es-MX").includes(q))
+      && (!params.campus || row.campusId === params.campus)
+      && (!params.year || String(row.birthYear) === params.year)
+      && (!params.gender || row.gender === params.gender)
+      && (!phone || row.searchPhones.replace(/\D/g, "").includes(phone))
+      && (params.missingGender !== "1" || !row.gender)
+      && (params.missingLevel !== "1" || !row.level)
+      && (params.missingTeam !== "1" || !row.teamName)
+      && (view !== "bajas" || ((!params.dropoutMonth || row.endDate?.startsWith(params.dropoutMonth))
+        && (!params.dropoutFrom || (row.endDate != null && row.endDate >= params.dropoutFrom))
+        && (!params.dropoutTo || (row.endDate != null && row.endDate <= params.dropoutTo)))));
+    const page = Math.min(Math.max(1, Math.floor(Number(params.page) || 1)), Math.max(1, Math.ceil(rows.length / 20)));
+    const campuses = [...new Map(allRows.map((row) => [row.campusId, row.campusName])).entries()];
+    const href = (next: number) => `/players?${new URLSearchParams({ view, q: params.q ?? "", phone: params.phone ?? "", campus: params.campus ?? "", year: params.year ?? "", gender: params.gender ?? "", missingGender: params.missingGender ?? "", missingLevel: params.missingLevel ?? "", missingTeam: params.missingTeam ?? "", dropoutMonth: params.dropoutMonth ?? "", dropoutFrom: params.dropoutFrom ?? "", dropoutTo: params.dropoutTo ?? "", page: String(next) })}`;
+    return (
+      <PageShell title={view === "bajas" ? "Jugadores dados de baja" : "Jugadores inscritos"} breadcrumbs={[{ label: "Jugadores" }]}>
+        <div className="space-y-4">
+          <PlayerViewTabs view={view} canViewLists />
+          <form className="flex flex-wrap gap-3">
+            <input type="hidden" name="view" value={view} />
+            <input name="q" aria-label="Buscar jugador" defaultValue={params.q} placeholder="Nombre o ID" className="rounded-md border px-3 py-2" />
+            <input name="phone" aria-label="Telefono del tutor" defaultValue={params.phone} placeholder="Telefono del tutor" className="rounded-md border px-3 py-2" />
+            <select name="campus" aria-label="Campus" defaultValue={params.campus} className="rounded-md border px-3 py-2">
+              <option value="">Todos los campus</option>
+              {campuses.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+            <select name="year" aria-label="Categoria" defaultValue={params.year} className="rounded-md border px-3 py-2">
+              <option value="">Todas las categorias</option>
+              {[...new Set(allRows.map((row) => row.birthYear))].sort((a, b) => b - a).map((year) => <option key={year}>{year}</option>)}
+            </select>
+            <select name="gender" aria-label="Genero" defaultValue={params.gender} className="rounded-md border px-3 py-2">
+              <option value="">Todos los generos</option><option value="male">Masculino</option><option value="female">Femenino</option>
+            </select>
+            <button type="submit" className="rounded-md border px-3 py-2">Filtrar</button>
+            {view === "bajas" ? <>
+              <label className="grid gap-1 text-xs">Mes de baja<input type="month" name="dropoutMonth" defaultValue={params.dropoutMonth} className="rounded-md border px-3 py-2" /></label>
+              <label className="grid gap-1 text-xs">Desde<input type="date" name="dropoutFrom" defaultValue={params.dropoutFrom} className="rounded-md border px-3 py-2" /></label>
+              <label className="grid gap-1 text-xs">Hasta<input type="date" name="dropoutTo" defaultValue={params.dropoutTo} className="rounded-md border px-3 py-2" /></label>
+            </> : <div className="flex w-full flex-wrap gap-4 text-sm">
+              <label><input type="checkbox" name="missingGender" value="1" defaultChecked={params.missingGender === "1"} /> Sin genero</label>
+              <label><input type="checkbox" name="missingLevel" value="1" defaultChecked={params.missingLevel === "1"} /> Sin nivel</label>
+              <label><input type="checkbox" name="missingTeam" value="1" defaultChecked={params.missingTeam === "1"} /> Sin equipo</label>
+            </div>}
+          </form>
+          <p className="text-sm">{rows.length} jugadores</p>
+          <ActivePlayerCards rows={rows.slice((page - 1) * 20, page * 20)} tags={{ payment: false, teamType: true, goalkeeper: true, uniform: false }} withdrawn={view === "bajas"} />
+          <ActivePlayerTable rows={rows.slice((page - 1) * 20, page * 20)} tags={{ payment: false, teamType: true, goalkeeper: true, uniform: false }} withdrawn={view === "bajas"} />
+          <nav className="flex gap-4 text-sm" aria-label="Paginacion">
+            {page > 1 ? <Link href={href(page - 1)}>Anterior</Link> : null}
+            <span>Pagina {page} de {Math.max(1, Math.ceil(rows.length / 20))}</span>
+            {page * 20 < rows.length ? <Link href={href(page + 1)}>Siguiente</Link> : null}
+          </nav>
+        </div>
+      </PageShell>
+    );
+  }
   const q = params.q ?? "";
   const phone = params.phone ?? "";
   const campusId = params.campus ?? "";
@@ -723,48 +847,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
         {view === "active" ? (
           <>
             <ActivePlayerCards rows={activeRows} tags={tags} />
-            <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
-              <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                  <tr>
-                    <th className="px-3 py-2">Jugador</th>
-                    <th className="px-3 py-2">ID</th>
-                    <th className="px-3 py-2">Categoria</th>
-                    <th className="px-3 py-2">Nivel</th>
-                    <th className="px-3 py-2">Campus</th>
-                    <th className="px-3 py-2">Telefono</th>
-                    <th className="px-3 py-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {activeRows.length === 0 ? (
-                    <tr>
-                      <td className="px-3 py-4 text-slate-600 dark:text-slate-400" colSpan={7}>
-                        No se encontraron jugadores con esos filtros.
-                      </td>
-                    </tr>
-                  ) : (
-                    activeRows.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="px-3 py-2">
-                          <Link href={`/players/${row.id}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
-                            {row.fullName}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">{row.publicPlayerId ?? "-"}</td>
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{new Date(row.birthDate).getFullYear()}</td>
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.level ?? "-"}</td>
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.campusName}</td>
-                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{row.primaryPhone ?? "-"}</td>
-                        <td className="px-3 py-2">
-                          <PlayerTags row={row} tags={tags} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ActivePlayerTable rows={activeRows} tags={tags} />
           </>
         ) : (
           <>

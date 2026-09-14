@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
+import { TournamentReadList } from "@/components/sports/competition-read-views";
 import { listTournamentsPageData } from "@/lib/queries/tournaments";
 import { createTournamentAction } from "@/server/actions/tournaments";
 
@@ -20,7 +21,8 @@ export default async function TournamentsPage({
 }: {
   searchParams: Promise<{ ok?: string; err?: string }>;
 }) {
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
+  if (permission.isDirectorReadOnly) return <TournamentReadList />;
   const [{ campuses, products, tournaments }, query] = await Promise.all([
     listTournamentsPageData(),
     searchParams,

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AzureSignInButton } from "@/components/auth/azure-sign-in-button";
-import { PortoEmailSignIn } from "@/components/auth/porto-email-sign-in";
-import { isPortoEmailProofEnabled } from "@/lib/auth/porto-email-proof";
+import { PasswordForm } from "@/components/auth/password-form";
+import { passwordAuthEnabled, passwordAuthReady } from "@/lib/auth/password-policy";
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -14,16 +14,18 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export default async function HomePage({ searchParams }: { searchParams: SearchParams }) {
+  let signedIn = false;
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) redirect("/inicio");
+    signedIn = Boolean(user);
   } catch {
     // Supabase config error — fall through and show login
   }
+  if (signedIn) redirect("/inicio");
 
   const { error } = await searchParams;
-  const showPortoEmailProof = isPortoEmailProofEnabled();
+  const showPasswordAuth = passwordAuthEnabled();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-6">
@@ -50,7 +52,10 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           )}
 
           <AzureSignInButton />
-          {showPortoEmailProof ? <PortoEmailSignIn /> : null}
+          {showPasswordAuth ? <>
+            <div className="border-t border-slate-200 pt-4 text-sm text-slate-500">O entra con tu correo</div>
+            <PasswordForm mode="signin" ready={passwordAuthReady()} siteKey={process.env.NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY ?? ""} />
+          </> : null}
         </div>
       </div>
     </main>

@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-09-14 (session 349)
+
+### Production Email Login and Director Read-Only Release (v1.17.69)
+
+- Resumed after restart without additional agents. Isolated main-based release;
+  production SMTP/CAPTCHA/confirmation configured, existing Microsoft access retained.
+- Rehearsed 887 database checks, then installed only the two reviewed authorization
+  migrations with matching history hashes and no real-user role changes.
+- Production browser verified v1.17.69 and existing Superadmin access. Added normal
+  Director operational views with financial/admin/write denial.
+- Fixed archived tournament details absent from the current registration board;
+  missing membership is labeled unavailable, not a server error or false zero.
+- Live 22-page/15-detail HTML/RSC and denial checks passed. Full HTTP coverage
+  assertion remains unmet because production has no legacy team or saved-callup
+  rows; do not claim those detail paths were tested in production.
+- Synthetic revocation and password recovery passed; all test accounts/session
+  files removed. New passwords aligned to provider's 8-72 character range.
+- Real Gmail email-delivery/browser sign-in test remains pending. Rita untouched.
+  See docs/support/2026-09-14-production-auth-release.md for evidence and limitations.
+
 ## 2026-09-09 (session 342)
 
 ### Porto Viewer Production Release (v1.17.67)

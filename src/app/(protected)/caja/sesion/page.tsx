@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { requireDirectorReadContext } from "@/lib/auth/permissions";
 import { PageShell } from "@/components/ui/page-shell";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
@@ -34,6 +35,8 @@ const ERROR_LABELS: Record<string, string> = {
 type SearchParams = Promise<{ ok?: string; err?: string }>;
 
 export default async function CajaSessionPage({ searchParams }: { searchParams: SearchParams }) {
+  const context = await requireDirectorReadContext();
+  if (context.isDirectorReadOnly || !context.canViewFinancials) redirect("/caja");
   const params = await searchParams;
   const [campusAccess, statuses] = await Promise.all([getOperationalCampusAccess(), getCampusSessionStatuses()]);
   if (!campusAccess?.isDirector) {

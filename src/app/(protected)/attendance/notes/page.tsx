@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
@@ -47,7 +48,8 @@ function recordStatusClass(status: string) {
 }
 
 export default async function AttendanceNotesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireAttendanceReadContext("/unauthorized");
+  const context = await requireAttendanceReadContext("/unauthorized");
+  if (context.isDirectorReadOnly) redirect("/unauthorized");
   const params = await searchParams;
   const data = await getAttendanceDailyNotes({ campusId: params.campus, date: params.date });
   const sessionsWithNotes = data.sessions.filter(hasAnyNotes);

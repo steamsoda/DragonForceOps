@@ -54,7 +54,7 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
   const previousMonth = addMonths(data.selectedMonth, -1);
   const nextMonth = addMonths(data.selectedMonth, 1);
   const leadingBlankDays = data.days[0] ? isoDayOfWeek(data.days[0].date) - 1 : 0;
-  const canManageClosures = context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector);
+  const canManageClosures = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector);
   const defaultClosureCampusId = data.selectedCampusId ?? (context.isDirector ? "" : data.campuses[0]?.id ?? "");
 
   return (

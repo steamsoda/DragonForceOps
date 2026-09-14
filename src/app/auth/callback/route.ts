@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const requestedNext = searchParams.get("next");
   const next =
-    requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+    requestedNext && ["/inicio", "/auth/email-confirmed"].includes(requestedNext)
       ? requestedNext
       : "/inicio";
 

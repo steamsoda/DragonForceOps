@@ -3,7 +3,8 @@ import { TrialProspectForm } from "@/components/trial-classes/trial-prospect-for
 import { TrialBirthYearChart } from "@/components/trial-classes/trial-report-charts";
 import { TrialCheckInControl, TrialTicketReprintButton } from "@/components/trial-classes/trial-visit-controls";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalReadContext } from "@/lib/auth/permissions";
+import { NonfinancialTrials } from "./nonfinancial";
 import { getPrinterName } from "@/lib/queries/settings";
 import { getTrialClassesData, getTrialClassesReport } from "@/lib/queries/trial-classes";
 import { formatDateOnlyDdMmYyyy, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
@@ -20,6 +21,8 @@ type SearchParams = Promise<{
   reportRange?: string;
   reportFrom?: string;
   reportTo?: string;
+  status?: string;
+  page?: string;
 }>;
 
 const ERROR_LABELS: Record<string, string> = {
@@ -47,7 +50,8 @@ function prospectStatusLabel(status: string) {
 
 export default async function TrialClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const context = await requireOperationalContext();
+  const context = await requireOperationalReadContext();
+  if (context.isDirectorReadOnly) return <NonfinancialTrials filters={params} />;
   if (!context.campusAccess) return null;
   const [data, report, printerName] = await Promise.all([
     getTrialClassesData({ campusAccess: context.campusAccess, campusId: params.campus, query: params.q }),

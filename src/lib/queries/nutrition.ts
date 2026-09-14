@@ -1,4 +1,7 @@
+import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireNutritionReadContext } from "@/lib/auth/permissions";
+import * as directorRead from "./nutrition-director-readonly";
 import {
   canAccessNutritionCampus,
   getNutritionCampusAccess,
@@ -20,7 +23,7 @@ import {
 const PAGE_SIZE = 500;
 const CHUNK_SIZE = 100;
 
-type ActiveNutritionEnrollmentRow = {
+export type ActiveNutritionEnrollmentRow = {
   id: string;
   player_id: string;
   campus_id: string;
@@ -39,7 +42,7 @@ type ActiveNutritionEnrollmentRow = {
   } | null;
 };
 
-type NutritionTrainingGroupRow = {
+export type NutritionTrainingGroupRow = {
   id: string;
   campus_id: string;
   name: string;
@@ -54,13 +57,13 @@ type NutritionTrainingGroupRow = {
   status: string;
 };
 
-type NutritionTrainingGroupAssignmentRow = {
+export type NutritionTrainingGroupAssignmentRow = {
   enrollment_id: string;
   training_group_id: string;
   training_groups: NutritionTrainingGroupRow | null;
 };
 
-type MeasurementSessionRow = {
+export type MeasurementSessionRow = {
   id: string;
   player_id: string;
   enrollment_id: string;
@@ -75,12 +78,12 @@ type MeasurementSessionRow = {
   updated_at: string;
 };
 
-type RecentMeasurementRow = MeasurementSessionRow & {
+export type RecentMeasurementRow = MeasurementSessionRow & {
   players: { first_name: string | null; last_name: string | null } | null;
   campuses: { name: string | null } | null;
 };
 
-type GuardianLinkRow = {
+export type GuardianLinkRow = {
   player_id: string;
   is_primary: boolean | null;
   guardians: {
@@ -248,6 +251,7 @@ async function fetchChunkedRows<T>(ids: string[], loadChunkPage: (chunk: string[
 
 async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
   if (selectedCampusIds.length === 0) return [] as ActiveNutritionEnrollmentRow[];
+  if ((await requireNutritionReadContext()).isDirectorReadOnly) return directorRead.enrollments(selectedCampusIds);
 
   const admin = createAdminClient();
   return fetchPagedRows<ActiveNutritionEnrollmentRow>((from, to) =>
@@ -263,6 +267,7 @@ async function listAccessibleActiveEnrollments(selectedCampusIds: string[]) {
 }
 
 async function listNutritionTrainingGroups(selectedCampusId: string, selectedGender: "male" | "female" | "") {
+  if ((await requireNutritionReadContext()).isDirectorReadOnly) return directorRead.groups(selectedCampusId, selectedGender);
   const admin = createAdminClient();
   let query = admin
     .from("training_groups")
@@ -281,6 +286,7 @@ async function listNutritionTrainingGroups(selectedCampusId: string, selectedGen
 }
 
 async function listNutritionTrainingGroupAssignments(selectedCampusId: string) {
+  if ((await requireNutritionReadContext()).isDirectorReadOnly) return directorRead.assignments(selectedCampusId);
   const admin = createAdminClient();
   return fetchPagedRows<NutritionTrainingGroupAssignmentRow>((from, to) =>
     admin
@@ -295,6 +301,7 @@ async function listNutritionTrainingGroupAssignments(selectedCampusId: string) {
 
 async function listMeasurementSessionsForPlayers(playerIds: string[]) {
   if (playerIds.length === 0) return [] as MeasurementSessionRow[];
+  if ((await requireNutritionReadContext()).isDirectorReadOnly) return directorRead.measurements(playerIds);
 
   const admin = createAdminClient();
   return fetchChunkedRows<MeasurementSessionRow>(playerIds, (chunk, from, to) =>
@@ -312,9 +319,9 @@ async function listMeasurementSessionsForPlayers(playerIds: string[]) {
 async function listGuardianContactsForPlayers(playerIds: string[]) {
   if (playerIds.length === 0) return new Map<string, NutritionGuardianContact>();
 
-  const admin = createAdminClient();
-  const rows = await fetchChunkedRows<GuardianLinkRow>(playerIds, (chunk, from, to) =>
-    admin
+  const isReadOnly = (await requireNutritionReadContext()).isDirectorReadOnly;
+  const rows = isReadOnly ? await directorRead.guardians(playerIds) : await fetchChunkedRows<GuardianLinkRow>(playerIds, (chunk, from, to) =>
+    createAdminClient()
       .from("player_guardians")
       .select("player_id, is_primary, guardians(first_name, last_name, phone_primary, phone_secondary, email, relationship_label)")
       .in("player_id", chunk)
@@ -475,11 +482,14 @@ export type NutritionProfileData = {
 };
 
 export async function listNutritionCampuses() {
+  const context = await requireNutritionReadContext();
+  if (context.isDirectorReadOnly) return directorRead.campuses();
   const access = await getNutritionCampusAccess();
   return access?.campuses ?? [];
 }
 
 export async function getNutritionDashboardData(filters: NutritionDashboardFilters): Promise<NutritionDashboardData> {
+  await requireNutritionReadContext();
   const access = await getNutritionCampusAccess();
   const selectedMonth = filters.month ?? getMonterreyMonthString();
 
@@ -532,10 +542,12 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
       !currentEnrollmentSessionSet.has(row.id),
   ).length;
 
-  const admin = createAdminClient();
-  const [currentMonthSessions, { data: recentRows }] = await Promise.all([
+  const isReadOnly = (await requireNutritionReadContext()).isDirectorReadOnly;
+  const [currentMonthSessions, { data: recentRows }] = isReadOnly
+    ? await directorRead.dashboardSessions(selectedCampusIds, monthBounds)
+    : await Promise.all([
     fetchPagedRows<{ id: string; waist_circumference_cm: number | string | null }>((from, to) =>
-      admin
+      createAdminClient()
         .from("player_measurement_sessions")
         .select("id, waist_circumference_cm")
         .in("campus_id", selectedCampusIds)
@@ -544,7 +556,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
         .range(from, to)
         .returns<Array<{ id: string; waist_circumference_cm: number | string | null }>>()
     ),
-    admin
+    createAdminClient()
       .from("player_measurement_sessions")
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at, players(first_name, last_name), campuses(name)")
       .in("campus_id", selectedCampusIds)
@@ -588,6 +600,7 @@ export async function getNutritionDashboardData(filters: NutritionDashboardFilte
 }
 
 export async function listNutritionMeasurementRows(filters: NutritionMeasurementListFilters) {
+  await requireNutritionReadContext();
   const access = await getNutritionCampusAccess();
   const intakeStatus = filters.intakeStatus ?? "pending";
 
@@ -659,6 +672,7 @@ export async function listNutritionMeasurementRows(filters: NutritionMeasurement
 }
 
 export async function getNutritionGroupedRosterData(filters: NutritionGroupedRosterFilters = {}): Promise<NutritionGroupedRosterData | null> {
+  await requireNutritionReadContext();
   const access = await getNutritionCampusAccess();
   const intakeStatus = filters.intakeStatus ?? "pending";
 
@@ -794,15 +808,19 @@ export async function getNutritionGroupedRosterData(filters: NutritionGroupedRos
 }
 
 export async function getNutritionPlayerProfile(playerId: string): Promise<NutritionProfileData | null> {
+  const context = await requireNutritionReadContext();
   const access = await getNutritionCampusAccess();
   if (!access || access.campuses.length === 0) return null;
 
-  const admin = createAdminClient();
-  const { data: enrollments } = await admin
+  const admin = context.isDirectorReadOnly ? null : createAdminClient();
+  const { data: enrollments } = context.isDirectorReadOnly
+    ? { data: await directorRead.enrollments(access.campusIds, playerId) }
+    : await admin!
     .from("enrollments")
     .select("id, player_id, campus_id, status, inscription_date, start_date, campuses(name), players(first_name, last_name, birth_date, gender, medical_notes, level)")
     .eq("player_id", playerId)
     .eq("status", "active")
+    .in("campus_id", access.campusIds)
     .order("start_date", { ascending: false })
     .returns<Array<ActiveNutritionEnrollmentRow & { status: string }>>();
 
@@ -810,7 +828,7 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
   if (!activeEnrollment) return null;
 
   const [{ data: sessionRows }, guardianContacts] = await Promise.all([
-    admin
+    context.isDirectorReadOnly ? directorRead.measurements([playerId]).then((data) => ({ data })) : admin!
       .from("player_measurement_sessions")
       .select("id, player_id, enrollment_id, campus_id, measured_at, source, weight_kg, height_cm, waist_circumference_cm, notes, created_at, updated_at")
       .eq("player_id", playerId)
@@ -836,7 +854,7 @@ export async function getNutritionPlayerProfile(playerId: string): Promise<Nutri
   const previousSession = history[1] ?? null;
   const growthSex = getGrowthSex(activeEnrollment.players?.gender ?? null);
   const { data: growthReferenceRows } = growthSex
-    ? await admin
+    ? context.isDirectorReadOnly ? { data: await directorRead.growthReferences(growthSex) } : await admin!
         .from("who_growth_reference")
         .select("indicator, sex, age_months, l, m, s")
         .eq("sex", growthSex)

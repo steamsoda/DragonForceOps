@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CompetitionReadPage } from "@/components/sports/competition-read-views";
 import { SportsSignupsBoard } from "@/components/sports/sports-signups-board";
 import { FinalizeTournamentForm } from "@/components/sports/finalize-tournament-form";
 import { PageShell } from "@/components/ui/page-shell";
@@ -14,6 +15,10 @@ type SearchParams = Promise<{
   campus?: string;
   competition?: string;
   program?: string;
+  week?: string;
+  birthYear?: string;
+  trainingGroup?: string;
+  q?: string;
   paidFrom?: string;
   paidTo?: string;
   perf?: string;
@@ -38,6 +43,7 @@ const ERR_MESSAGES: Record<string, string> = {
 export default async function SportsSignupsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const permissionContext = await getPermissionContext();
+  if (permissionContext?.isDirectorReadOnly) return <CompetitionReadPage filters={params} />;
   const dashboard = await getCompetitionSignupDashboardData({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",

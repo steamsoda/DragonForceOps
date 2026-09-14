@@ -36,9 +36,9 @@ async function main(){
  await denied('select get_porto_datos_generales()');
  await denied("insert into players(first_name,last_name,birth_date,gender) values('Blocked','Viewer','2015-01-01','male')");
  await db.query('reset role');
- await rows("update porto_viewer_authorizations set enabled=false where email='tigres.azulyoro@live.com'");
+ // Revocation is now role-based; preapproval membership only controls automatic grants.
+ await rows('delete from user_roles where user_id=$1',[uid]);
  await db.query('set local role authenticated');await denied('select porto_operational_overview()');await db.query('reset role');
- await rows("update porto_viewer_authorizations set enabled=true where email='tigres.azulyoro@live.com'");
  await rows('delete from user_roles where user_id=$1',[uid]);await rows('update auth.users set last_sign_in_at=now() where id=$1',[uid]);
  assert(!(await rows('select id from user_roles where user_id=$1',[uid])).length,'Revoked access regranted');
  await rows("insert into auth.users(id,email,email_confirmed_at) values('bd926e67-e847-44a6-836f-f51aa621b352','not-approved@example.com',now())");

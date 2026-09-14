@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireAttendanceWriteContext } from "@/lib/auth/permissions";
+import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { listAttendanceScheduleTemplates } from "@/lib/queries/attendance";
 import { createAttendanceScheduleAction, createBulkAttendanceSchedulesAction, updateAttendanceScheduleAction } from "@/server/actions/attendance";
 import { getMonterreyDateString } from "@/lib/time";
@@ -18,11 +18,12 @@ const DAYS = [
 type SearchParams = Promise<{ ok?: string; err?: string; count?: string }>;
 
 export default async function AttendanceSchedulesPage({ searchParams }: { searchParams: SearchParams }) {
-  const context = await requireAttendanceWriteContext("/unauthorized");
-  if (!context.isDirector && !context.isSportsDirector) redirect("/unauthorized");
+  const context = await requireAttendanceReadContext("/unauthorized");
+  if (!context.isDirectorReadOnly && (!context.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector))) redirect("/unauthorized");
 
   const params = await searchParams;
   const data = await listAttendanceScheduleTemplates();
+  const canManageSchedules = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess && data.canManageSchedules;
   const bulkCreatedCount = params.ok === "bulk_created" ? Number(params.count ?? "0") : null;
   const defaultDate = getMonterreyDateString();
 
@@ -38,7 +39,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
           </div>
         ) : null}
 
-        {data.canManageSchedules ? (
+        {canManageSchedules ? (
           <div className="grid gap-4">
             <form action={createBulkAttendanceSchedulesAction} className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 md:grid-cols-[1fr_1fr_2fr_auto]">
               <label className="text-sm font-medium">
@@ -131,7 +132,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                     <p className="font-medium">{template.teamName}</p>
                     <p className="text-xs text-slate-500">{template.campusName} | {template.sourceType === "training_group" ? "Grupo" : "Equipo"} | Coach {template.coachName ?? "-"}</p>
                   </td>
-                  {data.canManageSchedules ? (
+                  {canManageSchedules ? (
                     <td className="px-3 py-2" colSpan={5}>
                       <form action={updateAttendanceScheduleAction.bind(null, template.id)} className="grid gap-2 md:grid-cols-6">
                         <select name="day_of_week" defaultValue={template.dayOfWeek} className="rounded-md border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-950">

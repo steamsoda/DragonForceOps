@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompactOMSGrowthCharts } from "@/components/nutrition/charts";
 import { PrintReportButton } from "@/components/nutrition/print-report-button";
-import { requireNutritionContext } from "@/lib/auth/permissions";
+import { requireNutritionReadContext } from "@/lib/auth/permissions";
 import { getNutritionPlayerProfile } from "@/lib/queries/nutrition";
 import { formatDateMonterrey, formatDateTimeMonterrey } from "@/lib/time";
 
@@ -71,7 +71,7 @@ function PercentileBellCurve({ percentile }: { percentile: number | null | undef
 }
 
 export default async function NutritionParentReportPage({ params }: { params: PageParams }) {
-  await requireNutritionContext("/unauthorized");
+  const context = await requireNutritionReadContext("/unauthorized");
   const { playerId } = await params;
   const profile = await getNutritionPlayerProfile(playerId);
 
@@ -86,7 +86,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-4 print:hidden">
         <div>
           <p className="font-semibold text-slate-900">Reporte para padres</p>
-          <p className="text-sm text-slate-600">Escribe notas si hace falta y usa imprimir para guardar como PDF.</p>
+          <p className="text-sm text-slate-600">{context.isDirectorReadOnly ? "Reporte de seguimiento nutricional." : "Escribe notas si hace falta y usa imprimir para guardar como PDF."}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/nutrition/players/${profile.playerId}`} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">
@@ -153,6 +153,7 @@ export default async function NutritionParentReportPage({ params }: { params: Pa
                   Escribe aqui observaciones, recomendaciones o seguimiento sugerido antes de imprimir.
                 </span>
                 <textarea
+                  readOnly={context.isDirectorReadOnly}
                   rows={5}
                   className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm leading-5 print:border-0 print:px-0 print:shadow-none print:outline-none"
                 />
