@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-09-14: Email Preauthorization Preview Release
+
+- Added Usuarios / Preautorizaciones tabs and a compact, paginated approval queue.
+- Superadmins can save or revoke pending email/role/campus authorizations; verified
+  accounts claim once, without replacing existing roles or sending invitations.
+- External emails are restricted to read-only roles in this workflow. Staff roles
+  require an internal domain; pending approval changes use revision checks and audits.
+- Preview-only database rehearsal passed 22 checks with all fixtures rolled back;
+  server-action and UI checks and TypeScript validation passed.
+- Preview migration inventory contains only the new 20260914180000 migration pending.
+  Production is unchanged. Existing user/coach editing is retained for a later pass.
+
+
 ## 2026-09-14 (session 349)
 
 ### Production Email Login and Director Read-Only Release (v1.17.69)
