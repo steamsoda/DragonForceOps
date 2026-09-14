@@ -9,7 +9,7 @@ const page=fs.readFileSync('src/app/porto/page.tsx','utf8');
 assert.ok(!page.includes('createAdminClient'));
 assert.ok(page.includes('porto_operational_overview'));
 assert.ok(page.includes('is_porto_viewer'));
-assert.ok(page.includes('rita.cabral@fcporto.pt'));
+assert.ok(page.includes('roleError || !allowed'));
 assert.ok(!/dangerouslySetInnerHTML/.test(page));
 const sql=fs.readFileSync('supabase/migrations/20260909120000_porto_nonfinancial_viewer.sql','utf8');
 const projection=sql.slice(sql.indexOf('create or replace function public.porto_operational_overview'));
