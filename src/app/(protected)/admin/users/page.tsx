@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Preauthorizations, type Preauthorization } from "@/components/admin/preauthorizations";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireSuperAdminContext } from "@/lib/auth/permissions";
 import { formatRoleWithCampus } from "@/lib/auth/role-display";
@@ -19,6 +21,11 @@ const ALL_ROLES = [
 ] as const;
 
 const ERROR_MESSAGES: Record<string, string> = {
+  staff_domain_required: "Los roles de personal requieren un correo de dragonforcemty.com o fcportodragonforcemty.com.",
+  invalid_campus: "Selecciona un campus activo y compatible con el rol.",
+  preauthorization_changed: "La autorizacion cambio o ya fue utilizada. Actualiza la pagina.",
+  existing_user_access: "Esta cuenta ya tiene acceso. Gestiona sus roles en Usuarios.",
+  preauthorization_failed: "No se pudo guardar la preautorizacion. Revisa la configuracion e intenta de nuevo.",
   invalid_form: "Datos invalidos.",
   role_not_found: "Rol no encontrado.",
   grant_failed: "No se pudo asignar el rol.",
@@ -47,7 +54,7 @@ type RoleAssignment = {
   campusId: string | null;
   campusName: string | null;
 };
-type SearchParams = Promise<{ ok?: string; err?: string }>;
+type SearchParams = Promise<{ ok?: string; err?: string; tab?: string; q?: string; offset?: string }>;
 type CoachRow = { id: string; user_id: string | null; first_name: string; last_name: string; campus_id: string | null; campuses: { name: string | null } | null };
 
 export default async function UsersAdminPage({ searchParams }: { searchParams: SearchParams }) {
@@ -97,7 +104,16 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   const activeUsers = authUsers.filter((authUser) => rolesByUser[authUser.id]?.length);
 
   const query = await searchParams;
-  const successMessage = query.ok === "granted"
+  const isPreauthorizations = query.tab === "preauthorizations";
+  const search = (query.q ?? "").slice(0, 254);
+  const offset = /^\d{1,6}$/.test(query.offset ?? "") ? Number(query.offset) : 0;
+  const approvals = isPreauthorizations
+    ? await supabase.rpc("list_email_preauthorizations", { p_search: search, p_offset: offset })
+    : { data: null, error: null };
+  const approvalData = approvals.data as { items: Preauthorization[]; total: number } | null;
+  const successMessage = query.ok === "preauthorization_saved" ? "Autorizacion guardada. Pendiente de acceso con correo confirmado."
+    : query.ok === "preauthorization_revoked" ? "Preautorizacion revocada."
+    : query.ok === "granted"
     ? "Rol asignado."
     : query.ok === "revoked"
       ? "Rol revocado."
@@ -245,8 +261,12 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
   }
 
   return (
-    <PageShell title="Usuarios y Permisos" subtitle="Gestiona el acceso del personal">
+    <PageShell title="Usuarios y Permisos" subtitle="Gestiona el acceso del personal" wide>
       <div className="space-y-6">
+        <nav className="flex gap-4 border-b border-slate-200 text-sm" aria-label="Accesos">
+          <Link href="/admin/users" aria-current={!isPreauthorizations ? "page" : undefined} className={`px-2 py-3 ${!isPreauthorizations ? "border-b-2 border-portoBlue font-semibold" : "text-slate-500"}`}>Usuarios</Link>
+          <Link href="/admin/users?tab=preauthorizations" aria-current={isPreauthorizations ? "page" : undefined} className={`px-2 py-3 ${isPreauthorizations ? "border-b-2 border-portoBlue font-semibold" : "text-slate-500"}`}>Preautorizaciones</Link>
+        </nav>
         {successMessage ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
             {successMessage}
@@ -265,6 +285,8 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
           </div>
         ) : null}
 
+        {isPreauthorizations ? <Preauthorizations rows={approvalData?.items ?? []} total={approvalData?.total ?? 0}
+          search={search} offset={offset} unavailable={!!approvals.error || !approvalData} roles={[...ALL_ROLES]} campuses={campuses ?? []} /> : <>
         {pendingUsers.length > 0 ? (
           <section className="space-y-2">
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -346,6 +368,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
             </table>
           </div>
         </section>
+        </>}
       </div>
     </PageShell>
   );
