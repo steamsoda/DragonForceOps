@@ -22,5 +22,6 @@ const makeContext=overrides=>({roleCodes:[],supabase:{rpc:async(...args)=>{calls
  assert.match(page,/canChangeGroups = false/);assert.match(page,/!withdrawn && canChangeGroups/);
  assert.doesNotMatch(page.slice(page.indexOf('if (isDirectorReadOnly(permissionContext))'),page.indexOf('const dropoutTo')), /canChangeGroups\s*\/>/);
  const ui=fs.readFileSync('src/components/players/quick-group-change.tsx','utf8');assert.match(ui,/group\.campus_id|g\.campus_id/);assert.match(ui,/Confirmar cambio/);assert.doesNotMatch(ui,/draggable/);
+ const caja=fs.readFileSync('src/components/caja/caja-client.tsx','utf8');assert.doesNotMatch(caja,/QuickGroupChange|changedGroupLabel/);
  console.log('PASS: action role/debug/input guards, RPC contract, invalidation, stale-state messaging, labels, field-admin route, explicit confirmation.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
