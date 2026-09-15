@@ -7,6 +7,8 @@ import {
   type ReturningPlayerSearchResult,
 } from "@/server/actions/intake";
 import { formatDateOnlyDdMmYyyy } from "@/lib/time";
+import { useDirectorReadOnly } from "@/components/auth/read-only-controls";
+import { readIntake } from "./intake-reads";
 
 const statusLabels: Record<string, string> = {
   active: "Inscripcion activa",
@@ -15,6 +17,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export function ReturningPlayerLookup() {
+  const directorReadOnly = useDirectorReadOnly();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ReturningPlayerSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
@@ -29,7 +32,9 @@ export function ReturningPlayerLookup() {
     setIsSearching(true);
     setSearchError(false);
     try {
-      const nextResults = await searchReturningPlayersForIntakeAction(trimmed);
+      const nextResults = directorReadOnly
+        ? await readIntake<ReturningPlayerSearchResult[]>({ mode: "returning", q: trimmed })
+        : await searchReturningPlayersForIntakeAction(trimmed);
       setResults(nextResults);
       setSearched(true);
     } catch {

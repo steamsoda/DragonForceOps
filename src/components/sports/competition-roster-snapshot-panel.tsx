@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { createWeeklyCallupFromLiveCompetitionRosterAction } from "@/server/actions/competition-rosters";
 
 type Props = {
@@ -16,13 +17,13 @@ type Props = {
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const status = useFormStatus();
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={disabled || status.pending}
       className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
     >
       {status.pending ? "Preparando convocatoria..." : "Preparar convocatoria"}
-    </button>
+    </WriteButton>
   );
 }
 
@@ -54,7 +55,7 @@ export function CompetitionRosterSnapshotPanel(props: Props) {
             Exportar equipos actuales
           </a>
           {props.canPrepare && props.program !== "little_dragons" ? (
-            <form
+            <ReadOnlyForm
               action={createWeeklyCallupFromLiveCompetitionRosterAction}
               className="flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={(event) => {
@@ -78,7 +79,7 @@ export function CompetitionRosterSnapshotPanel(props: Props) {
                 />
               </label>
               <SubmitButton disabled={!rosterReady} />
-            </form>
+            </ReadOnlyForm>
           ) : null}
         </div>
       </div>

@@ -2,8 +2,8 @@ type TrendCardProps = {
   label: string;
   currentValue: string;
   previousValue: string;
-  currentRaw: number;
-  previousRaw: number;
+  currentRaw: number | null;
+  previousRaw: number | null;
   description: string;
 };
 
@@ -29,7 +29,8 @@ export function TrendCard({
   previousRaw,
   description
 }: TrendCardProps) {
-  const delta = getDelta(currentRaw, previousRaw);
+  const restricted = currentRaw === null || previousRaw === null;
+  const delta = restricted ? { amount: 0, percent: 0 } : getDelta(currentRaw, previousRaw);
   const sign = delta.amount > 0 ? "+" : delta.amount < 0 ? "-" : "";
   const toneClass =
     delta.amount > 0 ? "text-emerald-700" : delta.amount < 0 ? "text-rose-700" : "text-slate-700 dark:text-slate-300";
@@ -40,8 +41,7 @@ export function TrendCard({
       <p className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">{currentValue}</p>
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Mes anterior: {previousValue}</p>
       <p className={`mt-1 text-xs font-medium ${toneClass}`}>
-        {sign}
-        {Math.abs(delta.percent).toFixed(1)}% contra mes anterior
+        {restricted ? "\u2014" : `${sign}${Math.abs(delta.percent).toFixed(1)}%`} contra mes anterior
       </p>
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{description}</p>
     </article>

@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type AreaMapEntry = {
@@ -25,7 +27,9 @@ export async function listAreaMapEntriesAction(month: string): Promise<{
   monthEntries: AreaMapEntry[];
   openPrior: AreaMapEntry[];
 }> {
-  const supabase = await createClient();
+  const context = await requireDirectorPageReader();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("invalid_month");
+  const supabase = context.isDirectorReadOnly ? createAdminClient() : await createClient();
   const firstDay = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const lastDay = new Date(year, mon, 0).toISOString().slice(0, 10);
@@ -35,6 +39,7 @@ export async function listAreaMapEntriesAction(month: string): Promise<{
     supabase
       .from("area_map_entries")
       .select("*")
+      .or(`campus_id.is.null,campus_id.in.(${context.campusAccess?.campusIds.join(",") || "00000000-0000-0000-0000-000000000000"})`)
       .gte("entry_date", firstDay)
       .lte("entry_date", lastDay)
       .order("entry_date", { ascending: true }),
@@ -43,11 +48,13 @@ export async function listAreaMapEntriesAction(month: string): Promise<{
     supabase
       .from("area_map_entries")
       .select("*")
+      .or(`campus_id.is.null,campus_id.in.(${context.campusAccess?.campusIds.join(",") || "00000000-0000-0000-0000-000000000000"})`)
       .lt("entry_date", firstDay)
       .is("closure_date", null)
       .order("entry_date", { ascending: true })
   ]);
 
+  if (context.isDirectorReadOnly && (monthRes.error || openRes.error)) throw monthRes.error ?? openRes.error;
   function toEntry(r: Record<string, unknown>): AreaMapEntry {
     return {
       id: r.id as string,

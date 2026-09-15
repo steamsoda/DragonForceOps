@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import {
   resolveEntitledProductIds,
   type ProductBundleEntitlementInput,
@@ -1246,18 +1247,18 @@ function resolveSelectedCompetitionId(
 async function getCompetitionSignupBaseData(options?: { perf?: ReturnType<typeof startPerf>; viewerCampusId?: string }) {
   const perf = options?.perf;
   const permissionContext = await getPermissionContext();
-  // Only the allowlisted membership projector below may opt into viewer reads.
+  if (permissionContext?.isDirectorReadOnly) await requireOperationalPageReader();
   const viewerAccess = permissionContext?.isDirectorReadOnly && permissionContext.hasSportsReadAccess
-    && options?.viewerCampusId && permissionContext.campusAccess?.campusIds.includes(options.viewerCampusId)
+    && (!options?.viewerCampusId || permissionContext.campusAccess?.campusIds.includes(options.viewerCampusId))
     ? permissionContext.campusAccess : null;
   if (permissionContext?.isDirectorReadOnly && !viewerAccess) return null;
   if (!permissionContext || (!viewerAccess && !permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
   }
 
-  const campusAccess = viewerAccess ? { ...viewerAccess, campusIds: [options!.viewerCampusId!],
+  const campusAccess = viewerAccess && options?.viewerCampusId ? { ...viewerAccess, campusIds: [options!.viewerCampusId!],
     campuses: viewerAccess.campuses.filter((c) => c.id === options!.viewerCampusId), defaultCampusId: options!.viewerCampusId! }
-    : await getOperationalCampusAccess();
+    : viewerAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) return null;
 
   const admin = createAdminClient();
@@ -1379,12 +1380,12 @@ async function getCompetitionSignupDetailBaseData(filters: {
 }) {
   const perf = startPerf(Boolean(filters.perf));
   const permissionContext = await getPermissionContext();
-  if (permissionContext?.isDirectorReadOnly) return null;
-  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
+  if (permissionContext?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!permissionContext || (!permissionContext.isDirectorReadOnly && !permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
     return null;
   }
 
-  const campusAccess = await getOperationalCampusAccess();
+  const campusAccess = permissionContext.isDirectorReadOnly ? permissionContext.campusAccess : await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) return null;
 
   const campusId =

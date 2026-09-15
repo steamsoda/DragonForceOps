@@ -2,6 +2,7 @@
 
 import { startTransition, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 
 import type { TrialTrainingGroup } from "@/lib/queries/trial-classes";
 import { createTrialProspectAction, type TrialProspectCreateResult } from "@/server/actions/trial-classes";
@@ -32,12 +33,14 @@ function groupContext(group: TrialTrainingGroup) {
 }
 
 export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProspectFormProps) {
+  const readOnly = useReadOnly();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<TrialProspectCreateResult | null>(null);
 
   async function submitForm(form: HTMLFormElement, confirmPossibleDuplicate = false) {
+    if (readOnly) return;
     setResult(null);
     const formData = new FormData(form);
     if (confirmPossibleDuplicate) formData.set("confirmPossibleDuplicate", "true");
@@ -85,9 +88,9 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
       <label className="text-sm font-medium md:col-span-2">Grupo de prueba<select required name="trainingGroupId" defaultValue="" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"><option value="" disabled>Selecciona grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name} | {groupContext(group)}</option>)}</select></label>
       <label className="text-sm font-medium md:col-span-2 xl:col-span-4">Nota inicial (opcional)<textarea name="note" rows={2} maxLength={2000} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" /></label>
       <div className="space-y-2 md:col-span-2 xl:col-span-4">
-        <button disabled={!campusId || groups.length === 0 || isSaving} className="rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
+        <WriteButton disabled={!campusId || groups.length === 0 || isSaving} className="rounded-md bg-portoBlue px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
           {isSaving ? "Guardando..." : "Guardar prospecto"}
-        </button>
+        </WriteButton>
         <div aria-live="polite">
           {result?.ok ? <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Prospecto registrado correctamente.</p> : null}
           {result && !result.ok && result.error === "possible_duplicate" ? (
@@ -99,9 +102,9 @@ export function TrialProspectForm({ campusId, groups, maxBirthDate }: TrialProsp
                 <button type="button" disabled={isSaving} onClick={() => setResult(null)} className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-800 disabled:opacity-50">
                   No, revisar
                 </button>
-                <button type="button" disabled={isSaving} onClick={confirmDuplicateRegistration} className="rounded-md bg-portoBlue px-4 py-2 font-semibold text-white disabled:opacity-50">
+                <WriteButton type="button" disabled={isSaving} onClick={confirmDuplicateRegistration} className="rounded-md bg-portoBlue px-4 py-2 font-semibold text-white disabled:opacity-50">
                   {isSaving ? "Registrando..." : "Si, registrar"}
-                </button>
+                </WriteButton>
               </div>
             </div>
           ) : null}

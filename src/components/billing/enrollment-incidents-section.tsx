@@ -1,4 +1,6 @@
 "use client";
+import { WriteButton } from "@/components/auth/read-only-controls";
+
 
 import { useState } from "react";
 
@@ -228,12 +230,12 @@ export function EnrollmentIncidentsSection({
           className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
         >
           <IncidentFormFields defaultMonth={defaultMonth} />
-          <button
+          <WriteButton
             type="submit"
             className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
           >
             Registrar incidencia
-          </button>
+          </WriteButton>
         </form>
       ) : null}
 
@@ -269,12 +271,12 @@ export function EnrollmentIncidentsSection({
                   {canManage ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <form action={cancelAction.bind(null, row.id)}>
-                        <button
+                        <WriteButton
                           type="submit"
                           className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20"
                         >
                           Cancelar
-                        </button>
+                        </WriteButton>
                       </form>
                       <details className="group">
                         <summary className="cursor-pointer list-none rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800">
@@ -292,12 +294,12 @@ export function EnrollmentIncidentsSection({
                             initialStartsOn={row.startsOn ?? ""}
                             initialEndsOn={row.endsOn ?? ""}
                           />
-                          <button
+                          <WriteButton
                             type="submit"
                             className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
                           >
                             Guardar reemplazo
-                          </button>
+                          </WriteButton>
                         </form>
                       </details>
                     </div>

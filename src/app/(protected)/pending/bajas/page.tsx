@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { BajaWriteoffTable } from "@/components/pending/baja-writeoff-table";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
 import { listBajaEnrollmentsWithBalance } from "@/lib/queries/enrollments";
 
 type SearchParams = Promise<{ ok?: string; err?: string; count?: string }>;
 
 export default async function BajaWriteoffPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  await requireDirectorContext("/unauthorized");
+  const context = await requireDirectorPageReader();
 
   const rows = await listBajaEnrollmentsWithBalance();
-  const totalAmount = rows.reduce((sum, row) => sum + row.pendingTotal, 0);
+  const totalAmount = context.isDirectorReadOnly ? null : rows.reduce((sum, row) => sum + row.pendingTotal, 0);
   const totalCharges = rows.reduce((sum, row) => sum + row.pendingChargeCount, 0);
 
   const fmt = (value: number) =>
@@ -56,7 +56,7 @@ export default async function BajaWriteoffPage({ searchParams }: { searchParams:
             <span>·</span>
             <span>{totalCharges} cargos</span>
             <span>·</span>
-            <span className="font-medium text-red-600 dark:text-red-400">{fmt(totalAmount)} total</span>
+            <span className="font-medium text-red-600 dark:text-red-400">{totalAmount === null ? "\u2014" : fmt(totalAmount)} total</span>
           </div>
         ) : null}
 

@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/campuses";
 import { getPermissionContext, type PermissionContext } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { directorPlayerReader } from "@/lib/auth/director-player-reader";
 
 export type PlayerNote = {
   id: string;
@@ -90,6 +91,7 @@ export async function resolvePlayerNoteTarget({
 }): Promise<PlayerNoteTarget | null> {
   const resolvedContext = context ?? (await getPermissionContext());
   if (!canUsePlayerNotes(resolvedContext)) return null;
+  if (resolvedContext?.isDirectorReadOnly && !await directorPlayerReader(resolvedContext, playerId)) return null;
 
   const admin = createAdminClient();
   let query = admin

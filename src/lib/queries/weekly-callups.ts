@@ -1,4 +1,5 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   formatCampusCompetitionTeamName,
@@ -349,8 +350,8 @@ function validMonday(value: string | undefined) {
 
 export async function getWeeklyCallupsFoundationData(week?: string): Promise<WeeklyCallupsFoundationData | null> {
   const context = await getPermissionContext();
-  if (context?.isDirectorReadOnly) return null;
-  if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!context || (!context.isDirectorReadOnly && !context.hasOperationalAccess && !context.hasSportsAccess)) return null;
 
   const campusAccess = context.campusAccess;
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
@@ -579,7 +580,7 @@ export async function getWeeklyCallupsFoundationData(week?: string): Promise<Wee
         auxiliaryCoachNames: coachRows.slice(1).map(coachName).filter(Boolean),
       }];
     }),
-    canDeleteCallups: context.isSportsDirector,
+    canDeleteCallups: context.isSportsDirector || context.isDirectorReadOnly,
     coachScheduleDefaults: Object.fromEntries((coachReportsResult.data ?? []).flatMap((report) => {
       if (!report.competition_roster_squad_id) return [];
       const coach = report.coaches;
@@ -623,8 +624,8 @@ export async function getWeeklyCallupDetail(
 ): Promise<WeeklyCallupDetailData | null> {
   const context = await getPermissionContext();
   // Eligibility sources, exceptions and comparisons reveal payment status.
-  if (context?.isDirectorReadOnly) return null;
-  if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) return null;
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!context || (!context.isDirectorReadOnly && !context.hasOperationalAccess && !context.hasSportsAccess)) return null;
   const campusAccess = context.campusAccess;
   if (!campusAccess || campusAccess.campusIds.length === 0) return null;
 
@@ -818,8 +819,8 @@ export async function getWeeklyCallupDetail(
     weekEnd: weekEndDate.toISOString().slice(0, 10),
     status: callup.status,
     snapshotAt: callup.roster_snapshot_at,
-    canDeleteCallup: context.isSportsDirector,
-    canManageExceptions: context.isSportsDirector && !hasMixedTournaments && !usesApprovedSquadSnapshot,
+    canDeleteCallup: context.isSportsDirector || context.isDirectorReadOnly,
+    canManageExceptions: (context.isSportsDirector || context.isDirectorReadOnly) && !hasMixedTournaments && !usesApprovedSquadSnapshot,
     usesApprovedSquadSnapshot,
     rosterComparison,
     manualCandidates,

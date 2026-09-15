@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { directorAccountReader } from "@/lib/auth/director-account-reader";
 import { summarizeAccountCredit, type AccountCreditSummary } from "@/lib/finance/account-credit";
 import { createPerfTimer } from "@/lib/perf/timing";
 
@@ -299,9 +300,12 @@ export async function getEnrollmentLedger(
   enrollmentId: string,
   options: EnrollmentLedgerOptions = {},
 ): Promise<EnrollmentLedger | null> {
-  const supabase = await createClient();
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) return null;
+  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.isDirectorReadOnly)) return null;
+  const supabase = permissionContext.isDirectorReadOnly
+    ? await directorAccountReader(permissionContext, enrollmentId)
+    : await createClient();
+  if (!supabase) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
@@ -309,7 +313,7 @@ export async function getEnrollmentLedger(
   const includePayments = options.includePayments ?? true;
   const includeIncidents = options.includeIncidents ?? true;
   const includeRefunds = options.includeRefunds ?? includePayments;
-  const strictReadErrors = options.strictReadErrors ?? false;
+  const strictReadErrors = permissionContext.isDirectorReadOnly || (options.strictReadErrors ?? false);
 
   let chargeQuery = supabase
     .from("charges")
@@ -777,9 +781,11 @@ export async function getHistoricalRegularizationWorkspaceLedger(
 }
 
 export async function getEnrollmentChargeFormContext(enrollmentId: string) {
-  const supabase = await createClient();
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) return null;
+  if (!permissionContext?.hasOperationalAccess && !permissionContext?.isDirectorReadOnly) return null;
+  const supabase = permissionContext.isDirectorReadOnly
+    ? await directorAccountReader(permissionContext, enrollmentId) : await createClient();
+  if (!supabase) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 

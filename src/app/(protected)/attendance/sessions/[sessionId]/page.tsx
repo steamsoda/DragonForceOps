@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AttendanceRecorder } from "@/components/attendance/attendance-recorder";
-import { AttendanceReadOnlyRoster } from "@/components/attendance/attendance-readonly-roster";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { ATTENDANCE_SESSION_TYPE_LABELS, getAttendanceSessionDetail } from "@/lib/queries/attendance";
@@ -24,7 +24,7 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
   if (!session) notFound();
 
   const canWrite = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess && session.canWrite;
-  const disabled = !canWrite || session.status === "cancelled" || (session.status === "completed" && !session.canCorrect);
+  const disabled = !context.isDirectorReadOnly && (!canWrite || session.status === "cancelled" || (session.status === "completed" && !session.canCorrect));
 
   return (
     <PageShell
@@ -93,18 +93,16 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             Sesion cancelada. Motivo: {session.cancelledReasonCode ?? "-"} {session.cancelledReason ? `| ${session.cancelledReason}` : ""}
           </div>
-        ) : context.isDirectorReadOnly ? (
-          <AttendanceReadOnlyRoster roster={session.roster} />
         ) : (
           <AttendanceRecorder sessionId={session.id} roster={session.roster} sessionNotes={session.notes} disabled={disabled} />
         )}
 
-        {canWrite && session.status !== "cancelled" ? (
+        {(canWrite || context.isDirectorReadOnly) && session.status !== "cancelled" ? (
           <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700 dark:text-slate-200">
               Zona de cancelacion de sesion
             </summary>
-            <form action={cancelAttendanceSessionAction.bind(null, session.id)} className="mt-3 grid gap-3 md:grid-cols-3">
+            <ReadOnlyForm action={cancelAttendanceSessionAction.bind(null, session.id)} className="mt-3 grid gap-3 md:grid-cols-3">
               <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 md:col-span-3">
                 Esta accion cancela toda la sesion y la excluye de reportes de asistencia. Usala solo por lluvia, feriado u otra cancelacion real.
               </p>
@@ -124,10 +122,10 @@ export default async function AttendanceSessionPage({ params, searchParams }: { 
                 <input type="checkbox" name="confirm_cancel" value="1" required className="mt-1" />
                 Confirmo que quiero cancelar esta sesion completa.
               </label>
-              <button className="rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950">
+              <WriteButton className="rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950">
                 Confirmar cancelacion
-              </button>
-            </form>
+              </WriteButton>
+            </ReadOnlyForm>
           </details>
         ) : null}
       </div>

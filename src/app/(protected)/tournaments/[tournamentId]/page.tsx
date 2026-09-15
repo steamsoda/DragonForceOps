@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireSportsReadContext } from "@/lib/auth/permissions";
-import { CompetitionReadPage } from "@/components/sports/competition-read-views";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { getTournamentDetailData, TEAM_GENDER_LABELS } from "@/lib/queries/tournaments";
 import {
   approveTournamentSourceRosterAction,
@@ -64,7 +64,6 @@ export default async function TournamentDetailPage({
   const permission = await requireSportsReadContext("/unauthorized");
   const { tournamentId } = await params;
   const query = await searchParams;
-  if (permission.isDirectorReadOnly) return <CompetitionReadPage filters={{ ...query, tournament: tournamentId }} mode="tournament" />;
   const data = await getTournamentDetailData(tournamentId, query.sourceTeamId);
   if (!data) notFound();
   const selectedSourceTeam = data.selectedSourceTeam;
@@ -127,7 +126,7 @@ export default async function TournamentDetailPage({
             </div>
           </div>
 
-          <form action={updateTournamentAction.bind(null, data.id)} className="grid gap-4 lg:grid-cols-3">
+          <ReadOnlyForm action={updateTournamentAction.bind(null, data.id)} className="grid gap-4 lg:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Nombre</span>
               <input
@@ -210,11 +209,11 @@ export default async function TournamentDetailPage({
             </label>
 
             <div className="lg:col-span-3">
-              <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+              <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
                 Guardar configuración
-              </button>
+              </WriteButton>
             </div>
-          </form>
+          </ReadOnlyForm>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -226,7 +225,7 @@ export default async function TournamentDetailPage({
               </p>
             </div>
 
-            <form action={attachTournamentSourceTeamAction.bind(null, data.id)} className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+            <ReadOnlyForm action={attachTournamentSourceTeamAction.bind(null, data.id)} className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
               <label className="min-w-[14rem] flex-1 space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">Agregar equipo base</span>
                 <select name="sourceTeamId" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
@@ -238,10 +237,10 @@ export default async function TournamentDetailPage({
                   ))}
                 </select>
               </label>
-              <button type="submit" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">
+              <WriteButton type="submit" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">
                 Agregar
-              </button>
-            </form>
+              </WriteButton>
+            </ReadOnlyForm>
 
             <div className="space-y-3">
               {data.sourceTeams.map((team) => {
@@ -290,21 +289,21 @@ export default async function TournamentDetailPage({
                       <Link href={href} className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                         Abrir
                       </Link>
-                      <form action={updateTournamentSourceTeamSettingsAction.bind(null, data.id, team.linkId)} className="flex items-center gap-2">
+                      <ReadOnlyForm action={updateTournamentSourceTeamSettingsAction.bind(null, data.id, team.linkId)} className="flex items-center gap-2">
                         <input type="hidden" name="returnTo" value={href} />
                         <select name="participationMode" defaultValue={team.participationMode} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
                           <option value="competitive">Competitivo</option>
                           <option value="invited">Invitado</option>
                         </select>
-                        <button type="submit" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+                        <WriteButton type="submit" className="rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                           Guardar
-                        </button>
-                      </form>
-                      <form action={detachTournamentSourceTeamAction.bind(null, data.id, team.linkId)}>
-                        <button type="submit" className="rounded-md border border-rose-300 px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
+                        </WriteButton>
+                      </ReadOnlyForm>
+                      <ReadOnlyForm action={detachTournamentSourceTeamAction.bind(null, data.id, team.linkId)}>
+                        <WriteButton type="submit" className="rounded-md border border-rose-300 px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
                           Quitar
-                        </button>
-                      </form>
+                        </WriteButton>
+                      </ReadOnlyForm>
                     </div>
                   </article>
                 );
@@ -328,12 +327,12 @@ export default async function TournamentDetailPage({
                       {selectedSourceTeam.categoryLabel} · {selectedSourceTeam.participationMode === "invited" ? "Invitado" : "Competitivo"}
                     </p>
                   </div>
-                  <form action={approveTournamentSourceRosterAction.bind(null, data.id, selectedSourceTeam.linkId)}>
+                  <ReadOnlyForm action={approveTournamentSourceRosterAction.bind(null, data.id, selectedSourceTeam.linkId)}>
                     <input type="hidden" name="returnTo" value={returnTo} />
-                    <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+                    <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
                       {selectedSourceTeam.rosterStatus === "approved" ? "Rehacer roster final" : "Aprobar roster final"}
-                    </button>
-                  </form>
+                    </WriteButton>
+                  </ReadOnlyForm>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-4">
@@ -378,15 +377,15 @@ export default async function TournamentDetailPage({
                                 </p>
                               </div>
                               {selectedSourceTeam.defaultSquadId && !alreadyInRoster ? (
-                                <form action={assignTournamentSquadPlayerAction.bind(null, data.id)} className="flex items-center gap-2">
+                                <ReadOnlyForm action={assignTournamentSquadPlayerAction.bind(null, data.id)} className="flex items-center gap-2">
                                   <input type="hidden" name="squadId" value={selectedSourceTeam.defaultSquadId} />
                                   <input type="hidden" name="enrollmentId" value={player.enrollmentId} />
                                   <input type="hidden" name="mode" value="regular" />
                                   <input type="hidden" name="returnTo" value={returnTo} />
-                                  <button type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+                                  <WriteButton type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                                     Agregar
-                                  </button>
-                                </form>
+                                  </WriteButton>
+                                </ReadOnlyForm>
                               ) : null}
                             </div>
                           </div>
@@ -418,11 +417,11 @@ export default async function TournamentDetailPage({
                               </p>
                             </div>
                             {player.assignmentId ? (
-                              <form action={removeTournamentSquadPlayerAction.bind(null, data.id, player.assignmentId, returnTo)}>
-                                <button type="submit" className="rounded-md border border-rose-300 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
+                              <ReadOnlyForm action={removeTournamentSquadPlayerAction.bind(null, data.id, player.assignmentId, returnTo)}>
+                                <WriteButton type="submit" className="rounded-md border border-rose-300 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
                                   Quitar
-                                </button>
-                              </form>
+                                </WriteButton>
+                              </ReadOnlyForm>
                             ) : null}
                           </div>
                         </div>
@@ -452,12 +451,12 @@ export default async function TournamentDetailPage({
                               <p className="font-medium text-slate-900 dark:text-slate-100">{player.playerName}</p>
                               <p className="text-slate-500 dark:text-slate-400">{player.birthYear ?? "Sin categoría"}</p>
                             </div>
-                            <form action={setTournamentInterestAction.bind(null, data.id, selectedSourceTeam.sourceTeamId, player.enrollmentId, false)}>
+                            <ReadOnlyForm action={setTournamentInterestAction.bind(null, data.id, selectedSourceTeam.sourceTeamId, player.enrollmentId, false)}>
                               <input type="hidden" name="returnTo" value={returnTo} />
-                              <button type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+                              <WriteButton type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                                 Quitar interés
-                              </button>
-                            </form>
+                              </WriteButton>
+                            </ReadOnlyForm>
                           </div>
                         </div>
                       ))}
@@ -484,12 +483,12 @@ export default async function TournamentDetailPage({
                               <p className="font-medium text-slate-900 dark:text-slate-100">{player.playerName}</p>
                               <p className="text-slate-500 dark:text-slate-400">{player.birthYear ?? "Sin categoría"}</p>
                             </div>
-                            <form action={setTournamentInterestAction.bind(null, data.id, selectedSourceTeam.sourceTeamId, player.enrollmentId, true)}>
+                            <ReadOnlyForm action={setTournamentInterestAction.bind(null, data.id, selectedSourceTeam.sourceTeamId, player.enrollmentId, true)}>
                               <input type="hidden" name="returnTo" value={returnTo} />
-                              <button type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+                              <WriteButton type="submit" className="rounded-md border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                                 Marcar interés
-                              </button>
-                            </form>
+                              </WriteButton>
+                            </ReadOnlyForm>
                           </div>
                         </div>
                       ))}
@@ -519,7 +518,7 @@ export default async function TournamentDetailPage({
               </p>
             </div>
 
-            <form action={createTournamentSquadAction.bind(null, data.id)} className="grid gap-3">
+            <ReadOnlyForm action={createTournamentSquadAction.bind(null, data.id)} className="grid gap-3">
               <label className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">Equipo base</span>
                 <select name="sourceTeamId" defaultValue={data.selectedSourceTeamId ?? ""} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-950">
@@ -552,10 +551,10 @@ export default async function TournamentDetailPage({
                 </label>
               </div>
 
-              <button type="submit" className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
+              <WriteButton type="submit" className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
                 Crear escuadra avanzada
-              </button>
-            </form>
+              </WriteButton>
+            </ReadOnlyForm>
           </div>
 
           <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -582,11 +581,11 @@ export default async function TournamentDetailPage({
                           </p>
                         </div>
                         {member.assignmentId ? (
-                          <form action={removeTournamentSquadPlayerAction.bind(null, data.id, member.assignmentId, returnTo)}>
-                            <button type="submit" className="rounded-md border border-rose-300 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
+                          <ReadOnlyForm action={removeTournamentSquadPlayerAction.bind(null, data.id, member.assignmentId, returnTo)}>
+                            <WriteButton type="submit" className="rounded-md border border-rose-300 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30">
                               Quitar
-                            </button>
-                          </form>
+                            </WriteButton>
+                          </ReadOnlyForm>
                         ) : null}
                       </div>
                     </div>

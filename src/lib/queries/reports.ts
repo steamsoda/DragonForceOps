@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -137,9 +139,10 @@ export async function getCorteDiarioData(filters: {
   openedAt?: string;
   closedAt?: string | null;
 }): Promise<CorteDiarioData> {
-  const supabase = await createClient();
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) {
+  if (permissionContext?.isDirectorReadOnly) await requireOperationalPageReader();
+  const supabase = permissionContext?.isDirectorReadOnly ? createAdminClient() : await createClient();
+  if (!permissionContext?.hasOperationalAccess && !permissionContext?.isDirectorReadOnly) {
     return {
       campusId: "",
       campusName: "-",
@@ -198,7 +201,7 @@ export async function getCorteDiarioData(filters: {
   const queryStart = filters.openedAt ?? new Date().toISOString();
   const queryEnd = filters.closedAt ?? new Date().toISOString();
 
-  const { data } = await supabase
+  const { data, error: paymentReadError } = await supabase
     .from("payments")
     .select(
       "id, folio, amount, method, paid_at, notes, enrollment_id, operator_campus_id, enrollments!inner(campus_id, campuses(name), players(first_name, last_name, birth_date))"
@@ -210,6 +213,7 @@ export async function getCorteDiarioData(filters: {
     .order("paid_at", { ascending: false })
     .returns<PaymentWithPlayer[]>();
 
+  if (permissionContext?.isDirectorReadOnly && paymentReadError) throw new Error("corte_read_unavailable");
   const payments = data ?? [];
   const [paymentRefundResult, chargeRefundResult] = await Promise.all([
     supabase
@@ -238,6 +242,9 @@ export async function getCorteDiarioData(filters: {
       }>>(),
   ]);
 
+  if (permissionContext?.isDirectorReadOnly && (paymentRefundResult.error || chargeRefundResult.error)) {
+    throw new Error("corte_refunds_unavailable");
+  }
   const refunds: RefundRow[] = [
     ...(paymentRefundResult.data ?? []),
     ...(chargeRefundResult.data ?? []).map((row) => ({
@@ -254,7 +261,7 @@ export async function getCorteDiarioData(filters: {
     })),
   ];
   const refundPaymentIds = [...new Set(refunds.map((refund) => refund.payment_id).filter(Boolean))];
-  const { data: refundPaymentRows } = refundPaymentIds.length
+  const { data: refundPaymentRows, error: refundPaymentError } = refundPaymentIds.length
     ? await supabase
         .from("payments")
         .select(
@@ -262,21 +269,23 @@ export async function getCorteDiarioData(filters: {
         )
         .in("id", refundPaymentIds)
         .returns<PaymentWithPlayer[]>()
-    : { data: [] };
+    : { data: [], error: null };
 
+  if (permissionContext?.isDirectorReadOnly && refundPaymentError) throw new Error("corte_refund_payments_unavailable");
   const refundPaymentById = new Map((refundPaymentRows ?? []).map((payment) => [payment.id, payment]));
   const operatorCampusIds = [
     ...new Set(
       [...payments.map((payment) => payment.operator_campus_id), ...refunds.map((refund) => refund.operator_campus_id)].filter(Boolean)
     ),
   ];
-  const { data: operatorCampusRows } = operatorCampusIds.length
+  const { data: operatorCampusRows, error: operatorCampusError } = operatorCampusIds.length
     ? await supabase
         .from("campuses")
         .select("id, name")
         .in("id", operatorCampusIds)
         .returns<Array<{ id: string; name: string }>>()
-    : { data: [] };
+    : { data: [], error: null };
+  if (permissionContext?.isDirectorReadOnly && operatorCampusError) throw new Error("corte_campuses_unavailable");
   const operatorCampusById = new Map((operatorCampusRows ?? []).map((campus) => [campus.id, campus.name]));
 
   const countedPayments = payments.filter((payment) => payment.method !== "stripe_360player");
@@ -312,13 +321,14 @@ export async function getCorteDiarioData(filters: {
     }))
     .sort((a, b) => b.total - a.total);
 
-  const { data: allocationData } = paymentIds.length
+  const { data: allocationData, error: allocationError } = paymentIds.length
     ? await supabase
         .from("payment_allocations")
         .select("payment_id, amount, charges(product_id, description, charge_types(code, name))")
         .in("payment_id", paymentIds)
         .returns<PaymentAllocationWithCharge[]>()
-    : { data: [] };
+    : { data: [], error: null };
+  if (permissionContext?.isDirectorReadOnly && allocationError) throw new Error("corte_allocations_unavailable");
 
   const conceptsByPaymentId = new Map<string, string[]>();
   for (const allocation of allocationData ?? []) {

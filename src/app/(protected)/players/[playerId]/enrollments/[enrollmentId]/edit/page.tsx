@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getEnrollmentEditContext } from "@/lib/queries/enrollments";
 import { EnrollmentEditForm } from "@/components/enrollments/enrollment-edit-form";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { updateEnrollmentAction } from "@/server/actions/enrollments";
 
 const errorMessages: Record<string, string> = {
@@ -29,8 +29,8 @@ export default async function EnrollmentEditPage({
 }) {
   const { playerId, enrollmentId } = await params;
   const query = await searchParams;
-  const permissionContext = await requireOperationalContext("/unauthorized");
-  const context = await getEnrollmentEditContext(enrollmentId);
+  const permissionContext = await requireOperationalPageReader();
+  const context = await getEnrollmentEditContext(enrollmentId, playerId);
 
   if (!context) notFound();
 
@@ -73,7 +73,7 @@ export default async function EnrollmentEditPage({
         <EnrollmentEditForm
           enrollment={context.enrollment}
           campuses={context.campuses}
-          canManageScholarship={permissionContext?.isDirector === true}
+          canManageScholarship={permissionContext.isDirectorReadOnly || permissionContext.isDirector === true}
           action={submit}
         />
       </div>

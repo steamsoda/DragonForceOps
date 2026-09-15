@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 
 import { useMemo, useState, useTransition } from "react";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
@@ -33,6 +34,7 @@ function ActionButton({ children, disabled, tone = "primary" }: {
 }
 
 export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
+  const readOnly = useReadOnly();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [excludeEnrollmentId, setExcludeEnrollmentId] = useState("");
@@ -58,6 +60,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
   }).title;
 
   function run(action: () => Promise<CompetitionRosterInlineActionResult>, afterSuccess?: () => void) {
+    if (readOnly) return;
     setMessage(null);
     startTransition(() => {
       void action().then(async (result) => {
@@ -94,7 +97,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
                       <button
                         key={squad.id}
                         type="button"
-                        disabled={isPending}
+                        disabled={readOnly || isPending}
                         onClick={() => {
                           if (!window.confirm(`Asignar a ${player.playerName} en ${squadName(squad)}?`)) return;
                           run(() => assignPendingCompetitionRosterSplitMemberAction({
@@ -142,7 +145,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
               {data.exceptionCandidates.map((player) => <option key={player.enrollmentId} value={player.enrollmentId}>{player.playerName} | Cat. {player.birthYear ?? "-"}</option>)}
             </select>
             <input required minLength={3} maxLength={240} value={excludeReason} onChange={(event) => setExcludeReason(event.target.value)} placeholder="Motivo deportivo" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
-            <ActionButton disabled={isPending} tone="danger">{isPending ? "Guardando..." : "Excluir"}</ActionButton>
+            <ActionButton disabled={readOnly || isPending} tone="danger">{isPending ? "Guardando..." : "Excluir"}</ActionButton>
           </form>
 
           <form className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700" onSubmit={(event) => {
@@ -158,7 +161,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
               {data.excludedPlayers.map((player) => <option key={player.enrollmentId} value={player.enrollmentId}>{player.playerName} | {player.exclusionReason}</option>)}
             </select>
             <input required minLength={3} maxLength={240} value={reinstateReason} onChange={(event) => setReinstateReason(event.target.value)} placeholder="Motivo para reintegrar" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
-            <ActionButton disabled={isPending} tone="neutral">{isPending ? "Guardando..." : "Reintegrar"}</ActionButton>
+            <ActionButton disabled={readOnly || isPending} tone="neutral">{isPending ? "Guardando..." : "Reintegrar"}</ActionButton>
           </form>
 
           <form className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700" onSubmit={(event) => {
@@ -178,7 +181,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
               {data.helperCandidates.map((player) => <option key={player.enrollmentId} value={player.enrollmentId}>{player.playerName} | {player.trainingGroupName}</option>)}
             </select>
             <input required minLength={3} maxLength={240} value={helperReason} onChange={(event) => setHelperReason(event.target.value)} placeholder="Motivo del refuerzo" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
-            <ActionButton disabled={isPending}>{isPending ? "Guardando..." : "Agregar refuerzo"}</ActionButton>
+            <ActionButton disabled={readOnly || isPending}>{isPending ? "Guardando..." : "Agregar refuerzo"}</ActionButton>
           </form>
 
           <form className="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700" onSubmit={(event) => {
@@ -195,7 +198,7 @@ export function CompetitionRosterLiveControls({ data, onChanged }: Props) {
               {data.manualHelpers.map((helper) => <option key={`${helper.squadId}:${helper.enrollmentId}`} value={`${helper.squadId}:${helper.enrollmentId}`}>{helper.playerName} | {helper.squadName}</option>)}
             </select>
             <input required minLength={3} maxLength={240} value={removeHelperReason} onChange={(event) => setRemoveHelperReason(event.target.value)} placeholder="Motivo para retirar" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
-            <ActionButton disabled={isPending || !selectedHelper} tone="danger">{isPending ? "Guardando..." : "Retirar refuerzo"}</ActionButton>
+            <ActionButton disabled={readOnly || isPending || !selectedHelper} tone="danger">{isPending ? "Guardando..." : "Retirar refuerzo"}</ActionButton>
           </form>
         </div>
       </details>

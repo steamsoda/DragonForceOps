@@ -1,3 +1,4 @@
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { createClient } from "@/lib/supabase/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
@@ -239,6 +240,7 @@ type PrimaryAssignmentBoardRow = {
 
 async function getSportsTeamsContext(): Promise<SportsTeamContext | null> {
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
   if (!context || (!context.hasSportsAccess && !context.isDirectorReadOnly)) return null;
   const campuses = context.campusAccess?.campuses ?? [];
   if (campuses.length === 0) return null;
@@ -313,6 +315,7 @@ export async function listTeams(): Promise<TeamListItem[]> {
 
 export async function getTeamDetail(teamId: string): Promise<TeamDetail | null> {
   const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
   if (!permission) return null;
   const admin = createAdminClient();
   const campusAccess = permission.isDirectorReadOnly ? permission.campusAccess : await getOperationalCampusAccess();
@@ -702,8 +705,8 @@ export async function getBaseTeamBoardData(filters?: {
 
 export async function listBulkChargeTypes(): Promise<BulkChargeType[]> {
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return [];
-  const supabase = await createClient();
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
+  const supabase = permission?.isDirectorReadOnly ? createAdminClient() : await createClient();
   const { data } = await supabase
     .from("charge_types")
     .select("id, code, name")

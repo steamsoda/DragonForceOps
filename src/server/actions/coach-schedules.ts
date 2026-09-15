@@ -126,6 +126,7 @@ export async function saveCoachScheduleAction(
 ): Promise<CoachScheduleActionState> {
   const debugContext = await getDebugViewContext();
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   const writeMode = clean(formData, "writeMode") === "director" ? "director" : "coach";
   const directorWrite = writeMode === "director";
   if (!context || (directorWrite ? !context.isSportsDirector : !context.hasCoachScheduleAccess || !context.coachId)) {

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import type {
   CompetitionRosterHelperCandidate,
   CompetitionRosterManualHelper,
@@ -24,13 +25,13 @@ function SubmitButton({ pendingLabel, label, tone = "primary" }: {
       ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
       : "border-portoBlue bg-portoBlue text-white hover:bg-portoDark";
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={pending}
       className={`min-h-10 rounded-md border px-4 py-2 text-sm font-semibold disabled:cursor-wait disabled:opacity-60 ${toneClass}`}
     >
       {pending ? pendingLabel : label}
-    </button>
+    </WriteButton>
   );
 }
 
@@ -121,7 +122,7 @@ export function CompetitionRosterExceptionsEditor({
             </div>
           ) : null}
           {selectedPaid ? (
-            <form
+            <ReadOnlyForm
               action={setCompetitionRosterExclusionAction}
               className="space-y-3 rounded-md border border-rose-200 bg-white p-3 dark:border-rose-900 dark:bg-slate-950"
               onSubmit={(event) => {
@@ -138,13 +139,13 @@ export function CompetitionRosterExceptionsEditor({
               <p className="text-sm font-semibold">{selectedPaid.playerName} · Cat. {selectedPaid.birthYear ?? "-"}</p>
               <input name="reason" required minLength={3} maxLength={240} placeholder="Motivo deportivo obligatorio" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
               <SubmitButton label="Excluir del roster" pendingLabel="Excluyendo..." tone="danger" />
-            </form>
+            </ReadOnlyForm>
           ) : null}
           {excludedPlayers.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase text-slate-500">Excluidos actuales</p>
               {excludedPlayers.map((player) => (
-                <form key={player.enrollmentId} action={setCompetitionRosterExclusionAction} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950 sm:flex-row sm:items-center">
+                <ReadOnlyForm key={player.enrollmentId} action={setCompetitionRosterExclusionAction} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950 sm:flex-row sm:items-center">
                   <input type="hidden" name="tournamentId" value={tournamentId} />
                   <input type="hidden" name="campusId" value={campusId} />
                   <input type="hidden" name="program" value={program} />
@@ -153,7 +154,7 @@ export function CompetitionRosterExceptionsEditor({
                   <div className="min-w-0 flex-1 text-sm"><strong>{player.playerName}</strong><p className="truncate text-xs text-slate-500">{player.exclusionReason}</p></div>
                   <input name="reason" required minLength={3} maxLength={240} placeholder="Motivo para reintegrar" className="min-h-10 rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
                   <SubmitButton label="Reintegrar" pendingLabel="Reintegrando..." tone="neutral" />
-                </form>
+                </ReadOnlyForm>
               ))}
             </div>
           ) : null}
@@ -167,7 +168,7 @@ export function CompetitionRosterExceptionsEditor({
             </p>
           </div>
           {activeSquads.length > 0 ? (
-            <form
+            <ReadOnlyForm
               action={setCompetitionRosterManualMemberAction}
               className="space-y-3 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950"
               onSubmit={(event) => {
@@ -216,7 +217,7 @@ export function CompetitionRosterExceptionsEditor({
               {selectedHelper ? <p className="text-sm text-emerald-700">Seleccionado: {selectedHelper.playerName} · {selectedHelper.trainingGroupName}</p> : null}
               <input name="reason" required minLength={3} maxLength={240} placeholder="Motivo del refuerzo obligatorio" className="min-h-10 w-full rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
               <SubmitButton label="Agregar refuerzo" pendingLabel="Agregando..." />
-            </form>
+            </ReadOnlyForm>
           ) : (
             <p className="rounded-md border border-dashed border-slate-300 p-3 text-sm text-slate-500">Crea por lo menos un equipo antes de agregar refuerzos.</p>
           )}
@@ -224,7 +225,7 @@ export function CompetitionRosterExceptionsEditor({
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase text-slate-500">Refuerzos actuales</p>
               {manualHelpers.map((helper) => (
-                <form key={`${helper.squadId}:${helper.enrollmentId}`} action={setCompetitionRosterManualMemberAction} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950 sm:flex-row sm:items-center">
+                <ReadOnlyForm key={`${helper.squadId}:${helper.enrollmentId}`} action={setCompetitionRosterManualMemberAction} className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950 sm:flex-row sm:items-center">
                   <input type="hidden" name="tournamentId" value={tournamentId} />
                   <input type="hidden" name="campusId" value={campusId} />
                   <input type="hidden" name="program" value={program} />
@@ -234,7 +235,7 @@ export function CompetitionRosterExceptionsEditor({
                   <div className="min-w-0 flex-1 text-sm"><strong>{helper.playerName}</strong><p className="truncate text-xs text-slate-500">{helper.squadName} · {helper.reason}</p></div>
                   <input name="reason" required minLength={3} maxLength={240} placeholder="Motivo para retirar" className="min-h-10 rounded-md border border-slate-300 px-3 text-sm dark:border-slate-600 dark:bg-slate-900" />
                   <SubmitButton label="Retirar" pendingLabel="Retirando..." tone="danger" />
-                </form>
+                </ReadOnlyForm>
               ))}
             </div>
           ) : null}

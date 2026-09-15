@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import {
   getProductDetail,
   getProductMetricLabel,
@@ -11,7 +12,8 @@ import {
   type ProductMetricPageData,
 } from "@/lib/queries/products";
 
-function formatMoney(amount: number, currency: string) {
+function formatMoney(amount: number | null, currency: string) {
+  if (amount === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
@@ -43,7 +45,7 @@ export default async function ProductMetricDrilldownPage({
   const { productId } = await params;
   const query = await searchParams;
 
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
 
   if (!isProductMetricKey(query.metric)) notFound();
 

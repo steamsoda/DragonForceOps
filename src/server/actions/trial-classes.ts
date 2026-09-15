@@ -45,7 +45,7 @@ function returnPath(formData: FormData) {
 async function requireTrialWriter(campusId?: string | null) {
   if (await isDebugWriteBlocked()) return null;
   const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess) return null;
+  if (!context?.hasOperationalAccess || context.isDirectorReadOnly) return null;
   if (campusId && !canAccessCampus(context.campusAccess, campusId)) return null;
   return context;
 }
@@ -147,6 +147,7 @@ export async function createTrialProspectAction(formData: FormData): Promise<Tri
 }
 
 export async function addTrialProspectNoteAction(formData: FormData) {
+  if (!(await requireTrialWriter())) redirect("/unauthorized");
   const back = returnPath(formData);
   const prospectId = clean(formData.get("prospectId"), 80);
   const body = clean(formData.get("body"));
@@ -172,6 +173,7 @@ export async function addTrialProspectNoteAction(formData: FormData) {
 
 export async function recordTrialVisitAction({ prospectId, attendanceSessionId, note }: { prospectId: string; attendanceSessionId: string; note?: string }): Promise<TrialCheckInResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
+  if (!(await requireTrialWriter())) return { ok: false, error: "unauthorized" };
   const admin = createAdminClient();
   const { data: prospect } = await admin
     .from("trial_prospects")

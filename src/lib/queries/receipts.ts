@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 
 export type ReceiptSearchRow = {
   paymentId: string;
@@ -57,9 +58,10 @@ export async function searchReceipts({
 }): Promise<ReceiptSearchResult> {
   const supabase = await createClient();
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) {
+  if (!permissionContext?.hasOperationalAccess && !permissionContext?.isDirectorReadOnly) {
     return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
   }
+  if (permissionContext.isDirectorReadOnly) await requireOperationalPageReader();
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campusIds.length === 0) {
     return { rows: [], total: 0, pageSize: PAGE_SIZE, error: null };
@@ -70,10 +72,10 @@ export async function searchReceipts({
   }
 
   const resolvedCampusId = campusId || (campusAccess.campusIds.length === 1 ? campusAccess.campusIds[0] : null);
-  const safePage = Math.max(page, 1);
+  const safePage = Number.isSafeInteger(page) ? Math.max(page, 1) : 1;
   const offset = (safePage - 1) * PAGE_SIZE;
 
-  const { data, error } = await supabase.rpc("search_receipts", {
+  const { data, error } = await supabase.rpc(permissionContext.isDirectorReadOnly ? "director_search_receipts" : "search_receipts", {
     p_query: q?.trim() || null,
     p_campus_id: resolvedCampusId,
     p_payment_id: paymentId || null,

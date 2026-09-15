@@ -18,7 +18,7 @@ export default async function TeamsPage({
   return (
     <PageShell
       title="Equipos Base"
-      subtitle={readOnly ? "Equipos base y jugadores por campus y categoria." : "Tablero deportivo para crear, asignar y mover jugadores entre sus equipos base."}
+      subtitle={ "Tablero deportivo para crear, asignar y mover jugadores entre sus equipos base."}
       breadcrumbs={[{ label: "Equipos Base" }]}
       wide
     >
@@ -31,7 +31,7 @@ export default async function TeamsPage({
                 Elige campus, categoria y genero para trabajar el armado base del dia.
               </p>
             </div>
-            {!readOnly && <Link
+            {<Link
               href="/teams/new"
               className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >

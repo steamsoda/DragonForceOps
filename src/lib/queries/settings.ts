@@ -1,3 +1,6 @@
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type TagSettings = {
@@ -34,6 +37,14 @@ export type AllSettings = {
 const PRINTER_DEFAULT = "EPSON TM-T20IV";
 
 export async function getAllSettings(): Promise<AllSettings> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) {
+    await requireDirectorPageReader();
+    const { data, error } = await createAdminClient().from("app_settings").select("key,value").in("key", [...TAG_KEYS]);
+    if (error) throw error;
+    const values = new Map((data ?? []).map(row => [row.key,row.value]));
+    return { tags: { payment: values.get("tag_payment") !== false, teamType: values.get("tag_team_type") !== false,
+      goalkeeper: values.get("tag_goalkeeper") !== false, uniform: values.get("tag_uniform") === true }, printerName: "" };
+  }
   const supabase = await createClient();
   const [tags, { data: printerRow }] = await Promise.all([
     getTagSettings(),

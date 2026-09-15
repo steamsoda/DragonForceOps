@@ -378,8 +378,8 @@ function SelectedGroupDetail({
 
 export default async function AttendanceGroupsPage({ searchParams }: { searchParams: SearchParams }) {
   const permissionContext = await requireAttendanceReadContext("/unauthorized");
-  const showPendingBalances = !permissionContext.isDirectorReadOnly && permissionContext.canViewFinancials && (permissionContext.isDirector || permissionContext.isFrontDesk);
-  const showGuardianPhones = !permissionContext.isDirectorReadOnly && (permissionContext.isDirector || permissionContext.isFrontDesk);
+  const showPendingBalances = permissionContext.isDirectorReadOnly || (permissionContext.canViewFinancials && (permissionContext.isDirector || permissionContext.isFrontDesk));
+  const showGuardianPhones = permissionContext.isDirectorReadOnly || permissionContext.isDirector || permissionContext.isFrontDesk;
   const params = await searchParams;
   const playerFilter = params.playerFilter === "no-attendance" ? params.playerFilter : null;
   const allowedSorts: PlayerSort[] = ["player", "category", "sessions", "absences", "justified", "rate", "latest"];

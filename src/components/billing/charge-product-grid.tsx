@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { useRouter } from "next/navigation";
 import {
   postCajaChargeAction,
@@ -58,6 +59,7 @@ type Props = {
 };
 
 export function ChargeProductGrid({ enrollmentId, playerName, campusName, currency, products }: Props) {
+  const readOnly = useReadOnly();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<CajaProduct | null>(null);
@@ -82,6 +84,7 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (readOnly) return;
     if (!selected) return;
     const fd = new FormData();
     fd.set("productId", selected.id);
@@ -221,13 +224,13 @@ export function ChargeProductGrid({ enrollmentId, playerName, campusName, curren
             )}
 
             <div className="flex gap-3">
-              <button
+              <WriteButton
                 type="submit"
                 disabled={isPending}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isPending ? "Guardando…" : "Crear cargo"}
-              </button>
+              </WriteButton>
               <button
                 type="button"
                 onClick={() => setSelected(null)}

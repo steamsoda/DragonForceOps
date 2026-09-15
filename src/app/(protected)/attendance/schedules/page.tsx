@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
 import { listAttendanceScheduleTemplates } from "@/lib/queries/attendance";
@@ -23,7 +24,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
 
   const params = await searchParams;
   const data = await listAttendanceScheduleTemplates();
-  const canManageSchedules = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess && data.canManageSchedules;
+  const canManageSchedules = context.isDirectorReadOnly || (context.hasAttendanceWriteAccess && data.canManageSchedules);
   const bulkCreatedCount = params.ok === "bulk_created" ? Number(params.count ?? "0") : null;
   const defaultDate = getMonterreyDateString();
 
@@ -41,7 +42,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
 
         {canManageSchedules ? (
           <div className="grid gap-4">
-            <form action={createBulkAttendanceSchedulesAction} className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 md:grid-cols-[1fr_1fr_2fr_auto]">
+            <ReadOnlyForm action={createBulkAttendanceSchedulesAction} className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 md:grid-cols-[1fr_1fr_2fr_auto]">
               <label className="text-sm font-medium">
                 Campus
                 <select name="campus_id" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
@@ -69,13 +70,13 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                 </p>
               </fieldset>
               <div className="flex items-end">
-                <button className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                <WriteButton className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                   Crear horarios del campus
-                </button>
+                </WriteButton>
               </div>
-            </form>
+            </ReadOnlyForm>
 
-            <form action={createAttendanceScheduleAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-5">
+            <ReadOnlyForm action={createAttendanceScheduleAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-5">
               <label className="text-sm font-medium md:col-span-2">
                 Grupo de entrenamiento
                 <select name="training_group_id" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
@@ -103,9 +104,9 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                 <input name="effective_start" type="date" required defaultValue={defaultDate} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <div className="flex items-end md:col-span-4">
-                <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Agregar horario</button>
+                <WriteButton className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Agregar horario</WriteButton>
               </div>
-            </form>
+            </ReadOnlyForm>
           </div>
         ) : (
           <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
@@ -134,7 +135,7 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                   </td>
                   {canManageSchedules ? (
                     <td className="px-3 py-2" colSpan={5}>
-                      <form action={updateAttendanceScheduleAction.bind(null, template.id)} className="grid gap-2 md:grid-cols-6">
+                      <ReadOnlyForm action={updateAttendanceScheduleAction.bind(null, template.id)} className="grid gap-2 md:grid-cols-6">
                         <select name="day_of_week" defaultValue={template.dayOfWeek} className="rounded-md border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-950">
                           {DAYS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </select>
@@ -145,8 +146,8 @@ export default async function AttendanceSchedulesPage({ searchParams }: { search
                           <input type="checkbox" name="is_active" value="1" defaultChecked={template.isActive} />
                           Activo
                         </label>
-                        <button className="rounded-md border border-slate-300 px-3 py-1 font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">Guardar</button>
-                      </form>
+                        <WriteButton className="rounded-md border border-slate-300 px-3 py-1 font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">Guardar</WriteButton>
+                      </ReadOnlyForm>
                     </td>
                   ) : (
                     <>

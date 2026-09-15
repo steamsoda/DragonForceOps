@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import type { CompetitionRosterLiveViewData } from "@/lib/queries/competition-rosters";
@@ -50,6 +51,7 @@ export function CompetitionRosterInvitationReview({
   const [reasonByEnrollment, setReasonByEnrollment] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [savingEnrollmentId, setSavingEnrollmentId] = useState<string | null>(null);
+  const readOnly = useReadOnly();
   const [isPending, startTransition] = useTransition();
 
   const loadData = useCallback(async (signal?: AbortSignal) => {
@@ -164,7 +166,7 @@ export function CompetitionRosterInvitationReview({
             const destinationId = destinationByEnrollment[player.enrollmentId] ?? provisionalSquad?.id ?? "";
             const selectedDestination = destinations.find((squad) => squad.id === destinationId) ?? null;
             const reason = reasonByEnrollment[player.enrollmentId] ?? "";
-            const disabled = isPending || !canManage || !selectedDestination || reason.trim().length < 3;
+            const disabled = readOnly || isPending || !canManage || !selectedDestination || reason.trim().length < 3;
 
             return (
               <article key={player.enrollmentId} className="rounded-md border border-amber-200 bg-white p-3 dark:border-amber-800 dark:bg-slate-950">
@@ -220,6 +222,7 @@ export function CompetitionRosterInvitationReview({
                       setMessage(null);
                       setSavingEnrollmentId(player.enrollmentId);
                       startTransition(() => {
+                        if (readOnly) return;
                         void assignCompetitionRosterInvitedMemberInlineAction({
                           tournamentId,
                           campusId,

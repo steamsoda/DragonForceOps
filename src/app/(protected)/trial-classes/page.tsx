@@ -4,7 +4,8 @@ import { TrialBirthYearChart } from "@/components/trial-classes/trial-report-cha
 import { TrialCheckInControl, TrialTicketReprintButton } from "@/components/trial-classes/trial-visit-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalReadContext } from "@/lib/auth/permissions";
-import { NonfinancialTrials } from "./nonfinancial";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { getPrinterName } from "@/lib/queries/settings";
 import { getTrialClassesData, getTrialClassesReport } from "@/lib/queries/trial-classes";
 import { formatDateOnlyDdMmYyyy, formatTimeMonterrey, getMonterreyDateString } from "@/lib/time";
@@ -51,12 +52,12 @@ function prospectStatusLabel(status: string) {
 export default async function TrialClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const context = await requireOperationalReadContext();
-  if (context.isDirectorReadOnly) return <NonfinancialTrials filters={params} />;
+  if (context.isDirectorReadOnly) await requireOperationalPageReader();
   if (!context.campusAccess) return null;
   const [data, report, printerName] = await Promise.all([
     getTrialClassesData({ campusAccess: context.campusAccess, campusId: params.campus, query: params.q }),
     getTrialClassesReport({ campusAccess: context.campusAccess, campusId: params.campus, month: params.reportMonth, rangeMode: params.reportRange, dateFrom: params.reportFrom, dateTo: params.reportTo }),
-    getPrinterName(),
+    context.isDirectorReadOnly ? Promise.resolve("") : getPrinterName(),
   ]);
   const returnQuery = new URLSearchParams();
   if (data.selectedCampusId) returnQuery.set("campus", data.selectedCampusId);
@@ -127,7 +128,7 @@ export default async function TrialClassesPage({ searchParams }: { searchParams:
                     </div>
                     <div className="space-y-2">
                       {prospect.notes.map((note) => <p key={note.id} className="rounded-md bg-slate-50 px-3 py-2 text-sm"><span className="text-xs text-slate-500">{formatDateOnlyDdMmYyyy(note.createdAt.slice(0, 10))} {formatTimeMonterrey(note.createdAt)}</span><br />{note.body}</p>)}
-                      <form action={addTrialProspectNoteAction} className="flex flex-col gap-2 sm:flex-row"><input type="hidden" name="prospectId" value={prospect.id} /><input type="hidden" name="returnTo" value={returnTo} /><input required name="body" maxLength={2000} placeholder="Agregar nota" className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" /><button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium">Guardar nota</button></form>
+                      <ReadOnlyForm action={addTrialProspectNoteAction} className="flex flex-col gap-2 sm:flex-row"><input type="hidden" name="prospectId" value={prospect.id} /><input type="hidden" name="returnTo" value={returnTo} /><input required name="body" maxLength={2000} placeholder="Agregar nota" className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" /><WriteButton className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium">Guardar nota</WriteButton></ReadOnlyForm>
                     </div>
                   </div>
                   <div className="space-y-3">

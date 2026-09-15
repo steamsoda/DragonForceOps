@@ -13,12 +13,12 @@ export default async function CajaPage({
   searchParams: Promise<{ enrollmentId?: string; campus?: string; q?: string }>;
 }) {
   const permissionContext = await requireOperationalReadContext("/unauthorized");
-  if (permissionContext.isDirectorReadOnly || !permissionContext.canViewFinancials) return <NonfinancialCaja filters={await searchParams} />;
+  if (!permissionContext.isDirectorReadOnly && !permissionContext.canViewFinancials) return <NonfinancialCaja filters={await searchParams} />;
   const [printerName, sp] = await Promise.all([
-    getPrinterName(),
+    permissionContext.isDirectorReadOnly ? Promise.resolve("") : getPrinterName(),
     searchParams,
   ]);
-  const isDirector = permissionContext?.isDirector ?? false;
+  const isDirector = permissionContext.isDirector || permissionContext.isDirectorReadOnly;
   const initialEnrollmentId = sp.enrollmentId;
   const initialEnrollmentData = initialEnrollmentId
     ? await getEnrollmentForCajaAction(initialEnrollmentId)

@@ -1,3 +1,4 @@
+import { WriteButton } from "@/components/auth/read-only-controls";
 import Link from "next/link";
 import { formatDateTimeMonterrey } from "@/lib/time";
 
@@ -299,12 +300,12 @@ export function PaymentsTable({
                             placeholder="Ej: pago duplicado, error de monto..."
                             className="mb-2 w-full rounded border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-600"
                           />
-                          <button
+                          <WriteButton
                             type="submit"
                             className="w-full rounded bg-rose-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                           >
                             Confirmar anulacion
-                          </button>
+                          </WriteButton>
                         </form>
                       </details>
                     ) : (

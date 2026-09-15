@@ -27,13 +27,13 @@ const campus = { id: "campus", name: "Campus", code: "C" };
 const player = { id: "player", first_name: "Player", last_name: "One", birth_date: "2015-01-01", public_player_id: "DF-TEST" };
 const viewer = { isDirectorReadOnly: true, canViewFinancials: false, isDirector: false, isFrontDesk: false };
 const cases = [
-  ["viewer", viewer, false, false],
+  ["viewer", viewer, true, true],
   ["director", { ...viewer, isDirectorReadOnly: false, canViewFinancials: true, isDirector: true }, true, true],
   ["front desk", { ...viewer, isDirectorReadOnly: false, canViewFinancials: true, isFrontDesk: true }, true, true],
   ["office", { ...viewer, isDirectorReadOnly: false, isOfficeAdmin: true }, false, false],
   ["sports", { ...viewer, isDirectorReadOnly: false, isSportsDirector: true }, false, false],
   ["finance veto", { ...viewer, isDirectorReadOnly: false, isDirector: true }, false, true],
-  ["mixed role veto", { ...viewer, isDirector: true, isFrontDesk: true, canViewFinancials: true }, false, false],
+  ["mixed role veto", { ...viewer, isDirector: true, isFrontDesk: true, canViewFinancials: true }, true, true],
 ];
 const time = {
   getMonterreyMonthString: () => "2026-09",
@@ -61,6 +61,7 @@ for (const [name, context, balances, phones] of cases) {
     return builder;
   } };
   const query = load("src/lib/queries/attendance.ts", {
+    "@/lib/auth/operational-page-reader": { requireOperationalPageReader: async () => context },
     "@/lib/auth/campuses": { getAttendanceCampusAccess: async () => ({ campuses: [campus], campusIds: [campus.id] }), canAccessAttendanceCampus: () => true },
     "@/lib/auth/permissions": { getPermissionContext: async () => context },
     "@/lib/attendance/month-range": { resolveAttendanceMonthRange: () => ({ monthFrom: "2026-09", monthTo: "2026-09", error: null }) },
@@ -122,8 +123,8 @@ for (const [name, context] of [
     "@/lib/queries/weekly-coach-packet": { getWeeklyCoachPacket: async () => { calls.push("packet"); } },
   });
   await assert.rejects(page.default({ searchParams: Promise.resolve({}) }), /stop-after-queries/);
-  assert.equal(calls.includes("packet"), !context.isDirectorReadOnly, `${name}: prior packet behavior`);
-  assert.equal(calls.includes("collections"), !context.isDirectorReadOnly && Boolean(context.hasOperationalAccess && context.canViewFinancials), `${name}: collection gate`);
+  assert.equal(calls.includes("packet"), true, `${name}: prior packet behavior`);
+  assert.equal(calls.includes("collections"), context.isDirectorReadOnly || Boolean(context.hasOperationalAccess && context.canViewFinancials), `${name}: collection gate`);
 }
 const projectionAdapter = load("src/lib/queries/attendance-readonly-report-data.ts", {
   "server-only": {}, "@/lib/time": time,
@@ -268,6 +269,7 @@ for (const isViewer of [true, false]) {
     return builder;
   } };
   const query = load("src/lib/queries/attendance.ts", {
+    "@/lib/auth/operational-page-reader": { requireOperationalPageReader: async () => context },
     "@/lib/auth/campuses": { getAttendanceCampusAccess: async () => ({ campuses: [campus], campusIds: [campus.id] }), canAccessAttendanceCampus: () => true, canWriteAttendanceCampus: () => !isViewer },
     "@/lib/auth/permissions": { getPermissionContext: async () => context },
     "@/lib/attendance/month-range": {}, "@/lib/contacts/guardian-phones": {},
@@ -283,34 +285,18 @@ for (const isViewer of [true, false]) {
   assert.equal(detail.roster.length, 1);
   assert.equal(daily.totals.present, 1);
   assert.equal(calendar.totals.completed, 1);
-  assert.equal(detail.notes, isViewer ? null : secret);
-  assert.equal(detail.cancelledReason, isViewer ? null : secret);
-  assert.equal(detail.roster[0].note, isViewer ? null : secret);
-  assert.equal(detail.roster[0].incidentNote, isViewer ? null : secret);
-  assert.equal(daily.sessions[0].notes, isViewer ? null : secret);
-  assert.equal(daily.sessions[0].cancelledReason, isViewer ? null : secret);
-  assert.equal(daily.closures[0].notes, isViewer ? null : secret);
-  assert.equal(daily.totals.sessionNotes, isViewer ? 0 : 1);
-  assert.equal(daily.totals.playerNotes, isViewer ? 0 : 1);
-  assert.equal(calendar.days.find(d => d.date === "2026-09-10").closures[0].notes, isViewer ? null : secret);
-  assert.equal(reads.some(r => r.table === "enrollment_incidents"), !isViewer, "Skip incident query for viewer");
-  if (isViewer) {
-    for (const read of reads) assert.doesNotMatch(read.columns, /(?:^|,\s*)(?:note|notes|cancelled_reason)(?:,|$)/, `Forbidden select in ${read.table}`);
-    assert.ok(!JSON.stringify({ landing, detail, calendar, daily }).includes(secret), "No freeform content anywhere in viewer payload");
-    const count = reads.length;
-    await assert.rejects(query.getAttendanceDailyNotes({ date: "2026-09-10" }), /attendance_freeform_denied/);
-    assert.equal(reads.length, count, "Notes-only query denied before any table read");
-    const notesPage = load("src/app/(protected)/attendance/notes/page.tsx", {
-      "react/jsx-runtime": { jsx, jsxs: jsx }, "next/link": {},
-      "next/navigation": { redirect: path => { assert.equal(path, "/unauthorized"); throw new Error("viewer_notes_redirect"); } },
-      "@/components/attendance/attendance-campus-buttons": {}, "@/components/ui/page-shell": {},
-      "@/lib/auth/permissions": { requireAttendanceReadContext: async () => context },
-      "@/lib/queries/attendance": { getAttendanceDailyNotes: () => { throw new Error("must_not_fetch_notes"); } },
-    });
-    await assert.rejects(notesPage.default({ searchParams: Promise.resolve({}) }), /viewer_notes_redirect/);
-  } else {
-    const notes = await query.getAttendanceDailyNotes({ date: "2026-09-10" });
-    assert.ok(JSON.stringify(notes).includes(secret), "Staff notes-only behavior retained");
-  }
+  assert.equal(detail.notes, secret);
+  assert.equal(detail.cancelledReason, secret);
+  assert.equal(detail.roster[0].note, secret);
+  assert.equal(detail.roster[0].incidentNote, secret);
+  assert.equal(daily.sessions[0].notes, secret);
+  assert.equal(daily.sessions[0].cancelledReason, secret);
+  assert.equal(daily.closures[0].notes, secret);
+  assert.equal(daily.totals.sessionNotes, 1);
+  assert.equal(daily.totals.playerNotes, 1);
+  assert.equal(calendar.days.find(d => d.date === "2026-09-10").closures[0].notes, secret);
+  assert.equal(reads.some(r => r.table === "enrollment_incidents"), true);
+  const notes = await query.getAttendanceDailyNotes({ date: "2026-09-10" });
+  assert.ok(JSON.stringify(notes).includes(secret), "Verified reader and staff receive the normal operational notes");
 }
-console.log(`Attendance privacy checks passed (group/packet permissions, projection/RPC contracts, core freeform omission and staff parity).`);
+console.log(`Attendance checks passed (group/packet permissions, projection/RPC contracts, verified operational notes and staff parity).`);

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { createOrSyncSplitCompetitionSquadsAction } from "@/server/actions/competition-rosters";
 
 type SplitPlayer = {
@@ -14,13 +15,13 @@ type SplitPlayer = {
 function SplitSubmitButton({ disabled, exists }: { disabled: boolean; exists: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={disabled || pending}
       className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
     >
       {pending ? "Guardando division..." : exists ? "Actualizar Azul y Blanco" : "Crear Azul y Blanco"}
-    </button>
+    </WriteButton>
   );
 }
 
@@ -66,7 +67,7 @@ export function CompetitionRosterSplitEditor({
       <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-portoBlue marker:text-slate-400 dark:text-sky-300">
         {exists ? "Editar division Azul / Blanco" : "Dividir este grupo en Azul / Blanco"}
       </summary>
-      <form
+      <ReadOnlyForm
         action={createOrSyncSplitCompetitionSquadsAction}
         className="space-y-4 border-t border-slate-200 px-4 py-4 dark:border-slate-700"
         onSubmit={(event) => {
@@ -133,7 +134,7 @@ export function CompetitionRosterSplitEditor({
         <div className="flex justify-end">
           <SplitSubmitButton disabled={invalid} exists={exists} />
         </div>
-      </form>
+      </ReadOnlyForm>
     </details>
   );
 }

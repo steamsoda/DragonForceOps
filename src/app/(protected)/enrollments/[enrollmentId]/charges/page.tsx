@@ -1,7 +1,8 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { ReadOnlyActionLink } from "@/components/auth/read-only-action-link";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { getEnrollmentFinanceDiagnostics } from "@/lib/queries/enrollment-finance-diagnostics";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
@@ -93,13 +94,13 @@ export default async function ChargesPage({
 }) {
   const { enrollmentId } = await params;
   const query = await searchParams;
-  const permissionContext = await requireOperationalContext("/unauthorized");
+  const permissionContext = await requireOperationalPageReader();
   const ledger = await getEnrollmentLedger(enrollmentId);
 
   if (!ledger) notFound();
 
-  const isDirector = permissionContext?.isDirector ?? false;
-  const diagnostics = permissionContext?.isSuperAdmin
+  const isDirector = permissionContext.isDirectorReadOnly || permissionContext.isDirector;
+  const diagnostics = (!permissionContext.isDirectorReadOnly && permissionContext.isSuperAdmin)
     ? await getEnrollmentFinanceDiagnostics(enrollmentId, permissionContext)
     : null;
 
@@ -127,10 +128,10 @@ export default async function ChargesPage({
   const voidCharge = isDirector || permissionContext.isFrontDesk
     ? voidChargeAction.bind(null, enrollmentId)
     : undefined;
-  const repriceCharge = permissionContext.isSuperAdmin
+  const repriceCharge = (!permissionContext.isDirectorReadOnly && permissionContext.isSuperAdmin)
     ? repriceChargeAction.bind(null, enrollmentId)
     : undefined;
-  const restoreChargePrice = permissionContext.isSuperAdmin
+  const restoreChargePrice = (!permissionContext.isDirectorReadOnly && permissionContext.isSuperAdmin)
     ? restoreChargePriceAction.bind(null, enrollmentId)
     : undefined;
   const voidPayment = isDirector
@@ -196,12 +197,12 @@ export default async function ChargesPage({
             Inscripcion: <span className="font-medium">{ledger.enrollment.id}</span>
           </p>
           <div className="flex gap-2">
-            <Link
+            <ReadOnlyActionLink
               href={`/enrollments/${ledger.enrollment.id}/charges/new`}
               className="rounded-md bg-portoBlue px-3 py-1.5 font-medium text-white hover:bg-portoDark"
             >
               Nuevo cargo
-            </Link>
+            </ReadOnlyActionLink>
             <Link
               href={`/caja?enrollmentId=${ledger.enrollment.id}`}
               className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -250,7 +251,7 @@ export default async function ChargesPage({
           createAction={createIncident}
           cancelAction={cancelIncident}
           replaceAction={replaceIncident}
-          canManage={permissionContext?.hasOperationalAccess ?? false}
+          canManage={permissionContext.isDirectorReadOnly || permissionContext.hasOperationalAccess}
           defaultMonth={getCurrentMonthValue()}
         />
 

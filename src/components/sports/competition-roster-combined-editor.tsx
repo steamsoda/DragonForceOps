@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { createOrSyncCombinedCompetitionSquadAction } from "@/server/actions/competition-rosters";
 
 type CombinedGroup = {
@@ -24,13 +25,13 @@ type ExistingCombinedSquad = {
 function CombinedSubmitButton({ disabled, editing }: { disabled: boolean; editing: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={disabled || pending}
       className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
     >
       {pending ? "Guardando equipo..." : editing ? "Actualizar equipo combinado" : "Crear equipo combinado"}
-    </button>
+    </WriteButton>
   );
 }
 
@@ -87,7 +88,7 @@ export function CompetitionRosterCombinedEditor({
       <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-blue-900 marker:text-blue-500 dark:text-blue-100">
         Combinar varios grupos en un equipo
       </summary>
-      <form
+      <ReadOnlyForm
         action={createOrSyncCombinedCompetitionSquadAction}
         className="space-y-4 border-t border-blue-200 px-4 py-4 dark:border-blue-900"
         onSubmit={(event) => {
@@ -184,7 +185,7 @@ export function CompetitionRosterCombinedEditor({
             Selecciona por lo menos dos grupos para crear un equipo combinado.
           </p>
         ) : null}
-      </form>
+      </ReadOnlyForm>
     </details>
   );
 }

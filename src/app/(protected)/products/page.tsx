@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { getProductCatalog, getProductTrainingGroupOptions, type ProductTrainingGroupOption } from "@/lib/queries/products";
 import { getAdHocChargeTypesAction } from "@/server/actions/products";
 import { createProductAction } from "@/server/actions/products";
 
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none";
 
-function formatMoney(amount: number, currency: string) {
+function formatMoney(amount: number | null, currency: string) {
+  if (amount === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
@@ -32,7 +34,7 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ err?: string; ok?: string }>;
 }) {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
 
   const [groups, chargeTypes, restrictionOptions, query] = await Promise.all([
     getProductCatalog(),
@@ -128,7 +130,7 @@ export default async function ProductsPage({
                     <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-portoBlue list-none">
                       + Nuevo producto en {group.label}
                     </summary>
-                    <form action={createProductAction} className="mt-4 space-y-3">
+                    <ReadOnlyForm action={createProductAction} className="mt-4 space-y-3">
 
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Nombre</span>
@@ -179,13 +181,13 @@ export default async function ProductsPage({
 
                       <TrainingGroupRestrictionChecklist options={restrictionOptions} />
 
-                      <button
+                      <WriteButton
                         type="submit"
                         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                       >
                         Crear producto
-                      </button>
-                    </form>
+                      </WriteButton>
+                    </ReadOnlyForm>
                   </details>
                 )}
               </div>

@@ -49,10 +49,9 @@ export default async function AttendanceReportsPage({ searchParams }: { searchPa
   const params = await searchParams;
   const periodDays = Number(params.period ?? 30);
   const birthYear = params.birthYear ? Number(params.birthYear) : undefined;
-  const canViewFinancials = !context.isDirectorReadOnly && context.canViewFinancials;
-  const canViewCollectionsRisk = canViewFinancials && context.hasOperationalAccess;
-  // Preserve the existing staff packet contract; the new viewer never reads it.
-  const canViewWeeklyCoachPacket = !context.isDirectorReadOnly;
+  const canViewFinancials = context.isDirectorReadOnly || context.canViewFinancials;
+  const canViewCollectionsRisk = canViewFinancials && (context.isDirectorReadOnly || context.hasOperationalAccess);
+  const canViewWeeklyCoachPacket = true;
   const [data, daily, collectionsRisk, weeklyCoachPacket] = await Promise.all([
     getAttendanceReports({
       campusId: params.campus,

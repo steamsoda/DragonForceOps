@@ -1,4 +1,6 @@
 "use client";
+import { WriteButton, useReadOnly } from "@/components/auth/read-only-controls";
+
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -39,11 +41,13 @@ export function UniformOrdersSection({
   enrollmentId: string;
   initialOrders: UniformOrder[];
 }) {
+  const readOnly = useReadOnly();
   const [orders, setOrders] = useState<UniformOrder[]>(initialOrders);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleOrdered(orderId: string) {
+    if (readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await markUniformOrderedAction(orderId);
@@ -62,6 +66,7 @@ export function UniformOrdersSection({
   }
 
   function handleDelivered(orderId: string) {
+    if (readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await markUniformDeliveredAction(orderId);
@@ -148,24 +153,24 @@ export function UniformOrdersSection({
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       {order.status === "pending_order" ? (
-                        <button
+                        <WriteButton
                           type="button"
                           disabled={isPending}
                           onClick={() => handleOrdered(order.id)}
                           className="rounded-md border border-sky-300 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-50"
                         >
                           Marcar pedido
-                        </button>
+                        </WriteButton>
                       ) : null}
                       {order.status !== "delivered" ? (
-                        <button
+                        <WriteButton
                           type="button"
                           disabled={isPending}
                           onClick={() => handleDelivered(order.id)}
                           className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                         >
                           Marcar entregado
-                        </button>
+                        </WriteButton>
                       ) : null}
                     </div>
                   </td>

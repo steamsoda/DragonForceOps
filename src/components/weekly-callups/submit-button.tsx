@@ -1,4 +1,5 @@
 "use client";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useFormStatus } from "react-dom";
 
@@ -13,8 +14,8 @@ export function WeeklyCallupSubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={className}>
+    <WriteButton type="submit" disabled={pending} className={className}>
       {pending ? pendingLabel : label}
-    </button>
+    </WriteButton>
   );
 }

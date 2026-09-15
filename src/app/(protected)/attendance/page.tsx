@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
@@ -34,7 +35,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
   const context = await requireAttendanceReadContext("/unauthorized");
   const params = await searchParams;
   const canWrite = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess;
-  const canManageAttendanceSetup = canWrite && (context.isDirector || context.isSportsDirector);
+  const canManageAttendanceSetup = context.isDirectorReadOnly || (canWrite && (context.isDirector || context.isSportsDirector));
   const canUseGenerationTool = canManageAttendanceSetup;
   const data = await listAttendanceSessions({ date: params.date, campusId: params.campus });
   const setup = canManageAttendanceSetup ? await listAttendanceScheduleTemplates() : null;
@@ -127,13 +128,13 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                 </p>
               </div>
               {selectedCampus ? (
-                <form action={generateAttendanceSessionsAction} className="flex shrink-0 items-center gap-2">
+                <ReadOnlyForm action={generateAttendanceSessionsAction} className="flex shrink-0 items-center gap-2">
                   <input type="hidden" name="date" value={data.selectedDate} />
                   <input type="hidden" name="campus" value={selectedCampus.id} />
-                  <button className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
+                  <WriteButton className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">
                     Generar {selectedCampus.name}
-                  </button>
-                </form>
+                  </WriteButton>
+                </ReadOnlyForm>
               ) : (
                 <span className="rounded-md border border-blue-300 px-4 py-2 text-sm font-semibold text-blue-900 dark:border-blue-800 dark:text-blue-100">
                   Elige campus
@@ -143,10 +144,10 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
           </section>
         ) : null}
 
-        {setup?.canCreateManualSessions ? (
+        {setup && (setup.canCreateManualSessions || context.isDirectorReadOnly) ? (
           <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900 dark:text-slate-100">Crear partido / especial</summary>
-            <form action={createManualAttendanceSessionAction} className="mt-4 grid gap-3 md:grid-cols-3">
+            <ReadOnlyForm action={createManualAttendanceSessionAction} className="mt-4 grid gap-3 md:grid-cols-3">
               <label className="text-sm font-medium md:col-span-2">
                 Equipo
                 <select name="team_id" required className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
@@ -183,9 +184,9 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                 <input name="notes" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <div className="flex items-end">
-                <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Crear sesion</button>
+                <WriteButton className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Crear sesion</WriteButton>
               </div>
-            </form>
+            </ReadOnlyForm>
           </details>
         ) : null}
 
@@ -230,7 +231,7 @@ export default async function AttendanceTodayPage({ searchParams }: { searchPara
                             {session.recordedCount}/{session.rosterCount} registros
                           </span>
                           <span className="rounded-md bg-portoBlue px-3 py-2 text-sm font-semibold text-white">
-                            {canWrite ? sessionActionLabel(session.status) : "Ver asistencia"}
+                            {canWrite || context.isDirectorReadOnly ? sessionActionLabel(session.status) : "Ver asistencia"}
                           </span>
                         </div>
                       </div>

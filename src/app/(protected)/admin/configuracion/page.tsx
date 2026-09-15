@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { getAllSettings } from "@/lib/queries/settings";
 import { updateTagSettingsAction, updatePrinterSettingsAction } from "@/server/actions/settings";
 
@@ -11,7 +12,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
 };
 
 export default async function ConfiguracionPage() {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
 
   const { tags, printerName } = await getAllSettings();
 
@@ -28,7 +29,7 @@ export default async function ConfiguracionPage() {
           <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
             Nombre exacto de la impresora como aparece en Windows → Dispositivos e impresoras. Usado por QZ Tray para imprimir recibos.
           </p>
-          <form action={updatePrinterSettingsAction} className="flex gap-2">
+          <ReadOnlyForm action={updatePrinterSettingsAction} className="flex gap-2">
             <input
               type="text"
               name="printer_name"
@@ -36,10 +37,10 @@ export default async function ConfiguracionPage() {
               placeholder="EPSON TM-T20IV"
               className="flex-1 rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-900"
             />
-            <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+            <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
               Guardar
-            </button>
-          </form>
+            </WriteButton>
+          </ReadOnlyForm>
           <p className="mt-2 text-xs text-slate-400">
             Para USB: usa el nombre del dispositivo. Para Ethernet: pendiente (se configurará cuando tengas la IP).
           </p>
@@ -53,7 +54,7 @@ export default async function ConfiguracionPage() {
             Controla qué tags se muestran en la columna Estado de la lista de jugadores.
           </p>
 
-          <form action={updateTagSettingsAction} className="space-y-4">
+          <ReadOnlyForm action={updateTagSettingsAction} className="space-y-4">
             <TagToggle
               name="tag_payment"
               label="Al corriente / Pendiente"
@@ -80,14 +81,14 @@ export default async function ConfiguracionPage() {
             />
 
             <div className="pt-2">
-              <button
+              <WriteButton
                 type="submit"
                 className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
               >
                 Guardar cambios
-              </button>
+              </WriteButton>
             </div>
-          </form>
+          </ReadOnlyForm>
         </section>
       </div>
     </PageShell>

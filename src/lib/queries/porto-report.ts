@@ -1,3 +1,5 @@
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
 
@@ -36,15 +38,16 @@ type AssignmentRow = {
 };
 
 export async function getPortoTeamsData(): Promise<PortoTeamsData> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return { competicion: [], clases: [] };
-  const supabase = await createClient();
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return { competicion: [], clases: [] };
+  const supabase = permissionContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   const [teamsResult, assignmentsResult] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, birth_year, gender, level, type, campuses(name), coaches(first_name, last_name)")
       .eq("is_active", true)
+      .in("campus_id", permissionContext.campusAccess?.campusIds ?? [])
       .order("birth_year", { ascending: true })
       .order("name", { ascending: true })
       .returns<TeamWithRelations[]>(),
@@ -53,9 +56,12 @@ export async function getPortoTeamsData(): Promise<PortoTeamsData> {
       .select("team_id, enrollments!inner(status)")
       .is("end_date", null)
       .eq("enrollments.status", "active")
+      .in("enrollments.campus_id", permissionContext.campusAccess?.campusIds ?? [])
       .returns<AssignmentRow[]>()
   ]);
 
+  if (teamsResult.error) throw teamsResult.error;
+  if (assignmentsResult.error) throw assignmentsResult.error;
   const teams = teamsResult.data ?? [];
   const assignments = assignmentsResult.data ?? [];
 
@@ -95,21 +101,22 @@ export type PortoDatosGenerales = {
   nuevasInscripciones: { total: number; varonil: number; femenil: number };
   retiros: { total: number; reasons: { reason: string; count: number }[] };
   activos: { total: number; varonil: number; femenil: number; becados: number; mediaBeca: number };
-  deudores: { count: number; pendienteMxn: number };
+  deudores: { count: number; pendienteMxn: number | null };
 };
 
 export async function getPortoDatosGenerales(
   month: string // "YYYY-MM"
 ): Promise<PortoDatosGenerales | null> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return null;
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return null;
   const supabase = await createClient();
   const firstDay = `${month}-01`;
 
-  const { data, error } = await supabase.rpc("get_porto_datos_generales", {
+  const { data, error } = await supabase.rpc(permissionContext.isDirectorReadOnly ? "director_porto_counts" : "get_porto_datos_generales", {
     p_month: firstDay
   });
 
+  if (error && permissionContext.isDirectorReadOnly) throw error;
   if (error || !data) return null;
 
   const d = data as Record<string, unknown>;
@@ -139,7 +146,7 @@ export async function getPortoDatosGenerales(
     },
     deudores: {
       count: obj("deudores").count as number,
-      pendienteMxn: obj("deudores").pendiente_mxn as number
+      pendienteMxn: permissionContext.isDirectorReadOnly ? null : obj("deudores").pendiente_mxn as number
     }
   };
 }

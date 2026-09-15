@@ -41,6 +41,8 @@ import {
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { mayAutomaticallyApplyCajaCredit } from "@/lib/auth/director-presentation";
+import { directorAccountReader } from "@/lib/auth/director-account-reader";
 import { canAccessEnrollmentRecord } from "@/lib/auth/permissions";
 import { getPlayerNotesForCaja, type PlayerNote } from "@/lib/queries/player-notes";
 import {
@@ -752,14 +754,16 @@ export async function getProductsForCajaAction(
   enrollmentId?: string,
   includeEligibilityExceptions = false,
 ): Promise<CajaProductCategory[]> {
-  const supabase = await createClient();
+  const permissionContext = await getPermissionContext();
+  const readOnly = permissionContext?.isDirectorReadOnly === true;
+  if (readOnly && (!enrollmentId || !await directorAccountReader(permissionContext!, enrollmentId))) return [];
+  const supabase = readOnly ? createAdminClient() : await createClient();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = readOnly ? { data: { user: permissionContext!.user } } : await supabase.auth.getUser();
   if (!user) return [];
-  const permissionContext = includeEligibilityExceptions ? await getPermissionContext() : null;
-  const allowEligibilityExceptions = includeEligibilityExceptions && canUseCajaCatalogException(permissionContext);
-  if (allowEligibilityExceptions && enrollmentId && !(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
+  const allowEligibilityExceptions = includeEligibilityExceptions && (readOnly || canUseCajaCatalogException(permissionContext));
+  if (!readOnly && allowEligibilityExceptions && enrollmentId && !(await canAccessEnrollmentRecord(enrollmentId, permissionContext))) {
     return [];
   }
 
@@ -1309,10 +1313,11 @@ export async function createAdvanceTuitionAction(
 // ── Load enrollment data for Caja panel ───────────────────────────────────────
 
 export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<CajaEnrollmentData | null> {
-  const supabase = await createClient();
   const permissionContext = await getPermissionContext();
   let ledger = await getEnrollmentLedger(enrollmentId);
   if (!ledger) return null;
+  // The canonical ledger has already verified the real read-only session and enrollment scope.
+  const supabase = permissionContext?.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   const hasPendingCharge = ledger.charges.some(
     (charge) => charge.status !== "void" && charge.pendingAmount > 0.009,
@@ -1322,11 +1327,10 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
       ? await canAccessEnrollmentRecord(enrollmentId, permissionContext)
       : false;
   if (
-    permissionContext?.hasOperationalAccess &&
-    canAccessEnrollment &&
+    permissionContext &&
     ledger.accountCredit.hasExplicitCredit &&
     hasPendingCharge &&
-    !(await isDebugWriteBlocked())
+    mayAutomaticallyApplyCajaCredit(permissionContext, canAccessEnrollment, await isDebugWriteBlocked())
   ) {
     const admin = createAdminClient();
     const { error: creditApplyError } = await admin.rpc("auto_apply_enrollment_credit_fifo", {
@@ -1408,7 +1412,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
           charge.typeCode === "monthly_tuition" || charge.typeCode === "inscription";
         const canVoid =
           Boolean(
-            permissionContext?.isSuperAdmin ||
+            permissionContext?.isDirectorReadOnly || permissionContext?.isSuperAdmin ||
             permissionContext?.isDirector ||
             permissionContext?.isFrontDesk,
           ) &&
@@ -1417,7 +1421,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
         const hasCashRefund = Boolean(charge.cashRefund);
         const canCashRefund =
           Boolean(
-            permissionContext?.isSuperAdmin ||
+            permissionContext?.isDirectorReadOnly || permissionContext?.isSuperAdmin ||
             permissionContext?.isDirector ||
             permissionContext?.isFrontDesk,
           ) &&

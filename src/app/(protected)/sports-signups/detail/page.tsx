@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CompetitionReadPage } from "@/components/sports/competition-read-views";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { getPermissionContext } from "@/lib/auth/permissions";
@@ -28,7 +27,6 @@ function formatPaidFilterLabel(from: string | null, to: string | null) {
 export default async function SportsSignupsDetailPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const permissionContext = await getPermissionContext();
-  if (permissionContext?.isDirectorReadOnly) return <CompetitionReadPage filters={params} mode="detail" />;
   const detail = await getCompetitionSignupCategoryDetailData({
     campusId: params.campus ?? "",
     competitionId: params.competition ?? "",

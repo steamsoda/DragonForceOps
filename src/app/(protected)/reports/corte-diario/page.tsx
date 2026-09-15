@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { PrintButton } from "./print-button";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import {
   getCorteCheckpointById,
   getOrCreateCurrentCorteCheckpoint,
   listClosedCorteCheckpoints,
-} from "@/lib/queries/corte-checkpoints";
-import { getCorteDiarioData } from "@/lib/queries/reports";
+} from "@/lib/queries/corte-page-reader";
+import { getCortePresentation } from "@/lib/queries/corte-page-reader";
 import { getPrinterName } from "@/lib/queries/settings";
 import { formatDateTimeMonterrey, formatTimeMonterrey } from "@/lib/time";
 
-function fmt(value: number) {
+function fmt(value: number | null) {
+  if (value === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
@@ -23,10 +24,8 @@ type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const [permissionContext, printerName] = await Promise.all([
-    requireOperationalContext("/unauthorized"),
-    getPrinterName(),
-  ]);
+  const permissionContext = await requireOperationalPageReader();
+  const printerName = permissionContext.isDirectorReadOnly ? "" : await getPrinterName();
   const campusAccess = permissionContext.campusAccess;
 
   const accessibleCampuses = campusAccess?.campuses ?? [];
@@ -34,14 +33,14 @@ export default async function CorteDiarioPage({ searchParams }: { searchParams: 
   const historicalCheckpoint = params.checkpoint ? await getCorteCheckpointById(params.checkpoint) : null;
   const checkpoint = historicalCheckpoint ?? (selectedCampusId ? await getOrCreateCurrentCorteCheckpoint(selectedCampusId) : null);
   const data = checkpoint
-    ? await getCorteDiarioData({
+    ? await getCortePresentation({
         campusId: checkpoint.campusId,
         openedAt: checkpoint.openedAt,
         closedAt: checkpoint.status === "closed" ? checkpoint.closedAt : undefined,
       })
     : null;
   const closedHistory = checkpoint ? await listClosedCorteCheckpoints(checkpoint.campusId, 12) : [];
-  const canUseFallbackSessionPage = Boolean(campusAccess?.isDirector);
+  const canUseFallbackSessionPage = Boolean(campusAccess?.isDirector || permissionContext.isDirectorReadOnly);
   const isHistorical = checkpoint?.status === "closed";
 
   return (

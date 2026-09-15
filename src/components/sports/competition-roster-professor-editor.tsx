@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -20,6 +21,7 @@ function assignmentLabel(assignment: CompetitionRosterSquadProfessorAssignment) 
 }
 
 export function CompetitionRosterProfessorEditor({ tournamentId, campusId, program, professorOptions, assignments }: Props) {
+  const readOnly = useReadOnly();
   const router = useRouter();
   const [editingSquadId, setEditingSquadId] = useState<string | null>(null);
   const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
@@ -45,6 +47,7 @@ export function CompetitionRosterProfessorEditor({ tournamentId, campusId, progr
 
   function save(assignment: CompetitionRosterSquadProfessorAssignment, useInherited: boolean) {
     setMessage(null);
+    if (readOnly) return;
     startTransition(async () => {
       const result = await setCompetitionRosterSquadProfessorsInlineAction({
         tournamentId,
@@ -121,11 +124,11 @@ export function CompetitionRosterProfessorEditor({ tournamentId, campusId, progr
                     </select>
                   </label>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={isPending || selectedCoachIds.length === 0 || !primaryCoachId} onClick={() => save(assignment, false)} className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                    <button type="button" disabled={readOnly || isPending || selectedCoachIds.length === 0 || !primaryCoachId} onClick={() => save(assignment, false)} className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
                       {isPending ? "Guardando..." : "Guardar asignacion"}
                     </button>
                     {!assignment.requiresManualAssignment && assignment.assignmentMode === "manual" ? (
-                      <button type="button" disabled={isPending} onClick={() => save(assignment, true)} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">
+                      <button type="button" disabled={readOnly || isPending} onClick={() => save(assignment, true)} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50">
                         Volver a heredar del grupo
                       </button>
                     ) : null}

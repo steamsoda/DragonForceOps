@@ -4,6 +4,7 @@ import { canAccessGuardianRecord, getPermissionContext } from "@/lib/auth/permis
 import { createClient } from "@/lib/supabase/server";
 import { GuardianForm } from "@/components/players/guardian-form";
 import { updateGuardianAction } from "@/server/actions/players";
+import { getPlayerDetail } from "@/lib/queries/players";
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_fields: "Captura al menos un dato del tutor antes de guardar.",
@@ -30,13 +31,16 @@ export default async function EditGuardianPage({ params, searchParams }: PagePro
   const { err } = await searchParams;
   const permissionContext = await getPermissionContext();
 
-  if (!permissionContext?.hasOperationalAccess) redirect(`/players/${playerId}?err=unauthorized`);
+  if (!permissionContext || (!permissionContext.isDirectorReadOnly && !permissionContext.hasOperationalAccess)) redirect(`/players/${playerId}?err=unauthorized`);
+  const readOnly = permissionContext.isDirectorReadOnly;
+  const detail = readOnly ? await getPlayerDetail(playerId, { includeFinance: false }) : null;
+  if (readOnly && !detail) notFound();
 
   const supabase = await createClient();
 
-  if (!(await canAccessGuardianRecord(playerId, guardianId))) notFound();
+  if (!readOnly && !(await canAccessGuardianRecord(playerId, guardianId))) notFound();
 
-  const { data: guardian } = await supabase
+  const { data: guardian } = readOnly ? { data: detail!.guardians.find(row => row.id === guardianId) ?? null } : await supabase
     .from("guardians")
     .select("id, first_name, last_name, phone_primary, phone_secondary, email, relationship_label")
     .eq("id", guardianId)
@@ -46,7 +50,7 @@ export default async function EditGuardianPage({ params, searchParams }: PagePro
   if (!guardian) notFound();
 
   // Also fetch player name for the breadcrumb
-  const { data: player } = await supabase
+  const { data: player } = readOnly ? { data: { first_name: detail!.firstName, last_name: detail!.lastName } } : await supabase
     .from("players")
     .select("first_name, last_name")
     .eq("id", playerId)

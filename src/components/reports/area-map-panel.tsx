@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly, ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useState, useTransition } from "react";
 import {
@@ -102,13 +103,13 @@ function EntryRow({
               Cerrar
             </button>
           )}
-          <button
+          <WriteButton
             onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
             disabled={isPending}
             className="text-xs text-rose-400 hover:text-rose-600"
           >
             Eliminar
-          </button>
+          </WriteButton>
         </td>
       </tr>
       {expanded && (
@@ -199,13 +200,13 @@ function CloseModal({
           </div>
         </div>
         <div className="flex gap-2 pt-1">
-          <button
+          <WriteButton
             onClick={() => onConfirm(entryId, effectiveness, closureDate)}
             disabled={isPending}
             className="flex-1 rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
           >
             {isPending ? "Guardando…" : "Confirmar cierre"}
-          </button>
+          </WriteButton>
           <button
             onClick={onCancel}
             className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -219,11 +220,13 @@ function CloseModal({
 }
 
 export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props) {
+  const readOnly = useReadOnly();
   const [showForm, setShowForm] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleCreate(formData: FormData) {
+    if (readOnly) return;
     startTransition(async () => {
       await createAreaMapEntryAction(formData);
       setShowForm(false);
@@ -231,6 +234,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
   }
 
   function handleClose(id: string, effectiveness: string, closureDate: string) {
+    if (readOnly) return;
     startTransition(async () => {
       await closeAreaMapEntryAction(id, effectiveness, closureDate);
       setClosingId(null);
@@ -238,6 +242,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
   }
 
   function handleDelete(id: string) {
+    if (readOnly) return;
     if (!confirm("¿Eliminar esta entrada?")) return;
     startTransition(async () => {
       await deleteAreaMapEntryAction(id);
@@ -289,7 +294,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
 
       {/* Add form */}
       {showForm ? (
-        <form
+        <ReadOnlyForm
           action={handleCreate}
           className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
         >
@@ -400,13 +405,13 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
           </div>
 
           <div className="flex gap-2 pt-1">
-            <button
+            <WriteButton
               type="submit"
               disabled={isPending}
               className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
             >
               {isPending ? "Guardando…" : "Guardar entrada"}
-            </button>
+            </WriteButton>
             <button
               type="button"
               onClick={() => setShowForm(false)}
@@ -415,7 +420,7 @@ export function AreaMapPanel({ monthEntries, openPrior, month, campuses }: Props
               Cancelar
             </button>
           </div>
-        </form>
+        </ReadOnlyForm>
       ) : (
         <button
           onClick={() => setShowForm(true)}

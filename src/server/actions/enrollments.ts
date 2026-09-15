@@ -333,6 +333,7 @@ async function reconcileReturningEnrollmentAccounts({
 }
 
 export async function createEnrollmentAction(playerId: string, formData: FormData) {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;
   const parsed = parseEnrollmentFormData(formData);
@@ -612,6 +613,7 @@ export async function updateEnrollmentAction(
   formData: FormData
 ) {
   await assertDebugWritesAllowed(`/players/${playerId}/enrollments/${enrollmentId}/edit`);
+  if ((await getPermissionContext())?.isDirectorReadOnly) return redirectWithEditError(enrollmentId, playerId, "unauthenticated");
   const parsed = parseEnrollmentEditData(formData);
   if (!parsed) return redirectWithEditError(enrollmentId, playerId, "invalid_form");
 
@@ -767,6 +769,7 @@ export async function dropoutEnrollmentAction(
   formData: FormData,
 ) {
   await assertDebugWritesAllowed(`/players/${playerId}/enrollments/${enrollmentId}/dropout`);
+  if ((await getPermissionContext())?.isDirectorReadOnly) return redirectWithDropoutError(enrollmentId, playerId, "unauthenticated");
   const parsed = parseEnrollmentDropoutData(formData);
   if (!parsed) return redirectWithDropoutError(enrollmentId, playerId, "invalid_form");
 
@@ -843,6 +846,7 @@ export async function dropoutEnrollmentFromCallsAction(
   playerId: string,
   formData: FormData,
 ): Promise<DropoutFromCallsResult> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) return { ok: false, error: "unauthenticated" };
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parseEnrollmentDropoutData(formData);
   if (!parsed) return { ok: false, error: "invalid_form" };
@@ -995,6 +999,7 @@ export async function createInjuryIncidentFromCallsAction(
   playerId: string,
   formData: FormData,
 ): Promise<InjuryFromCallsResult> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) return { ok: false, error: "unauthenticated" };
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const parsed = parseCallsInjuryFormData(formData);
   if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -1127,6 +1132,7 @@ export async function updatePendingFollowUpAction(
   note: string,
   promiseDateRaw: string,
 ): Promise<UpdatePendingFollowUpResult> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) return { ok: false, error: "unauthenticated" };
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   if (!PENDING_FOLLOW_UP_STATUSES.has(status as PendingFollowUpStatus)) {
     return { ok: false, error: "invalid_status" };

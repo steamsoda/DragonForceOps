@@ -139,6 +139,7 @@ export async function refreshCompetitionRosterTeamsInlineAction(input: {
 
   await assertDebugWritesAllowed("/sports-signups");
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     return { ok: false, message: inlineErrorMessage("squad_permission_denied") };
   }
@@ -265,6 +266,7 @@ async function inlineManagerContext(params: {
 }) {
   await assertDebugWritesAllowed("/sports-signups");
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, params.campusId)) {
     return null;
   }
@@ -585,6 +587,7 @@ export async function createOrSyncDefaultCompetitionSquadAction(formData: FormDa
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -632,6 +635,7 @@ export async function createOrSyncSplitCompetitionSquadsAction(formData: FormDat
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -686,6 +690,7 @@ export async function createOrSyncCombinedCompetitionSquadAction(formData: FormD
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -745,6 +750,7 @@ export async function setCompetitionRosterExclusionAction(formData: FormData) {
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -801,6 +807,7 @@ export async function setCompetitionRosterManualMemberAction(formData: FormData)
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -856,6 +863,7 @@ export async function captureCompetitionRosterSnapshotAction(formData: FormData)
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -904,6 +912,7 @@ export async function createWeeklyCallupFromCompetitionSnapshotAction(formData: 
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }
@@ -948,6 +957,7 @@ export async function createWeeklyCallupFromLiveCompetitionRosterAction(formData
 
   await assertDebugWritesAllowed(fallbackPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context?.isSportsDirector || !canAccessCampus(context.campusAccess, campusId)) {
     redirect("/unauthorized");
   }

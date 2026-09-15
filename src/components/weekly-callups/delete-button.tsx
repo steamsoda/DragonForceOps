@@ -1,4 +1,5 @@
 "use client";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useFormStatus } from "react-dom";
 
@@ -6,7 +7,7 @@ export function WeeklyCallupDeleteButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={pending}
       onClick={(event) => {
@@ -17,6 +18,6 @@ export function WeeklyCallupDeleteButton() {
       className="min-h-10 w-full rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-60"
     >
       {pending ? "Eliminando..." : "Eliminar convocatoria"}
-    </button>
+    </WriteButton>
   );
 }

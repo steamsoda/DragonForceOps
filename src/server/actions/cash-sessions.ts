@@ -6,6 +6,7 @@ import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
+import { getPermissionContext } from "@/lib/auth/permissions";
 
 const BASE = "/caja/sesion";
 
@@ -19,6 +20,7 @@ async function assertOperationalAccess() {
 }
 
 export async function openCashSessionAction(formData: FormData): Promise<void> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const campusId = formData.get("campus_id")?.toString().trim() ?? "";
   const openingCashRaw = formData.get("opening_cash")?.toString().trim() ?? "0";
   const openingCash = parseFloat(openingCashRaw);
@@ -70,6 +72,7 @@ export async function openCashSessionAction(formData: FormData): Promise<void> {
 }
 
 export async function closeCashSessionAction(formData: FormData): Promise<void> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const sessionId = formData.get("session_id")?.toString().trim() ?? "";
   const closingCashRaw = formData.get("closing_cash")?.toString().trim() ?? "";
   const notes = formData.get("notes")?.toString().trim() || null;

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
 import { createPerfTimer } from "@/lib/perf/timing";
 import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
 
@@ -81,6 +82,7 @@ function getBirthYear(value: string | null): number | null {
 }
 
 export async function getReceiptForPrintAction(paymentId: string): Promise<ReceiptPrintResult> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) return { ok: false, error: "unauthorized" };
   if (!paymentId) return { ok: false, error: "invalid_payment" };
   const perf = createPerfTimer("receipts.prepare_print");
 

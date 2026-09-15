@@ -1,4 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+
+export async function getCampusSessionPageStatuses() {
+  const context = await requireDirectorPageReader();
+  if (!context.isDirectorReadOnly) return getCampusSessionStatuses();
+  const access = context.campusAccess;
+  if (!access?.campusIds.length) return [];
+  const { data, error } = await createAdminClient().from("cash_sessions")
+    .select("id,campus_id,opened_at").eq("status", "open").in("campus_id", access.campusIds);
+  if (error) throw error;
+  return access.campuses.map(campus => {
+    const session = data?.find(row => row.campus_id === campus.id);
+    return { campusId: campus.id, campusName: campus.name, session: session ? {
+      id: session.id, campusId: campus.id, campusName: campus.name,
+      openedAt: session.opened_at, openingCash: null, cashIn: null, cashOut: null,
+    } : null };
+  });
+}
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 
 export type OpenSession = {

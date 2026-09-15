@@ -12,7 +12,7 @@ export default async function InicioPage() {
           {
             href: "/caja",
             title: "Caja",
-            description: context.isDirectorReadOnly ? "Operacion diaria." : "Cobros, cuenta actual y operacion diaria.",
+            description: "Cobros, cuenta actual y operacion diaria.",
           },
           {
             href: "/players",
@@ -49,7 +49,7 @@ export default async function InicioPage() {
           {
             href: "/sports-signups",
             title: "Inscripciones Torneos",
-            description: context.isDirectorReadOnly ? "Equipos y jugadores inscritos." : "Vista rapida de jugadores con productos de torneo pagados.",
+            description: "Vista rapida de jugadores con productos de torneo pagados.",
           },
         ]
       : []),
@@ -86,7 +86,7 @@ export default async function InicioPage() {
           {
             href: "/dashboard",
             title: "Panel",
-            description: context.isDirectorReadOnly ? "Indicadores operativos y tendencias." : "KPIs operativos, cobranza y tendencias.",
+            description: "KPIs operativos, cobranza y tendencias.",
           },
         ]
       : []),

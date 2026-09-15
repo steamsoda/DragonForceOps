@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ReprintReceiptButton } from "@/components/receipts/reprint-receipt-button";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { searchReceipts } from "@/lib/queries/receipts";
 import { getPrinterName } from "@/lib/queries/settings";
 import { formatDateTimeMonterrey } from "@/lib/time";
@@ -34,7 +34,7 @@ function isRefunded(row: { refundedAt: string | null }) {
 }
 
 export default async function ReceiptsPage({ searchParams }: { searchParams: SearchParams }) {
-  const permissionContext = await requireOperationalContext("/unauthorized");
+  const permissionContext = await requireOperationalPageReader();
   const params = await searchParams;
   const q = params.q ?? "";
   const campusId = params.campus ?? "";
@@ -43,7 +43,7 @@ export default async function ReceiptsPage({ searchParams }: { searchParams: Sea
 
   const [result, printerName] = await Promise.all([
     searchReceipts({ q: q || undefined, campusId: campusId || undefined, paymentId: paymentId || undefined, page }),
-    getPrinterName(),
+    permissionContext.isDirectorReadOnly ? Promise.resolve("") : getPrinterName(),
   ]);
   const campuses = permissionContext.campusAccess?.campuses ?? [];
 

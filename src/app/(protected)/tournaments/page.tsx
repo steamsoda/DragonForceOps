@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireSportsReadContext } from "@/lib/auth/permissions";
-import { TournamentReadList } from "@/components/sports/competition-read-views";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { listTournamentsPageData } from "@/lib/queries/tournaments";
 import { createTournamentAction } from "@/server/actions/tournaments";
 
@@ -22,7 +22,6 @@ export default async function TournamentsPage({
   searchParams: Promise<{ ok?: string; err?: string }>;
 }) {
   const permission = await requireSportsReadContext("/unauthorized");
-  if (permission.isDirectorReadOnly) return <TournamentReadList />;
   const [{ campuses, products, tournaments }, query] = await Promise.all([
     listTournamentsPageData(),
     searchParams,
@@ -55,7 +54,7 @@ export default async function TournamentsPage({
             </p>
           </div>
 
-          <form action={createTournamentAction} className="grid gap-4 lg:grid-cols-3">
+          <ReadOnlyForm action={createTournamentAction} className="grid gap-4 lg:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Nombre</span>
               <input
@@ -148,11 +147,11 @@ export default async function TournamentsPage({
             </label>
 
             <div className="flex items-end">
-              <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+              <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
                 Crear competencia
-              </button>
+              </WriteButton>
             </div>
-          </form>
+          </ReadOnlyForm>
         </section>
 
         <section className="space-y-4">

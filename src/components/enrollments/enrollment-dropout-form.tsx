@@ -1,3 +1,4 @@
+import { WriteButton, ReadOnlyForm } from "@/components/auth/read-only-controls";
 import { DROPOUT_REASON_OPTIONS } from "@/lib/enrollments/dropout-reasons";
 import { getMonterreyDateString } from "@/lib/time";
 
@@ -24,7 +25,7 @@ export function EnrollmentDropoutForm({ enrollment, action, returnTo }: Enrollme
   const defaultEndDate = enrollment.endDate ?? getMonterreyDateString();
 
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+    <ReadOnlyForm action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800/60 md:grid-cols-3">
         <div>
@@ -78,13 +79,13 @@ export function EnrollmentDropoutForm({ enrollment, action, returnTo }: Enrollme
       </label>
 
       <div className="flex flex-wrap gap-3">
-        <button
+        <WriteButton
           type="submit"
           className="rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
         >
           Confirmar baja
-        </button>
+        </WriteButton>
       </div>
-    </form>
+    </ReadOnlyForm>
   );
 }

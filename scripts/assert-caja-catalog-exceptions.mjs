@@ -5,7 +5,7 @@ const cajaActions = await readFile("src/server/actions/caja.ts", "utf8");
 const cajaClient = await readFile("src/components/caja/caja-client.tsx", "utf8");
 
 assert.match(cajaActions, /function canUseCajaCatalogException[\s\S]*context\?\.isDirector \|\| context\?\.isFrontDesk/);
-assert.match(cajaActions, /includeEligibilityExceptions && canUseCajaCatalogException/);
+assert.match(cajaActions, /includeEligibilityExceptions && \(readOnly \|\| canUseCajaCatalogException/);
 assert.match(cajaActions, /canAccessEnrollmentRecord\(enrollmentId, permissionContext\)/);
 assert.match(cajaActions, /catalog_exception_confirmation_required/);
 assert.match(cajaActions, /catalogException && isTuition[\s\S]*catalog_exception_forbidden/);

@@ -4,6 +4,25 @@ Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verifi
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
+### Current Local Work: Director Read-Only Parity
+
+- Remaining implementation completed locally, not deployed: shared Director
+  operational screens, Caja/profile workflows, sports, trials, uniforms,
+  reports and reviewed Director settings. Individual finances visible;
+  consolidated monetary values projected to null before rendering.
+- Final actions disabled with handler/server/database vetoes. Local exploration
+  remains enabled. Excluded superadmin/audit/repair routes remain closed.
+- TypeScript, production build, focused regressions and authenticated Preview
+  database rollback tests passed. No durable database changes or release.
+- Local security retry passed 15 HTML/RSC pages, 28 forged mutation denials,
+  restricted routes and same-session revocation. Browser form/mobile checks passed.
+  Fixed oversized Pendientes/Llamadas query batches; synthetic accounts cleaned up.
+- Next: obtain Preview deployment approval, apply reviewed migrations and verify
+  hosted migration-dependent reports/exports and staff browser regression.
+  Production remains separate; full visual parity is not signed off yet.
+- Jugadores performance remains deferred.
+- Details: `docs/support/2026-09-15-director-parity.md`.
+
 ### Current Local Work: Quick Group Changes (2026-09-15)
 
 - Implemented: shared Cambiar grupo panel in Jugadores and Caja, explicit confirmation,

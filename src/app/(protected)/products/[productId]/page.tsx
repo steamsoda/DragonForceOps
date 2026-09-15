@@ -6,7 +6,8 @@ import {
   type TournamentCampusSetting,
 } from "@/components/products/tournament-settings-form";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import {
   summarizeTournamentPricingWindow,
   type TournamentPricingWindowRule,
@@ -47,7 +48,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   tournament_signup_backfill_failed: "El torneo se guardo, pero no se pudieron sincronizar las inscripciones existentes.",
 };
 
-function formatMoney(amount: number, currency: string) {
+function formatMoney(amount: number | null, currency: string) {
+  if (amount === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
@@ -89,7 +91,7 @@ export default async function ProductDetailPage({
   const paidToTimestamp = paidRangeIsValid && paidTo ? getMonterreyDayBounds(paidTo).end : null;
   const hasPaidDateFilter = Boolean(paidFrom || paidTo);
 
-  const permissionContext = await requireDirectorContext("/unauthorized");
+  const permissionContext = await requireDirectorPageReader();
 
   const [product, sizeStats, recentSales, restrictionOptions] = await Promise.all([
     getProductDetail(productId),
@@ -201,7 +203,7 @@ export default async function ProductDetailPage({
           <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700 hover:text-portoBlue dark:text-slate-300">
             Editar producto
           </summary>
-          <form action={updateAction} className="mt-4 grid gap-4 sm:grid-cols-2">
+          <ReadOnlyForm action={updateAction} className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-300">Nombre</span>
               <input type="text" name="name" required defaultValue={product.name} className={inputClass} />
@@ -254,14 +256,14 @@ export default async function ProductDetailPage({
             </div>
 
             <div className="sm:col-span-2">
-              <button
+              <WriteButton
                 type="submit"
                 className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
               >
                 Guardar cambios
-              </button>
+              </WriteButton>
             </div>
-          </form>
+          </ReadOnlyForm>
         </details>
 
         {permissionContext.isSuperAdmin && isCompetitionProduct ? (
@@ -648,11 +650,11 @@ export default async function ProductDetailPage({
                 <p className="text-sm text-rose-700">
                   Este producto no tiene cargos registrados. La eliminacion es permanente y no se puede deshacer.
                 </p>
-                <form action={deleteAction}>
-                  <button type="submit" className="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+                <ReadOnlyForm action={deleteAction}>
+                  <WriteButton type="submit" className="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
                     Si, eliminar "{product.name}"
-                  </button>
-                </form>
+                  </WriteButton>
+                </ReadOnlyForm>
               </div>
             </details>
           ) : (

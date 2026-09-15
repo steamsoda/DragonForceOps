@@ -82,6 +82,7 @@ export async function createPlayerAction(formData: FormData) {
 // ── Update player profile ──────────────────────────────────────────────────────
 
 export async function updatePlayerAction(playerId: string, formData: FormData): Promise<void> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const BASE = `/players/${playerId}`;
   await assertDebugWritesAllowed(`${BASE}/edit`);
 
@@ -130,6 +131,7 @@ export async function updateGuardianAction(
   guardianId: string,
   formData: FormData
 ): Promise<void> {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const BASE = `/players/${playerId}`;
   await assertDebugWritesAllowed(`${BASE}/guardians/${guardianId}/edit`);
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReadOnlyActionLink } from "@/components/auth/read-only-action-link";
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { canAccessPlayerRosterRecord, getPermissionContext } from "@/lib/auth/permissions";
@@ -31,7 +32,7 @@ import {
   voidPaymentAction,
 } from "@/server/actions/billing";
 import type { ActiveIncident } from "@/lib/incidents";
-import { isDirectorReadOnly, readDirectorPlayer } from "../director-readonly-data";
+import { isDirectorReadOnly } from "../director-readonly-data";
 import { readDirectorAttendanceSummary } from "../director-readonly-attendance";
 
 function formatMoney(amount: number, currency: string) {
@@ -225,7 +226,7 @@ function EnrollmentHistoryCard({
             ) : null}
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {fmtDate(enrollment.startDate)} - {fmtDate(enrollment.endDate)}{!readOnly ? ` | ${enrollment.pricingPlanName}` : ""}
+            {fmtDate(enrollment.startDate)} - {fmtDate(enrollment.endDate)}{` | ${enrollment.pricingPlanName}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
@@ -269,7 +270,7 @@ function EnrollmentHistoryCard({
           <p className="font-medium">
             {enrollment.dropoutReason
               ? DROPOUT_LABELS[enrollment.dropoutReason] ?? enrollment.dropoutReason
-              : readOnly ? "No disponible para este acceso" : "Sin motivo registrado"}
+              : "Sin motivo registrado"}
           </p>
           {enrollment.dropoutNotes ? (
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{enrollment.dropoutNotes}</p>
@@ -307,9 +308,8 @@ export default async function PlayerDetailPage({
   const sp = await searchParams;
   const pendingReturnTo = getSafePendingReturnTo(sp.returnTo);
   const canViewPlayerData = readOnly || permissionContext.hasPlayerDataAccess;
-  const canViewFinanceDetails = !readOnly && permissionContext.canViewFinancials && permissionContext.hasOperationalAccess;
-  const player = readOnly ? await readDirectorPlayer(permissionContext, playerId)
-    : await getPlayerDetail(playerId, { includeFinance: canViewFinanceDetails });
+  const canViewFinanceDetails = readOnly || permissionContext.canViewFinancials && permissionContext.hasOperationalAccess;
+  const player = await getPlayerDetail(playerId, { includeFinance: canViewFinanceDetails });
   const isSuperAdmin = !readOnly && permissionContext.isSuperAdmin;
   const isDirector = !readOnly && permissionContext.isDirector;
 
@@ -320,7 +320,7 @@ export default async function PlayerDetailPage({
   const activeEnrollmentId = activeEnrollment?.id ?? null;
   const noteEnrollmentId = activeEnrollmentId ?? archiveEnrollment?.id ?? null;
   const activeLedger = player.activeEnrollmentLedger;
-  const uniformOrders = !readOnly && activeEnrollmentId ? await getUniformOrdersAction(activeEnrollmentId) : [];
+  const uniformOrders = activeEnrollmentId ? await getUniformOrdersAction(activeEnrollmentId) : [];
   const activeIncident = player.activeIncident as ActiveIncident | null;
   const incidentSummary = activeIncidentSummary(activeIncident);
   const primaryGuardian = player.guardians[0] ?? null;
@@ -331,7 +331,7 @@ export default async function PlayerDetailPage({
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
       : null;
   const attendanceSummary = readOnly ? await readDirectorAttendanceSummary(permissionContext, player.id) : await getPlayerAttendanceSummary(player.id);
-  const operationalNotes = !readOnly && noteEnrollmentId
+  const operationalNotes = noteEnrollmentId
     ? await getPlayerNotesForPlayer(player.id, {
         enrollmentId: noteEnrollmentId,
         limit: 20,
@@ -371,18 +371,18 @@ export default async function PlayerDetailPage({
           : null;
   const errorMessage = !readOnly && sp.err ? ACCOUNT_ERROR_MESSAGES[sp.err] ?? "No se pudo completar la corrección solicitada." : null;
 
-  const createIncident = !readOnly && activeEnrollmentId ? createEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
-  const cancelIncident = !readOnly && activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
-  const replaceIncident = !readOnly && activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
+  const createIncident = activeEnrollmentId ? createEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
+  const cancelIncident = activeEnrollmentId ? cancelEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
+  const replaceIncident = activeEnrollmentId ? replaceEnrollmentIncidentAction.bind(null, activeEnrollmentId) : null;
   const voidCharge =
-    !readOnly && activeEnrollmentId && (isDirector || permissionContext.isFrontDesk)
+    activeEnrollmentId && (readOnly || isDirector || permissionContext.isFrontDesk)
       ? voidChargeAction.bind(null, activeEnrollmentId)
       : undefined;
   const repriceCharge =
     activeEnrollmentId && isSuperAdmin ? repriceChargeAction.bind(null, activeEnrollmentId) : undefined;
   const restoreChargePrice =
     activeEnrollmentId && isSuperAdmin ? restoreChargePriceAction.bind(null, activeEnrollmentId) : undefined;
-  const voidPayment = activeEnrollmentId && isDirector ? voidPaymentAction.bind(null, activeEnrollmentId) : undefined;
+  const voidPayment = activeEnrollmentId && (readOnly || isDirector) ? voidPaymentAction.bind(null, activeEnrollmentId) : undefined;
 
   return (
     <PageShell
@@ -430,7 +430,7 @@ export default async function PlayerDetailPage({
                 {activeIncident ? (
                   <SummaryChip label={activeIncident.type === "injury" ? "Lesion activa" : "Ausencia activa"} tone={activeIncident.type === "injury" ? "rose" : "blue"} />
                 ) : null}
-                {!readOnly && activeEnrollment ? <SummaryChip label={uniformSummary.label} tone={uniformSummary.tone} /> : null}
+                {activeEnrollment ? <SummaryChip label={uniformSummary.label} tone={uniformSummary.tone} /> : null}
                 {canViewFinanceDetails ? (
                   <SummaryChip
                     label={
@@ -465,7 +465,7 @@ export default async function PlayerDetailPage({
                   <span>
                     {archiveEnrollment.dropoutReason
                       ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
-                      : readOnly ? "Motivo no disponible para este acceso" : "Sin motivo registrado"}
+                      : "Sin motivo registrado"}
                   </span>
                   {canViewFinanceDetails ? (
                     <span className={`${archiveEnrollment.balance > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-700 dark:text-slate-300"}`}>
@@ -494,29 +494,29 @@ export default async function PlayerDetailPage({
                     Abrir Caja
                   </Link>
                 ) : (
-                  <Link
+                  <ReadOnlyActionLink
                     href={`/players/${player.id}/enrollments/new${archiveEnrollment ? "?returning=1" : ""}`}
                     className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                   >
                     {archiveEnrollment ? "Reinscribir" : "Nueva inscripcion"}
-                  </Link>
+                  </ReadOnlyActionLink>
                 )
               ) : null}
               {activeEnrollmentId && canViewFinanceDetails ? (
-                <Link
+                <ReadOnlyActionLink
                   href={`/players/${player.id}/enrollments/${activeEnrollmentId}/edit`}
                   className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
                 >
                   Editar inscripcion
-                </Link>
+                </ReadOnlyActionLink>
               ) : null}
               {activeEnrollmentId && canViewFinanceDetails ? (
-                <Link
+                <ReadOnlyActionLink
                   href={`/players/${player.id}/enrollments/${activeEnrollmentId}/dropout`}
                   className="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
                 >
                   Dar de baja
-                </Link>
+                </ReadOnlyActionLink>
               ) : null}
               {!activeEnrollmentId && archiveEnrollment && canViewFinanceDetails ? (
                 <Link
@@ -535,12 +535,12 @@ export default async function PlayerDetailPage({
                 </Link>
               ) : null}
               {canViewFinanceDetails ? (
-              <Link
+              <ReadOnlyActionLink
                 href={`/players/${player.id}/edit`}
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
               >
                 Editar jugador
-              </Link>
+              </ReadOnlyActionLink>
               ) : null}
               {isSuperAdmin ? (
                 <Link
@@ -588,7 +588,7 @@ export default async function PlayerDetailPage({
               </div>
               <div className="md:col-span-2 xl:col-span-3">
                 <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas medicas</p>
-                <p className="font-medium">{readOnly ? "No disponibles para este acceso" : player.medicalNotes ?? "-"}</p>
+                <p className="font-medium">{player.medicalNotes ?? "-"}</p>
               </div>
               {activeEnrollment ? (
                 <>
@@ -602,10 +602,10 @@ export default async function PlayerDetailPage({
                       {player.competitionTeams.length > 0 ? player.competitionTeams.map((team) => team.name).join(", ") : "Sin equipo"}
                     </p>
                   </div>
-                  {!readOnly ? <div>
+                  <div>
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Plan actual</p>
                     <p className="font-medium">{activeEnrollment.pricingPlanName}</p>
-                  </div> : null}
+                  </div>
                   <div className="md:col-span-2">
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Coaches de competencia</p>
                     <p className="font-medium">
@@ -642,12 +642,12 @@ export default async function PlayerDetailPage({
                     <p className="font-medium">
                       {archiveEnrollment.dropoutReason
                         ? DROPOUT_LABELS[archiveEnrollment.dropoutReason] ?? archiveEnrollment.dropoutReason
-                        : readOnly ? "No disponible para este acceso" : "Sin motivo registrado"}
+                        : "Sin motivo registrado"}
                     </p>
                   </div>
                   <div className="md:col-span-2 xl:col-span-2">
                     <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Notas de baja</p>
-                    <p className="font-medium">{readOnly ? "No disponibles para este acceso" : archiveEnrollment.dropoutNotes ?? "-"}</p>
+                    <p className="font-medium">{archiveEnrollment.dropoutNotes ?? "-"}</p>
                   </div>
                 </>
               ) : null}
@@ -677,12 +677,12 @@ export default async function PlayerDetailPage({
                         </p>
                         {guardian.isPrimary ? <SummaryChip label="Principal" tone="blue" /> : null}
                       </div>
-                      {!readOnly ? <Link
+                      <ReadOnlyActionLink
                         href={`/players/${player.id}/guardians/${guardian.id}/edit`}
                         className="text-sm font-medium text-portoBlue hover:underline"
                       >
                         Editar
-                      </Link> : null}
+                      </ReadOnlyActionLink>
                     </div>
                     <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
                       <div>
@@ -712,7 +712,7 @@ export default async function PlayerDetailPage({
 
         <PlayerAttendanceSummary summary={attendanceSummary} />
 
-        {!readOnly && noteEnrollmentId ? (
+        {noteEnrollmentId ? (
           <PlayerNotesPanel playerId={player.id} enrollmentId={noteEnrollmentId} notes={operationalNotes} />
         ) : null}
 
@@ -808,7 +808,7 @@ export default async function PlayerDetailPage({
                     createAction={createIncident}
                     cancelAction={cancelIncident}
                     replaceAction={replaceIncident}
-                    canManage={permissionContext?.hasOperationalAccess ?? false}
+                    canManage={readOnly || permissionContext.hasOperationalAccess}
                     defaultMonth={getCurrentMonthValue()}
                   />
                 ) : null}
@@ -851,12 +851,12 @@ export default async function PlayerDetailPage({
                 >
                   Ver cuenta anterior
                 </Link>
-                <Link
+                <ReadOnlyActionLink
                   href={`/players/${player.id}/enrollments/new?returning=1`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
                   Reinscribir
-                </Link>
+                </ReadOnlyActionLink>
               </div>
             </div>
 
@@ -931,12 +931,12 @@ export default async function PlayerDetailPage({
             </div>
             {!activeEnrollment ? (
               canViewFinanceDetails ? (
-                <Link
+                <ReadOnlyActionLink
                   href={`/players/${player.id}/enrollments/new${archiveEnrollment ? "?returning=1" : ""}`}
                   className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
                 >
                   {archiveEnrollment ? "Reinscribir" : "Nueva inscripcion"}
-                </Link>
+                </ReadOnlyActionLink>
               ) : null
             ) : null}
           </div>

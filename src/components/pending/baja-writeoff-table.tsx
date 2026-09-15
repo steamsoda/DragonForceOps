@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ReadOnlyForm, useReadOnly, useDirectorReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import Link from "next/link";
 import { batchVoidBajaChargesAction } from "@/server/actions/billing";
 
@@ -64,6 +65,8 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 
 export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
+  const readOnly = useReadOnly();
+  const directorReadOnly = useDirectorReadOnly();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState(false);
 
@@ -84,7 +87,7 @@ export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
 
   const selectedRows = rows.filter((r) => selected.has(r.enrollmentId));
   const totalCharges = selectedRows.reduce((s, r) => s + r.pendingChargeCount, 0);
-  const totalAmount = selectedRows.reduce((s, r) => s + r.pendingTotal, 0);
+  const totalAmount = directorReadOnly ? null : selectedRows.reduce((s, r) => s + r.pendingTotal, 0);
 
   if (rows.length === 0) {
     return (
@@ -158,8 +161,9 @@ export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
 
       {/* Write-off form */}
       {selected.size > 0 && (
-        <form
+        <ReadOnlyForm
           action={async (fd) => {
+            if (readOnly) return;
             setPending(true);
             await batchVoidBajaChargesAction(fd);
           }}
@@ -176,7 +180,7 @@ export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
                 Anular cargos de {selected.size} {selected.size === 1 ? "baja" : "bajas"}
               </p>
               <p className="text-sm text-red-700 dark:text-red-300 mt-0.5">
-                {totalCharges} {totalCharges === 1 ? "cargo" : "cargos"} · {fmt(totalAmount)} en total
+                {totalCharges} {totalCharges === 1 ? "cargo" : "cargos"} · {totalAmount === null ? "\u2014" : fmt(totalAmount)} en total
               </p>
             </div>
           </div>
@@ -192,14 +196,14 @@ export function BajaWriteoffTable({ rows }: { rows: BajaRow[] }) {
             />
           </label>
 
-          <button
+          <WriteButton
             type="submit"
             disabled={pending}
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
           >
             {pending ? "Anulando…" : `Anular ${totalCharges} ${totalCharges === 1 ? "cargo" : "cargos"}`}
-          </button>
-        </form>
+          </WriteButton>
+        </ReadOnlyForm>
       )}
     </div>
   );

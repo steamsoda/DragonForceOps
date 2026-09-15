@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { canAccessEnrollmentRecord, getPermissionContext, requireOperationalContext } from "@/lib/auth/permissions";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
+import { directorAccountReader } from "@/lib/auth/director-account-reader";
 
 export type UniformOrderStatus = "pending_order" | "ordered" | "delivered";
 
@@ -56,6 +57,7 @@ type UniformOrderRow = {
 
 async function getManageableUniformOrder(orderId: string) {
   const context = await requireOperationalContext();
+  if (context.isDirectorReadOnly) throw new Error("read_only");
   const { data } = await context.supabase
     .from("uniform_orders")
     .select("id, enrollment_id, player_id, charge_id, uniform_type, size, status, sold_at, ordered_at, delivered_at, notes")
@@ -78,10 +80,11 @@ function revalidateUniformSurfaces(playerId: string | null, enrollmentId: string
 
 export async function getUniformOrdersAction(enrollmentId: string): Promise<UniformOrder[]> {
   const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess) return [];
-  if (!(await canAccessEnrollmentRecord(enrollmentId, context))) return [];
+  if (!context) return [];
+  const reader = context.isDirectorReadOnly ? await directorAccountReader(context, enrollmentId) : null;
+  if (context.isDirectorReadOnly ? !reader : !context.hasOperationalAccess || !(await canAccessEnrollmentRecord(enrollmentId, context))) return [];
 
-  const { data } = await context.supabase
+  const { data, error } = await (reader ?? context.supabase)
     .from("uniform_orders")
     .select("id, charge_id, uniform_type, size, status, sold_at, ordered_at, delivered_at, notes")
     .eq("enrollment_id", enrollmentId)
@@ -89,6 +92,7 @@ export async function getUniformOrdersAction(enrollmentId: string): Promise<Unif
     .order("updated_at", { ascending: false })
     .returns<Array<Omit<UniformOrderRow, "enrollment_id" | "player_id">>>();
 
+  if (context.isDirectorReadOnly && error) throw error;
   return (data ?? []).map((row) => ({
     id: row.id,
     chargeId: row.charge_id,
@@ -157,6 +161,7 @@ export async function bulkMarkUniformOrderedAction(
 ): Promise<BulkUniformOrderMutationResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const context = await requireOperationalContext();
+  if (context.isDirectorReadOnly) throw new Error("read_only");
   const uniqueIds = Array.from(new Set(orderIds.filter(Boolean)));
   if (uniqueIds.length === 0) return { ok: false, error: "invalid_form" };
 

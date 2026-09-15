@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ReadOnlyForm, WriteButton, useDirectorReadOnly } from "@/components/auth/read-only-controls";
+import { readIntake } from "./intake-reads";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   RETURNING_INSCRIPTION_OPTIONS,
@@ -172,6 +174,7 @@ export function EnrollmentIntakeForm({
   const monthlyAmount = quote?.tuitionAmount ?? 0;
   const startDay = startDate ? Number(startDate.slice(8, 10)) : null;
   const submitDisabled = !quote || !campusId || !birthDate || !gender || !startDate || !trainingGroupValid || isSubmitting;
+  const directorReadOnly = useDirectorReadOnly();
 
   useEffect(() => {
     if (!deferredFirstName || !deferredLastName || !deferredBirthDate) {
@@ -185,11 +188,12 @@ export function EnrollmentIntakeForm({
     setIsCheckingMatches(true);
 
     const timer = window.setTimeout(() => {
-      void searchLikelyPlayersForIntakeAction({
+      const input = {
         firstName: deferredFirstName,
         lastName: deferredLastName,
         birthDate: deferredBirthDate,
-      })
+      };
+      void (directorReadOnly ? readIntake<IntakeMatch[]>({ mode: "matches", ...input }) : searchLikelyPlayersForIntakeAction(input))
         .then((result) => {
           if (requestRef.current !== currentRequest) return;
           setMatches(result);
@@ -203,10 +207,10 @@ export function EnrollmentIntakeForm({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [deferredBirthDate, deferredFirstName, deferredLastName]);
+  }, [deferredBirthDate, deferredFirstName, deferredLastName, directorReadOnly]);
 
   return (
-    <form
+    <ReadOnlyForm
       action={createEnrollmentIntakeAction}
       className="space-y-6"
       onSubmit={(event) => {
@@ -952,18 +956,18 @@ export function EnrollmentIntakeForm({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <WriteButton
             type="submit"
             disabled={submitDisabled}
             className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Creando..." : "Crear registro y abrir Caja"}
-          </button>
+          </WriteButton>
           <Link href={trialPrefill ? "/trial-classes" : "/players"} className="text-sm text-portoBlue hover:underline">
             {trialPrefill ? "Cancelar y volver a Clases de prueba" : "Cancelar y volver a Jugadores"}
           </Link>
         </div>
       </section>
-    </form>
+    </ReadOnlyForm>
   );
 }

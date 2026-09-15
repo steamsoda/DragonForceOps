@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly, WriteButton, ReadOnlyForm } from "@/components/auth/read-only-controls";
 
 import { useState, useTransition } from "react";
 import {
@@ -21,6 +22,7 @@ type Props = {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props) {
+  const readOnly = useReadOnly();
   const [players, setPlayers] = useState<RosterPlayer[]>(roster);
   const [transferFor, setTransferFor] = useState<RosterPlayer | null>(null);
   const [refuerzoFor, setRefuerzoFor] = useState<RosterPlayer | null>(null);
@@ -34,7 +36,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
   const refuerzoTargets = allTeams.filter((t) => !playerTeamIds.has(t.id) && t.isActive);
 
   function handleClearNewArrival(player: RosterPlayer) {
-    if (!isDirector) return;
+    if (!isDirector || readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await clearNewArrivalAction(player.assignmentId, player.playerId, teamId);
@@ -44,7 +46,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
   }
 
   function handleRemoveRefuerzo(player: RosterPlayer) {
-    if (!isDirector) return;
+    if (!isDirector || readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await removeRefuerzoAction(player.assignmentId, player.playerId, teamId);
@@ -102,14 +104,14 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1.5">
                       {player.isNewArrival && (
-                        <button
+                        <WriteButton
                           type="button"
                           disabled={isPending}
                           onClick={() => handleClearNewArrival(player)}
                           className="rounded border border-amber-300 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                         >
                           Confirmar
-                        </button>
+                        </WriteButton>
                       )}
                       {player.role !== "refuerzo" && (
                         <button
@@ -122,14 +124,14 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
                         </button>
                       )}
                       {player.role === "refuerzo" && (
-                        <button
+                        <WriteButton
                           type="button"
                           disabled={isPending}
                           onClick={() => handleRemoveRefuerzo(player)}
                           className="rounded border border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:border-rose-400 hover:text-rose-600"
                         >
                           Quitar
-                        </button>
+                        </WriteButton>
                       )}
                       {player.role !== "refuerzo" && (
                         <button
@@ -152,7 +154,7 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
 
       {/* Transfer form */}
       {isDirector && transferFor && (
-        <form
+        <ReadOnlyForm
           action={transferPlayerAction}
           className="rounded-md border border-portoBlue bg-blue-50 dark:bg-blue-950/20 p-4 space-y-3"
         >
@@ -172,19 +174,19 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
             </select>
           </label>
           <div className="flex gap-2">
-            <button type="submit" disabled={isPending} className="rounded-md bg-portoBlue px-3 py-1.5 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50">
+            <WriteButton type="submit" disabled={isPending} className="rounded-md bg-portoBlue px-3 py-1.5 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50">
               {isPending ? "Guardando…" : "Confirmar transferencia"}
-            </button>
+            </WriteButton>
             <button type="button" onClick={() => setTransferFor(null)} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
               Cancelar
             </button>
           </div>
-        </form>
+        </ReadOnlyForm>
       )}
 
       {/* Refuerzo form */}
       {isDirector && refuerzoFor && (
-        <form
+        <ReadOnlyForm
           action={addRefuerzoAction}
           className="rounded-md border border-violet-400 bg-violet-50 dark:bg-violet-950/20 p-4 space-y-3"
         >
@@ -204,14 +206,14 @@ export function TeamRosterClient({ teamId, roster, allTeams, isDirector }: Props
             </select>
           </label>
           <div className="flex gap-2">
-            <button type="submit" disabled={isPending} className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50">
+            <WriteButton type="submit" disabled={isPending} className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50">
               {isPending ? "Guardando…" : "Agregar como refuerzo"}
-            </button>
+            </WriteButton>
             <button type="button" onClick={() => setRefuerzoFor(null)} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
               Cancelar
             </button>
           </div>
-        </form>
+        </ReadOnlyForm>
       )}
     </div>
   );

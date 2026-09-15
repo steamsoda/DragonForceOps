@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { ReadOnlyForm, WriteButton, useDirectorReadOnly } from "@/components/auth/read-only-controls";
 import { useMemo, useState } from "react";
 import type { Player360PostingRow, PostingMode } from "@/lib/queries/360player-posting";
 import { post360PlayerMonthlyBatchAction } from "@/server/actions/360player-posting";
 
 function money(amount: number | null, currency = "MXN") {
-  if (amount === null) return "-";
+  if (amount === null) return "\u2014";
   return amount.toLocaleString("es-MX", { style: "currency", currency });
 }
 
@@ -29,6 +30,7 @@ export function PostingSelectionTable({
   mode,
   defaultPaidAt,
 }: PostingSelectionTableProps) {
+  const directorReadOnly = useDirectorReadOnly();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmedPlayers, setConfirmedPlayers] = useState(false);
@@ -38,7 +40,7 @@ export function PostingSelectionTable({
     () => eligibleRows.filter((row) => selectedIds.has(row.chargeId)),
     [eligibleRows, selectedIds]
   );
-  const selectedTotal = selectedRows.reduce((sum, row) => sum + (row.selectedAmount ?? 0), 0);
+  const selectedTotal = directorReadOnly ? null : selectedRows.reduce((sum, row) => sum + (row.selectedAmount ?? 0), 0);
 
   function toggleRow(row: Player360PostingRow) {
     if (isSubmitting) return;
@@ -62,7 +64,7 @@ export function PostingSelectionTable({
   }
 
   return (
-    <form
+    <ReadOnlyForm
       action={post360PlayerMonthlyBatchAction}
       className="space-y-4"
       onSubmit={() => setIsSubmitting(true)}
@@ -239,17 +241,17 @@ export function PostingSelectionTable({
               >
                 Cancelar
               </button>
-              <button
+              <WriteButton
                 type="submit"
                 disabled={!confirmedPlayers || isSubmitting}
                 className="rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? "Registrando..." : "Marcar como pagados"}
-              </button>
+              </WriteButton>
             </div>
           </div>
         </div>
       ) : null}
-    </form>
+    </ReadOnlyForm>
   );
 }

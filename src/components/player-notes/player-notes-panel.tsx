@@ -1,3 +1,4 @@
+import { WriteButton } from "@/components/auth/read-only-controls";
 import { createPlayerNoteAction } from "@/server/actions/player-notes";
 import type { PlayerNote } from "@/lib/queries/player-notes";
 
@@ -56,12 +57,12 @@ export function PlayerNotesPanel({
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none dark:border-slate-600 dark:bg-slate-900"
           />
         </label>
-        <button
+        <WriteButton
           type="submit"
           className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
         >
           Guardar nota
-        </button>
+        </WriteButton>
       </form>
 
       {notes.length === 0 ? (

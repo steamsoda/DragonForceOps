@@ -1,5 +1,6 @@
 "use client";
 
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { printCorte, type CorteData } from "@/lib/printer";
@@ -21,6 +22,7 @@ const ERROR_LABELS: Record<string, string> = {
 };
 
 export function PrintButton({ campusId, printerName }: Props) {
+  const readOnly = useReadOnly();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function PrintButton({ campusId, printerName }: Props) {
   }
 
   async function handlePrint() {
+    if (readOnly) return;
     setErrorMsg(null);
 
     if (preparedCorte) {
@@ -79,14 +82,14 @@ export function PrintButton({ campusId, printerName }: Props) {
 
   return (
     <div className="flex items-center gap-3">
-      <button
+      <WriteButton
         type="button"
         onClick={handlePrint}
         disabled={status === "closing" || status === "printing"}
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
       >
         {label}
-      </button>
+      </WriteButton>
       {status === "error" && errorMsg ? (
         <span className="text-xs text-rose-600">{errorMsg}</span>
       ) : null}

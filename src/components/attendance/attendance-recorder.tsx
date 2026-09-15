@@ -2,6 +2,7 @@
 
 import { memo, useActionState, useCallback, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ReadOnlyForm, WriteButton, useReadOnly } from "@/components/auth/read-only-controls";
 import type { AttendanceRosterPlayer } from "@/lib/queries/attendance";
 import { saveAttendanceSessionAction } from "@/server/actions/attendance";
 import type { AttendanceSaveResult } from "@/server/actions/attendance";
@@ -104,13 +105,13 @@ function SaveAttendanceButton({
   const { pending } = useFormStatus();
 
   return (
-    <button
+    <WriteButton
       type="submit"
       disabled={disabled || pending || saved}
       className="rounded-md bg-portoBlue px-5 py-3 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
     >
       {pending ? "Guardando..." : saved ? "Guardado" : "Guardar asistencia"}
-    </button>
+    </WriteButton>
   );
 }
 
@@ -155,13 +156,17 @@ export function AttendanceRecorder({
   sessionNotes: string | null;
   disabled: boolean;
 }) {
+  const readOnly = useReadOnly();
   const initial = useMemo(
     () => Object.fromEntries(roster.map((player) => [player.enrollmentId, player.currentStatus])),
     [roster]
   );
   const [statuses, setStatuses] = useState<Record<string, Status>>(initial);
   const [state, formAction] = useActionState(
-    async (_previous: AttendanceSaveResult | null, formData: FormData) => saveAttendanceSessionAction(sessionId, formData),
+    async (_previous: AttendanceSaveResult | null, formData: FormData) => {
+      if (readOnly) return { ok: false, error: "read_only" } as AttendanceSaveResult;
+      return saveAttendanceSessionAction(sessionId, formData);
+    },
     null
   );
   const saved = state?.ok === true;
@@ -183,7 +188,7 @@ export function AttendanceRecorder({
   }, []);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <ReadOnlyForm action={formAction} className="space-y-4">
       {state?.ok === true ? (
         <div aria-live="polite" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Asistencia guardada. La captura quedo bloqueada para evitar envios duplicados.
@@ -234,6 +239,6 @@ export function AttendanceRecorder({
         <SaveAttendanceStatus presentCount={presentCount} rosterCount={roster.length} />
         <SaveAttendanceButton disabled={saveDisabled} saved={saved} />
       </div>
-    </form>
+    </ReadOnlyForm>
   );
 }

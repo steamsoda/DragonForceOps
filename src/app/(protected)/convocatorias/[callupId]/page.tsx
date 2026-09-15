@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { CallupReadDetail } from "@/components/sports/competition-read-views";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { notFound } from "next/navigation";
 import { WeeklyCallupPngExportButton } from "@/components/weekly-callups/png-export-button";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
@@ -89,7 +89,7 @@ function statusLabel(status: string) {
 export default async function WeeklyCallupEditorPage({ params, searchParams }: PageProps) {
   const [{ callupId }, query] = await Promise.all([params, searchParams]);
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return <CallupReadDetail id={callupId} />;
+
   const showComparison = query.compare === "1";
   const showExceptions = query.exceptions === "1";
   const callup = await getWeeklyCallupDetail(callupId, {
@@ -133,10 +133,10 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
               </Link>
             ) : null}
             {callup.canDeleteCallup ? (
-              <form action={deleteWeeklyCallupAction}>
+              <ReadOnlyForm action={deleteWeeklyCallupAction}>
                 <input type="hidden" name="callupId" value={callup.id} />
                 <WeeklyCallupDeleteButton />
-              </form>
+              </ReadOnlyForm>
             ) : null}
           </div>
         </div>
@@ -194,7 +194,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
               </div>
             )}
             {comparisonChangeTotal > 0 ? (
-              <form action={refreshWeeklyCallupRosterAction} className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
+              <ReadOnlyForm action={refreshWeeklyCallupRosterAction} className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
                 <input type="hidden" name="callupId" value={callup.id} />
                 <p className="text-sm text-amber-950">
                   La actualizacion conserva partidos, descansos, orden, exclusiones existentes y excepciones manuales. Solo sincroniza el plantel pagado.
@@ -204,7 +204,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                   Revise los jugadores que se agregaran, retiraran o moveran.
                 </label>
                 <WeeklyCallupSubmitButton label="Actualizar plantel congelado" pendingLabel="Actualizando plantel..." />
-              </form>
+              </ReadOnlyForm>
             ) : null}
           </section>
         ) : null}
@@ -221,12 +221,12 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
               <p className="text-sm text-amber-900">Solo directores. Incluye al jugador en esta convocatoria sin crear pagos, cargos ni inscripciones de torneo.</p>
             </div>
             {callup.manualCandidates.length > 0 ? (
-              <form action={addWeeklyCallupManualExceptionAction} className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+              <ReadOnlyForm action={addWeeklyCallupManualExceptionAction} className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
                 <input type="hidden" name="callupId" value={callup.id} />
                 <label className="space-y-1 text-sm font-medium"><span>Jugador activo</span><select required name="enrollmentId" defaultValue="" className="min-h-10 w-full rounded-md border border-amber-300 bg-white px-3"><option value="" disabled>Selecciona jugador</option>{callup.manualCandidates.map((player) => <option key={player.enrollmentId} value={player.enrollmentId}>{player.playerName} | Cat. {player.birthYear ?? "-"} | {player.trainingGroupName}</option>)}</select></label>
                 <label className="space-y-1 text-sm font-medium"><span>Motivo obligatorio</span><input required minLength={5} maxLength={500} name="reason" placeholder="Ej. Autorizado por direccion para esta jornada" className="min-h-10 w-full rounded-md border border-amber-300 bg-white px-3" /></label>
                 <WeeklyCallupSubmitButton label="Agregar excepcion" pendingLabel="Agregando..." />
-              </form>
+              </ReadOnlyForm>
             ) : (
               <p className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-slate-600">No hay jugadores activos disponibles para agregar como excepcion.</p>
             )}
@@ -266,19 +266,19 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                     <p className="text-sm text-slate-500">{included.length} incluidos | {excluded.length} excluidos | {category.games.length} partidos</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <form action={moveWeeklyCallupCategoryAction}>
+                    <ReadOnlyForm action={moveWeeklyCallupCategoryAction}>
                       <input type="hidden" name="callupId" value={callup.id} />
                       <input type="hidden" name="categoryId" value={category.id} />
                       <input type="hidden" name="direction" value="up" />
-                      <button disabled={categoryIndex === 0} title="Subir categoria" className="h-9 w-9 rounded-md border border-slate-300 text-lg disabled:opacity-30">↑</button>
-                    </form>
-                    <form action={moveWeeklyCallupCategoryAction}>
+                      <WriteButton disabled={categoryIndex === 0} title="Subir categoria" className="h-9 w-9 rounded-md border border-slate-300 text-lg disabled:opacity-30">↑</WriteButton>
+                    </ReadOnlyForm>
+                    <ReadOnlyForm action={moveWeeklyCallupCategoryAction}>
                       <input type="hidden" name="callupId" value={callup.id} />
                       <input type="hidden" name="categoryId" value={category.id} />
                       <input type="hidden" name="direction" value="down" />
-                      <button disabled={categoryIndex === callup.categories.length - 1} title="Bajar categoria" className="h-9 w-9 rounded-md border border-slate-300 text-lg disabled:opacity-30">↓</button>
-                    </form>
-                    <form action={toggleWeeklyCallupRestAction}>
+                      <WriteButton disabled={categoryIndex === callup.categories.length - 1} title="Bajar categoria" className="h-9 w-9 rounded-md border border-slate-300 text-lg disabled:opacity-30">↓</WriteButton>
+                    </ReadOnlyForm>
+                    <ReadOnlyForm action={toggleWeeklyCallupRestAction}>
                       <input type="hidden" name="callupId" value={callup.id} />
                       <input type="hidden" name="categoryId" value={category.id} />
                       <input type="hidden" name="isRest" value={category.isRest ? "false" : "true"} />
@@ -288,7 +288,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                           ? "min-h-9 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 disabled:opacity-60"
                           : "min-h-9 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"}
                       />
-                    </form>
+                    </ReadOnlyForm>
                   </div>
                 </header>
 
@@ -304,23 +304,23 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <p className="text-xs font-semibold uppercase text-slate-500">Partido {gameIndex + 1}</p>
                               <div className="flex items-center gap-1">
-                                <form action={moveWeeklyCallupGameAction}>
+                                <ReadOnlyForm action={moveWeeklyCallupGameAction}>
                                   <input type="hidden" name="callupId" value={callup.id} />
                                   <input type="hidden" name="categoryId" value={category.id} />
                                   <input type="hidden" name="gameId" value={game.id} />
                                   <input type="hidden" name="direction" value="up" />
-                                  <button disabled={gameIndex === 0} title="Subir partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Subir</button>
-                                </form>
-                                <form action={moveWeeklyCallupGameAction}>
+                                  <WriteButton disabled={gameIndex === 0} title="Subir partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Subir</WriteButton>
+                                </ReadOnlyForm>
+                                <ReadOnlyForm action={moveWeeklyCallupGameAction}>
                                   <input type="hidden" name="callupId" value={callup.id} />
                                   <input type="hidden" name="categoryId" value={category.id} />
                                   <input type="hidden" name="gameId" value={game.id} />
                                   <input type="hidden" name="direction" value="down" />
-                                  <button disabled={gameIndex === category.games.length - 1} title="Bajar partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Bajar</button>
-                                </form>
+                                  <WriteButton disabled={gameIndex === category.games.length - 1} title="Bajar partido" className="min-h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold disabled:opacity-30">Bajar</WriteButton>
+                                </ReadOnlyForm>
                               </div>
                             </div>
-                            <form action={saveWeeklyCallupGameAction} className="grid gap-2 sm:grid-cols-2">
+                            <ReadOnlyForm action={saveWeeklyCallupGameAction} className="grid gap-2 sm:grid-cols-2">
                               <input type="hidden" name="callupId" value={callup.id} />
                               <input type="hidden" name="categoryId" value={category.id} />
                               <input type="hidden" name="gameId" value={game.id} />
@@ -329,16 +329,16 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                               <label className="space-y-1 text-xs font-medium"><span>Sede</span><input required name="venue" defaultValue={game.venue} className="min-h-9 w-full rounded-md border border-slate-300 px-2" /></label>
                               <label className="space-y-1 text-xs font-medium"><span>Rival</span><input required name="opponent" defaultValue={game.opponent} className="min-h-9 w-full rounded-md border border-slate-300 px-2" /></label>
                               <div className="sm:col-span-2"><WeeklyCallupSubmitButton label="Guardar partido" /></div>
-                            </form>
-                            <form action={deleteWeeklyCallupGameAction} className="mt-2">
+                            </ReadOnlyForm>
+                            <ReadOnlyForm action={deleteWeeklyCallupGameAction} className="mt-2">
                               <input type="hidden" name="callupId" value={callup.id} />
                               <input type="hidden" name="categoryId" value={category.id} />
                               <input type="hidden" name="gameId" value={game.id} />
                               <WeeklyCallupSubmitButton label="Eliminar partido" pendingLabel="Eliminando..." className="min-h-8 rounded-md border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 disabled:opacity-60" />
-                            </form>
+                            </ReadOnlyForm>
                           </div>
                         ))}
-                        <form action={saveWeeklyCallupGameAction} className="grid gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 sm:grid-cols-2">
+                        <ReadOnlyForm action={saveWeeklyCallupGameAction} className="grid gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 sm:grid-cols-2">
                           <input type="hidden" name="callupId" value={callup.id} />
                           <input type="hidden" name="categoryId" value={category.id} />
                           <p className="text-xs font-semibold uppercase text-slate-500 sm:col-span-2">Agregar partido</p>
@@ -347,7 +347,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                           <label className="space-y-1 text-xs font-medium"><span>Sede</span><input required name="venue" className="min-h-9 w-full rounded-md border border-slate-300 bg-white px-2" /></label>
                           <label className="space-y-1 text-xs font-medium"><span>Rival</span><input required name="opponent" className="min-h-9 w-full rounded-md border border-slate-300 bg-white px-2" /></label>
                           <div className="sm:col-span-2"><WeeklyCallupSubmitButton label="Agregar partido" /></div>
-                        </form>
+                        </ReadOnlyForm>
                       </>
                     )}
                   </div>
@@ -370,7 +370,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                                 <p className="mt-1 text-xs text-amber-800">Motivo: {player.manualReason}</p>
                               ) : null}
                             </div>
-                            <form action={toggleWeeklyCallupPlayerAction}>
+                            <ReadOnlyForm action={toggleWeeklyCallupPlayerAction}>
                               <input type="hidden" name="callupId" value={callup.id} />
                               <input type="hidden" name="categoryId" value={category.id} />
                               <input type="hidden" name="playerRowId" value={player.id} />
@@ -381,7 +381,7 @@ export default async function WeeklyCallupEditorPage({ params, searchParams }: P
                                   ? "min-h-8 rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 disabled:opacity-60"
                                   : "min-h-8 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800 disabled:opacity-60"}
                               />
-                            </form>
+                            </ReadOnlyForm>
                           </div>
                         );
                       })}

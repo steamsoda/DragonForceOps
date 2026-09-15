@@ -11,6 +11,7 @@ import { PrinterTestButton } from "@/components/ui/printer-test-button";
 import { getPrinterName } from "@/lib/queries/settings";
 import { summarizeRoleScopes } from "@/lib/auth/role-display";
 import { directorReadOnlyEnabled, directorReadOnlyRequestAllowed } from "@/lib/auth/director-readonly-policy";
+import { ReadOnlyProvider } from "@/components/auth/read-only-controls";
 import { clearDebugViewAction, setDebugViewUserAction } from "@/server/actions/debug-view";
 
 const DIRECTOR_GESTION_SECTION: NavSection = {
@@ -215,9 +216,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   const sections: NavSection[] = isDirectorReadOnly ? [
     staffSection, DIRECTOR_GESTION_SECTION, competitionSection,
-    NUTRITION_BASE_SECTION, ATTENDANCE_BASE_SECTION, DIRECTOR_REPORTES_SECTION,
-  ].map(section => ({ ...section, items: section.items.filter(item =>
-    directorReadOnlyRequestAllowed("GET", item.href, true)) })).filter(section => section.items.length > 0) : [
+    NUTRITION_BASE_SECTION, ATTENDANCE_BASE_SECTION, DIRECTOR_REPORTES_SECTION, ADMIN_SECTION,
+  ].map(section => ({ ...section, items: section.items.map(item => ({ ...item,
+    disabled: !directorReadOnlyRequestAllowed("GET", item.href, true),
+  })) })) : [
     ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess || roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN) ? [sportsStaffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : isCoach ? [coachCompetitionSection] : []),
@@ -294,7 +296,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
                         <p className={mobileSectionLabelClass}>{section.label}</p>
                         <div className="space-y-1">
                           {section.items.map((item) => (
-                            <Link key={item.href} href={item.href} prefetch={false} className={mobileNavLinkClass}>
+                            item.disabled ? <span key={item.href} role="link" aria-disabled="true" title="No disponible en solo lectura" className={`${mobileNavLinkClass} cursor-not-allowed opacity-50`}>{item.label}</span> : <Link key={item.href} href={item.href} prefetch={false} className={mobileNavLinkClass}>
                               {item.label}
                             </Link>
                           ))}
@@ -554,7 +556,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           </div>
         ) : null}
 
-        {children}
+        <ReadOnlyProvider readOnly={isDirectorReadOnly || debugContext.isReadOnly} directorReadOnly={isDirectorReadOnly}>{children}</ReadOnlyProvider>
       </div>
     </div>
   );

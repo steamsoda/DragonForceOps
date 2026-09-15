@@ -92,7 +92,7 @@ async function loadFollowUps(enrollmentIds: string[]) {
   if (enrollmentIds.length === 0) return result;
 
   const admin = createAdminClient();
-  const chunkSize = 500;
+  const chunkSize = 100;
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const { data, error } = await admin
       .from("enrollments")
@@ -119,7 +119,7 @@ async function loadPhones(playerIds: string[]) {
   if (playerIds.length === 0) return result;
 
   const admin = createAdminClient();
-  const chunkSize = 500;
+  const chunkSize = 100;
   for (let index = 0; index < playerIds.length; index += chunkSize) {
     const { data, error } = await admin
       .from("player_guardians")
@@ -142,7 +142,7 @@ async function loadBalances(enrollmentIds: string[]) {
   if (enrollmentIds.length === 0) return result;
 
   const admin = createAdminClient();
-  const chunkSize = 500;
+  const chunkSize = 100;
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const { data, error } = await admin
       .from("v_enrollment_balances")
@@ -165,7 +165,7 @@ async function loadActiveInjuryIncidents(enrollmentIds: string[]) {
 
   const admin = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
-  const chunkSize = 500;
+  const chunkSize = 100;
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const { data, error } = await admin
       .from("enrollment_incidents")

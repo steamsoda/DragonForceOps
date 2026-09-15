@@ -2,6 +2,7 @@ import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses
 import { applyScholarshipToAmount, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 import { formatPeriodMonthLabel, fetchPricingPlanVersionsByCode, quoteTuitionForDayFromVersions } from "@/lib/pricing/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getMonterreyMonthString } from "@/lib/time";
 
 export type PostingMode = "early" | "late";
@@ -44,7 +45,7 @@ export type Player360PostingData = {
     rows: number;
     eligible: number;
     blocked: number;
-    selectedTotal: number;
+    selectedTotal: number | null;
     repriceCount: number;
   };
 };
@@ -134,6 +135,7 @@ export async function get360PlayerPostingData(filters: {
   search?: string;
   mode?: string;
 }): Promise<Player360PostingData> {
+  const context = await requireOperationalPageReader();
   const access = await getOperationalCampusAccess();
   const selectedMonth = normalizeMonth(filters.month);
   const periodMonth = periodFromMonth(selectedMonth);
@@ -155,7 +157,7 @@ export async function get360PlayerPostingData(filters: {
       birthYear: filters.birthYear ?? null,
       birthYears: [],
       rows: [],
-      totals: { rows: 0, eligible: 0, blocked: 0, selectedTotal: 0, repriceCount: 0 },
+      totals: { rows: 0, eligible: 0, blocked: 0, selectedTotal: context.isDirectorReadOnly ? null : 0, repriceCount: 0 },
     };
   }
 
@@ -178,7 +180,7 @@ export async function get360PlayerPostingData(filters: {
       birthYear: filters.birthYear ?? null,
       birthYears: [],
       rows: [],
-      totals: { rows: 0, eligible: 0, blocked: 0, selectedTotal: 0, repriceCount: 0 },
+      totals: { rows: 0, eligible: 0, blocked: 0, selectedTotal: context.isDirectorReadOnly ? null : 0, repriceCount: 0 },
     };
   }
 
@@ -356,7 +358,7 @@ export async function get360PlayerPostingData(filters: {
       rows: rows.length,
       eligible: rows.filter((row) => row.status === "eligible").length,
       blocked: rows.filter((row) => row.status === "blocked").length,
-      selectedTotal: roundMoney(rows.filter((row) => row.status === "eligible").reduce((sum, row) => sum + (row.selectedAmount ?? 0), 0)),
+      selectedTotal: context.isDirectorReadOnly ? null : roundMoney(rows.filter((row) => row.status === "eligible").reduce((sum, row) => sum + (row.selectedAmount ?? 0), 0)),
       repriceCount: rows.filter((row) => row.status === "eligible" && row.selectedAmount !== null && Math.abs(row.chargeAmount - row.selectedAmount) > 0.009).length,
     },
   };

@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type AcademyEvent = {
@@ -21,7 +23,9 @@ export type AcademyEvent = {
 };
 
 export async function listEventsForMonthAction(month: string): Promise<AcademyEvent[]> {
-  const supabase = await createClient();
+  const context = await requireDirectorPageReader();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("invalid_month");
+  const supabase = context.isDirectorReadOnly ? createAdminClient() : await createClient();
   const firstDay = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const lastDay = new Date(year, mon, 0).toISOString().slice(0, 10);
@@ -29,10 +33,12 @@ export async function listEventsForMonthAction(month: string): Promise<AcademyEv
   const { data, error } = await supabase
     .from("academy_events")
     .select("*")
+      .or(`campus_id.is.null,campus_id.in.(${context.campusAccess?.campusIds.join(",") || "00000000-0000-0000-0000-000000000000"})`)
     .gte("proposed_date", firstDay)
     .lte("proposed_date", lastDay)
     .order("proposed_date", { ascending: true });
 
+  if (error && context.isDirectorReadOnly) throw error;
   if (error || !data) return [];
 
   return data.map((r) => ({
@@ -42,7 +48,7 @@ export async function listEventsForMonthAction(month: string): Promise<AcademyEv
     proposedDate: r.proposed_date,
     actualDate: r.actual_date,
     isDone: r.is_done,
-    cost: r.cost,
+    cost: context.isDirectorReadOnly ? null : r.cost,
     participantCount: r.participant_count,
     evaluation: r.evaluation,
     satisfactionAvg: r.satisfaction_avg,

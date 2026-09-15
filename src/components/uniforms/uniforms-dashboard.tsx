@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 import {
   bulkMarkUniformOrderedAction,
   markUniformDeliveredAction,
@@ -226,6 +227,7 @@ export function UniformsDashboard({
   week: { start: string; end: string };
   rows: UniformDashboardRow[];
 }) {
+  const readOnly = useReadOnly();
   const [allRows, setAllRows] = useState(rows);
   const [selectedCampusId, setSelectedCampusId] = useState(initialSelectedCampusId);
   const [selectedType, setSelectedType] = useState<UniformTypeFilter>(initialSelectedType);
@@ -298,6 +300,7 @@ export function UniformsDashboard({
     }>,
     action: () => Promise<UniformOrderMutationResult | BulkUniformOrderMutationResult>
   ) {
+    if (readOnly) return;
     const previousRows = allRows;
     const nextRows = optimisticMutations.reduce((rowsAcc, mutation) => applyMutationToRows(rowsAcc, mutation), previousRows);
     setError(null);
@@ -367,6 +370,7 @@ export function UniformsDashboard({
   }
 
   async function handleBulkMarkOrdered() {
+    if (readOnly) return;
     if (selectedPendingIds.size === 0) return;
     const ids = Array.from(selectedPendingIds);
     const timestamp = new Date().toISOString();
@@ -519,7 +523,7 @@ export function UniformsDashboard({
                 </button>
                 <button
                   type="button"
-                  disabled={selectedPendingIds.size === 0}
+                  disabled={readOnly || selectedPendingIds.size === 0}
                   onClick={handleBulkMarkOrdered}
                   className="rounded-md bg-portoBlue px-3 py-2 text-xs font-semibold text-white hover:bg-portoDark disabled:opacity-50"
                 >
@@ -583,6 +587,7 @@ function MobileUniformRow({
   onMarkOrdered: (id: string) => void;
   onDeliver: (id: string) => void;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div
       className={`space-y-3 rounded-md border px-4 py-4 dark:border-slate-700 ${
@@ -639,7 +644,7 @@ function MobileUniformRow({
         {row.status === "pending_order" ? (
           <button
             type="button"
-            disabled={isMutating}
+            disabled={readOnly || isMutating}
             onClick={() => onMarkOrdered(row.id)}
             className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
@@ -649,7 +654,7 @@ function MobileUniformRow({
         {row.status !== "delivered" ? (
           <button
             type="button"
-            disabled={isMutating}
+            disabled={readOnly || isMutating}
             onClick={() => onDeliver(row.id)}
             className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
@@ -676,6 +681,7 @@ function DesktopUniformTable({
   onMarkOrdered: (id: string) => void;
   onDeliver: (id: string) => void;
 }) {
+  const readOnly = useReadOnly();
   return (
     <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[1120px] text-sm">
@@ -751,7 +757,7 @@ function DesktopUniformTable({
                   {row.status === "pending_order" ? (
                     <button
                       type="button"
-                      disabled={pendingMutationIds.has(row.id)}
+                      disabled={readOnly || pendingMutationIds.has(row.id)}
                       onClick={() => onMarkOrdered(row.id)}
                       className="rounded-md bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
                     >
@@ -761,7 +767,7 @@ function DesktopUniformTable({
                   {row.status !== "delivered" ? (
                     <button
                       type="button"
-                      disabled={pendingMutationIds.has(row.id)}
+                      disabled={readOnly || pendingMutationIds.has(row.id)}
                       onClick={() => onDeliver(row.id)}
                       className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                     >

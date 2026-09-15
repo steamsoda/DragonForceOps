@@ -1,3 +1,6 @@
+import { directorAccountReader } from "@/lib/auth/director-account-reader";
+import { requireDirectorPageReader, requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { directorPlayerReader } from "@/lib/auth/director-player-reader";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
@@ -206,29 +209,47 @@ type PendingChargeRow = {
 };
 
 export async function listBajaEnrollmentsWithBalance(): Promise<BajaEnrollmentRow[]> {
-  const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const context = await requireDirectorPageReader();
+  const campusAccess = context.campusAccess;
   if (!campusAccess || campusAccess.campusIds.length === 0) return [];
+  const supabase = context.isDirectorReadOnly ? createAdminClient() : await createClient();
 
-  const [{ data: balanceRows }, { data: enrollmentRows }, { data: chargeRows }] = await Promise.all([
-    supabase
-      .from("v_enrollment_balances")
-      .select("enrollment_id, balance")
-      .gt("balance", 0)
-      .returns<EnrollmentBalanceRow[]>(),
-    supabase
+  const enrollmentRows: BajaEnrollmentDbRow[] = [];
+  const balanceRows: EnrollmentBalanceRow[] = [];
+  const chargeRows: PendingChargeRow[] = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
       .from("enrollments")
       .select("id, player_id, status, end_date, dropout_reason, players(first_name, last_name), campuses(name)")
       .in("status", ["ended", "cancelled"])
       .in("campus_id", campusAccess.campusIds)
       .order("end_date", { ascending: false })
-      .returns<BajaEnrollmentDbRow[]>(),
-    supabase
-      .from("charges")
-      .select("enrollment_id, amount")
-      .eq("status", "pending")
-      .returns<PendingChargeRow[]>()
-  ]);
+      .order("id")
+      .range(offset, offset + pageSize - 1)
+      .returns<BajaEnrollmentDbRow[]>();
+    if (error) throw error;
+    enrollmentRows.push(...(data ?? []));
+    if ((data?.length ?? 0) < pageSize) break;
+  }
+  // Financial reads are restricted to the ended enrollments admitted above.
+  for (let index = 0; index < enrollmentRows.length; index += 100) {
+    const ids = enrollmentRows.slice(index, index + 100).map(row => row.id);
+    const balances = await supabase.from("v_enrollment_balances")
+      .select("enrollment_id, balance").in("enrollment_id", ids)
+      .returns<EnrollmentBalanceRow[]>();
+    if (balances.error) throw balances.error;
+    balanceRows.push(...(balances.data ?? []));
+    for (let offset = 0; ; offset += pageSize) {
+      const charges = await supabase.from("charges")
+        .select("enrollment_id, amount").in("enrollment_id", ids)
+        .eq("status", "pending").order("id")
+        .range(offset, offset + pageSize - 1).returns<PendingChargeRow[]>();
+      if (charges.error) throw charges.error;
+      chargeRows.push(...(charges.data ?? []));
+      if ((charges.data?.length ?? 0) < pageSize) break;
+    }
+  }
 
   const balanceMap = new Map((balanceRows ?? []).map((r) => [r.enrollment_id, r.balance]));
   const chargesByEnrollment = new Map<string, PendingChargeRow[]>();
@@ -260,6 +281,7 @@ export async function listBajaEnrollmentsWithBalance(): Promise<BajaEnrollmentRo
 // ── Enrollment edit context ───────────────────────────────────────────────────
 
 type EnrollmentEditRow = {
+  player_id: string;
   id: string;
   status: string;
   start_date: string;
@@ -307,17 +329,19 @@ export type EnrollmentDropoutContext = {
   };
 };
 
-export async function getEnrollmentEditContext(enrollmentId: string): Promise<EnrollmentEditContext | null> {
-  const supabase = await createClient();
+export async function getEnrollmentEditContext(enrollmentId: string, expectedPlayerId?: string): Promise<EnrollmentEditContext | null> {
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) return null;
+  if (!permissionContext || (!permissionContext.isDirectorReadOnly && !permissionContext.hasOperationalAccess)) return null;
+  const supabase = permissionContext.isDirectorReadOnly
+    ? await directorAccountReader(permissionContext, enrollmentId) : await createClient();
+  if (!supabase) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
   const [enrollmentResult, campusResult] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, notes, campus_id, scholarship_status, custom_scholarship_amount, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
+      .select("id, player_id, status, start_date, end_date, notes, campus_id, scholarship_status, custom_scholarship_amount, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentEditRow | null>(),
@@ -329,7 +353,9 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
       .returns<CampusRow[]>()
   ]);
 
+  if (permissionContext.isDirectorReadOnly && (enrollmentResult.error || campusResult.error)) throw new Error("enrollment_read_failed");
   if (!enrollmentResult.data) return null;
+  if (expectedPlayerId && enrollmentResult.data.player_id !== expectedPlayerId) return null;
   if (!canAccessCampus(campusAccess, enrollmentResult.data.campus_id)) return null;
 
   const e = enrollmentResult.data;
@@ -352,17 +378,19 @@ export async function getEnrollmentEditContext(enrollmentId: string): Promise<En
   };
 }
 
-export async function getEnrollmentDropoutContext(enrollmentId: string): Promise<EnrollmentDropoutContext | null> {
-  const supabase = await createClient();
+export async function getEnrollmentDropoutContext(enrollmentId: string, expectedPlayerId?: string): Promise<EnrollmentDropoutContext | null> {
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) return null;
+  if (!permissionContext || (!permissionContext.isDirectorReadOnly && !permissionContext.hasOperationalAccess)) return null;
+  const supabase = permissionContext.isDirectorReadOnly
+    ? await directorAccountReader(permissionContext, enrollmentId) : await createClient();
+  if (!supabase) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
 
-  const [{ data: enrollment }, { data: balanceRow }] = await Promise.all([
+  const [enrollmentResult, balanceResult] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, status, start_date, end_date, campus_id, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
+      .select("id, player_id, status, start_date, end_date, campus_id, dropout_reason, dropout_notes, campuses(id, name, code), players(first_name, last_name)")
       .eq("id", enrollmentId)
       .maybeSingle()
       .returns<EnrollmentEditRow | null>(),
@@ -374,7 +402,10 @@ export async function getEnrollmentDropoutContext(enrollmentId: string): Promise
       .returns<EnrollmentBalanceRow | null>(),
   ]);
 
+  if (permissionContext.isDirectorReadOnly && (enrollmentResult.error || balanceResult.error || !balanceResult.data)) throw new Error("enrollment_read_failed");
+  const enrollment = enrollmentResult.data, balanceRow = balanceResult.data;
   if (!enrollment) return null;
+  if (expectedPlayerId && enrollment.player_id !== expectedPlayerId) return null;
   if (!canAccessCampus(campusAccess, enrollment.campus_id)) return null;
 
   return {
@@ -518,6 +549,7 @@ function mapEnrollmentTrainingGroups(rows: EnrollmentTrainingGroupRow[]): Enroll
 }
 
 export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeContext> {
+  await requireOperationalPageReader();
   const admin = createAdminClient();
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) {
@@ -556,6 +588,8 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
 
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
 
+  if (campusResult.error) throw campusResult.error;
+  if (trainingGroupResult.error) throw trainingGroupResult.error;
   if (pricingVersions.length === 0) {
     await logPricingPlanDiagnostics(admin, {
       reason: "no pricing plan versions returned from admin client",
@@ -599,10 +633,11 @@ export async function getEnrollmentIntakeContext(): Promise<EnrollmentIntakeCont
 export async function getEnrollmentCreateFormContext(
   playerId: string
 ): Promise<EnrollmentCreateFormContext | null> {
-  const supabase = await createClient();
+  const permissionContext = await requireOperationalPageReader();
+  const supabase = permissionContext.isDirectorReadOnly
+    ? await directorPlayerReader(permissionContext, playerId) : await createClient();
+  if (!supabase) return null;
   const admin = createAdminClient();
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) return null;
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();
   if (!campusAccess) return null;
   const defaultStartDate = getDefaultEnrollmentStartDate();
@@ -653,12 +688,18 @@ export async function getEnrollmentCreateFormContext(
       }>>(),
   ]);
 
+  if (permissionContext.isDirectorReadOnly) {
+    for (const result of [playerResult, campusResult, activeEnrollmentResult, trainingGroupResult, historicalEnrollmentResult]) {
+      if (result.error) throw result.error;
+    }
+  }
   if (!playerResult.data) return null;
   const defaultQuote = quoteEnrollmentPricingFromVersions(pricingVersions, defaultStartDate);
   const historicalEnrollments = historicalEnrollmentResult.data ?? [];
   const historicalLedgers = await Promise.all(
     historicalEnrollments.map((enrollment) => getEnrollmentLedger(enrollment.id)),
   );
+  if (permissionContext.isDirectorReadOnly && historicalLedgers.some(ledger => !ledger)) throw new Error("returning_account_read_failed");
   const visibleHistoricalLedgers = historicalLedgers.filter(
     (ledger): ledger is NonNullable<typeof ledger> => ledger !== null,
   );

@@ -1,3 +1,6 @@
+import "server-only";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
@@ -31,11 +34,11 @@ export type ProductGroup = {
 
 export type ProductKpis = {
   unitsSold: number;
-  totalRevenue: number;
-  collectedRevenue: number;
-  pendingRevenue: number;
+  totalRevenue: number | null;
+  collectedRevenue: number | null;
+  pendingRevenue: number | null;
   unitsThisMonth: number;
-  revenueThisMonth: number;
+  revenueThisMonth: number | null;
   currency: string;
 };
 
@@ -79,7 +82,7 @@ export type ProductSizeStat = {
   size: string | null;
   isGoalkeeper: boolean | null;
   units: number;
-  revenue: number;
+  revenue: number | null;
 };
 
 export type ProductSale = {
@@ -200,6 +203,16 @@ export type ProductMetricPageData =
 
 const PRODUCT_PAGE_SIZE = 25;
 
+async function readPages<T>(build: (offset: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
+  const data: T[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await build(offset);
+    if (page.error) throw page.error;
+    data.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < 500) return { data };
+  }
+}
+
 function getBirthYear(value: string | null | undefined) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -257,27 +270,28 @@ async function loadConfirmedAllocationTotals(
   };
 
   const postedAllocations: AllocationRow[] = [];
-  for (let index = 0; index < chargeIds.length; index += 500) {
-    const chunk = chargeIds.slice(index, index + 500);
-    const { data: allocations } = await supabase
+  for (let index = 0; index < chargeIds.length; index += 100) {
+    const chunk = chargeIds.slice(index, index + 100);
+    const { data: allocations } = await readPages<AllocationRow>(offset => supabase
       .from("payment_allocations")
       .select("charge_id, payment_id, amount, payments!inner(status)")
       .in("charge_id", chunk)
-      .returns<AllocationRow[]>();
+      .order("id").range(offset, offset + 499).returns<AllocationRow[]>());
 
     postedAllocations.push(...((allocations ?? []).filter((row) => row.payments?.status === "posted")));
   }
 
   const paymentIds = Array.from(new Set(postedAllocations.map((row) => row.payment_id).filter(Boolean)));
   const refundedPaymentIds = new Set<string>();
-  for (let index = 0; index < paymentIds.length; index += 500) {
-    const chunk = paymentIds.slice(index, index + 500);
-    const { data: refunds } = await supabase
+  for (let index = 0; index < paymentIds.length; index += 100) {
+    const chunk = paymentIds.slice(index, index + 100);
+    const { data: refunds, error: refundError } = await supabase
       .from("payment_refunds")
       .select("payment_id")
       .in("payment_id", chunk)
       .returns<Array<{ payment_id: string }>>();
 
+    if (refundError) throw refundError;
     for (const refund of refunds ?? []) {
       refundedPaymentIds.add(refund.payment_id);
     }
@@ -335,9 +349,10 @@ export { getProductMetricLabel };
 // ── Catalog query (all products incl. inactive, grouped for admin view) ───────
 
 export async function getProductCatalog(): Promise<ProductGroup[]> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return [];
-  const supabase = await createClient();
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return [];
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type Row = {
     id: string;
@@ -421,9 +436,10 @@ export type ProductTrainingGroupOption = {
 };
 
 export async function getProductDetail(productId: string): Promise<ProductDetail | null> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return null;
-  const supabase = await createClient();
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return null;
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type Row = {
     id: string;
@@ -466,9 +482,10 @@ export async function getProductDetail(productId: string): Promise<ProductDetail
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
 export async function getProductTrainingGroupOptions(): Promise<ProductTrainingGroupOption[]> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return [];
-  const supabase = await createClient();
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return [];
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type Row = {
     id: string;
@@ -483,6 +500,7 @@ export async function getProductTrainingGroupOptions(): Promise<ProductTrainingG
     .from("training_groups")
     .select("id, name, status, birth_year_min, birth_year_max, campuses(name)")
     .in("status", ["active", "projected"])
+    .in("campus_id", readerContext.campusAccess?.campusIds ?? [])
     .order("birth_year_max", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true })
     .returns<Row[]>();
@@ -497,39 +515,41 @@ export async function getProductTrainingGroupOptions(): Promise<ProductTrainingG
 }
 
 export async function getProductKpis(productId: string, currency: string): Promise<ProductKpis> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) {
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) {
     return {
       unitsSold: 0,
-      totalRevenue: 0,
-      collectedRevenue: 0,
-      pendingRevenue: 0,
+      totalRevenue: permissionContext.isDirectorReadOnly ? null : 0,
+      collectedRevenue: permissionContext.isDirectorReadOnly ? null : 0,
+      pendingRevenue: permissionContext.isDirectorReadOnly ? null : 0,
       unitsThisMonth: 0,
-      revenueThisMonth: 0,
+      revenueThisMonth: permissionContext.isDirectorReadOnly ? null : 0,
       currency,
     };
   }
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   const monthStart = getCurrentMonthStartIso();
 
   type ChargeRow = { id: string; amount: number; created_at: string };
 
-  const { data } = await supabase
+  const { data } = await readPages<ChargeRow>(offset => supabase
     .from("charges")
-    .select("id, amount, created_at")
+    .select("id, amount, created_at, enrollments!inner(campus_id)")
+    .in("enrollments.campus_id", readerContext.campusAccess?.campusIds ?? [])
     .eq("product_id", productId)
     .neq("status", "void")
-    .returns<ChargeRow[]>();
+    .order("id").range(offset, offset + 499).returns<ChargeRow[]>());
 
   if (!data || data.length === 0) {
     return {
       unitsSold: 0,
-      totalRevenue: 0,
-      collectedRevenue: 0,
-      pendingRevenue: 0,
+      totalRevenue: permissionContext.isDirectorReadOnly ? null : 0,
+      collectedRevenue: permissionContext.isDirectorReadOnly ? null : 0,
+      pendingRevenue: permissionContext.isDirectorReadOnly ? null : 0,
       unitsThisMonth: 0,
-      revenueThisMonth: 0,
+      revenueThisMonth: permissionContext.isDirectorReadOnly ? null : 0,
       currency,
     };
   }
@@ -553,11 +573,11 @@ export async function getProductKpis(productId: string, currency: string): Promi
 
   return {
     unitsSold,
-    totalRevenue: roundedTotalRevenue,
-    collectedRevenue,
-    pendingRevenue: Math.max(roundMoney(roundedTotalRevenue - collectedRevenue), 0),
+    totalRevenue: permissionContext.isDirectorReadOnly ? null : roundedTotalRevenue,
+    collectedRevenue: permissionContext.isDirectorReadOnly ? null : collectedRevenue,
+    pendingRevenue: permissionContext.isDirectorReadOnly ? null : Math.max(roundMoney(roundedTotalRevenue - collectedRevenue), 0),
     unitsThisMonth,
-    revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
+    revenueThisMonth: permissionContext.isDirectorReadOnly ? null : Math.round(revenueThisMonth * 100) / 100,
     currency
   };
 }
@@ -565,18 +585,20 @@ export async function getProductKpis(productId: string, currency: string): Promi
 // ── Size breakdown ────────────────────────────────────────────────────────────
 
 export async function getProductSizeStats(productId: string): Promise<ProductSizeStat[]> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return [];
-  const supabase = await createClient();
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return [];
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type Row = { size: string | null; is_goalkeeper: boolean | null; amount: number };
 
-  const { data } = await supabase
+  const { data } = await readPages<Row>(offset => supabase
     .from("charges")
-    .select("size, is_goalkeeper, amount")
+    .select("size, is_goalkeeper, amount, enrollments!inner(campus_id)")
+    .in("enrollments.campus_id", readerContext.campusAccess?.campusIds ?? [])
     .eq("product_id", productId)
     .neq("status", "void")
-    .returns<Row[]>();
+    .order("id").range(offset, offset + 499).returns<Row[]>());
 
   if (!data || data.length === 0) return [];
 
@@ -586,13 +608,13 @@ export async function getProductSizeStats(productId: string): Promise<ProductSiz
     const existing = map.get(key);
     if (existing) {
       existing.units++;
-      existing.revenue = Math.round((existing.revenue + row.amount) * 100) / 100;
+      existing.revenue = Math.round(((existing.revenue ?? 0) + row.amount) * 100) / 100;
     } else {
       map.set(key, { size: row.size, isGoalkeeper: row.is_goalkeeper, units: 1, revenue: row.amount });
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => {
+  return Array.from(map.values()).map(row => readerContext.isDirectorReadOnly ? { ...row, revenue: null } : row).sort((a, b) => {
     if (!a.size && b.size) return 1;
     if (a.size && !b.size) return -1;
     return (a.size ?? "").localeCompare(b.size ?? "");
@@ -656,8 +678,8 @@ export async function getProductRecentSalesPage(
   paidFrom: string | null = null,
   paidTo: string | null = null,
 ): Promise<ProductPagedSales> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) {
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) {
     return {
       rows: [],
       page: 1,
@@ -667,7 +689,8 @@ export async function getProductRecentSalesPage(
       hasNextPage: false,
     };
   }
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type AssignedTeamRow = {
     name?: string;
@@ -700,7 +723,7 @@ export async function getProductRecentSalesPage(
   };
 
   const safePage = normalizePage(page);
-  const { data, error } = await supabase.rpc("get_product_charge_ledger", {
+  const { data, error } = await (readerContext.isDirectorReadOnly ? readerContext.supabase : supabase).rpc(readerContext.isDirectorReadOnly ? "director_product_charge_ledger" : "get_product_charge_ledger", {
     p_product_id: productId,
     p_paid_from: paidFrom,
     p_paid_to: paidTo,
@@ -786,20 +809,21 @@ export async function getProductChargeLedgerExportData({
   paidFromTimestamp: string | null;
   paidToTimestamp: string | null;
 }): Promise<ProductChargeLedgerExportData | null> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return null;
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return null;
 
   const product = await getProductDetail(productId);
   if (!product) return null;
 
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
   const pageSize = 100;
   const maximumRows = 20_000;
   const rows: ProductSale[] = [];
   let totalCount = 0;
 
   do {
-    const { data, error } = await supabase.rpc("get_product_charge_ledger", {
+    const { data, error } = await (readerContext.isDirectorReadOnly ? readerContext.supabase : supabase).rpc(readerContext.isDirectorReadOnly ? "director_product_charge_ledger" : "get_product_charge_ledger", {
       p_product_id: productId,
       p_paid_from: paidFromTimestamp,
       p_paid_to: paidToTimestamp,
@@ -829,8 +853,8 @@ export async function getProductChargeLedgerExportData({
 }
 
 export async function getProductReconciliation(productId: string): Promise<ProductReconciliation> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) {
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) {
     return {
       chargeRows: 0,
       uniqueEnrollmentsWithCharge: 0,
@@ -843,7 +867,8 @@ export async function getProductReconciliation(productId: string): Promise<Produ
     };
   }
 
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type ChargeRow = {
     id: string;
@@ -858,14 +883,15 @@ export async function getProductReconciliation(productId: string): Promise<Produ
     } | null;
   };
 
-  const { data: charges } = await supabase
+  const { data: charges } = await readPages<ChargeRow>(offset => supabase
     .from("charges")
-    .select("id, enrollment_id, description, amount, created_at, enrollments(id, campuses(name), players(first_name, last_name, birth_date))")
+    .select("id, enrollment_id, description, amount, created_at, enrollments!inner(id, campuses(name), players(first_name, last_name, birth_date))")
+    .in("enrollments.campus_id", readerContext.campusAccess?.campusIds ?? [])
     .eq("product_id", productId)
     .neq("status", "void")
     .gt("amount", 0)
     .order("created_at", { ascending: true })
-    .returns<ChargeRow[]>();
+    .order("id").range(offset, offset + 499).returns<ChargeRow[]>());
 
   const chargeRows = charges ?? [];
   if (chargeRows.length === 0) {
@@ -990,17 +1016,19 @@ async function getProductChargeRowsForMetric(
   filter: "all" | "this_month",
   page: number,
 ): Promise<ProductMetricPageData & { metric: "charges_registered" | "charges_this_month" }> {
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
   const safePage = normalizePage(page);
   const monthStart = getCurrentMonthStartIso();
 
   let query = supabase
     .from("charges")
     .select(
-      "id, description, amount, currency, created_at, enrollment_id, enrollments(campuses(name), players(first_name, last_name))",
+      "id, description, amount, currency, created_at, enrollment_id, enrollments!inner(campuses(name), players(first_name, last_name))",
       { count: "exact" },
     )
     .eq("product_id", productId)
+    .in("enrollments.campus_id", readerContext.campusAccess?.campusIds ?? [])
     .neq("status", "void")
     .order("created_at", { ascending: false });
 
@@ -1008,9 +1036,10 @@ async function getProductChargeRowsForMetric(
     query = query.gte("created_at", monthStart);
   }
 
-  const { data, count } = await query
+  const { data, count, error } = await query
     .range((safePage - 1) * PRODUCT_PAGE_SIZE, safePage * PRODUCT_PAGE_SIZE - 1)
     .returns<ProductChargeDrilldownRow[]>();
+  if (error) throw error;
   const pageMeta = buildPageMeta(count ?? 0, safePage, PRODUCT_PAGE_SIZE);
 
   return {
@@ -1040,7 +1069,8 @@ async function getProductPlayerRowsForMetric(
   filter: "all" | "fully_paid",
   page: number,
 ): Promise<ProductMetricPageData & { metric: "players_with_charge" | "players_fully_paid" }> {
-  const supabase = await createClient();
+  const readerContext = await requireDirectorPageReader();
+  const supabase = readerContext.isDirectorReadOnly ? createAdminClient() : await createClient();
 
   type ChargeRow = {
     id: string;
@@ -1053,12 +1083,13 @@ async function getProductPlayerRowsForMetric(
     } | null;
   };
 
-  const { data: charges } = await supabase
+  const { data: charges } = await readPages<ChargeRow>(offset => supabase
     .from("charges")
-    .select("id, amount, created_at, enrollment_id, enrollments(campuses(name), players(first_name, last_name))")
+    .select("id, amount, created_at, enrollment_id, enrollments!inner(campuses(name), players(first_name, last_name))")
+    .in("enrollments.campus_id", readerContext.campusAccess?.campusIds ?? [])
     .eq("product_id", productId)
     .neq("status", "void")
-    .returns<ChargeRow[]>();
+    .order("id").range(offset, offset + 499).returns<ChargeRow[]>());
 
   const positiveCharges = (charges ?? []).filter((charge) => charge.amount > 0);
   const allocationTotals =
@@ -1144,8 +1175,8 @@ export async function getProductMetricPageData(
   metric: ProductMetricKey,
   page = 1,
 ): Promise<ProductMetricPageData | null> {
-  const permissionContext = await getPermissionContext();
-  if (!permissionContext?.isDirector) return null;
+  const permissionContext = await requireDirectorPageReader();
+  if (!permissionContext?.isDirector && !permissionContext?.isDirectorReadOnly) return null;
 
   switch (metric) {
     case "charges_registered":

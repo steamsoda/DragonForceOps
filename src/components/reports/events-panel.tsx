@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly, ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useState, useTransition } from "react";
 import {
@@ -26,10 +27,12 @@ function fmtCost(n: number) {
 }
 
 export function EventsPanel({ events, month, campuses }: Props) {
+  const readOnly = useReadOnly();
   const [showForm, setShowForm] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function handleCreate(formData: FormData) {
+    if (readOnly) return;
     startTransition(async () => {
       await createAcademyEventAction(month, formData);
       setShowForm(false);
@@ -37,12 +40,14 @@ export function EventsPanel({ events, month, campuses }: Props) {
   }
 
   function handleToggle(event: AcademyEvent) {
+    if (readOnly) return;
     startTransition(async () => {
       await toggleEventDoneAction(event.id, !event.isDone, event.actualDate);
     });
   }
 
   function handleDelete(eventId: string) {
+    if (readOnly) return;
     if (!confirm("¿Eliminar este evento?")) return;
     startTransition(async () => {
       await deleteAcademyEventAction(eventId);
@@ -95,7 +100,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
                     {ev.cost != null ? fmtCost(ev.cost) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button
+                    <WriteButton
                       onClick={() => handleToggle(ev)}
                       disabled={isPending}
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -105,7 +110,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
                       }`}
                     >
                       {ev.isDone ? "Realizado" : "Pendiente"}
-                    </button>
+                    </WriteButton>
                   </td>
                   <td className="px-3 py-2 text-center text-slate-600 dark:text-slate-400">
                     {ev.evaluation != null ? `${ev.evaluation}/5` : <span className="text-slate-300">—</span>}
@@ -114,13 +119,13 @@ export function EventsPanel({ events, month, campuses }: Props) {
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
+                    <WriteButton
                       onClick={() => handleDelete(ev.id)}
                       disabled={isPending}
                       className="text-xs text-rose-400 hover:text-rose-600"
                     >
                       Eliminar
-                    </button>
+                    </WriteButton>
                   </td>
                 </tr>
               ))}
@@ -131,7 +136,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
 
       {/* Add form */}
       {showForm ? (
-        <form
+        <ReadOnlyForm
           action={handleCreate}
           className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
         >
@@ -252,13 +257,13 @@ export function EventsPanel({ events, month, campuses }: Props) {
           </div>
 
           <div className="flex gap-2 pt-1">
-            <button
+            <WriteButton
               type="submit"
               disabled={isPending}
               className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:opacity-50"
             >
               {isPending ? "Guardando…" : "Guardar evento"}
-            </button>
+            </WriteButton>
             <button
               type="button"
               onClick={() => setShowForm(false)}
@@ -267,7 +272,7 @@ export function EventsPanel({ events, month, campuses }: Props) {
               Cancelar
             </button>
           </div>
-        </form>
+        </ReadOnlyForm>
       ) : (
         <button
           onClick={() => setShowForm(true)}

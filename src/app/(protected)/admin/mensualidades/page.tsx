@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { generateMonthlyTuitionAction } from "@/server/actions/billing";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -29,7 +30,7 @@ function getCurrentMonthValue() {
 }
 
 export default async function MensualidadesPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
   const params = await searchParams;
   const ok = params.ok === "1";
   const created = parseInt(params.created ?? "0", 10);
@@ -77,7 +78,7 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
           </div>
         )}
 
-        <form action={generateMonthlyTuitionAction} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+        <ReadOnlyForm action={generateMonthlyTuitionAction} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Mes a generar</label>
             <input
@@ -92,13 +93,13 @@ export default async function MensualidadesPage({ searchParams }: { searchParams
             </p>
           </div>
 
-          <button
+          <WriteButton
             type="submit"
             className="rounded-md bg-portoBlue px-5 py-2 text-sm font-medium text-white hover:bg-portoDark"
           >
             Generar mensualidades
-          </button>
-        </form>
+          </WriteButton>
+        </ReadOnlyForm>
 
         <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">
           <p className="font-medium text-slate-700 dark:text-slate-300">Notas</p>

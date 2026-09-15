@@ -204,18 +204,21 @@ async function getAttendanceSaveSnapshot(admin: ReturnType<typeof createAdminCli
 
 async function requireScheduleManager() {
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) redirect("/unauthorized");
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) redirect("/attendance/schedules?err=unauthorized");
   return { context, admin: createAdminClient() };
 }
 
 async function requireAttendanceGenerator() {
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) redirect("/unauthorized");
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) redirect("/attendance?err=generator_manager_required");
   return { context, admin: createAdminClient() };
 }
 
 async function requireClosureManager(campusId: string | null) {
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) redirect("/unauthorized");
   if (!context?.hasAttendanceWriteAccess || (!context.isDirector && !context.isSportsDirector)) {
     redirect("/attendance/calendar?err=closure_manager_required");
   }
@@ -673,6 +676,7 @@ export async function createManualAttendanceSessionAction(formData: FormData) {
 export async function cancelAttendanceSessionAction(sessionId: string, formData: FormData) {
   await assertDebugWritesAllowed(`/attendance/sessions/${sessionId}`);
   const context = await requireAttendanceWriteContext("/unauthorized");
+  if (context.isDirectorReadOnly) redirect("/unauthorized");
   const admin = createAdminClient();
   const reasonCode = clean(formData.get("cancelled_reason_code"));
   const reason = clean(formData.get("cancelled_reason")) || null;
@@ -851,6 +855,7 @@ async function requireAttendanceSaveContext(readOnlyRedirectTo: string) {
 
   const roleRows = debugContext.effective.roleRows;
   const roleCodes = debugContext.effective.roleCodes;
+  if (roleCodes.includes(APP_ROLES.DIRECTOR_READONLY)) redirect("/unauthorized");
   const isSuperAdmin = roleCodes.includes(APP_ROLES.SUPERADMIN);
   const isDirector = isSuperAdmin || roleCodes.includes(APP_ROLES.DIRECTOR_ADMIN);
   const sportsRows = roleRows.filter((row) => row.app_roles?.code === APP_ROLES.DIRECTOR_DEPORTIVO);

@@ -21,7 +21,7 @@ const resources = {
   player_measurement_sessions: z.object({ id, enrollment_id: id }),
   products: z.object({ id, name: z.string(), is_active: z.boolean() }),
   attendance_sessions: z.object({ id, campus_id: id, session_date: z.string(), status: z.string() }),
-  attendance_records: z.object({ id, session_id: id, status: z.string() }),
+  attendance_records: z.object({ id, session_id: id, player_id: id, status: z.string() }),
   trial_prospects: z.object({ id, campus_id: id, preferred_training_group_id: id.nullable(), first_name: z.string(), last_name: z.string(), birth_date: z.string(), gender: z.enum(["male", "female"]), guardian_name: text, guardian_phone: z.string(), status: z.enum(["active", "converted", "closed"]), created_at: z.string() }),
   trial_visits: z.object({ id, prospect_id: id, campus_id: id, training_group_id: id, visit_date: z.string(), visit_number: z.number().int() }),
   uniform_orders: z.object({ id, player_id: id, enrollment_id: id, uniform_type: z.enum(["training", "game"]), size: text, status: z.enum(["pending_order", "ordered", "delivered"]), ordered_at: text, delivered_at: text }),
@@ -167,7 +167,7 @@ export async function assembleManagementData(resource: string, filters: Filters,
         birthYear: year(p.birth_date), gender: p.gender, genderLabel: p.gender === "male" ? "Varonil" : p.gender === "female" ? "Femenil" : "Sin genero",
         currentTeamId: team?.id ?? null, currentTeamName: team?.name ?? null, currentTrainingGroupId: group?.id ?? null, currentTrainingGroupName: group ? groupName(group) : null,
         resolvedLevel: team?.level == null && p.level == null ? null : String(team?.level ?? p.level), sportsComplete: e.status === "active" && !!group, nutritionComplete: e.status === "active" && measured.has(e.id),
-        sportsActionHref: null, nutritionActionHref: null, playerActionHref: null };
+        sportsActionHref: `/attendance/settings?campus=${c.id}${year(p.birth_date) ? `&birthYear=${year(p.birth_date)}` : ""}`, nutritionActionHref: `/nutrition/players/${p.id}`, playerActionHref: `/players/${p.id}` };
     }).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.enrollmentId.localeCompare(b.enrollmentId));
     const filtered = allRows.filter((r) => (selectedYear === null || r.birthYear === selectedYear) && (status === "all" || (r.status === "active" && (status === "pending_sports" ? !r.sportsComplete : status === "pending_nutrition" ? !r.nutritionComplete : r.sportsComplete && r.nutritionComplete))));
     const counts = (rows: typeof allRows) => ({ total: rows.length, pendingSports: rows.filter((r) => r.status === "active" && !r.sportsComplete).length, pendingNutrition: rows.filter((r) => r.status === "active" && !r.nutritionComplete).length, complete: rows.filter((r) => r.status === "active" && r.sportsComplete && r.nutritionComplete).length });
@@ -180,11 +180,17 @@ export async function assembleManagementData(resource: string, filters: Filters,
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("invalid_month");
     const enrollments = (await read("enrollments")).filter((e) => !scoped.selectedCampusId || e.campus_id === scoped.selectedCampusId);
     const week = getMonterreyWeekBounds(), start = day(week.start), end = day(week.end);
-    const sessions = new Set((await read("attendance_sessions")).filter((s) => (!scoped.selectedCampusId || s.campus_id === scoped.selectedCampusId) && s.status === "completed" && s.session_date >= start && s.session_date < end).map((s) => s.id));
-    const records = (await read("attendance_records")).filter((r) => sessions.has(r.session_id));
+    const completedSessions = (await read("attendance_sessions")).filter((s) => (!scoped.selectedCampusId || s.campus_id === scoped.selectedCampusId) && s.status === "completed");
+    const sessions = new Set(completedSessions.filter((s) => s.session_date >= start && s.session_date < end).map((s) => s.id));
+    const allRecords = await read("attendance_records");
+    const records = allRecords.filter((r) => sessions.has(r.session_id));
+    const monthlySessions = new Set(completedSessions.filter((s) => s.session_date.startsWith(month)).map((s) => s.id));
+    const activePlayers = new Set(enrollments.filter((e) => e.status === "active").map((e) => e.player_id));
+    const attendedPlayers = new Set(allRecords.filter((r) => monthlySessions.has(r.session_id) && r.status === "present" && activePlayers.has(r.player_id)).map((r) => r.player_id));
     return { campuses: scoped.campuses.map(({ id, name }) => ({ id, name })), selectedCampusId: scoped.selectedCampusId, selectedMonth: month,
       activeEnrollments: enrollments.filter((e) => e.status === "active").length, newEnrollmentsThisMonth: enrollments.filter((e) => day(e.created_at).startsWith(month)).length,
-      bajasThisMonth: enrollments.filter((e) => e.status === "ended" && e.end_date?.startsWith(month)).length, attendanceRateThisWeek: records.length ? Math.round(records.filter((r) => r.status === "present").length / records.length * 1000) / 10 : null, attendanceRecordsThisWeek: records.length };
+      bajasThisMonth: enrollments.filter((e) => e.status === "ended" && e.end_date?.startsWith(month)).length, attendanceRateThisWeek: records.length ? Math.round(records.filter((r) => r.status === "present").length / records.length * 1000) / 10 : null, attendanceRecordsThisWeek: records.length,
+      attendedPlayersThisMonth: attendedPlayers.size, playersWithoutAttendanceThisMonth: activePlayers.size - attendedPlayers.size };
   }
   if (resource === "director_readonly_uniforms_v1") {
     const data = await roster(read, filters, false), q = search(filters), type = choice(filters.type, ["", "training", "game"], ""), queue = choice(filters.queue, ["all", "pending_order", "ordered", "pending_delivery", "delivered"], "all");

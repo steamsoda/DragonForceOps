@@ -57,7 +57,7 @@ assert.match(actions, /p_source_squad_id: sourceSquadId/);
 assert.match(actions, /p_destination_squad_id: destinationSquadId/);
 
 assert.match(liveView, /Editar jugadores/);
-assert.match(liveView, /draggable=\{editMode && movingEnrollmentId === null\}/);
+assert.match(liveView, /draggable=\{!readOnly && editMode && movingEnrollmentId === null\}/);
 assert.match(liveView, /onDrop=/);
 assert.match(liveView, /Mover a\.\.\./);
 assert.match(liveView, /const previousData = data/);

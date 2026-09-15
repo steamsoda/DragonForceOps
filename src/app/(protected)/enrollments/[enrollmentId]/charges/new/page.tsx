@@ -1,7 +1,7 @@
 import { PageShell } from "@/components/ui/page-shell";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getEnrollmentChargeFormContext } from "@/lib/queries/billing";
 import { getProductsForCajaAction } from "@/server/actions/caja";
 import { ChargeProductGrid } from "@/components/billing/charge-product-grid";
@@ -12,11 +12,11 @@ export default async function ChargeCreatePage({
   params: Promise<{ enrollmentId: string }>;
 }) {
   const { enrollmentId } = await params;
-  await requireOperationalContext("/unauthorized");
+  const permissionContext = await requireOperationalPageReader();
 
   const [context, products] = await Promise.all([
     getEnrollmentChargeFormContext(enrollmentId),
-    getProductsForCajaAction(),
+    getProductsForCajaAction(permissionContext.isDirectorReadOnly ? enrollmentId : undefined, permissionContext.isDirectorReadOnly),
   ]);
 
   if (!context) notFound();

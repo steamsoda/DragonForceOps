@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CallupsReadPage } from "@/components/sports/competition-read-views";
+import { ReadOnlyForm } from "@/components/auth/read-only-controls";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { WeeklyCallupDeleteButton } from "@/components/weekly-callups/delete-button";
@@ -70,10 +70,10 @@ function SavedCallupCards({ callups, canDelete }: { callups: WeeklyCallupListRow
               Abrir convocatoria
             </Link>
             {canDelete ? (
-              <form action={deleteWeeklyCallupAction}>
+              <ReadOnlyForm action={deleteWeeklyCallupAction}>
                 <input type="hidden" name="callupId" value={callup.id} />
                 <WeeklyCallupDeleteButton />
-              </form>
+              </ReadOnlyForm>
             ) : null}
           </div>
         </article>
@@ -85,7 +85,7 @@ function SavedCallupCards({ callups, canDelete }: { callups: WeeklyCallupListRow
 export default async function WeeklyCallupsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return <CallupsReadPage filters={params} />;
+
   if (permission?.isCoach && !permission.isDirector && !permission.isSportsDirector && !permission.isFrontDesk) {
     const debugContext = await getDebugViewContext();
     const coachData = await getCoachSchedulePageData(params.week);
@@ -121,7 +121,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
     : data.defaultCampusId;
   const selectedProgram = params.program === "selectivo" ? "selectivo" : "futbol_para_todos";
   const previousCallups = data.callups.filter((callup) => callup.weekStart !== data.currentWeekStart);
-  const adminScheduleDetail = params.detail === "horarios" && permission?.isSportsDirector
+  const adminScheduleDetail = params.detail === "horarios" && (permission?.isSportsDirector || permission?.isDirectorReadOnly)
     ? await getAdminScheduleDetailData(data, selectedCampusId, selectedProgram)
     : null;
 
@@ -153,7 +153,7 @@ export default async function WeeklyCallupsPage({ searchParams }: { searchParams
           data={data}
           selectedCampusId={selectedCampusId}
           selectedProgram={selectedProgram}
-          canManageSchedules={Boolean(permission?.isSportsDirector)}
+          canManageSchedules={Boolean(permission?.isSportsDirector || permission?.isDirectorReadOnly)}
         />
 
         {adminScheduleDetail ? (

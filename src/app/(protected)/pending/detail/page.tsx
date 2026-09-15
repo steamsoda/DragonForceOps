@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getSafePendingReturnTo } from "@/lib/navigation/pending-return";
 import { getPendingTuitionCategoryDetailData, type PendingTuitionPlayer } from "@/lib/queries/tuition-pending";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
@@ -74,7 +74,7 @@ function groupPlayersByBirthYear(players: PendingTuitionPlayer[]) {
 }
 
 export default async function PendingTuitionDetailPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireOperationalContext("/unauthorized");
+  await requireOperationalPageReader();
 
   const params = await searchParams;
   const data = await getPendingTuitionCategoryDetailData({

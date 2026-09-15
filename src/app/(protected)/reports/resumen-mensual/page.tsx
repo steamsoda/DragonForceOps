@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
 import { listCampuses } from "@/lib/queries/players";
-import { getResumenMensualData } from "@/lib/queries/reports";
+import { getMonthlyReportPresentation } from "@/lib/queries/director-report-presentation";
 import { MONTH_NAMES_ES } from "@/lib/billing/generate-monthly-charges";
 
-function fmt(value: number) {
+function fmt(value: number | null) {
+  if (value === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
@@ -22,17 +23,17 @@ function monthLabel(month: string) {
 type SearchParams = Promise<{ month?: string; campus?: string }>;
 
 export default async function ResumenMensualPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
   const params = await searchParams;
   const selectedMonth = params.month ?? "";
   const selectedCampusId = params.campus ?? "";
 
   const [campuses, data] = await Promise.all([
     listCampuses(),
-    getResumenMensualData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
+    getMonthlyReportPresentation({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
   ]);
 
-  const balanceNet = data.totalCobrado - data.totalCargosEmitidos;
+  const balanceNet = data.totalCobrado === null || data.totalCargosEmitidos === null ? null : data.totalCobrado - data.totalCargosEmitidos;
 
   return (
     <PageShell title="Resumen Mensual" subtitle="Resumen financiero operativo por mes">
@@ -87,7 +88,7 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
           </div>
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
             <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Saldo pendiente</p>
-            <p className={`mt-1 text-2xl font-semibold ${data.pendingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+            <p className={`mt-1 text-2xl font-semibold ${data.pendingBalance === null ? "text-slate-500" : data.pendingBalance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
               {fmt(data.pendingBalance)}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Inscripciones activas con saldo positivo</p>
@@ -113,8 +114,8 @@ export default async function ResumenMensualPage({ searchParams }: { searchParam
 
         <div className="flex items-center gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
           <span className="text-sm text-slate-600 dark:text-slate-400">Diferencia cobrado - cargos ({monthLabel(data.month)}):</span>
-          <span className={`text-sm font-semibold ${balanceNet >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(balanceNet)}</span>
-          {balanceNet < 0 && <span className="text-xs text-slate-400">(saldo sin cobrar del periodo)</span>}
+          <span className={`text-sm font-semibold ${balanceNet === null ? "text-slate-500" : balanceNet >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{fmt(balanceNet)}</span>
+          {balanceNet !== null && balanceNet < 0 && <span className="text-xs text-slate-400">(saldo sin cobrar del periodo)</span>}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

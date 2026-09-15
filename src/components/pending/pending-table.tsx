@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -141,6 +142,7 @@ function InlineDropoutPanel({
   onDropped: () => void;
 }) {
   const [endDate, setEndDate] = useState(getMonterreyDateString());
+  const readOnly = useReadOnly();
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState(defaultNotes);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +150,7 @@ function InlineDropoutPanel({
   const [isPending, startTransition] = useTransition();
 
   function handleDropout() {
+    if (readOnly) return;
     setSaved(false);
     setError(null);
     const formData = new FormData();
@@ -231,14 +234,14 @@ function InlineDropoutPanel({
         />
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <WriteButton
           type="button"
           onClick={handleDropout}
           disabled={isPending}
           className="rounded bg-rose-600 px-3 py-1.5 font-medium text-white hover:bg-rose-700 disabled:opacity-50"
         >
           {isPending ? "Registrando..." : "Confirmar baja"}
-        </button>
+        </WriteButton>
         {saved ? <span className="text-emerald-700 dark:text-emerald-300">Baja registrada</span> : null}
       </div>
       {error ? <p className="text-rose-700 dark:text-rose-300">{error}</p> : null}
@@ -256,6 +259,7 @@ function InlineInjuryPanel({
   onSaved: (omittedMonths: string[]) => void;
 }) {
   const [startsOn, setStartsOn] = useState(new Date().toISOString().split("T")[0]);
+  const readOnly = useReadOnly();
   const [endsOn, setEndsOn] = useState("");
   const [note, setNote] = useState(defaultNotes);
   const [omitMode, setOmitMode] = useState<"none" | "one" | "two">("none");
@@ -283,6 +287,7 @@ function InlineInjuryPanel({
   }
 
   function handleSave() {
+    if (readOnly) return;
     setSaved(false);
     setError(null);
     const formData = new FormData();
@@ -412,14 +417,14 @@ function InlineInjuryPanel({
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <WriteButton
           type="button"
           onClick={handleSave}
           disabled={isPending}
           className="rounded bg-sky-700 px-3 py-1.5 font-medium text-white hover:bg-sky-800 disabled:opacity-50"
         >
           {isPending ? "Registrando..." : "Registrar lesion"}
-        </button>
+        </WriteButton>
         {saved ? <span className="text-emerald-700 dark:text-emerald-300">Lesion registrada</span> : null}
       </div>
       {error ? <p className="text-sky-900 dark:text-sky-100">{error}</p> : null}
@@ -441,6 +446,7 @@ function FollowUpCell({
   onRequestInjury: () => void;
 }) {
   const pathname = usePathname();
+  const readOnly = useReadOnly();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<PendingFollowUpStatus>(row.followUpStatus);
   const [note, setNote] = useState(row.followUpNote ?? "");
@@ -451,6 +457,7 @@ function FollowUpCell({
   const [isPending, startTransition] = useTransition();
 
   function saveFollowUp(nextStatus: PendingFollowUpStatus, nextNote: string, nextPromiseDate: string, options?: { silent?: boolean }) {
+    if (readOnly) return;
     setSaved(false);
     setError(null);
     startTransition(async () => {
@@ -553,14 +560,14 @@ function FollowUpCell({
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <WriteButton
           type="button"
           onClick={handleSave}
           disabled={isPending}
           className="rounded bg-portoBlue px-2.5 py-1 text-xs font-medium text-white hover:bg-portoDark disabled:opacity-50"
         >
           {isPending ? "..." : "Guardar"}
-        </button>
+        </WriteButton>
         {isNoReturn ? (
           <>
             <button

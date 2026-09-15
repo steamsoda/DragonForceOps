@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const attendance = await readFile("src/lib/queries/attendance.ts", "utf8");
 const dashboard = await readFile("src/lib/queries/dashboard.ts", "utf8");
-const page = await readFile("src/app/(protected)/dashboard/page.tsx", "utf8");
+const page = await readFile("src/components/dashboard/dashboard-view.tsx", "utf8");
 
 assert.match(attendance, /export async function getMonthlyAttendanceParticipation/);
 assert.match(attendance, /\.from\("enrollments"\)[\s\S]*?\.eq\("status", "active"\)/);

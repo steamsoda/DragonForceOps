@@ -1,3 +1,5 @@
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMonterreyMonthString } from "@/lib/time";
@@ -288,6 +290,8 @@ function summarizeCoaches(metrics: CoachTuitionGroupMetric[]) {
 }
 
 export async function getCoachTuitionReport(filters: { campusId?: string; month?: string; coachId?: string }): Promise<CoachTuitionReportData> {
+  const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
   const access = await getAttendanceCampusAccess();
   const selectedMonth = normalizeMonth(filters.month);
   const selectedPeriod = `${selectedMonth}-01`;

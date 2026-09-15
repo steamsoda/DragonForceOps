@@ -1,4 +1,5 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   formatCampusCompetitionTeamName,
@@ -429,7 +430,8 @@ export async function getAdminScheduleDetailData(
   program: WeeklyCallupProgram,
 ): Promise<AdminScheduleDetailData | null> {
   const context = await getPermissionContext();
-  if (!context?.isSportsDirector || !context.campusAccess?.campusIds.includes(campusId)) return null;
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  if ((!context?.isSportsDirector && !context?.isDirectorReadOnly) || !context.campusAccess?.campusIds.includes(campusId)) return null;
 
   const units = foundation.scheduleUnits.filter((unit) => unit.campusId === campusId && unit.program === program);
   const squadIds = units.map((unit) => unit.squadId);

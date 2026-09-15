@@ -23,7 +23,7 @@ assert.match(contextMigration, /competition_roster_squad_members/i, "ledger must
 assert.match(contextMigration, /tournament\.product_id = charge\.product_id/i, "team assignments must belong to the charged product");
 assert.doesNotMatch(contextMigration, /\b(insert|update|delete)\s+(into|public\.)/i, "ledger context migration must remain read-only");
 
-assert.match(query, /rpc\("get_product_charge_ledger"/, "product query must use the paginated ledger RPC");
+assert.match(query, /rpc\(readerContext\.isDirectorReadOnly \? "director_product_charge_ledger" : "get_product_charge_ledger"/, "product query must use the paginated ledger RPC");
 assert.match(query, /p_paid_from: paidFrom/, "query must pass the start boundary");
 assert.match(query, /p_paid_to: paidTo/, "query must pass the end boundary");
 assert.match(page, /getMonterreyDayBounds\(paidFrom\)\.start/, "start date must use Monterrey bounds");

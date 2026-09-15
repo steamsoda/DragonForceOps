@@ -32,12 +32,12 @@ export default async function TeamDetailPage({
 
   const [team, allTeams] = await Promise.all([
     getTeamDetail(teamId),
-    permission.isDirectorReadOnly ? Promise.resolve([]) : listTeams(),
+    listTeams(),
   ]);
 
   if (!team) notFound();
 
-  const isDirector = !permission.isDirectorReadOnly && permission.hasSportsAccess;
+  const isDirector = permission.isDirectorReadOnly || permission.hasSportsAccess;
 
   return (
     <PageShell

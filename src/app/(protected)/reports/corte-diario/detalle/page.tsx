@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireOperationalContext } from "@/lib/auth/permissions";
-import { getCorteCheckpointById, getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-checkpoints";
-import { getCorteDiarioData } from "@/lib/queries/reports";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { getCorteCheckpointById, getOrCreateCurrentCorteCheckpoint } from "@/lib/queries/corte-page-reader";
+import { getCortePresentation } from "@/lib/queries/corte-page-reader";
 import { formatDateTimeMonterrey } from "@/lib/time";
 import { DetailPrintButton } from "./detail-print-button";
 
-function fmt(value: number) {
+function fmt(value: number | null) {
+  if (value === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
@@ -19,7 +20,7 @@ type SearchParams = Promise<{ campus?: string; checkpoint?: string }>;
 
 export default async function CorteDiarioDetallePage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const permissionContext = await requireOperationalContext("/unauthorized");
+  const permissionContext = await requireOperationalPageReader();
   const campusAccess = permissionContext.campusAccess;
   const accessibleCampuses = campusAccess?.campuses ?? [];
 
@@ -40,7 +41,7 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
     redirect("/reports/corte-diario");
   }
 
-  const data = await getCorteDiarioData({
+  const data = await getCortePresentation({
     campusId: checkpoint.campusId,
     openedAt: checkpoint.openedAt,
     closedAt: checkpoint.status === "closed" ? checkpoint.closedAt : undefined,
@@ -119,7 +120,7 @@ export default async function CorteDiarioDetallePage({ searchParams }: { searchP
                   const row = data.byMethod.find((item) => item.method === method);
                   return (
                     <td key={`${method}-value`} className="border border-slate-300 px-2 py-1" colSpan={2}>
-                      {fmt(row?.total ?? 0)} · {row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}
+                      {fmt(permissionContext.isDirectorReadOnly ? null : row?.total ?? 0)} · {row?.count ?? 0} pago{(row?.count ?? 0) !== 1 ? "s" : ""}
                     </td>
                   );
                 })}

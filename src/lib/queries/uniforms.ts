@@ -1,5 +1,7 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getMonterreyWeekBounds } from "@/lib/time";
 
 type UniformOrderRecord = {
@@ -89,7 +91,8 @@ function getStatusLabel(status: "pending_order" | "ordered" | "delivered") {
 }
 
 export async function getUniformDashboardData(filters: UniformDashboardFilters = {}): Promise<UniformDashboardData> {
-  const campusAccess = await getOperationalCampusAccess();
+  const context = await requireOperationalPageReader();
+  const campusAccess = context.isDirectorReadOnly ? context.campusAccess : await getOperationalCampusAccess();
   const campuses = campusAccess?.campuses ?? [];
   const requestedCampusId = filters.campusId?.trim() ?? "";
   const selectedCampusId =
@@ -112,14 +115,22 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
     };
   }
 
-  const supabase = await createClient();
+  const supabase = context.isDirectorReadOnly ? createAdminClient() : await createClient();
   const weekBounds = getMonterreyWeekBounds();
-  const { data: orderRows } = await supabase
+  const orderRows: UniformOrderRecord[] = [];
+  for (let offset = 0; ; offset += 500) {
+  const { data: page, error: orderError } = await supabase
     .from("uniform_orders")
     .select(
-      "id, player_id, enrollment_id, charge_id, uniform_type, size, status, sold_at, ordered_at, delivered_at, notes, players(first_name, last_name, birth_date), enrollments(campus_id, campuses(id, name, code))"
+      "id, player_id, enrollment_id, charge_id, uniform_type, size, status, sold_at, ordered_at, delivered_at, notes, players(first_name, last_name, birth_date), enrollments!inner(campus_id, campuses(id, name, code))"
     )
+    .in("enrollments.campus_id", campusAccess.campusIds)
+    .order("id").range(offset, offset + 499)
     .returns<UniformOrderRecord[]>();
+  if (orderError) throw orderError;
+  orderRows.push(...(page ?? []));
+  if ((page?.length ?? 0) < 500) break;
+  }
 
   const filteredOrders = (orderRows ?? []).filter(
     (row) => row.enrollments?.campus_id && canAccessCampus(campusAccess, row.enrollments.campus_id)
@@ -131,13 +142,14 @@ export async function getUniformDashboardData(filters: UniformDashboardFilters =
     { description: string; isGoalkeeper: boolean; paymentId: string | null; folio: string | null }
   >();
 
-  if (chargeIds.length > 0) {
-    const { data: chargeRows } = await supabase
+  for (let offset = 0; offset < chargeIds.length; offset += 100) {
+    const { data: chargeRows, error: chargeError } = await supabase
       .from("charges")
       .select("id, description, is_goalkeeper, payment_allocations(amount, payments(id, folio, status, paid_at))")
-      .in("id", chargeIds)
+      .in("id", chargeIds.slice(offset, offset + 100))
       .returns<ChargePaymentRecord[]>();
 
+    if (chargeError) throw chargeError;
     for (const charge of chargeRows ?? []) {
       const latestPostedPayment = (charge.payment_allocations ?? [])
         .map((allocation) => allocation.payments)

@@ -1,4 +1,6 @@
 import "server-only";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireNutritionReadContext } from "@/lib/auth/permissions";
 import type { AccessibleCampus } from "@/lib/auth/campuses";
 import type { WhoGrowthReferenceRow } from "@/lib/nutrition/growth";
@@ -25,7 +27,7 @@ const CONTACT = "id,first_name,last_name,phone_primary,phone_secondary,email,rel
 
 // Only authenticated, guarded projections. Never fall back to service credentials.
 async function rows<T>(resource: Resource, columns: string, filters: Filters = {}): Promise<T[]> {
-  const context = await requireNutritionReadContext();
+  const context = await requireOperationalPageReader();
   if (!context.isDirectorReadOnly) throw new Error("director_readonly_required");
   if (filters.ids?.values.length === 0) return [];
   const result: T[] = [];
@@ -65,7 +67,14 @@ export function campuses() {
 type Player = NonNullable<ActiveNutritionEnrollmentRow["players"]> & { id: string };
 async function players(ids: string[]) {
   const data = await byIds<Omit<Player, "medical_notes">>("players", "id,public_player_id,first_name,last_name,birth_date,gender,level", "id", ids);
-  return data.map(row => ({ ...row, medical_notes: null }));
+  const notes = new Map<string, string | null>();
+  await requireOperationalPageReader();
+  for (let i = 0; i < data.length; i += 100) {
+    const { data: rows, error } = await createAdminClient().from("players").select("id,medical_notes").in("id", data.slice(i,i+100).map(row=>row.id));
+    if (error) throw error;
+    for (const row of rows ?? []) notes.set(row.id, row.medical_notes);
+  }
+  return data.map(row => ({ ...row, medical_notes: notes.get(row.id) ?? null }));
 }
 
 export async function enrollments(campusIds: string[], playerId?: string): Promise<ActiveNutritionEnrollmentRow[]> {
@@ -99,7 +108,14 @@ export async function assignments(campusId: string): Promise<NutritionTrainingGr
 export async function measurements(playerIds: string[]) {
   const data = await byIds<MeasurementSessionRow>("player_measurement_sessions", MEASUREMENTS, "player_id", playerIds,
     { order: [["measured_at", false], ["created_at", false]] });
-  return data.map(row => ({ ...row, notes: null })).sort((a, b) => b.measured_at.localeCompare(a.measured_at) || b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
+  const notes = new Map<string, string | null>();
+  await requireOperationalPageReader();
+  for (let i = 0; i < data.length; i += 100) {
+    const { data: rows, error } = await createAdminClient().from("player_measurement_sessions").select("id,notes").in("id", data.slice(i,i+100).map(row=>row.id));
+    if (error) throw error;
+    for (const row of rows ?? []) notes.set(row.id, row.notes);
+  }
+  return data.map(row => ({ ...row, notes: notes.get(row.id) ?? null })).sort((a, b) => b.measured_at.localeCompare(a.measured_at) || b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
 }
 
 export async function guardians(playerIds: string[]): Promise<GuardianLinkRow[]> {

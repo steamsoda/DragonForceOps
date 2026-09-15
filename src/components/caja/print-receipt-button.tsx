@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { printReceipt, type ReceiptData } from "@/lib/printer";
 
 type Props = {
@@ -12,11 +13,13 @@ type Props = {
 type Status = "idle" | "printing" | "done" | "error";
 
 export function PrintReceiptButton({ data, printerName, autoPrint }: Props) {
-  const [status, setStatus] = useState<Status>(autoPrint ? "printing" : "idle");
+  const readOnly = useReadOnly();
+  const [status, setStatus] = useState<Status>(autoPrint && !readOnly ? "printing" : "idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const didAutoprint = useRef(false);
 
   async function doPrint() {
+    if (readOnly) return;
     setStatus("printing");
     setErrorMsg(null);
     try {
@@ -31,7 +34,7 @@ export function PrintReceiptButton({ data, printerName, autoPrint }: Props) {
 
   // Auto-print on mount (only once)
   useEffect(() => {
-    if (!autoPrint || didAutoprint.current) return;
+    if (readOnly || !autoPrint || didAutoprint.current) return;
     didAutoprint.current = true;
     doPrint();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -47,23 +50,23 @@ export function PrintReceiptButton({ data, printerName, autoPrint }: Props) {
             ? "QZ Tray no está corriendo. Ábrelo desde la bandeja del sistema."
             : errorMsg}
         </p>
-        <button
+        <WriteButton
           onClick={doPrint}
           className="text-xs text-slate-500 underline"
         >
           Reintentar impresión
-        </button>
+        </WriteButton>
       </div>
     );
   }
 
   return (
-    <button
+    <WriteButton
       onClick={doPrint}
       disabled={status === "printing" || status === "done"}
       className="rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
     >
       {status === "printing" ? "Imprimiendo…" : status === "done" ? "Impreso ✓" : "Imprimir recibo"}
-    </button>
+    </WriteButton>
   );
 }

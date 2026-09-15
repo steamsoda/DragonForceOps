@@ -1,4 +1,5 @@
 "use client";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
@@ -142,16 +143,16 @@ function CurrentWeekCard({
           </div>
         ) : complete && !readOnly ? (
           <div className={`grid gap-2 ${canManageSchedules ? "grid-cols-2" : ""}`}>
-          <form action={action} className="space-y-2">
+          <ReadOnlyForm action={action} className="space-y-2">
             <input type="hidden" name="campusId" value={campus.id} />
             <input type="hidden" name="program" value={program.value} />
             <input type="hidden" name="weekStart" value={weekStart} />
             {groups.map((group) => <input key={group.squadId} type="hidden" name="squadId" value={group.squadId} />)}
-            <button type="submit" disabled={pending} className="min-h-9 w-full rounded-md bg-portoBlue px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">
+            <WriteButton type="submit" disabled={pending} className="min-h-9 w-full rounded-md bg-portoBlue px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">
               {pending ? "Preparando..." : "Preparar convocatoria"}
-            </button>
+            </WriteButton>
             {state ? <p role="alert" className="text-xs font-medium text-rose-700">{state.message}</p> : null}
-          </form>
+          </ReadOnlyForm>
           {canManageSchedules ? <Link href={detailHref} className="min-h-9 rounded-md border border-portoBlue px-3 py-2 text-center text-xs font-semibold text-portoBlue">Ver detalle</Link> : null}
           </div>
         ) : (

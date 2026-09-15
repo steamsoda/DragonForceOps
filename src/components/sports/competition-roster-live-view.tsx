@@ -1,4 +1,5 @@
 "use client";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -126,6 +127,7 @@ export function CompetitionRosterLiveView({
 }
 
 function CompetitionRosterProgramView({ active, tournamentId, campusId, program, showRefreshTeams = false }: ScopedProps) {
+  const readOnly = useReadOnly();
   const [data, setData] = useState<CompetitionRosterLiveViewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -221,6 +223,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
       return;
     }
 
+    if (readOnly) return;
     const previousData = data;
     setMovingEnrollmentId(params.enrollmentId);
     setMoveNotice({ tone: "saving", message: `Moviendo a ${member.playerName}...` });
@@ -257,7 +260,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
 
   const organizerHref = `/sports-signups/squads?tournament=${encodeURIComponent(data.tournamentId)}&campus=${encodeURIComponent(data.campusId)}&program=${encodeURIComponent(data.program)}`;
   const refreshTeams = async () => {
-    if (refreshingTeams) return;
+    if (readOnly || refreshingTeams) return;
     setRefreshingTeams(true);
     setMoveNotice({ tone: "saving", message: "Actualizando todos los equipos..." });
     const result = await refreshCompetitionRosterTeamsInlineAction({
@@ -286,7 +289,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
             <button
               type="button"
               onClick={() => void refreshTeams()}
-              disabled={refreshingTeams}
+              disabled={readOnly || refreshingTeams}
               className="rounded-md border border-portoBlue px-4 py-2 text-sm font-semibold text-portoBlue hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60"
             >
               {refreshingTeams ? "Actualizando..." : "Actualizar todos los equipos"}
@@ -417,7 +420,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
                   return (
                   <div
                     key={`${squad.id}-${member.enrollmentId}`}
-                    draggable={editMode && movingEnrollmentId === null}
+                    draggable={!readOnly && editMode && movingEnrollmentId === null}
                     onDragStart={(event) => {
                       if (!editMode || movingEnrollmentId) {
                         event.preventDefault();

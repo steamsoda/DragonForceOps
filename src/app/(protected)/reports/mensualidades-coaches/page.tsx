@@ -3,7 +3,8 @@ import { AttendanceCampusButtons } from "@/components/attendance/attendance-camp
 import { CoachTuitionCharts } from "@/components/reports/coach-tuition-charts";
 import { CoachTuitionPrintButton } from "@/components/reports/coach-tuition-print-button";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireTuitionStatusReportContext } from "@/lib/auth/permissions";
+import { getPermissionContext, requireTuitionStatusReportContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getCoachTuitionReport, type CoachTuitionPlayer, type TuitionReportStatus } from "@/lib/queries/coach-tuition-report";
 
 type SearchParams = Promise<{ campus?: string; month?: string; coach?: string }>;
@@ -49,7 +50,9 @@ function playerList(players: CoachTuitionPlayer[], status: TuitionReportStatus) 
 }
 
 export default async function CoachTuitionReportPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireTuitionStatusReportContext("/unauthorized");
+  const permission = await getPermissionContext();
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
+  else await requireTuitionStatusReportContext("/unauthorized");
   const params = await searchParams;
   const data = await getCoachTuitionReport({ campusId: params.campus, month: params.month, coachId: params.coach });
   const printableCoach = data.selectedCoachSummary?.coachName ?? "Todos los coaches";

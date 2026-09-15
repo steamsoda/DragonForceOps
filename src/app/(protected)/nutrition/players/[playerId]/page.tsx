@@ -142,7 +142,7 @@ export default async function NutritionPlayerProfilePage({
               <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Notas medicas</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
-                  {context.isDirectorReadOnly ? "No disponibles para este rol." : profile.medicalNotes?.trim() || "Sin notas medicas."}
+                  {profile.medicalNotes?.trim() || "Sin notas medicas."}
                 </p>
               </div>
             </div>
@@ -285,7 +285,7 @@ export default async function NutritionPlayerProfilePage({
                 ) : (
                   <p className="text-slate-500 dark:text-slate-400">IMC OMS: requiere edad y genero dentro del rango OMS.</p>
                 )}
-                <p>Notas: {context.isDirectorReadOnly ? "No disponibles para este rol." : profile.latestSession.notes?.trim() || "-"}</p>
+                <p>Notas: {profile.latestSession.notes?.trim() || "-"}</p>
               </div>
             ) : (
               <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Aun no hay mediciones registradas.</p>
@@ -356,7 +356,7 @@ export default async function NutritionPlayerProfilePage({
                       <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
                         {session.waistCircumferenceCm != null ? `${session.waistCircumferenceCm.toFixed(1)} cm` : "-"}
                       </td>
-                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{context.isDirectorReadOnly ? "No disponibles para este rol." : session.notes?.trim() || "-"}</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{session.notes?.trim() || "-"}</td>
                     </tr>
                   ))
                 )}

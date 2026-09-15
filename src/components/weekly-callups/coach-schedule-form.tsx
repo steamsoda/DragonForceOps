@@ -1,4 +1,5 @@
 "use client";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -134,7 +135,7 @@ export function CoachScheduleForm({
   const hasCompleteRosters = isRest || games.every((game) => game.squadId && game.players.some((player) => player.rosterStatus === "included"));
 
   return (
-    <form
+    <ReadOnlyForm
       action={action}
       onInvalidCapture={(event) => {
         const field = (event.target as HTMLInputElement).dataset.validationField;
@@ -205,7 +206,7 @@ export function CoachScheduleForm({
       ) : null}
       <label className="block text-sm font-medium">Nota opcional<textarea name="notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} rows={2} className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Indicacion breve para administracion" /></label>
       {state ? <div role="status" className={`rounded-md border px-3 py-2 text-sm ${state.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : state.code === "game_roster_changed" ? "border-amber-300 bg-amber-50 text-amber-900" : "border-rose-200 bg-rose-50 text-rose-800"}`}><p>{state.message}</p>{state.ok === false && state.refreshedRoster ? <p className="mt-1 text-xs font-medium">Plantel actualizado: {state.refreshedRoster.players.length} jugadores. Confirma convocados y no convocados.</p> : null}</div> : null}
-      <div className="flex justify-end"><button disabled={pending || !group.coachId || !tournamentId || !hasCompleteRosters} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : savedReport ? "Actualizar reporte" : "Reportar horario"}</button></div>
-    </form>
+      <div className="flex justify-end"><WriteButton disabled={pending || !group.coachId || !tournamentId || !hasCompleteRosters} className="min-h-10 rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Guardando..." : savedReport ? "Actualizar reporte" : "Reportar horario"}</WriteButton></div>
+    </ReadOnlyForm>
   );
 }

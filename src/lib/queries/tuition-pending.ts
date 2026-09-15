@@ -1,4 +1,5 @@
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import {
   getPlayerAttendanceRiskByPlayerIds,
   getRecentPlayerAttendanceByPlayerIds,
@@ -163,7 +164,7 @@ async function loadTeamAssignments(enrollmentIds: string[]) {
 
   const admin = createAdminClient();
   const result = new Map<string, TeamAssignmentRow["teams"]>();
-  const chunkSize = 500;
+  const chunkSize = 100;
 
   for (let index = 0; index < enrollmentIds.length; index += chunkSize) {
     const { data, error } = await admin
@@ -186,7 +187,7 @@ async function loadPrimaryGuardianPhones(playerIds: string[]) {
 
   const admin = createAdminClient();
   const result = new Map<string, string | null>();
-  const chunkSize = 500;
+  const chunkSize = 100;
 
   for (let index = 0; index < playerIds.length; index += chunkSize) {
     const { data, error } = await admin
@@ -279,7 +280,8 @@ function comparePendingPlayersForDetail(a: PendingTuitionPlayer, b: PendingTuiti
 }
 
 export async function getPendingTuitionDashboardData(filters: { campusId?: string; month?: string; includeRecentAttendance?: boolean; includeAttendanceRisk?: boolean }) {
-  const campusAccess = await getOperationalCampusAccess();
+  const context = await requireOperationalPageReader();
+  const campusAccess = context.isDirectorReadOnly ? context.campusAccess : await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) {
     return {
       campuses: [],

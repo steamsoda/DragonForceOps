@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import {
   getPendingTuitionDashboardData,
   type PendingTuitionCampusBoard,
@@ -148,7 +148,7 @@ function KpiCard({
 }
 
 export default async function PendingTuitionPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireOperationalContext("/unauthorized");
+  await requireOperationalPageReader();
 
   const params = await searchParams;
   const data = await getPendingTuitionDashboardData({ campusId: params.campus, month: params.month });

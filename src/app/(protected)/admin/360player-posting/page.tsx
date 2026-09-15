@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { formatPostingMonth, get360PlayerPostingData } from "@/lib/queries/360player-posting";
 import { getMonterreyDateString } from "@/lib/time";
 import { PostingSelectionTable } from "./posting-selection-table";
@@ -19,7 +19,7 @@ type SearchParams = Promise<{
 }>;
 
 function money(amount: number | null, currency = "MXN") {
-  if (amount === null) return "-";
+  if (amount === null) return "\u2014";
   return amount.toLocaleString("es-MX", { style: "currency", currency });
 }
 
@@ -34,7 +34,7 @@ function buildHref(params: Record<string, string | number | null | undefined>) {
 }
 
 export default async function Posting360PlayerPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireOperationalContext("/unauthorized");
+  await requireOperationalPageReader();
   const params = await searchParams;
   const selectedBirthYear = params.birthYear ? Number(params.birthYear) : undefined;
   const data = await get360PlayerPostingData({

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
 import { listCampuses } from "@/lib/queries/players";
-import { getCorteSemanallData } from "@/lib/queries/reports";
+import { getWeeklyReportPresentation } from "@/lib/queries/director-report-presentation";
 import { WeeklyBar } from "@/components/dashboard/charts";
 
-function fmt(value: number) {
+function fmt(value: number | null) {
+  if (value === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
@@ -16,14 +17,14 @@ function fmt(value: number) {
 type SearchParams = Promise<{ month?: string; campus?: string }>;
 
 export default async function CorteSemanalPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
   const params = await searchParams;
   const selectedCampusId = params.campus ?? "";
   const selectedMonth = params.month ?? "";
 
   const [campuses, data] = await Promise.all([
     listCampuses(),
-    getCorteSemanallData({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
+    getWeeklyReportPresentation({ month: selectedMonth || undefined, campusId: selectedCampusId || undefined }),
   ]);
 
   return (

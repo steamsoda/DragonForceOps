@@ -1,5 +1,6 @@
 import { canAccessCampus } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import {
   summarizeCompetitionRosterState,
   type CompetitionMembershipSource,
@@ -74,8 +75,8 @@ export async function getCompetitionRosterFoundation(
   tournamentId: string,
 ): Promise<CompetitionRosterFoundation | null> {
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return null;
-  if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!permission || (!permission.isDirectorReadOnly && !permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
 
   const admin = createAdminClient();
   const tournamentResult = await admin
@@ -533,8 +534,8 @@ export async function getCompetitionRosterOrganizerData(filters: {
   program: string;
 }): Promise<CompetitionRosterOrganizerData | null> {
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return null;
-  if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!permission || (!permission.isDirectorReadOnly && !permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
   if (!ORGANIZER_PROGRAM_LABELS[filters.program]) return null;
 
   const admin = createAdminClient();
@@ -930,7 +931,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
     campusName,
     program: filters.program,
     programLabel: ORGANIZER_PROGRAM_LABELS[filters.program],
-    canManage: permission.isSportsDirector,
+    canManage: permission.isSportsDirector || permission.isDirectorReadOnly,
     totalConfirmed: visibleCandidateIds.size,
     totalAssigned,
     totalPending: visibleCandidateIds.size - totalAssigned - totalExcluded,
@@ -1028,8 +1029,8 @@ export async function getCompetitionRosterSnapshotExportData(
   snapshotId: string,
 ): Promise<CompetitionRosterSnapshotExportData | null> {
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return null;
-  if (!permission || (!permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
+  if (permission?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!permission || (!permission.isDirectorReadOnly && !permission.hasOperationalAccess && !permission.hasSportsAccess)) return null;
 
   const admin = createAdminClient();
   const snapshotResult = await admin

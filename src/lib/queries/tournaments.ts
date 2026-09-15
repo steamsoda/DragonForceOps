@@ -1,4 +1,5 @@
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TEAM_GENDER_LABELS } from "@/lib/teams/shared";
 
@@ -242,9 +243,8 @@ function sortByName<T extends { label?: string; sourceTeamName?: string; playerN
 
 async function getSportsQueryContext() {
   const context = await getPermissionContext();
-  // Snapshot counts and membership are payment-derived; no safe viewer DTO yet.
-  if (context?.isDirectorReadOnly) return null;
-  if (!context?.hasSportsAccess) return null;
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!context?.hasSportsAccess && !context?.isDirectorReadOnly) return null;
   const campuses = context.campusAccess?.campuses ?? [];
   if (campuses.length === 0) return null;
   return {

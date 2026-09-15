@@ -1,5 +1,6 @@
 import { canAccessAttendanceCampus, canWriteAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { resolveAttendanceMonthRange } from "@/lib/attendance/month-range";
 import { resolveGuardianPhones } from "@/lib/contacts/guardian-phones";
 import { getAttendanceRiskTier, type AttendanceRiskTier } from "@/lib/attendance/risk";
@@ -514,6 +515,8 @@ function rateFromCounts(covered: number, total: number) {
 }
 
 async function getAttendanceScope() {
+  const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
   const access = await getAttendanceCampusAccess();
   if (!access || access.campusIds.length === 0) return null;
   return access;
@@ -521,7 +524,8 @@ async function getAttendanceScope() {
 
 async function canReadAttendanceFreeform() {
   const context = await getPermissionContext();
-  return Boolean(context && !context.isDirectorReadOnly);
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  return Boolean(context);
 }
 
 function sessionReadColumns(includeFreeform: boolean) {
@@ -804,7 +808,7 @@ export async function getAttendanceSessionDetail(sessionId: string): Promise<Att
   if (!access) return null;
   const context = await getPermissionContext();
   if (!context) return null;
-  const canReadFreeform = !context.isDirectorReadOnly;
+  const canReadFreeform = await canReadAttendanceFreeform();
   const admin = createAdminClient();
 
   const { data: session } = await admin
@@ -1143,8 +1147,8 @@ export async function getAttendanceGroupsMonthlyData(filters: {
 }): Promise<AttendanceGroupsMonthlyData> {
   const access = await getAttendanceScope();
   const privateContext = filters.includePendingBalances || filters.includeGuardianPhones ? await getPermissionContext() : null;
-  const canViewPrivateDetails = Boolean(privateContext && !privateContext.isDirectorReadOnly && (privateContext.isDirector || privateContext.isFrontDesk));
-  const includePendingBalances = Boolean(filters.includePendingBalances && canViewPrivateDetails && privateContext?.canViewFinancials);
+  const canViewPrivateDetails = Boolean(privateContext && (privateContext.isDirectorReadOnly || privateContext.isDirector || privateContext.isFrontDesk));
+  const includePendingBalances = Boolean(filters.includePendingBalances && canViewPrivateDetails && (privateContext?.isDirectorReadOnly || privateContext?.canViewFinancials));
   const includeGuardianPhones = Boolean(filters.includeGuardianPhones && canViewPrivateDetails);
   const range = resolveAttendanceMonthRange({ ...filters, currentMonth: getMonterreyMonthString() });
   const selectedMonth = range.monthFrom;
@@ -1365,6 +1369,7 @@ export async function getAttendanceGroupsMonthlyData(filters: {
       : { data: [], error: null };
 
     if (balanceError) {
+      if (privateContext?.isDirectorReadOnly) throw balanceError;
       console.error("Failed to fetch canonical balances for attendance group detail", balanceError);
     }
     for (const row of balanceRows ?? []) {

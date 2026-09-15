@@ -170,6 +170,7 @@ function dateWithinWeek(date: string, weekStart: string) {
 async function getEditorContext(returnPath: string) {
   await assertDebugWritesAllowed(returnPath);
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) redirect("/unauthorized");
   return context;
 }
@@ -280,6 +281,7 @@ export async function createWeeklyCallupSnapshotAction(formData: FormData) {
   await assertDebugWritesAllowed("/convocatorias");
 
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) {
     redirect("/unauthorized");
   }
@@ -464,6 +466,7 @@ export async function createWeeklyCallupComposerAction(
 ): Promise<WeeklyCallupComposerState> {
   await assertDebugWritesAllowed("/convocatorias");
   const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) throw new Error("read_only");
   if (!context || (!context.hasOperationalAccess && !context.hasSportsAccess)) redirect("/unauthorized");
 
   const campusId = textValue(formData, "campusId");

@@ -1,24 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
+import { useCajaReads } from "./use-caja-reads";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { PrintReceiptButton } from "./print-receipt-button";
 import { type ReceiptData } from "@/lib/printer";
 import type { AccessibleCampus } from "@/lib/auth/campuses";
 import {
-  searchPlayersForCajaAction,
-  getEnrollmentForCajaAction,
   postCajaPaymentAction,
-  getCajaCatalogExceptionAccessAction,
-  getProductsForCajaAction,
   postCajaChargeAction,
   voidCajaChargeAction,
   cashRefundCajaChargeAction,
   createAdvanceTuitionAction,
   checkoutCajaCartAction,
-  getCajaDrilldownMetaAction,
-  listCajaPlayersByCampusYearAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
   type CajaRecentCharge,
@@ -195,6 +191,7 @@ function RecentChargesPanel({
   operatorCampusId: string;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
 }) {
+  const readOnly = useReadOnly();
   const [expandedAction, setExpandedAction] = useState<{ chargeId: string; mode: "void" | "cash_refund" } | null>(null);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
@@ -217,6 +214,7 @@ function RecentChargesPanel({
   }
 
   function submitVoid(charge: CajaRecentCharge) {
+    if (readOnly) return;
     setError(null);
     setMessage(null);
     if (!reason.trim()) {
@@ -264,6 +262,7 @@ function RecentChargesPanel({
   }
 
   function submitCashRefund(charge: CajaRecentCharge) {
+    if (readOnly) return;
     setError(null);
     setMessage(null);
     if (!reason.trim()) return setError("Escribe el motivo del reembolso.");
@@ -449,14 +448,14 @@ function RecentChargesPanel({
                     Confirmo que seleccione el cargo correcto y revise como se aplicara el saldo a favor.
                   </label>
                   {error ? <p className="rounded-md bg-white px-3 py-2 text-xs text-rose-700">{error}</p> : null}
-                  <button
+                  <WriteButton
                     type="button"
                     disabled={isPending || !reason.trim() || !confirmed}
                     onClick={() => submitVoid(charge)}
                     className="rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isPending ? "Anulando y aplicando saldo..." : "Confirmar anulacion"}
-                  </button>
+                  </WriteButton>
                 </div>
               ) : actionMode === "cash_refund" ? (
                 <div className="space-y-3 border-t border-amber-200 bg-amber-50/70 px-4 py-4">
@@ -501,11 +500,11 @@ function RecentChargesPanel({
                     Confirmo el cargo y que se entregaran {formatMoney(charge.allocatedAmount, charge.currency)} en efectivo.
                   </label>
                   {error ? <p className="rounded-md bg-white px-3 py-2 text-xs text-rose-700">{error}</p> : null}
-                  <button type="button" disabled={isPending || !reason.trim() || !refundedAt || !confirmed}
+                  <WriteButton type="button" disabled={isPending || !reason.trim() || !refundedAt || !confirmed}
                     onClick={() => submitCashRefund(charge)}
                     className="rounded-md bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">
                     {isPending ? "Registrando salida de efectivo..." : "Confirmar reembolso en efectivo"}
-                  </button>
+                  </WriteButton>
                 </div>
               ) : null}
             </div>
@@ -523,6 +522,7 @@ function CajaOperationalNotesPanel({
   data: CajaEnrollmentData;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
 }) {
+  const readOnly = useReadOnly();
   const [noteBody, setNoteBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -530,6 +530,7 @@ function CajaOperationalNotesPanel({
 
   function submitNote(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) return;
     const body = noteBody.trim();
     if (!body || !data.playerId) return;
 
@@ -575,13 +576,13 @@ function CajaOperationalNotesPanel({
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-portoBlue focus:outline-none dark:border-slate-600 dark:bg-slate-900"
           />
           {error ? <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p> : null}
-          <button
+          <WriteButton
             type="submit"
             disabled={isPending || !noteBody.trim() || !data.playerId}
             className="rounded-md bg-portoBlue px-4 py-2 text-xs font-semibold text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "Guardando..." : "Guardar nota"}
-          </button>
+          </WriteButton>
         </form>
 
         {notes.length === 0 ? (
@@ -780,6 +781,7 @@ export function CajaClient({
   allowedCampuses: AccessibleCampus[];
   defaultCampusId: string | null;
 }) {
+  const readOnly = useReadOnly();
   const [view, setView] = useState<View>(() => {
     if (!initialEnrollmentData) return { tag: "idle" };
 
@@ -801,6 +803,7 @@ export function CajaClient({
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const reads = useCajaReads(setError);
   const searchRef = useRef<HTMLInputElement>(null);
   const [drilldown, setDrilldown] = useState<DrilldownStep>({ step: "closed" });
   const [preloadedMeta, setPreloadedMeta] = useState<CajaDrilldownMeta | null>(null);
@@ -808,7 +811,7 @@ export function CajaClient({
 
   // Preload drill-down meta in background so "Seleccionar por categoría" is instant
   useEffect(() => {
-    getCajaDrilldownMetaAction().then(setPreloadedMeta);
+    reads.meta().then(setPreloadedMeta);
   }, []);
 
   // Auto-load enrollment when deep-linked from player profile (/caja?enrollmentId=...)
@@ -816,7 +819,7 @@ export function CajaClient({
     if (!initialEnrollmentId || initialEnrollmentData || didAutoload.current) return;
     didAutoload.current = true;
     startTransition(async () => {
-      const data = await getEnrollmentForCajaAction(initialEnrollmentId);
+      const data = await reads.account(initialEnrollmentId);
       if (!data) {
         setError("No se pudo cargar la información del alumno.");
         return;
@@ -846,7 +849,7 @@ export function CajaClient({
     setView({ tag: "searching", query: q });
     const timer = setTimeout(() => {
       startTransition(async () => {
-        const results = await searchPlayersForCajaAction(q);
+        const results = await reads.search(q);
         setView({ tag: "results", query: q, results });
       });
     }, 200);
@@ -858,7 +861,7 @@ export function CajaClient({
     setError(null);
     setView({ tag: "loading-enrollment", player });
     startTransition(async () => {
-      const data = await getEnrollmentForCajaAction(player.enrollmentId);
+      const data = await reads.account(player.enrollmentId);
       if (!data) {
         setError("No se pudo cargar la información del alumno.");
         setView({ tag: "idle" });
@@ -876,7 +879,7 @@ export function CajaClient({
     setError(null);
     setView({ tag: "loading-enrollment", player });
     startTransition(async () => {
-      const data = await getEnrollmentForCajaAction(player.enrollmentId);
+      const data = await reads.account(player.enrollmentId);
       if (!data) {
         setError("No se pudo recargar la información del alumno.");
         setView({ tag: "idle" });
@@ -901,7 +904,7 @@ export function CajaClient({
     }
     setDrilldown({ step: "loading-meta" });
     startTransition(async () => {
-      const meta = await getCajaDrilldownMetaAction();
+      const meta = await reads.meta();
       setDrilldown({ step: "campus", meta });
     });
   }
@@ -913,7 +916,7 @@ export function CajaClient({
   function drilldownSelectYear(campusId: string, campusName: string, birthYear: number, meta: CajaDrilldownMeta) {
     setDrilldown({ step: "players", meta, campusId, campusName, birthYear, players: null });
     startTransition(async () => {
-      const players = await listCajaPlayersByCampusYearAction(campusId, birthYear);
+      const players = await reads.year(campusId, birthYear);
       setDrilldown({ step: "players", meta, campusId, campusName, birthYear, players });
     });
   }
@@ -927,6 +930,7 @@ export function CajaClient({
   }
 
   function handlePaymentSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
+    if (readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await postCajaPaymentAction(enrollmentId, formData);
@@ -942,12 +946,13 @@ export function CajaClient({
     setError(null);
     setView({ tag: "loading-products", player, data });
     startTransition(async () => {
-      const products = await getProductsForCajaAction(data.enrollmentId);
+      const products = await reads.products(data.enrollmentId);
       setView({ tag: "adding-charge", player, data, products });
     });
   }
 
   function handleChargeSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
+    if (readOnly) return;
     setError(null);
     startTransition(async () => {
       const result = await postCajaChargeAction(enrollmentId, formData);
@@ -1314,6 +1319,7 @@ function PosEnrollmentPanel({
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
   onCheckoutSuccess: (receipt: Extract<CajaPaymentResult, { ok: true }>) => void;
 }) {
+  const readOnly = useReadOnly();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<CajaProduct | null>(null);
@@ -1336,6 +1342,7 @@ function PosEnrollmentPanel({
     defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId
   );
   const [panelError, setPanelError] = useState<string | null>(null);
+  const reads = useCajaReads(setPanelError);
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [canUseFullCatalog, setCanUseFullCatalog] = useState(false);
@@ -1346,7 +1353,7 @@ function PosEnrollmentPanel({
 
   useEffect(() => {
     let cancelled = false;
-    getCajaCatalogExceptionAccessAction().then((allowed) => {
+    reads.fullCatalog().then((allowed) => {
       if (!cancelled) setCanUseFullCatalog(allowed);
     });
     return () => {
@@ -1358,7 +1365,7 @@ function PosEnrollmentPanel({
     let cancelled = false;
     setProductsLoading(true);
     setSelectedProduct(null);
-    getProductsForCajaAction(data.enrollmentId, fullCatalogEnabled).then((nextProducts) => {
+    reads.products(data.enrollmentId, fullCatalogEnabled).then((nextProducts) => {
       if (cancelled) return;
       setProducts(nextProducts);
       setProductsLoading(false);
@@ -1593,6 +1600,7 @@ function PosEnrollmentPanel({
 
   function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (readOnly) return;
     setPanelError(null);
     if (requiresCashPayment && (!paymentMethod || (splitMode && !paymentMethod2))) {
       setPanelError("Selecciona el método de pago antes de cobrar.");
@@ -2322,7 +2330,7 @@ function PosEnrollmentPanel({
             </label>
 
             <div className="flex gap-3">
-              <button
+              <WriteButton
                 type="submit"
                 disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
@@ -2334,7 +2342,7 @@ function PosEnrollmentPanel({
                     : hasCartSelection
                       ? "Cobrar carrito"
                       : "Cobrar todo"}
-              </button>
+              </WriteButton>
               <button
                 type="button"
                 onClick={onCancel}
@@ -2458,6 +2466,7 @@ function EnrollmentPanel({
   isPending: boolean;
   error: string | null;
 }) {
+  const readOnly = useReadOnly();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [splitMode, setSplitMode] = useState(false);
@@ -2483,6 +2492,7 @@ function EnrollmentPanel({
 
   function handleTuitionSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     if (!tuitionPeriod) return;
     setTuitionError(null);
     startTuitionTransition(async () => {
@@ -2677,13 +2687,13 @@ function EnrollmentPanel({
             </div>
           </div>
           <div className="flex gap-2">
-            <button
+            <WriteButton
               type="submit"
               disabled={isTuitionPending}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {isTuitionPending ? "Creando…" : "Crear cargo"}
-            </button>
+            </WriteButton>
             <button
               type="button"
               onClick={() => { setShowTuitionForm(false); setTuitionError(null); }}
@@ -2817,13 +2827,13 @@ function EnrollmentPanel({
           </p>
 
           <div className="flex gap-3">
-            <button
+            <WriteButton
               type="submit"
               disabled={!canSubmitPayment}
               className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
             >
               {isPending ? "Registrando…" : "Cobrar"}
-            </button>
+            </WriteButton>
             <button
               type="button"
               onClick={onCancel}
@@ -3019,6 +3029,7 @@ function ProductGridPanel({
   isPending: boolean;
   error: string | null;
 }) {
+  const readOnly = useReadOnly();
   const [selected, setSelected] = useState<CajaProduct | null>(null);
   const [amount, setAmount] = useState("");
   const [size, setSize] = useState("");
@@ -3033,6 +3044,7 @@ function ProductGridPanel({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (readOnly) return;
     if (!selected) return;
     const fd = new FormData();
     fd.set("productId", selected.id);
@@ -3161,13 +3173,13 @@ function ProductGridPanel({
             </label>
 
             <div className="flex gap-3">
-              <button
+              <WriteButton
                 type="submit"
                 disabled={isPending}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isPending ? "Guardando…" : "Crear cargo"}
-              </button>
+              </WriteButton>
               <button
                 type="button"
                 onClick={() => setSelected(null)}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { EnrollmentDropoutForm } from "@/components/enrollments/enrollment-dropout-form";
 import { getEnrollmentDropoutContext } from "@/lib/queries/enrollments";
 import { dropoutEnrollmentAction } from "@/server/actions/enrollments";
@@ -36,8 +36,8 @@ export default async function EnrollmentDropoutPage({
 }) {
   const { playerId, enrollmentId } = await params;
   const query = await searchParams;
-  await requireOperationalContext("/unauthorized");
-  const context = await getEnrollmentDropoutContext(enrollmentId);
+  await requireOperationalPageReader();
+  const context = await getEnrollmentDropoutContext(enrollmentId, playerId);
 
   if (!context) notFound();
 

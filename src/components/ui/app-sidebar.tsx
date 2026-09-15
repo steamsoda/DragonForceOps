@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export type NavSection = {
   label: string;
-  items: Array<{ href: string; label: string }>;
+  items: Array<{ href: string; label: string; disabled?: boolean }>;
 };
 
 export function AppSidebar({ sections }: { sections: NavSection[] }) {
@@ -26,7 +26,8 @@ export function AppSidebar({ sections }: { sections: NavSection[] }) {
                   (item.href !== "/" && pathname.startsWith(item.href + "/"));
                 return (
                   <li key={item.href}>
-                    <Link
+                    {item.disabled ? <span aria-disabled="true" role="link" title="No disponible en solo lectura"
+                      className="flex cursor-not-allowed items-center rounded-md px-2 py-1.5 text-sm text-slate-500 opacity-50">{item.label}</span> : <Link
                       href={item.href}
                       prefetch={false}
                       className={`flex items-center rounded-md px-2 py-1.5 text-sm transition-colors ${
@@ -36,7 +37,7 @@ export function AppSidebar({ sections }: { sections: NavSection[] }) {
                       }`}
                     >
                       {item.label}
-                    </Link>
+                    </Link>}
                   </li>
                 );
               })}

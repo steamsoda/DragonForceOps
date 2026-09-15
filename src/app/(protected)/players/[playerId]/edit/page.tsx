@@ -1,3 +1,4 @@
+import { WriteButton, ReadOnlyForm } from "@/components/auth/read-only-controls";
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { DateInputWithPicker } from "@/components/ui/date-input-with-picker";
@@ -20,13 +21,13 @@ export default async function PlayerEditPage({
   const sp = await searchParams;
   const permissionContext = await getPermissionContext();
 
-  if (!permissionContext?.hasPlayerDataAccess) redirect(`/players/${playerId}?err=unauthorized`);
+  if (!permissionContext || (!permissionContext.isDirectorReadOnly && !permissionContext.hasPlayerDataAccess)) redirect(`/players/${playerId}?err=unauthorized`);
 
-  if (!(await canAccessPlayerRecord(playerId))) {
+  if (!permissionContext.isDirectorReadOnly && !(await canAccessPlayerRecord(playerId))) {
     redirect(`/players/${playerId}?err=unauthorized`);
   }
 
-  const player = await getPlayerDetail(playerId);
+  const player = await getPlayerDetail(playerId, { includeFinance: false });
   if (!player) notFound();
 
   const action = updatePlayerAction.bind(null, playerId);
@@ -51,7 +52,7 @@ export default async function PlayerEditPage({
         </div>
       )}
 
-      <form action={action} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+      <ReadOnlyForm action={action} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
         {/* Name */}
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-sm">
@@ -148,12 +149,12 @@ export default async function PlayerEditPage({
         </label>
 
         <div className="flex gap-3">
-          <button
+          <WriteButton
             type="submit"
             className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
           >
             Guardar cambios
-          </button>
+          </WriteButton>
           <a
             href={`/players/${playerId}`}
             className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -161,7 +162,7 @@ export default async function PlayerEditPage({
             Cancelar
           </a>
         </div>
-      </form>
+      </ReadOnlyForm>
     </PageShell>
   );
 }

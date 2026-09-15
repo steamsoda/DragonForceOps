@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { getTeamDetail, listCoaches } from "@/lib/queries/teams";
 import { editTeamAction } from "@/server/actions/teams";
 
@@ -16,7 +18,8 @@ export default async function EditTeamPage({
   const { teamId } = await params;
   const sp = await searchParams;
 
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
+  if (permission.isDirectorReadOnly) await requireOperationalPageReader();
 
   const [team, coaches] = await Promise.all([
     getTeamDetail(teamId),
@@ -42,7 +45,7 @@ export default async function EditTeamPage({
         </div>
       )}
 
-      <form action={action} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+      <ReadOnlyForm action={action} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
         <p className="text-xs text-slate-500 dark:text-slate-400">
           El nombre y categoría del equipo no pueden editarse — son parte de su identidad. Si necesitas un cambio de estructura, crea un equipo nuevo.
         </p>
@@ -80,9 +83,9 @@ export default async function EditTeamPage({
         </label>
 
         <div className="flex gap-3 pt-1">
-          <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+          <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
             Guardar cambios
-          </button>
+          </WriteButton>
           <a
             href={`/teams/${teamId}`}
             className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -90,7 +93,7 @@ export default async function EditTeamPage({
             Cancelar
           </a>
         </div>
-      </form>
+      </ReadOnlyForm>
     </PageShell>
   );
 }

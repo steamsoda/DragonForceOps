@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/page-shell";
 import { EnrollmentIntakeForm } from "@/components/enrollments/enrollment-intake-form";
-import { requireOperationalContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getEnrollmentIntakeContext } from "@/lib/queries/enrollments";
 import { isReturningInscriptionMode, type ReturningInscriptionMode } from "@/lib/enrollments/returning";
 import { getTrialEnrollmentPrefill } from "@/lib/queries/trial-classes";
@@ -27,7 +27,7 @@ export default async function NewPlayerPage({
 }: {
   searchParams: Promise<{ err?: string; returning?: string; manual?: string; returnMode?: string; trialProspectId?: string }>;
 }) {
-  await requireOperationalContext("/unauthorized");
+  await requireOperationalPageReader();
   const query = await searchParams;
   const intakeContext = await getEnrollmentIntakeContext();
   const trialPrefill = query.trialProspectId

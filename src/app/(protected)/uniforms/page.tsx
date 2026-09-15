@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireOperationalReadContext } from "@/lib/auth/permissions";
 import { NonfinancialUniforms } from "./nonfinancial";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { getUniformDashboardData } from "@/lib/queries/uniforms";
 import { formatDateMonterrey } from "@/lib/time";
 import { UniformsDashboard } from "@/components/uniforms/uniforms-dashboard";
@@ -16,7 +17,8 @@ type SearchParams = Promise<{
 
 export default async function UniformsPage({ searchParams }: { searchParams: SearchParams }) {
   const context = await requireOperationalReadContext();
-  if (context.isDirectorReadOnly || !context.canViewFinancials) return <NonfinancialUniforms filters={await searchParams} />;
+  if (context.isDirectorReadOnly) await requireOperationalPageReader();
+  if (!context.isDirectorReadOnly && !context.canViewFinancials) return <NonfinancialUniforms filters={await searchParams} />;
   const params = await searchParams;
   const data = await getUniformDashboardData({
     campusId: params.campus ?? "",

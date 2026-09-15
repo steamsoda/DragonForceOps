@@ -2,6 +2,7 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { printTrialClassTicket, type TrialClassTicketData } from "@/lib/printer";
 import { recordTrialVisitAction } from "@/server/actions/trial-classes";
 import type { TrialSession } from "@/lib/queries/trial-classes";
@@ -27,6 +28,7 @@ export function TrialCheckInControl({
   visitCount: number;
   printerName: string;
 }) {
+  const readOnly = useReadOnly();
   const matchingSession = sessions.find((session) => session.trainingGroupId === preferredTrainingGroupId);
   const [sessionId, setSessionId] = useState(matchingSession?.id ?? sessions[0]?.id ?? "");
   const [note, setNote] = useState("");
@@ -44,6 +46,7 @@ export function TrialCheckInControl({
   }
 
   async function checkIn() {
+    if (readOnly) return;
     if (!sessionId) return;
     setMessage(null);
     setIsSaving(true);
@@ -86,18 +89,20 @@ export function TrialCheckInControl({
         </select>
       </label>
       <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={2000} placeholder="Nota de esta visita (opcional)" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900" />
-      <button type="button" onClick={checkIn} disabled={isSaving || !sessionId} className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-wait disabled:opacity-60">
+      <WriteButton type="button" onClick={checkIn} disabled={isSaving || !sessionId} className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark disabled:cursor-wait disabled:opacity-60">
         {isSaving ? "Guardando llegada..." : `Registrar llegada ${savedVisitCount + 1}/3 e imprimir`}
-      </button>
+      </WriteButton>
       {message ? <p className="text-xs font-medium text-slate-700 dark:text-slate-200">{message}{isPrinting ? " La llegada ya esta guardada; puedes continuar mientras responde la impresora." : ""}</p> : null}
     </div>
   );
 }
 
 export function TrialTicketReprintButton({ printerName, ticket }: { printerName: string; ticket: TrialClassTicketData }) {
+  const readOnly = useReadOnly();
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   async function reprint() {
+    if (readOnly) return;
     setIsPending(true);
     setMessage(null);
     try {
@@ -111,9 +116,9 @@ export function TrialTicketReprintButton({ printerName, ticket }: { printerName:
   }
   return (
     <span className="inline-flex items-center gap-2">
-      <button type="button" onClick={reprint} disabled={isPending} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium hover:border-portoBlue disabled:opacity-60">
+      <WriteButton type="button" onClick={reprint} disabled={isPending} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium hover:border-portoBlue disabled:opacity-60">
         {isPending ? "Imprimiendo..." : "Reimprimir pase"}
-      </button>
+      </WriteButton>
       {message ? <span className="text-xs text-slate-500">{message}</span> : null}
     </span>
   );

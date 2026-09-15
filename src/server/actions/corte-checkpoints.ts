@@ -24,7 +24,7 @@ export async function closeAndPrepareCortePrintAction(campusId: string): Promise
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
   const permissionContext = await getPermissionContext();
-  if (!permissionContext?.hasOperationalAccess) {
+  if (!permissionContext?.hasOperationalAccess || permissionContext.isDirectorReadOnly) {
     return { ok: false, error: "unauthorized" };
   }
   const campusAccess = permissionContext.campusAccess ?? await getOperationalCampusAccess();

@@ -1,4 +1,5 @@
 "use client";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 
 import { useMemo, useRef, useState } from "react";
 import {
@@ -83,7 +84,7 @@ export function EnrollmentCreateForm({
   }
 
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+    <ReadOnlyForm action={action} className="space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <input type="hidden" name="pricingPlanCode" value={planCode} />
       <input type="hidden" name="campusId" value={campusId} />
       <input type="hidden" name="startDate" value={startDate ?? ""} />
@@ -318,13 +319,13 @@ export function EnrollmentCreateForm({
         </label>
       ) : null}
 
-      <button
+      <WriteButton
         type="submit"
         disabled={!quote || !campusId || !trainingGroupValid || (isReturning && !returningAccountConfirmed)}
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isReturning ? "Reinscribir jugador" : "Crear inscripcion"}
-      </button>
-    </form>
+      </WriteButton>
+    </ReadOnlyForm>
   );
 }

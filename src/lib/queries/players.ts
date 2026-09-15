@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { directorPlayerReader } from "@/lib/auth/director-player-reader";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
 import { getEnrollmentLedger, type EnrollmentLedger } from "@/lib/queries/billing";
@@ -724,7 +726,11 @@ export async function listBirthYears(): Promise<number[]> {
 }
 
 export async function getPlayerDetail(playerId: string, options: { includeFinance?: boolean } = {}) {
-  const supabase = await createClient();
+  const context = await getPermissionContext();
+  const supabase = context?.isDirectorReadOnly
+    ? await directorPlayerReader(context, playerId)
+    : await createClient();
+  if (!supabase) return null;
   const campusAccess = await getOperationalCampusAccess();
   if (!campusAccess) return null;
   const includeFinance = options.includeFinance ?? true;
@@ -853,6 +859,11 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
 
   if (includeFinance && activeEnrollmentRow) {
     activeEnrollmentLedger = await getEnrollmentLedger(activeEnrollmentRow.id);
+    if (context?.isDirectorReadOnly && !activeEnrollmentLedger) throw new Error("profile_account_unavailable");
+  }
+
+  if (context?.isDirectorReadOnly && includeFinance && enrollmentIds.some(id => !balancesByEnrollment.has(id))) {
+    throw new Error("profile_balance_unavailable");
   }
 
   const guardians = (guardianRows ?? [])

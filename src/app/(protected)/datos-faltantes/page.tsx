@@ -1,3 +1,4 @@
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import Link from "next/link";
 import { requirePlayerDataReadContext } from "@/lib/auth/permissions";
 import { readManagementData, ManagementReadUnavailable } from "../dashboard/management-read";
@@ -99,12 +100,8 @@ function ContactForm({
   showAdditionalTutor?: boolean;
   readOnly?: boolean;
 }) {
-  if (readOnly) return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-    {[["Nombre", guardian?.firstName], ["Apellido", guardian?.lastName], ["Telefono principal", guardian?.phonePrimary], ["Telefono secundario", guardian?.phoneSecondary], ["Email", guardian?.email], ["Parentesco", guardian?.relationshipLabel]].map(([label, value]) =>
-      <label key={label} className="grid gap-1 text-xs">{label}<input readOnly value={value ?? ""} className={inputClass()} /></label>)}
-  </div>;
   return (
-    <form action={saveContactCleanupGuardianAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
+    <ReadOnlyForm action={saveContactCleanupGuardianAction} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60 md:grid-cols-2 xl:grid-cols-6 xl:items-end">
       <input type="hidden" name="playerId" value={row.playerId} />
       <input type="hidden" name="guardianId" value={guardian?.id ?? ""} />
       <input type="hidden" name="createAsPrimary" value={createAsPrimary ? "true" : "false"} />
@@ -164,11 +161,11 @@ function ContactForm({
         </div>
       ) : null}
       <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-slate-700 md:col-span-2 xl:col-span-6">
-        <button type="submit" className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark sm:w-auto sm:min-w-48">
+        <WriteButton type="submit" className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark sm:w-auto sm:min-w-48">
           {submitLabel ?? "Guardar datos"}
-        </button>
+        </WriteButton>
       </div>
-    </form>
+    </ReadOnlyForm>
   );
 }
 
@@ -186,7 +183,7 @@ function PlayerContactCard({ row, returnTo, readOnly = false }: { row: ContactCl
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {readOnly ? <span className="text-base font-semibold text-portoBlue">{row.playerName}</span> : <Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
+            {<Link href={`/players/${row.playerId}`} className="text-base font-semibold text-portoBlue hover:underline">
               {row.playerName}
             </Link>}
             <span className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
@@ -220,7 +217,7 @@ function PlayerContactCard({ row, returnTo, readOnly = false }: { row: ContactCl
               <ContactForm row={row} guardian={guardian} returnTo={returnTo} readOnly={readOnly} />
             </div>
           ))}
-          {!readOnly && row.guardians.length < 2 ? (
+          {row.guardians.length < 2 ? (
             <ContactForm row={row} guardian={null} returnTo={returnTo} createAsPrimary={false} title="Segundo tutor opcional" submitLabel="Guardar datos" />
           ) : null}
         </div>
@@ -377,9 +374,9 @@ export default async function DatosFaltantesPage({ searchParams }: { searchParam
             <input name="q" type="search" defaultValue={data.q} placeholder="Jugador, tutor, telefono o grupo" className={inputClass()} />
           </label>
           <div className="flex gap-2">
-            <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+            <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
               Aplicar
-            </button>
+            </WriteButton>
             <Link href={withParams("/datos-faltantes", { campus: data.selectedCampusId, year: selectedYearParam, gender: data.selectedGender || undefined })} className="rounded-md border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800">
               Limpiar
             </Link>

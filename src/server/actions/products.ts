@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -221,9 +223,8 @@ export async function deleteProductAction(productId: string): Promise<void> {
 export type AdHocChargeType = { id: string; code: string; name: string };
 
 export async function getAdHocChargeTypesAction(): Promise<AdHocChargeType[]> {
-  const auth = await assertDirectorAdmin();
-  if (!auth) return [];
-  const { supabase } = auth;
+  const auth = await requireDirectorPageReader();
+  const supabase = auth.isDirectorReadOnly ? createAdminClient() : auth.supabase;
 
   const { data } = await supabase
     .from("charge_types")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { printReceipt } from "@/lib/printer";
 import { getReceiptForPrintAction } from "@/server/actions/receipts";
 
@@ -12,10 +13,12 @@ type Props = {
 type Status = "idle" | "loading" | "printing" | "done" | "error";
 
 export function ReprintReceiptButton({ paymentId, printerName }: Props) {
+  const readOnly = useReadOnly();
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
+    if (readOnly) return;
     setStatus("loading");
     setError(null);
 
@@ -51,7 +54,7 @@ export function ReprintReceiptButton({ paymentId, printerName }: Props) {
 
   return (
     <div className="space-y-1">
-      <button
+      <WriteButton
         type="button"
         onClick={handleClick}
         disabled={status === "loading" || status === "printing"}
@@ -64,7 +67,7 @@ export function ReprintReceiptButton({ paymentId, printerName }: Props) {
           : status === "done"
           ? "Reimpreso ✓"
           : "Reimprimir"}
-      </button>
+      </WriteButton>
       {status === "error" && error ? (
         <p className="max-w-[220px] text-xs text-rose-600">{error}</p>
       ) : null}

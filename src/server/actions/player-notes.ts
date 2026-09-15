@@ -32,7 +32,7 @@ export async function createPlayerNoteAction({
   if (!playerId || !noteBody) return { ok: false, error: "invalid_form" };
 
   const context = await getPermissionContext();
-  if (!canUsePlayerNotes(context)) return { ok: false, error: "unauthorized" };
+  if (context?.isDirectorReadOnly || !canUsePlayerNotes(context)) return { ok: false, error: "unauthorized" };
 
   const target = await resolvePlayerNoteTarget({ playerId, enrollmentId, context });
   if (!target) return { ok: false, error: "unauthorized" };

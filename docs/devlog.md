@@ -1,5 +1,146 @@
 # Devlog
 
+## 2026-09-15: Security Sweep Retry and Cleanup
+
+- All 15 sampled authenticated HTML/RSC pages now pass, including repaired
+  Pendientes/Llamadas. Restricted routes and 28 forged mutations remain denied.
+- Real browser settings form: editable fields, disabled saves, Enter sends no
+  app submission; 390x844 mobile viewport has no horizontal overflow.
+- Same-token role revocation denied database and HTTP reads. All synthetic
+  Preview accounts/session files removed; isolated browser/server closed.
+- No deployment. Await Preview approval and subsequent hosted checks for the
+  five pending migrations, report/export payloads and staff browser behavior.
+- Supersedes the temporary cleanup blocker in the preceding sweep entry.
+
+## 2026-09-15: Final Parity Security Sweep (Incomplete, Local)
+
+- Real authenticated HTML/RSC: 13 screens passed; Pendientes/Llamadas failed from
+  oversized UUID filters. Reduced six helper batch sizes from 500 to 100 and added
+  regression limits. Production build, TypeScript and local tests pass.
+- Restricted routes and 28 forged mutations denied; Preview SQL role/count/ledger
+  tests passed in rollback. No deployment or migration installation.
+- Approval-service capacity failures blocked server restart and synthetic Preview
+  identity cleanup. Cleanup and post-fix HTTP/browser/revocation checks remain.
+  See support/2026-09-15-director-parity.md before any release.
+
+## 2026-09-15: Director Read-Only Remaining Implementation (Local)
+
+- Completed shared operational screens, sports/teams/callups, trials/uniforms,
+  individual product ledger access and reviewed Director settings.
+- Restored report/dashboard counts through role-checked count-only RPCs;
+  consolidated monetary fields remain null before browser serialization.
+- Preserved denied writes, mixed-role vetoes, revoked-session checks and scoped
+  reads. Daily report query failures now fail closed for the reader.
+- Production build, TypeScript and focused parity/regression tests passed.
+  Five local reader migrations passed real-role Preview rollback tests, including
+  canonical Director count/ledger comparison. No fixtures or DDL left behind.
+- No deployment. Next is the user's separate final security sweep (authenticated
+  HTTP/browser, staff regression and export/write checks), then Preview approval.
+- Details: docs/support/2026-09-15-director-parity.md.
+
+## 2026-09-15: Shared Attendance Controls and Notes (Local)
+
+- Replaced the reduced session roster with the normal attendance recorder. Local
+  status/note exploration remains available; final save is disabled and blocked
+  in the client action as well as the server authorization path.
+- Restored Director generation, manual session, cancellation, calendar closure
+  and schedule forms with shared read-only submit controls. Staff behavior remains.
+- Verified reader admission precedes attendance scope/admin reads. Operational
+  notes and incident context now follow the approved normal-Director visibility.
+- Added explicit reader vetoes to schedule/generator/closure/cancellation actions
+  and the separate attendance-save role path, including mixed-role accounts.
+- Focused attendance tests, existing group-finance/notes regression, pagination,
+  auth suite, presentation suite and TypeScript passed. No deployment or DB writes.
+- Remaining reduced screens include sports, trials, uniforms, attendance group
+  finance/weekly packet, consolidated reports and Director settings. Hosted
+  authenticated UI comparison and final release verification remain outstanding.
+
+## 2026-09-15: Intake, Returning Enrollment, Caja Sessions and Receipts (Local)
+
+- Normal Nueva inscripcion and Reingreso forms are available as GET-only views.
+  New-player duplicate checks and returning-player lookup use a verified reader
+  GET endpoint. Existing-player intake uses the scoped player reader and canonical
+  historical ledgers; failed account reads do not silently become zero balances.
+- Shared forms keep their options and previews; final enrollment actions reject
+  readers. ReadOnlyForm intercepts submission and WriteButton disables saves.
+- Caja session metadata is read without fetching opening cash or entry amounts
+  for readers. Monetary summaries show an em dash, with open/close actions blocked.
+- Receipts use a dedicated authenticated read-only search RPC, preserving normal
+  filtering/pagination and individual payment amounts. No raw table grants.
+  Physical printing, automatic printing and printer-data actions remain blocked.
+- Added shared 360Player selection/confirmation and standalone Nuevo cargo views.
+  Consolidated 360 totals are null for readers; actual posting remains denied.
+- TypeScript and focused auth/account/profile/Caja/forms tests passed. Preview
+  rollback-only database test verified both read migrations, real-role receipt
+  equality with Director, filters/paging, scope, raw denial and role revocation.
+- Browser fixture attempt was blocked and local Turbopack could not resolve the
+  parent node_modules from this worktree. No visual browser pass claimed. Fixture
+  removed and server stopped. Hosted authenticated UI QA still required.
+- No deployment or durable database/user/payment changes. Receipt migration must
+  be applied as part of the eventual approved release.
+
+## 2026-09-15: Bajas Write-Off Read-Only Parity (Local)
+
+- Opened the shared Castigo de bajas screen for verified Director readers. Kept
+  individual pending amounts, selection and reason fields; concealed the page
+  monetary total and selected monetary total before rendering.
+- Blocked submission through ReadOnlyForm, WriteButton, the client action handler
+  and an explicit server-action veto. Ordinary Director write behavior is unchanged.
+- Scoped financial reads to admitted ended/cancelled enrollments and added stable
+  pagination/chunking. Query errors now fail instead of becoming empty results.
+- TypeScript, focused bajas/calls/form tests and existing auth tests passed.
+  Focused tests include mocked role revocation, campus scope, multi-page reads,
+  staff equality, rendered masking and direct write rejection. Live authenticated
+  Preview/browser verification is still pending. No database changes or deployment.
+
+## 2026-09-15: Pendientes and Llamadas Parity (Local)
+
+- Opened shared Director queue/detail screens and the nonfinancial Pendientes
+  workbook export. Queue reads verify the live reader role and campus scope before
+  privileged reads; financial details remain individual, not consolidated totals.
+- Follow-up fields and injury/dropout panels remain explorable. Final saves use
+  disabled shared controls; handler guards stop autosave and direct actions veto
+  read-only callers before constructing writers. Staff autosave remains unchanged.
+- Focused tests cover mutation denial, local interaction, staff autosave, scoped
+  reads and exact GET-only routes. TypeScript passed. Hosted authenticated browser
+  QA remains pending; no deployment or database writes in this chunk.
+- Separate bulk Bajas/write-offs remain closed pending their own review.
+
+## 2026-09-15: Read-Only Editing Forms and Navigation (Local)
+
+- Enabled scoped GET views for player/guardian/enrollment edits, dropout and
+  dedicated account pages. Shared fields remain usable; final saves and Enter
+  submission are blocked, with direct mutation-action rejection retained.
+- Preserved Director menu structure with unreviewed destinations disabled. This
+  does not finish the remaining operational/report pages or authorize a release.
+- Form/loader/action/policy tests passed; synthetic desktop/mobile browser checks
+  passed. Corrected dark-mode contrast in the shared enrollment form panels.
+- No deployment or durable database changes. Hosted authentication QA still pending.
+
+## 2026-09-15: Director Read-Only Player Profile (Local)
+
+- Reused the normal profile loader/layout with authenticated, scoped, SELECT-only
+  access and canonical individual account balances. Restored notes, plan and uniforms.
+- Disabled persistent controls without removing forms; uniform handlers and direct
+  note creation reject the reader. Superadmin repair tools remain excluded.
+- Profile parity/failure tests, rendered control checks and existing auth/account
+  tests passed. Preview scope/revocation and uniform-write tests rolled back fully.
+- No deployment. Separate edit routes and hosted profile browser QA remain pending.
+
+## 2026-09-15: Director Read-Only Caja Parity (Local)
+
+- Reused the normal Caja client and catalog/account calculations for the reader.
+  Scoped GET reads keep the existing blanket server-action mutation denial intact.
+- Payment, charge, refund, cancellation and note submissions have disabled final
+  controls plus handler guards. Local search, selection and cart exploration remain usable.
+- Added two role-checked individual-player discovery RPCs in a local migration;
+  no raw financial table grants or staff RPC changes.
+- Type checks, reader transport/authorization tests and staff checkout assertions
+  passed. Preview DB test installed the migration only inside a rolled-back transaction
+  and checked real-role read parity, write denial and revocation.
+- Desktop/mobile synthetic UI checks passed; temporary route removed. Hosted
+  authenticated UI verification, linked pages and production deployment remain pending.
+
 ## 2026-09-15: Jugadores-Only Group Change Release
 
 - User approved the Preview workflow and requested removing the Caja entry point.
@@ -6514,3 +6655,22 @@
 - Players sort by birth year asc → level rank → name within each section.
 - Sheets with zero matching players are skipped; players outside all defined groups are silently excluded.
 - No changes to data fetching (`player-exports.ts`) or the API route.
+# Director Read-Only Parity: Initial Local Implementation
+
+Second local chunk: added a scoped, no-store GET account reader. Actual-session
+role validation and authenticated enrollment/campus checks precede privileged
+SELECT-only ledger reads. Director and read-only share canonical allocation,
+refund, and credit calculations. Focused authorization and ledger-parity tests,
+TypeScript, and the existing auth suite passed. No database grants or deployments.
+Caja search/catalog read paths and UI integration remain pending; this is not a
+completed Caja release.
+
+Approved scope now permits individual finances but not consolidated business
+amounts. Started on isolated branch `codex/director-parity` from `bba7d54`.
+Shared the normal Panel presentation, added explicit null projections for hidden
+totals/series, read-only control primitives, and a deny-first guard for Caja's
+automatic credit application. Existing write permissions are unchanged.
+TypeScript, focused presentation checks, attendance regression, and the existing
+read-only auth suite passed. Full Caja/profile parity, authenticated runtime
+verification, and Preview release are still pending. Nothing deployed or changed
+in a database. See `docs/support/2026-09-15-director-parity.md`.

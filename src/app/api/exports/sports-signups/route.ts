@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   }
 
   const permissionContext = await getPermissionContext();
-  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess)) {
+  if (!permissionContext || (!permissionContext.hasOperationalAccess && !permissionContext.hasSportsAccess && !permissionContext.isDirectorReadOnly)) {
     return NextResponse.json({ message: "Sin permisos." }, { status: 403 });
   }
 

@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { requireDirectorContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { listTeamsWithCampus, listBulkChargeTypes } from "@/lib/queries/teams";
 import { bulkChargeTeamAction } from "@/server/actions/billing";
 
@@ -14,7 +15,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 type SearchParams = Promise<{ ok?: string; created?: string; err?: string }>;
 
 export default async function CargosEquipoPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireDirectorContext("/unauthorized");
+  await requireDirectorPageReader();
   const params = await searchParams;
   const ok = params.ok === "1";
   const created = parseInt(params.created ?? "0", 10);
@@ -59,7 +60,7 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
         {teams.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">No hay equipos activos registrados en el sistema.</p>
         ) : (
-          <form action={bulkChargeTeamAction} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+          <ReadOnlyForm action={bulkChargeTeamAction} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
             {/* Team */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Equipo</label>
@@ -126,13 +127,13 @@ export default async function CargosEquipoPage({ searchParams }: { searchParams:
               <p className="text-xs text-slate-500 dark:text-slate-400">Aparece en el estado de cuenta de cada jugador.</p>
             </div>
 
-            <button
+            <WriteButton
               type="submit"
               className="rounded-md bg-portoBlue px-5 py-2 text-sm font-medium text-white hover:bg-portoDark"
             >
               Generar cargos
-            </button>
-          </form>
+            </WriteButton>
+          </ReadOnlyForm>
         )}
 
         <div className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-xs text-slate-600 dark:text-slate-400 space-y-1">

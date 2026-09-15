@@ -1316,6 +1316,7 @@ export async function voidHistoricalRegularizationChargeAction(
 
 export async function batchVoidBajaChargesAction(formData: FormData): Promise<void> {
   const BASE = "/pending/bajas";
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect(`${BASE}?err=unauthorized`);
   await assertDebugWritesAllowed(BASE);
 
   const reason = formData.get("reason")?.toString().trim() ?? "";

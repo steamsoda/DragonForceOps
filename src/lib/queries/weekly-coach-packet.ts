@@ -1,3 +1,5 @@
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { canAccessAttendanceCampus, getAttendanceCampusAccess } from "@/lib/auth/campuses";
 import { getPlayerAttendanceRiskByPlayerIds } from "@/lib/queries/attendance";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -335,6 +337,8 @@ export function getWeeklyCoachPacketWeek(value?: string | null) {
 }
 
 export async function getWeeklyCoachPacket(filters: { campusId?: string; week?: string; coach?: string }): Promise<WeeklyCoachPacketData> {
+  const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
   const access = await getAttendanceCampusAccess();
   const week = normalizeWeek(filters.week);
   const emptyTotals = { coaches: 0, groups: 0, players: 0, newPlayers: 0, pendingPayment: 0, absenceRisk: 0 };

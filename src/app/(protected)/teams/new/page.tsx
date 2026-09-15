@@ -1,5 +1,7 @@
 import { PageShell } from "@/components/ui/page-shell";
-import { requireSportsDirectorContext } from "@/lib/auth/permissions";
+import { requireSportsReadContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { listCoaches } from "@/lib/queries/teams";
 import { createTeamAction } from "@/server/actions/teams";
 import { listCampuses } from "@/lib/queries/players";
@@ -12,7 +14,8 @@ const BIRTH_YEARS = Array.from({ length: 15 }, (_, i) => CURRENT_YEAR - 6 - i);
 const inputClass = "w-full rounded-md border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm bg-white dark:bg-slate-900";
 
 export default async function NewTeamPage({ searchParams }: { searchParams: Promise<{ err?: string }> }) {
-  await requireSportsDirectorContext("/unauthorized");
+  const permission = await requireSportsReadContext("/unauthorized");
+  if (permission.isDirectorReadOnly) await requireOperationalPageReader();
 
   const sp = await searchParams;
   const [campuses, coaches] = await Promise.all([listCampuses(), listCoaches()]);
@@ -28,7 +31,7 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
         </div>
       )}
 
-      <form action={createTeamAction} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+      <ReadOnlyForm action={createTeamAction} className="max-w-lg space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
         <p className="text-xs text-slate-500 dark:text-slate-400">El nombre del equipo se genera automáticamente a partir de los atributos.</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -89,14 +92,14 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
         </label>
 
         <div className="flex gap-3 pt-1">
-          <button type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
+          <WriteButton type="submit" className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark">
             Crear equipo
-          </button>
+          </WriteButton>
           <a href="/teams" className="rounded-md border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
             Cancelar
           </a>
         </div>
-      </form>
+      </ReadOnlyForm>
     </PageShell>
   );
 }

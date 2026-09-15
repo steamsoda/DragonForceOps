@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireDirectorReadContext } from "@/lib/auth/permissions";
+import { requireDirectorPageReader } from "@/lib/auth/operational-page-reader";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { PageShell } from "@/components/ui/page-shell";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
-import { getCampusSessionStatuses } from "@/lib/queries/cash-sessions";
+import { getCampusSessionPageStatuses } from "@/lib/queries/cash-sessions";
 import { openCashSessionAction, closeCashSessionAction } from "@/server/actions/cash-sessions";
 
 export const metadata = { title: "Sesion de Caja - Dragon Force Ops" };
 
-function fmt(v: number) {
+function fmt(v: number | null) {
+  if (v === null) return "\u2014";
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v);
 }
 
@@ -35,11 +37,10 @@ const ERROR_LABELS: Record<string, string> = {
 type SearchParams = Promise<{ ok?: string; err?: string }>;
 
 export default async function CajaSessionPage({ searchParams }: { searchParams: SearchParams }) {
-  const context = await requireDirectorReadContext();
-  if (context.isDirectorReadOnly || !context.canViewFinancials) redirect("/caja");
+  const context = await requireDirectorPageReader();
   const params = await searchParams;
-  const [campusAccess, statuses] = await Promise.all([getOperationalCampusAccess(), getCampusSessionStatuses()]);
-  if (!campusAccess?.isDirector) {
+  const [campusAccess, statuses] = await Promise.all([getOperationalCampusAccess(), getCampusSessionPageStatuses()]);
+  if (!context.isDirectorReadOnly && !campusAccess?.isDirector) {
     redirect("/caja");
   }
 
@@ -89,7 +90,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Apertura: {fmtTime(session.openedAt)}
                       </p>
-                      <div className="mt-3 flex gap-4 text-sm">
+                      <div className="mt-3 flex flex-wrap gap-4 text-sm">
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Efectivo inicial</p>
                           <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash)}</p>
@@ -100,11 +101,11 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                         </div>
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Reembolsos / salidas</p>
-                          <p className="font-semibold text-rose-700 dark:text-rose-400">-{fmt(session.cashOut)}</p>
+                          <p className="font-semibold text-rose-700 dark:text-rose-400">{session.cashOut === null ? "\u2014" : `-${fmt(session.cashOut)}`}</p>
                         </div>
                         <div>
                           <p className="text-xs text-slate-500 dark:text-slate-400">Esperado en caja</p>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash + session.cashIn - session.cashOut)}</p>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{fmt(session.openingCash === null || session.cashIn === null || session.cashOut === null ? null : session.openingCash + session.cashIn - session.cashOut)}</p>
                         </div>
                       </div>
                     </>
@@ -120,7 +121,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                     <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
                       Cerrar sesion
                     </summary>
-                    <form action={closeCashSessionAction} className="mt-3 space-y-3">
+                    <ReadOnlyForm action={closeCashSessionAction} className="mt-3 space-y-3">
                       <input type="hidden" name="session_id" value={session.id} />
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Efectivo contado al cierre (opcional)</span>
@@ -132,7 +133,7 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           placeholder="0.00"
                           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
                         />
-                        <p className="text-xs text-slate-400">Esperado: {fmt(session.openingCash + session.cashIn - session.cashOut)}</p>
+                        <p className="text-xs text-slate-400">Esperado: {fmt(session.openingCash === null || session.cashIn === null || session.cashOut === null ? null : session.openingCash + session.cashIn - session.cashOut)}</p>
                       </label>
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Notas (opcional)</span>
@@ -143,20 +144,20 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
                         />
                       </label>
-                      <button
+                      <WriteButton
                         type="submit"
                         className="w-full rounded-md bg-rose-600 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                       >
                         Confirmar cierre
-                      </button>
-                    </form>
+                      </WriteButton>
+                    </ReadOnlyForm>
                   </details>
                 ) : (
                   <details className="group">
                     <summary className="cursor-pointer list-none rounded-md border border-emerald-500 bg-emerald-500 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600">
                       Abrir sesion
                     </summary>
-                    <form action={openCashSessionAction} className="mt-3 space-y-3">
+                    <ReadOnlyForm action={openCashSessionAction} className="mt-3 space-y-3">
                       <input type="hidden" name="campus_id" value={campusId} />
                       <label className="block space-y-1 text-sm">
                         <span className="font-medium text-slate-700 dark:text-slate-300">Efectivo inicial en caja</span>
@@ -170,13 +171,13 @@ export default async function CajaSessionPage({ searchParams }: { searchParams: 
                           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
                         />
                       </label>
-                      <button
+                      <WriteButton
                         type="submit"
                         className="w-full rounded-md bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                       >
                         Confirmar apertura
-                      </button>
-                    </form>
+                      </WriteButton>
+                    </ReadOnlyForm>
                   </details>
                 )}
               </div>

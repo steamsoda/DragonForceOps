@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReadOnlyForm, WriteButton } from "@/components/auth/read-only-controls";
 import { AttendanceCampusButtons } from "@/components/attendance/attendance-campus-buttons";
 import { PageShell } from "@/components/ui/page-shell";
 import { requireAttendanceReadContext } from "@/lib/auth/permissions";
@@ -54,8 +55,8 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
   const previousMonth = addMonths(data.selectedMonth, -1);
   const nextMonth = addMonths(data.selectedMonth, 1);
   const leadingBlankDays = data.days[0] ? isoDayOfWeek(data.days[0].date) - 1 : 0;
-  const canManageClosures = !context.isDirectorReadOnly && context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector);
-  const defaultClosureCampusId = data.selectedCampusId ?? (context.isDirector ? "" : data.campuses[0]?.id ?? "");
+  const canManageClosures = context.isDirectorReadOnly || (context.hasAttendanceWriteAccess && (context.isDirector || context.isSportsDirector));
+  const defaultClosureCampusId = data.selectedCampusId ?? (context.isDirector || context.isDirectorReadOnly ? "" : data.campuses[0]?.id ?? "");
 
   return (
     <PageShell
@@ -114,11 +115,11 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Director / deportes</span>
               </div>
             </summary>
-            <form action={createAttendanceClosureAction} className="mt-4 grid gap-3 md:grid-cols-6">
+            <ReadOnlyForm action={createAttendanceClosureAction} className="mt-4 grid gap-3 md:grid-cols-6">
               <label className="text-sm font-medium">
                 Campus
                 <select name="campus_id" defaultValue={defaultClosureCampusId} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950">
-                  {context.isDirector ? <option value="">Todos los campus</option> : null}
+                  {context.isDirector || context.isDirectorReadOnly ? <option value="">Todos los campus</option> : null}
                   {data.campuses.map((campus) => (
                     <option key={campus.id} value={campus.id}>{campus.name}</option>
                   ))}
@@ -151,9 +152,9 @@ export default async function AttendanceCalendarPage({ searchParams }: { searchP
                 <input name="notes" placeholder="Opcional: contexto operativo" className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <div className="flex items-end">
-                <button className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Guardar cierre</button>
+                <WriteButton className="w-full rounded-md bg-portoBlue px-4 py-2 text-sm font-semibold text-white hover:bg-portoDark">Guardar cierre</WriteButton>
               </div>
-            </form>
+            </ReadOnlyForm>
           </details>
         ) : null}
 

@@ -17,6 +17,7 @@ import {
 } from "@/lib/training-groups/enrollment-selection";
 import { createPerfTimer } from "@/lib/perf/timing";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 
 type ChargeTypeRow = { id: string; code: string };
 
@@ -138,8 +139,8 @@ export async function searchLikelyPlayersForIntakeAction(input: {
   lastName: string;
   birthDate: string | null;
 }): Promise<IntakeMatch[]> {
-  const firstName = input.firstName.trim();
-  const lastName = input.lastName.trim();
+  const firstName = input.firstName.replace(/[^\p{L}\p{N}\s-]/gu, " ").trim().slice(0, 100);
+  const lastName = input.lastName.replace(/[^\p{L}\p{N}\s-]/gu, " ").trim().slice(0, 100);
   const birthDate = input.birthDate?.trim() ?? "";
 
   if (firstName.length < 2 || lastName.length < 2 || !birthDate) return [];
@@ -147,12 +148,13 @@ export async function searchLikelyPlayersForIntakeAction(input: {
   const year = birthDate.slice(0, 4);
   if (!/^\d{4}$/.test(year)) return [];
 
-  const supabase = await createClient();
-  const campusAccess = await getOperationalCampusAccess();
+  const context = await requireOperationalPageReader();
+  const supabase = context.isDirectorReadOnly ? createAdminClient() : await createClient();
+  const campusAccess = context.campusAccess;
   if (!campusAccess) return [];
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await context.supabase.auth.getUser();
   if (!user) return [];
 
   const fullNameNeedle = `${firstName} ${lastName}`.toLowerCase().replace(/\s+/g, " ").trim();
@@ -223,8 +225,8 @@ export async function searchReturningPlayersForIntakeAction(
     .trim();
   if (query.length < 2) return [];
 
-  const context = await getPermissionContext();
-  if (!context?.hasOperationalAccess || !context.campusAccess || context.campusAccess.campusIds.length === 0) {
+  const context = await requireOperationalPageReader();
+  if (!context.campusAccess || context.campusAccess.campusIds.length === 0) {
     return [];
   }
 
@@ -343,6 +345,7 @@ export async function searchReturningPlayersForIntakeAction(
 }
 
 export async function createEnrollmentIntakeAction(formData: FormData) {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   const perf = createPerfTimer("intake.create_enrollment");
   const isReturning = String(formData.get("isReturning") ?? "") === "1";
   const returnMode = String(formData.get("returnInscriptionMode") ?? "").trim() || null;

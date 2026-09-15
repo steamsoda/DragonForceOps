@@ -1,3 +1,5 @@
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import {
   getPlayerAttendanceRiskByPlayerIds,
@@ -141,7 +143,9 @@ async function loadTrainingGroups(enrollmentIds: string[]) {
 }
 
 export async function getAttendanceCollectionsRiskReport(filters: { campusId?: string; birthYear?: number }) {
-  const campusAccess = await getOperationalCampusAccess();
+  const context = await getPermissionContext();
+  if (context?.isDirectorReadOnly) await requireOperationalPageReader();
+  const campusAccess = context?.isDirectorReadOnly ? context.campusAccess : await getOperationalCampusAccess();
   if (!campusAccess || campusAccess.campuses.length === 0) {
     return {
       campuses: [],

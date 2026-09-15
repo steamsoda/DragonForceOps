@@ -1,3 +1,4 @@
+import { ReadOnlyActionLink } from "@/components/auth/read-only-action-link";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPermissionContext } from "@/lib/auth/permissions";
@@ -83,13 +84,6 @@ function CampusCard({
 }
 
 function ActionLinks({ row, readOnly = false }: { row: NewEnrollmentIntakeRow; readOnly?: boolean }) {
-  if (readOnly) return <details>
-    <summary className="cursor-pointer text-sm text-portoBlue">Consultar inscripcion</summary>
-    <div className="mt-3 grid gap-2">
-      {[["Jugador", row.playerName], ["Campus", row.campusName], ["Estado", row.status], ["Fecha de inscripcion", row.inscriptionDate], ["Categoria", row.birthYear], ["Grupo deportivo", row.currentTrainingGroupName], ["Equipo", row.currentTeamName]].map(([label, value]) =>
-        <label key={String(label)} className="grid gap-1 text-xs">{label}<input readOnly value={String(value ?? "")} className="min-w-0 w-full rounded-md border p-2" /></label>)}
-    </div>
-  </details>;
   const links = [
     row.sportsActionHref ? { href: row.sportsActionHref, label: "Grupo deportivo" } : null,
     row.nutritionActionHref ? { href: row.nutritionActionHref, label: "Nutricion" } : null,
@@ -101,13 +95,13 @@ function ActionLinks({ row, readOnly = false }: { row: NewEnrollmentIntakeRow; r
   return (
     <div className="flex flex-wrap gap-2">
       {links.map((link) => (
-        <Link
+        <ReadOnlyActionLink
           key={`${link.href}:${link.label}`}
           href={link.href}
           className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-portoBlue hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800"
         >
           {link.label}
-        </Link>
+        </ReadOnlyActionLink>
       ))}
     </div>
   );

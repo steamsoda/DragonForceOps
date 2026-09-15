@@ -1,4 +1,5 @@
 "use client";
+import { WriteButton } from "@/components/auth/read-only-controls";
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
@@ -134,14 +135,14 @@ export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
                 {data.selectedCampusName} · Cat. {data.selectedBirthYear} · {TEAM_GENDER_LABELS[data.selectedGender] ?? data.selectedGender}
               </p>
             </div>
-            {!readOnly && <div className="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/70">
+            {<div className="rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/70">
               <p className="text-xs uppercase text-slate-500 dark:text-slate-400">Seleccionados</p>
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedCount}</p>
             </div>}
           </div>
 
           <div className="mb-3 flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800/60">
-            {!readOnly && <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
+            {<label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -159,7 +160,7 @@ export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
                 key={player.enrollmentId}
                 className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/60"
               >
-                {!readOnly && <input
+                {<input
                   type="checkbox"
                   checked={selectedSet.has(player.enrollmentId)}
                   onChange={() => toggleOne(player.enrollmentId)}
@@ -246,14 +247,14 @@ export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {!readOnly && <button
+                    {<WriteButton
                       type="button"
                       disabled={isPending || selectedCount === 0 || !slot.team}
                       onClick={() => slot.team && handleMove(slot.team.id, level)}
                       className="rounded-md bg-portoBlue px-3 py-2 text-sm font-medium text-white hover:bg-portoDark disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {selectedCount > 0 ? `Mover ${selectedCount} aqui` : "Selecciona jugadores"}
-                    </button>}
+                    </WriteButton>}
                     {slot.team ? (
                       <Link
                         href={`/teams/${slot.team.id}`}
@@ -274,12 +275,12 @@ export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
             </p>
           ) : null}
 
-          {!readOnly && data.suggestedLevels.length > 0 ? (
+          {data.suggestedLevels.length > 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 p-4 dark:border-slate-700">
               <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Niveles sugeridos</p>
               <div className="flex flex-wrap gap-2">
                 {data.suggestedLevels.map((level) => (
-                  <button
+                  <WriteButton
                     key={level}
                     type="button"
                     disabled={isPending}
@@ -287,7 +288,7 @@ export function BaseTeamBoardClient({ data, readOnly = false }: Props) {
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Crear {level}
-                  </button>
+                  </WriteButton>
                 ))}
               </div>
             </div>

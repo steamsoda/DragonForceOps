@@ -1,3 +1,4 @@
+import { WriteButton, ReadOnlyForm } from "@/components/auth/read-only-controls";
 import { getScholarshipStatusLabel, type ScholarshipStatus } from "@/lib/enrollments/scholarships";
 
 type EnrollmentEditFormProps = {
@@ -69,7 +70,7 @@ export function EnrollmentEditForm({
   action,
 }: EnrollmentEditFormProps) {
   return (
-    <form action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+    <ReadOnlyForm action={action} className="space-y-4 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">Estatus</span>
@@ -117,8 +118,8 @@ export function EnrollmentEditForm({
       </label>
 
       {canManageScholarship ? (
-        <div className="space-y-3 rounded-md border border-sky-100 bg-sky-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Beca de mensualidad</p>
+        <div className="space-y-3 rounded-md border border-sky-100 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/30">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">Beca de mensualidad</p>
           <label className="space-y-1 text-sm">
             <span className="font-medium text-slate-700 dark:text-slate-300">Estatus de beca</span>
             <select
@@ -144,11 +145,11 @@ export function EnrollmentEditForm({
               className={inputClass}
               placeholder="Ej. 500"
             />
-            <span className="block text-xs text-slate-500">
+            <span className="block text-xs text-slate-500 dark:text-slate-400">
               Solo se usa cuando eliges Beca personalizada. Para este caso captura 500.
             </span>
           </label>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-600 dark:text-slate-300">
             <span className="font-medium">Media beca</span> = cobra 50% de mensualidad.{" "}
             <span className="font-medium">Beca completa</span> = no genera mensualidad.{" "}
             <span className="font-medium">Beca personalizada</span> = cobra el monto fijo mensual capturado.
@@ -156,8 +157,8 @@ export function EnrollmentEditForm({
         </div>
       ) : null}
 
-      <div className="space-y-3 rounded-md border border-amber-100 bg-amber-50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+      <div className="space-y-3 rounded-md border border-amber-100 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
           Motivo de baja - requerido si el estatus es Baja o Cancelado
         </p>
         <label className="space-y-1 text-sm">
@@ -183,12 +184,12 @@ export function EnrollmentEditForm({
         </label>
       </div>
 
-      <button
+      <WriteButton
         type="submit"
         className="rounded-md bg-portoBlue px-4 py-2 text-sm font-medium text-white hover:bg-portoDark"
       >
         Guardar cambios
-      </button>
-    </form>
+      </WriteButton>
+    </ReadOnlyForm>
   );
 }

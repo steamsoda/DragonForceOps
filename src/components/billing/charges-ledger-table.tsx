@@ -1,3 +1,4 @@
+import { WriteButton } from "@/components/auth/read-only-controls";
 import { formatDateTimeMonterrey } from "@/lib/time";
 
 type ChargeItem = {
@@ -273,12 +274,12 @@ export function ChargesLedgerTable({
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                   Solo cambia este cargo. Las reglas generales de precios no se modifican.
                                 </p>
-                                <button
+                                <WriteButton
                                   type="submit"
                                   className="w-full rounded bg-sky-700 px-2 py-1.5 text-xs font-semibold text-white hover:bg-sky-800"
                                 >
                                   Confirmar nuevo precio
-                                </button>
+                                </WriteButton>
                               </form>
                             </details>
                           ) : null}
@@ -297,12 +298,12 @@ export function ChargesLedgerTable({
                                 <p className="text-xs text-slate-700 dark:text-slate-300">
                                   Se recuperara el monto y la regla que tenia este cargo antes del cambio manual.
                                 </p>
-                                <button
+                                <WriteButton
                                   type="submit"
                                   className="w-full rounded bg-amber-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
                                 >
                                   Confirmar restauracion
-                                </button>
+                                </WriteButton>
                               </form>
                             </details>
                           ) : null}
@@ -325,12 +326,12 @@ export function ChargesLedgerTable({
                               placeholder="Ej: baja, error de captura..."
                               className="mb-2 w-full rounded border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-600"
                             />
-                            <button
+                            <WriteButton
                               type="submit"
                               className="w-full rounded bg-rose-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                             >
                               Confirmar anulacion
-                            </button>
+                            </WriteButton>
                           </form>
                             </details>
                           ) : null}

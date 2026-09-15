@@ -283,6 +283,7 @@ async function postOne360Payment({
 }
 
 export async function post360PlayerMonthlyBatchAction(formData: FormData) {
+  if ((await getPermissionContext())?.isDirectorReadOnly) redirect("/unauthorized");
   if (await isDebugWriteBlocked()) {
     redirect(returnUrl({ campusId: String(formData.get("campus") ?? "") || null, month: String(formData.get("month") ?? "") || null, mode: normalizeMode(String(formData.get("mode") ?? "")), err: "debug_read_only" }));
   }

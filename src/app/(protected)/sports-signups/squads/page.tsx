@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { CompetitionReadPage } from "@/components/sports/competition-read-views";
+import { ReadOnlyForm } from "@/components/auth/read-only-controls";
 import { redirect } from "next/navigation";
 import { CompetitionRosterCombinedEditor } from "@/components/sports/competition-roster-combined-editor";
 import { CompetitionRosterExceptionsEditor } from "@/components/sports/competition-roster-exceptions-editor";
@@ -77,7 +77,6 @@ function formatStatus(status: "planning" | "ready" | "archived") {
 export default async function CompetitionSquadOrganizerPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const permission = await getPermissionContext();
-  if (permission?.isDirectorReadOnly) return <CompetitionReadPage filters={params} mode="squads" />;
   const data = await getCompetitionRosterOrganizerData({
     tournamentId: params.tournament ?? "",
     campusId: params.campus ?? "",
@@ -236,13 +235,13 @@ export default async function CompetitionSquadOrganizerPage({ searchParams }: { 
                       </span>
                     ) : null}
                     {data.canManage && !group.usesAdvancedStructure ? (
-                      <form action={createOrSyncDefaultCompetitionSquadAction}>
+                      <ReadOnlyForm action={createOrSyncDefaultCompetitionSquadAction}>
                         <input type="hidden" name="tournamentId" value={data.tournamentId} />
                         <input type="hidden" name="campusId" value={data.campusId} />
                         <input type="hidden" name="program" value={data.program} />
                         <input type="hidden" name="trainingGroupId" value={group.id} />
                         <CompetitionRosterSubmitButton exists={Boolean(group.squad)} />
-                      </form>
+                      </ReadOnlyForm>
                     ) : null}
                   </div>
                 </div>

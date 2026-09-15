@@ -17,13 +17,16 @@ import type { PaymentByMethod } from "@/lib/queries/dashboard";
 // ── Payment Status Pie ─────────────────────────────────────────────────────────
 
 type PaymentStatusPieProps = {
-  upToDate: number;
-  withBalance: number;
+  upToDate: number | null;
+  withBalance: number | null;
 };
 
 const PIE_COLORS = ["#10b981", "#f59e0b"]; // emerald-500, amber-400
 
 export function PaymentStatusPie({ upToDate, withBalance }: PaymentStatusPieProps) {
+  if (upToDate === null || withBalance === null) {
+    return <RestrictedChart title="Estado de pago" />;
+  }
   const data = [
     { name: "Al corriente", value: upToDate },
     { name: "Con saldo", value: withBalance }
@@ -145,7 +148,7 @@ export function AttendanceParticipationPie({ attended, notAttended, selectedMont
 
 type WeekBarEntry = {
   label: string;
-  totalCobrado: number;
+  totalCobrado: number | null;
 };
 
 type WeeklyBarProps = {
@@ -153,6 +156,7 @@ type WeeklyBarProps = {
 };
 
 export function WeeklyBar({ data }: WeeklyBarProps) {
+  if (data.some(row => row.totalCobrado === null)) return <RestrictedChart title="Cobros por semana" />;
   if (data.length === 0) {
     return (
       <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
@@ -198,8 +202,15 @@ export function WeeklyBar({ data }: WeeklyBarProps) {
 // ── Payments by Method Bar ─────────────────────────────────────────────────────
 
 type PaymentsByMethodBarProps = {
-  data: PaymentByMethod[];
+  data: PaymentByMethod[] | null;
 };
+
+function RestrictedChart({ title }: { title: string }) {
+  return <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">{title}</p>
+    <div className="flex h-[180px] items-center justify-center text-xl text-slate-400" title="Restringido" aria-label={`${title}: restringido`}>{"\u2014"}</div>
+  </article>;
+}
 
 function fmtK(value: number) {
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
@@ -207,6 +218,7 @@ function fmtK(value: number) {
 }
 
 export function PaymentsByMethodBar({ data }: PaymentsByMethodBarProps) {
+  if (data === null) return <RestrictedChart title={"Cobros por m\u00e9todo"} />;
   if (data.length === 0) {
     return (
       <article className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">

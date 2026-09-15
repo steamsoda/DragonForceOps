@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireOperationalReadContext } from "@/lib/auth/permissions";
+import { requireOperationalPageReader } from "@/lib/auth/operational-page-reader";
 import { ManagementReadUnavailable } from "../dashboard/management-read";
 import { getCallsDashboardData, type CallsDashboardData } from "@/lib/queries/calls";
 import { PageShell } from "@/components/ui/page-shell";
@@ -138,8 +138,8 @@ function buildAllCampusesBoard(data: CallsDashboardData) {
 }
 
 export default async function CallsPage({ searchParams }: { searchParams: SearchParams }) {
-  const context = await requireOperationalReadContext("/unauthorized");
-  if (context.isDirectorReadOnly || !context.canViewFinancials) return <ManagementReadUnavailable title="Llamadas" />;
+  const context = await requireOperationalPageReader();
+  if (!context.isDirectorReadOnly && !context.canViewFinancials) return <ManagementReadUnavailable title="Llamadas" />;
 
   const params = await searchParams;
   const data = await getCallsDashboardData({ campusId: params.campus, month: params.month });
