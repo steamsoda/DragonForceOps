@@ -140,7 +140,6 @@
   and checked real-role read parity, write denial and revocation.
 - Desktop/mobile synthetic UI checks passed; temporary route removed. Hosted
   authenticated UI verification, linked pages and production deployment remain pending.
-
 ## 2026-09-15: Jugadores-Only Group Change Release
 
 - User approved the Preview workflow and requested removing the Caja entry point.

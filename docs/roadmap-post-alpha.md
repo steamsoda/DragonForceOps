@@ -22,7 +22,6 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
   Production remains separate; full visual parity is not signed off yet.
 - Jugadores performance remains deferred.
 - Details: `docs/support/2026-09-15-director-parity.md`.
-
 ### Current Local Work: Quick Group Changes (2026-09-15)
 
 - Implemented: shared Cambiar grupo panel in Jugadores and Caja, explicit confirmation,
