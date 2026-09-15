@@ -108,6 +108,7 @@ export type PlayerRosterGroupsData = {
   selectedGender: "male" | "female" | "";
   selectedBirthYear: number | null;
   canEditTrainingGroups: boolean;
+  canQuickChangeGroups?: boolean;
   birthYears: number[];
   months: RosterTuitionMonth[];
   groupOptions: PlayerRosterGroupOption[];
@@ -301,10 +302,6 @@ export async function getPlayerRosterGroupsData(
       .order("start_time", { ascending: true })
       .range(from, to);
 
-    if (selectedGender) {
-      query = query.in("gender", [selectedGender, "mixed"]);
-    }
-
     return query.returns<TrainingGroupRow[]>();
   };
 
@@ -405,10 +402,10 @@ export async function getPlayerRosterGroupsData(
     });
   }
 
-  const groupOptions = [...sectionMap.values()].map((section) => ({
-    id: section.id,
-    name: section.name,
-    subtitle: section.subtitle,
+  const groupOptions = groups.map((group) => ({
+    id: group.id,
+    name: formatGroupDisplayName(group),
+    subtitle: groupSubtitle(group),
   }));
 
   const sections = [...sectionMap.values(), ...(unassignedSection.rows.length > 0 ? [unassignedSection] : [])]

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/ui/page-shell";
-import { requirePlayerRosterContext } from "@/lib/auth/permissions";
+import { getPermissionContext } from "@/lib/auth/permissions";
+import { GroupChangeSearch, QuickGroupChange } from "@/components/players/quick-group-change";
 import { listBajas, listBirthYears, listCampuses, listPlayers } from "@/lib/queries/players";
 import { getAttendanceExportData } from "@/lib/queries/player-exports";
 import { getTagSettings, type TagSettings } from "@/lib/queries/settings";
@@ -120,7 +121,7 @@ function PlayerTags({ row, tags }: { row: PlayerRow; tags: TagSettings }) {
   return <div className="flex flex-wrap gap-1">{pills}</div>;
 }
 
-function ActivePlayerCards({ rows, tags, withdrawn = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean }) {
+function ActivePlayerCards({ rows, tags, withdrawn = false, canChangeGroups = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean; canChangeGroups?: boolean }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-slate-200 px-4 py-5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
@@ -137,6 +138,7 @@ function ActivePlayerCards({ rows, tags, withdrawn = false }: { rows: Array<Play
             <Link href={`/players/${row.id}`} prefetch={false} className="text-base font-semibold text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
               {row.fullName}
             </Link>
+            {!withdrawn && canChangeGroups && <QuickGroupChange playerId={row.id} />}
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {row.publicPlayerId ?? "ID pendiente"} | Cat. {row.birthYear} | {row.level ?? "Sin nivel"} | {row.campusName}
             </p>
@@ -150,7 +152,7 @@ function ActivePlayerCards({ rows, tags, withdrawn = false }: { rows: Array<Play
   );
 }
 
-function ActivePlayerTable({ rows, tags, withdrawn = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean }) {
+function ActivePlayerTable({ rows, tags, withdrawn = false, canChangeGroups = false }: { rows: Array<PlayerRow & { startDate?: string; endDate?: string | null }>; tags: TagSettings; withdrawn?: boolean; canChangeGroups?: boolean }) {
   return (
             <div className="hidden overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -180,6 +182,7 @@ function ActivePlayerTable({ rows, tags, withdrawn = false }: { rows: Array<Play
                           <Link href={`/players/${row.id}`} prefetch={false} className="font-medium text-slate-900 hover:text-portoBlue hover:underline dark:text-slate-100">
                             {row.fullName}
                           </Link>
+                          {!withdrawn && canChangeGroups && <div><QuickGroupChange playerId={row.id} /></div>}
                         </td>
                         {withdrawn ? <><td className="px-3 py-2">{fmtDate(row.startDate)}</td><td className="px-3 py-2">{fmtDate(row.endDate)}</td></> : null}
                         <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-400">{row.publicPlayerId ?? "-"}</td>
@@ -480,7 +483,11 @@ type SearchParams = Promise<{
 }>;
 
 export default async function PlayersPage({ searchParams }: { searchParams: SearchParams }) {
-  const permissionContext = await requirePlayerRosterContext("/unauthorized");
+  const permissionContext = await getPermissionContext();
+  if (!permissionContext || (!permissionContext.hasPlayerRosterAccess && !permissionContext.isAttendanceAdmin)) redirect('/unauthorized');
+  if (!permissionContext.hasPlayerRosterAccess && permissionContext.isAttendanceAdmin) {
+    return <PageShell title="Jugadores" wide><GroupChangeSearch /></PageShell>;
+  }
   const params = await searchParams;
   if (isDirectorReadOnly(permissionContext)) {
     if (params.view !== "active" && params.view !== "bajas") {
@@ -584,6 +591,7 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
       >
         <div className="space-y-4">
           <PlayerViewTabs view={view} canViewLists={permissionContext.hasPlayerDataAccess} />
+          <GroupChangeSearch />
           <GroupedRosterClient filters={{ campusId: campusId || undefined, gender: selectedGroupGender || undefined, birthYear: birthYear || undefined }} />
         </div>
       </PageShell>
@@ -846,8 +854,8 @@ export default async function PlayersPage({ searchParams }: { searchParams: Sear
 
         {view === "active" ? (
           <>
-            <ActivePlayerCards rows={activeRows} tags={tags} />
-            <ActivePlayerTable rows={activeRows} tags={tags} />
+            <ActivePlayerCards rows={activeRows} tags={tags} canChangeGroups />
+            <ActivePlayerTable rows={activeRows} tags={tags} canChangeGroups />
           </>
         ) : (
           <>
