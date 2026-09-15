@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { QuickGroupChange } from "./quick-group-change";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { RecentAttendanceChips } from "@/components/attendance/recent-attendance-chips";
@@ -615,7 +616,7 @@ function GroupedRosterView({ data, onReload }: { data: RosterData; onReload: () 
                                 <option key={group.id} value={group.id}>{group.name}</option>
                               ))}
                             </select>
-                          ) : row.levelGroup}
+                          ) : <>{row.levelGroup}{'canQuickChangeGroups' in data && data.canQuickChangeGroups && <div className="print:hidden"><QuickGroupChange playerId={row.playerId} onChanged={() => onReload()} /></div>}</>}
                         </td>
                         <td className="px-2 py-2 text-center text-slate-700 dark:text-slate-300">{row.inscriptionDate}</td>
                         <td className="px-2 py-2 text-center">
@@ -925,7 +926,7 @@ export function GroupedRosterClient({ filters, initialData }: { filters: Grouped
     ? { status: "ready", data: initialData, message: null } : { status: "loading", data: null, message: null });
 
   const loadRoster = useCallback(async (signal?: AbortSignal) => {
-    setState({ status: "loading", data: null, message: null });
+    setState(current => current.status === "ready" ? current : { status: "loading", data: null, message: null });
 
     await fetch(apiHref, {
       signal,

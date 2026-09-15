@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-09-15: Quick Training Group Changes (Local)
+
+- Added one shared search/review/confirmation panel in Jugadores and Caja.
+- All active campus groups are selectable regardless of birth year. Existing bulk
+  roster editing also no longer derives its destinations from filtered sections.
+- Field Admin receives a nonfinancial, campus-scoped player search, not Caja access.
+- Added an authenticated, atomic assignment RPC with stale-assignment checks,
+  audit rollback, retained history, and protection for manual/Invitado team choices.
+- Preview rollback test passed 20 checks; action/UI contract tests and TypeScript
+  passed. Desktop/mobile mock panel exercised; temporary visual fixture removed.
+- No production changes and no permanent Preview migration or real player changes.
+  Release details: docs/support/2026-09-15-quick-group-change.md.
+
+
 ## 2026-09-14: Email Preauthorization Preview Release
 
 - Added Usuarios / Preautorizaciones tabs and a compact, paginated approval queue.

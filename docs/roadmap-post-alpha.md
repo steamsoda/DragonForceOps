@@ -4,6 +4,15 @@ Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verifi
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
+### Current Local Work: Quick Group Changes (2026-09-15)
+
+- Implemented: shared Cambiar grupo panel in Jugadores and Caja, explicit confirmation,
+  out-of-year destinations, scoped Field Admin search, and atomic audited moves.
+- Validated with Preview rollback fixtures and synthetic desktop/mobile interaction.
+- Next: approved Preview migration/deployment and staff browser smoke test, followed
+  by a separately approved production release. No real players moved during development.
+- Details: `docs/support/2026-09-15-quick-group-change.md`.
+
 Full pre-reorg roadmap snapshot is preserved at:
 
 - `docs/archive/roadmap-post-alpha-pre-reorg-2026-05-06.md`

@@ -1,4 +1,5 @@
 "use client";
+import { QuickGroupChange } from "@/components/players/quick-group-change";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
@@ -1336,6 +1337,7 @@ function PosEnrollmentPanel({
     defaultCampusId ?? allowedCampuses[0]?.id ?? data.campusId
   );
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [changedGroupLabel, setChangedGroupLabel] = useState<string | null>(null);
   const [products, setProducts] = useState<CajaProductCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [canUseFullCatalog, setCanUseFullCatalog] = useState(false);
@@ -1366,7 +1368,7 @@ function PosEnrollmentPanel({
     return () => {
       cancelled = true;
     };
-  }, [data.enrollmentId, fullCatalogEnabled]);
+  }, [data.enrollmentId, fullCatalogEnabled, changedGroupLabel]);
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -1643,10 +1645,11 @@ function PosEnrollmentPanel({
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
           <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
+          {(player.playerId || data.playerId) && <QuickGroupChange playerId={(player.playerId || data.playerId)!} onChanged={setChangedGroupLabel} />}
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {data.campusName}{player.birthYear ? ` · ${player.birthYear}` : ""}
           </p>
-          {player.teamName && (
+          {!changedGroupLabel && player.teamName && (
             <p className="mt-0.5 text-xs text-slate-400">
               {player.teamName}{player.coachName ? ` · ${player.coachName}` : ""}
             </p>

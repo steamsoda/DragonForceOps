@@ -1,0 +1,70 @@
+// Preview-only rollback rehearsal. Run from the repository root with its .env.local.
+const fs=require('node:fs'),path=require('node:path'),{parseEnv}=require('node:util'),{randomUUID}=require('node:crypto');
+const {Client}=require('pg'),assert=require('node:assert/strict');
+const env=parseEnv(fs.readFileSync('.env.local','utf8'));
+if(env.NEXT_PUBLIC_SUPABASE_URL!=='https://eqefgwdsqabnmpnbpqbq.supabase.co')throw Error('Preview required');
+const url=new URL(env.SUPABASE_PREVIEW_DB_URL);url.searchParams.delete('sslmode');
+const db=new Client({connectionString:url.href,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:15000});
+const q=async(s,p=[]) => { try { return (await db.query(s,p)).rows; } catch(e) { e.message = `${e.message} [${s.slice(0,100)}]`; throw e; } };
+let checks=0;
+function ok(value,label){assert.ok(value,label);checks++;}
+async function actor(id){await q('reset role');await q("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)",[JSON.stringify({sub:id,role:'authenticated'}),id]);await q('set local role authenticated');}
+async function denied(sql,args,match){await q('savepoint test');let error;try{await q(sql,args);}catch(e){error=e;await q('rollback to savepoint test');}await q('release savepoint test');ok(error&&(error.code===match||error.message.includes(match)),`denied ${match}: ${error?.message}`);}
+async function main(){
+ await db.connect();await q("begin;set local lock_timeout='3s';set local statement_timeout='20s'");
+ await q(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20260915120000_quick_training_group_change.sql'),'utf8'));
+ const campuses=await q('select id from public.campuses where is_active order by id limit 2');assert.equal(campuses.length,2);
+ const [campus,other]=campuses.map(x=>x.id), uid=randomUUID(), outsider=randomUUID(), player=randomUUID(), enrollment=randomUUID(), a=randomUUID(), b=randomUUID(), foreign=randomUUID();
+ await q("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now()),($3,$4,now())",[uid,`group-test-${uid}@fcportodragonforcemty.com`,outsider,`group-outsider-${outsider}@example.invalid`]);
+ await q("insert into public.user_roles(user_id,role_id,campus_id) select $1,id,$2 from public.app_roles where code='attendance_admin'",[uid,campus]);
+ await q("insert into public.players(id,first_name,last_name,birth_date) values($1,'QuickGroupTest',$2,'2015-01-01')",[player,player]);
+ await q("insert into public.enrollments(id,player_id,campus_id,pricing_plan_id,start_date) select $1,$2,$3,id,current_date-20 from public.pricing_plans limit 1",[enrollment,player,campus]);
+ await q("insert into public.training_groups(id,campus_id,name,program,birth_year_min,birth_year_max) values($1,$2,'Quick 2015','futbol_para_todos',2015,2015),($3,$2,'Quick 2014','futbol_para_todos',2014,2014),($4,$5,'Other campus','selectivo',2014,2014)",[a,campus,b,foreign,other]);
+ const original=(await q('insert into public.training_group_assignments(training_group_id,enrollment_id,player_id,start_date) values($1,$2,$3,current_date-10) returning id',[a,enrollment,player]))[0].id;
+ const finance=await q('select (select count(*) from public.charges) charges,(select count(*) from public.payments) payments');
+ await actor(outsider);await denied('select public.get_group_change_options($1)',[player],'42501');
+ ok((await q('select public.search_group_change_players($1) data',[player]))[0].data.length===0,'outsider search empty');
+ await actor(uid);
+ let options=(await q('select public.get_group_change_options($1) data',[player]))[0].data;
+ ok(options.groups.some(g=>g.id===b),'2014 destination visible for 2015 player');
+ ok(!options.groups.some(g=>g.id===foreign),'other campus hidden');
+ ok(!JSON.stringify(options).includes('balance'),'no financial payload');
+ await denied('select public.quick_change_training_group($1,$2,$3)',[enrollment,original,foreign],'invalid_destination');
+ const next=(await q('select public.quick_change_training_group($1,$2,$3) id',[enrollment,original,b]))[0].id;
+ ok(next!==original,'field admin moved across birth years');
+ await denied('select public.quick_change_training_group($1,$2,$3)',[enrollment,original,a],'assignment_changed');
+ const returned=(await q('select public.quick_change_training_group($1,$2,$3) id',[enrollment,next,a]))[0].id;
+ await q('select public.quick_change_training_group($1,$2,$3)',[enrollment,returned,b]);
+ options=(await q('select public.get_group_change_options($1) data',[player]))[0].data;
+ ok(options.enrollments[0].assignments.length===1,'same-day repeated move has one active assignment');
+ await q('reset role');
+ ok((await q('select end_date from public.training_group_assignments where id=$1',[original]))[0].end_date!==null,'old history retained');
+ ok(Number((await q("select count(*) n from public.audit_logs where actor_user_id=$1 and action='training_group.quick_changed'",[uid]))[0].n)===3,'each move audited');
+ assert.deepEqual(await q('select (select count(*) from public.charges) charges,(select count(*) from public.payments) payments'),finance);checks++;
+ await q("select set_config('request.jwt.claims','{}',true),set_config('request.jwt.claim.sub','',true)");
+ const tournament=(await q("insert into public.tournaments(name,campus_id) values('Quick group test',$1) returning id",[campus]))[0].id;
+ const squad=(await q("insert into public.competition_roster_squads(tournament_id,name) values($1,'Manual test') returning id",[tournament]))[0].id;
+ await q("insert into public.tournament_player_entries(tournament_id,enrollment_id,entry_status) values($1,$2,'confirmed')",[tournament,enrollment]);
+ await q("insert into public.competition_roster_squad_members(squad_id,enrollment_id,source) values($1,$2,'paid')",[squad,enrollment]);
+ await q("insert into public.competition_roster_events(tournament_id,squad_id,enrollment_id,event_type) values($1,$2,$3,'squad.member_moved')",[tournament,squad,enrollment]);
+ ok((await q('select public.reconcile_competition_roster_entry($1,$2) result',[tournament,enrollment]))[0].result.status==='manual_assignment_preserved','manual tournament placement preserved');
+ await q("update public.competition_roster_events set event_type='member.invited_assigned' where tournament_id=$1",[tournament]);
+ ok((await q('select public.reconcile_competition_roster_entry($1,$2) result',[tournament,enrollment]))[0].result.status==='manual_assignment_preserved','Invitado placement preserved');
+ await q("create function pg_temp.fail_quick_audit() returns trigger language plpgsql as $$ begin if new.action='training_group.quick_changed' then raise exception 'test_audit_failed'; end if;return new;end $$");
+ await q('create trigger test_fail_quick_audit before insert on public.audit_logs for each row execute function pg_temp.fail_quick_audit()');
+ await actor(uid);await denied('select public.quick_change_training_group($1,$2,$3)',[enrollment,next,a],'test_audit_failed');
+ options=(await q('select public.get_group_change_options($1) data',[player]))[0].data;
+ ok(options.enrollments[0].assignments[0].group_id===b,'audit failure rolls back assignment');
+ await q('reset role');await q('drop trigger test_fail_quick_audit on public.audit_logs');
+ await q("update public.training_groups set status='inactive' where id=$1",[a]);await actor(uid);
+ await denied('select public.quick_change_training_group($1,$2,$3)',[enrollment,next,a],'invalid_destination');
+ await q('reset role');await q("select set_config('request.jwt.claims','{}',true),set_config('request.jwt.claim.sub','',true)");await q('delete from public.user_roles where user_id=$1',[uid]);
+ await q("insert into public.user_roles(user_id,role_id,campus_id) select $1,id,$2 from public.app_roles where code='front_desk'",[uid,campus]);
+ await actor(uid);ok((await q('select public.can_quick_change_group($1) allowed',[campus]))[0].allowed,'front desk own campus allowed');
+ ok(!(await q('select public.can_quick_change_group($1) allowed',[other]))[0].allowed,'front desk other campus denied');
+ await q('reset role');await q("select set_config('request.jwt.claims','{}',true),set_config('request.jwt.claim.sub','',true)");await q('delete from public.user_roles where user_id=$1',[uid]);
+ await q("insert into public.user_roles(user_id,role_id) select $1,id from public.app_roles where code='director_readonly'",[uid]);
+ await actor(uid);await denied('select public.quick_change_training_group($1,$2,$3)',[enrollment,next,a],'42501');
+ await q('rollback');console.log(JSON.stringify({checks,result:'PASS; all Preview schema and fixtures rolled back'}));
+}
+main().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(async()=>{await q('rollback').catch(()=>{});await db.end();});

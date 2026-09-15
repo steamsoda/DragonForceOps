@@ -218,7 +218,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     NUTRITION_BASE_SECTION, ATTENDANCE_BASE_SECTION, DIRECTOR_REPORTES_SECTION,
   ].map(section => ({ ...section, items: section.items.filter(item =>
     directorReadOnlyRequestAllowed("GET", item.href, true)) })).filter(section => section.items.length > 0) : [
-    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess ? [sportsStaffSection] : []),
+    ...(isDirectorOrAbove || isFrontDesk ? [staffSection] : isOfficeAdmin ? [officeStaffSection] : hasSportsAccess || roleCodes.includes(APP_ROLES.ATTENDANCE_ADMIN) ? [sportsStaffSection] : []),
     ...(isDirectorOrAbove ? [DIRECTOR_GESTION_SECTION] : isFrontDesk ? [FRONT_DESK_GESTION_SECTION] : isOfficeAdmin ? [officeGestionSection] : []),
     ...(isDirectorOrAbove || isFrontDesk || hasSportsAccess ? [competitionSection] : isCoach ? [coachCompetitionSection] : []),
     ...(hasNutritionAccess ? [nutritionSection] : []),
