@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-09-15: Jugadores-Only Group Change Release
+
+- User approved the Preview workflow and requested removing the Caja entry point.
+- Removed its button, import, local label state, and catalog-refresh dependency.
+  Caja is unchanged from the production baseline; group changes stay in Jugadores.
+- Added a regression assertion that Caja contains no quick-group-change integration.
+- Production release approved with the existing scoped and audited migration.
+
+
 ## 2026-09-15: Quick Training Group Changes (Local)
 
 - Added one shared search/review/confirmation panel in Jugadores and Caja.

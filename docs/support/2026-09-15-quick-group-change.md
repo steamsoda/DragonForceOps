@@ -1,5 +1,9 @@
 # Quick Training Group Changes
 
+Release revision: after Preview approval, the user requested Jugadores only.
+The Caja integration was removed completely before production release. Staff use
+the Jugadores search or player-row action; Caja remains unchanged.
+
 Implementation branch: `codex/quick-group-change`, isolated from the dirty working tree.
 No production or permanent Preview data/schema changes made during implementation.
 
