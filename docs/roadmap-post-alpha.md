@@ -4,6 +4,13 @@ Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verifi
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
+### Current Work: Turnstile Migration (2026-09-16)
+
+- Cloudflare widgets ready; app provider selection implemented in isolation.
+- Next: Preview provider/secret configuration and authenticated login/recovery
+  checks, then separately approved production switch. Production remains hCaptcha.
+- Details: `docs/support/2026-09-16-turnstile.md`.
+
 ### Current Local Work: Director Read-Only Parity
 
 - Remaining implementation completed locally, not deployed: shared Director

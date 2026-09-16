@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AzureSignInButton } from "@/components/auth/azure-sign-in-button";
 import { PasswordForm } from "@/components/auth/password-form";
-import { passwordAuthEnabled, passwordAuthReady } from "@/lib/auth/password-policy";
+import { authCaptchaConfig, passwordAuthEnabled, passwordAuthReady } from "@/lib/auth/password-policy";
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -54,7 +54,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
           <AzureSignInButton />
           {showPasswordAuth ? <>
             <div className="border-t border-slate-200 pt-4 text-sm text-slate-500">O entra con tu correo</div>
-            <PasswordForm mode="signin" ready={passwordAuthReady()} siteKey={process.env.NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY ?? ""} />
+            <PasswordForm mode="signin" ready={passwordAuthReady()} {...authCaptchaConfig()} />
           </> : null}
         </div>
       </div>

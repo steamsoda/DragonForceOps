@@ -28,3 +28,4 @@ tmp/
 
 # QZ Tray private key — never commit
 qz-private.pem
+.env*.local

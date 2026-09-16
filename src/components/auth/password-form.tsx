@@ -7,10 +7,10 @@ import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 
 export type PasswordScreen = "signin" | "signup" | "forgot" | "resend" | "confirm" | "reset";
 type Captcha = { render: (element: HTMLElement, options: Record<string, unknown>) => string; reset: (id: string) => void; remove: (id: string) => void };
-declare global { interface Window { hcaptcha?: Captcha } }
+declare global { interface Window { hcaptcha?: Captcha; turnstile?: Captcha } }
 
-export function PasswordForm({ mode, ready, siteKey, token = "" }: {
-  mode: PasswordScreen; ready: boolean; siteKey: string; token?: string;
+export function PasswordForm({ mode, ready, siteKey, provider = "hcaptcha", token = "" }: {
+  mode: PasswordScreen; ready: boolean; siteKey: string; provider?: "hcaptcha" | "turnstile"; token?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -26,19 +26,26 @@ export function PasswordForm({ mode, ready, siteKey, token = "" }: {
   const hasPassword = ["signin", "signup", "reset"].includes(mode);
   const newPassword = mode === "signup" || mode === "reset";
   useEffect(() => {
-    if (!ready || isToken || !scriptReady || !container.current || !window.hcaptcha) return;
-    widget.current = window.hcaptcha.render(container.current, {
-      sitekey: siteKey, size: "compact", callback: (value: string) => { setCaptchaToken(value); setCaptchaError(false); },
-      "expired-callback": () => setCaptchaToken(""), "error-callback": () => { setCaptchaToken(""); setCaptchaError(true); },
+    const api = window[provider];
+    if (!ready || isToken || !scriptReady || !container.current || !api) return;
+    let active = true;
+    const clearToken = () => { if (active) setCaptchaToken(""); };
+    setCaptchaToken("");
+    widget.current = api.render(container.current, {
+      sitekey: siteKey, size: "compact", callback: (value: string) => { if (active) { setCaptchaToken(value); setCaptchaError(false); } },
+      "expired-callback": clearToken, "timeout-callback": clearToken,
+      "error-callback": () => { if (active) { setCaptchaToken(""); setCaptchaError(true); } },
+      ...(provider === "turnstile" ? { "response-field": false, language: "es" } : {}),
     });
-    return () => { if (widget.current) window.hcaptcha?.remove(widget.current); };
-  }, [ready, isToken, scriptReady, siteKey]);
+    return () => { active = false; if (widget.current !== undefined) api.remove(widget.current); widget.current = undefined; };
+  }, [ready, isToken, scriptReady, siteKey, provider, mode]);
   useEffect(() => {
     if (isToken) window.history.replaceState(null, "", window.location.pathname);
   }, [isToken]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !ready || (isToken ? !token || success : !captchaToken)) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     if (newPassword && data.get("password") !== data.get("confirmation")) { setMismatch(true); return; }
@@ -58,7 +65,7 @@ export function PasswordForm({ mode, ready, siteKey, token = "" }: {
     } catch { setMessage("No se pudo conectar. Tus datos siguen en el formulario; intenta de nuevo."); }
     finally {
       setBusy(false); setCaptchaToken("");
-      if (widget.current) window.hcaptcha?.reset(widget.current);
+      if (widget.current !== undefined) window[provider]?.reset(widget.current);
     }
   }
 
@@ -87,8 +94,9 @@ export function PasswordForm({ mode, ready, siteKey, token = "" }: {
     {mode === "signup" && <p className="text-sm text-slate-500">Confirma tu correo para continuar. El acceso requiere autorizacion de INVICTA.</p>}
     {mode === "confirm" && <p className="text-sm">Confirma tu correo para continuar con tu cuenta.</p>}
     {ready && !isToken && <>
-      <Script src="https://js.hcaptcha.com/1/api.js?render=explicit" onReady={() => setScriptReady(true)} onError={() => setCaptchaError(true)} />
-      <div ref={container} className="min-h-[144px] w-[164px]" />
+      <Script src={provider === "turnstile" ? "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" : "https://js.hcaptcha.com/1/api.js?render=explicit"}
+        onReady={() => setScriptReady(true)} onError={() => { setCaptchaToken(""); setCaptchaError(true); }} />
+      <div ref={container} className={provider === "turnstile" ? "min-h-[150px] w-[150px]" : "min-h-[144px] w-[164px]"} />
       {captchaError && <p role="alert" className="text-sm text-red-700">No se pudo cargar la verificacion. Revisa tu conexion y recarga la pagina.</p>}
     </>}
     {!ready && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">El acceso por correo aun no esta disponible. Intenta mas tarde.</p>}

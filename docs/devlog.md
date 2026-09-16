@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-09-16: Turnstile migration preparation
+
+- Added explicit per-environment CAPTCHA provider selection; retained hCaptcha
+  default for staggered rollout and rollback. Unknown/missing config fails closed.
+- Added Turnstile rendering, token lifecycle handling and provider gate tests.
+- No production change. Hosted Preview configuration/testing pending.
+- Details: `docs/support/2026-09-16-turnstile.md`.
+
 ## 2026-09-15: Security Sweep Retry and Cleanup
 
 - All 15 sampled authenticated HTML/RSC pages now pass, including repaired

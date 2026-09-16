@@ -26,6 +26,9 @@ const cases = [
   ["wrong origin", { AUTH_SITE_URL: "https://example.invalid" }, false],
   ["missing delivery", { AUTH_EMAIL_DELIVERY_READY: "" }, true, false],
   ["missing CAPTCHA", { NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY: "" }, true, false],
+  ["Turnstile ready", { AUTH_CAPTCHA_PROVIDER: "turnstile", NEXT_PUBLIC_AUTH_TURNSTILE_SITE_KEY: "synthetic-turnstile-key" }, true, true],
+  ["Turnstile missing key", { AUTH_CAPTCHA_PROVIDER: "turnstile" }, true, false],
+  ["unknown CAPTCHA provider", { AUTH_CAPTCHA_PROVIDER: "invalid" }, true, false],
 ];
 for (const [name, patch, enabled, formReady] of cases) {
   const probe = net.createServer();
@@ -35,7 +38,7 @@ for (const [name, patch, enabled, formReady] of cases) {
   const origin = `http://127.0.0.1:${port}`;
   const clean = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/SUPABASE|AUTH_|DIRECTOR_READONLY|CRON_|QZ_|VERCEL_|DATABASE|PGPASSWORD/i.test(key)));
   const child = spawn(process.execPath, [require.resolve("next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(port)], {
-    cwd, stdio: "ignore", windowsHide: true, env: { ...clean, ...approved, ...patch },
+    cwd, stdio: process.env.AUTH_GATE_DEBUG === "true" ? "inherit" : "ignore", windowsHide: true, env: { ...clean, ...approved, ...patch },
   });
   const exited = once(child, "exit");
   try {

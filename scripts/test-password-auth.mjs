@@ -9,7 +9,7 @@ async function load(path) {
   const resolved = code.replace('from "zod"', `from "${import.meta.resolve("zod")}"`);
   return import(`data:text/javascript;base64,${Buffer.from(resolved).toString("base64")}`);
 }
-const { passwordRequest, passwordAuthEnabled, passwordAuthReady, trustedAuthOrigin } = await load("src/lib/auth/password-policy.ts");
+const { authCaptchaConfig, passwordRequest, passwordAuthEnabled, passwordAuthReady, trustedAuthOrigin } = await load("src/lib/auth/password-policy.ts");
 const { runPasswordOperation } = await load("src/lib/auth/password-operations.ts");
 const env = { NODE_ENV: "production", VERCEL_ENV: "preview", EMAIL_PASSWORD_AUTH_ENABLED: "true" };
 assert.equal(passwordAuthEnabled(env), true);
@@ -26,6 +26,14 @@ const production = {
 };
 assert.equal(passwordAuthEnabled(production), true);
 assert.equal(passwordAuthReady(production), true);
+const turnstile = { ...production, AUTH_CAPTCHA_PROVIDER: "turnstile", NEXT_PUBLIC_AUTH_TURNSTILE_SITE_KEY: "turnstile-key" };
+assert.deepEqual(authCaptchaConfig(turnstile), { provider: "turnstile", siteKey: "turnstile-key" });
+assert.equal(passwordAuthReady(turnstile), true);
+assert.equal(passwordAuthReady({ ...turnstile, NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY: undefined }), true);
+assert.equal(passwordAuthReady({ ...turnstile, NEXT_PUBLIC_AUTH_TURNSTILE_SITE_KEY: undefined }), false);
+assert.equal(passwordAuthReady({ ...turnstile, NEXT_PUBLIC_AUTH_TURNSTILE_SITE_KEY: "  " }), false);
+assert.equal(passwordAuthReady({ ...turnstile, AUTH_CAPTCHA_PROVIDER: "unknown" }), false);
+assert.deepEqual(authCaptchaConfig(production), { provider: "hcaptcha", siteKey: "test-key" });
 for (const key of Object.keys(production).filter(key => key !== "NODE_ENV")) {
   assert.equal(passwordAuthReady({ ...production, [key]: undefined }), false, `missing ${key}`);
 }

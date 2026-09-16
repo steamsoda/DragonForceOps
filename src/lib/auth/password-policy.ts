@@ -12,9 +12,16 @@ export function passwordAuthEnabled(env: NodeJS.ProcessEnv = process.env) {
     (env.VERCEL_ENV === "preview" || (!env.VERCEL_ENV && env.NODE_ENV === "development"));
 }
 
+export function authCaptchaConfig(env: NodeJS.ProcessEnv = process.env) {
+  const provider = env.AUTH_CAPTCHA_PROVIDER ?? "hcaptcha";
+  if (provider === "turnstile") return { provider, siteKey: env.NEXT_PUBLIC_AUTH_TURNSTILE_SITE_KEY?.trim() ?? "" } as const;
+  if (provider === "hcaptcha") return { provider, siteKey: env.NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY?.trim() ?? "" } as const;
+  return { provider: "hcaptcha", siteKey: "" } as const;
+}
+
 export function passwordAuthReady(env: NodeJS.ProcessEnv = process.env) {
   return passwordAuthEnabled(env) && env.AUTH_EMAIL_DELIVERY_READY === "true" &&
-    env.AUTH_SECURITY_CONFIG_VERIFIED === "true" && Boolean(env.NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY);
+    env.AUTH_SECURITY_CONFIG_VERIFIED === "true" && Boolean(authCaptchaConfig(env).siteKey);
 }
 
 const email = z.string().trim().email().max(254).transform(value => value.toLowerCase());

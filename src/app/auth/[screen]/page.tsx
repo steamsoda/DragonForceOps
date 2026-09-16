@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PasswordForm, type PasswordScreen } from "@/components/auth/password-form";
-import { passwordAuthEnabled, passwordAuthReady } from "@/lib/auth/password-policy";
+import { authCaptchaConfig, passwordAuthEnabled, passwordAuthReady } from "@/lib/auth/password-policy";
 
 const screens: Record<string, { mode: PasswordScreen; title: string }> = {
   "create-account": { mode: "signup", title: "Crear cuenta" },
@@ -24,7 +24,7 @@ export default async function PasswordPage({ params, searchParams }: {
     <div className="w-full max-w-sm space-y-6">
       <div className="bg-blue-950 px-6 py-5"><img src="/invicta-wordmark-white.png" alt="INVICTA" width={320} height={49} className="h-auto w-full" /></div>
       <h1 className="text-xl font-semibold">{selected.title}</h1>
-      <PasswordForm mode={selected.mode} ready={passwordAuthReady()} siteKey={process.env.NEXT_PUBLIC_AUTH_HCAPTCHA_SITE_KEY ?? ""}
+      <PasswordForm mode={selected.mode} ready={passwordAuthReady()} {...authCaptchaConfig()}
         token={typeof token_hash === "string" ? token_hash : ""} />
     </div>
   </main>;
