@@ -4,6 +4,26 @@ import type { passwordRequest } from "./password-policy";
 
 const generic = "Si la solicitud corresponde a una cuenta disponible, recibiras un correo. Revisa tambien correo no deseado.";
 
+function emailRequestResult(error: { code?: string; status?: number } | null): {
+  status: number; message: string; session: false; next?: never;
+} {
+  // Account-dependent failures must look like accepted requests. Never return
+  // provider messages: they can contain addresses or internal configuration.
+  if (!error || ["user_already_exists", "email_exists", "user_not_found", "email_not_confirmed"].includes(error.code ?? "")) {
+    return { status: 200, message: generic, session: false };
+  }
+  if (error.code === "captcha_failed") {
+    return { status: 400, message: "No se pudo verificar la seguridad. Completa la verificacion e intenta de nuevo.", session: false };
+  }
+  if (error.status === 429 || ["over_email_send_rate_limit", "over_request_rate_limit"].includes(error.code ?? "")) {
+    return { status: 429, message: "Espera unos minutos antes de intentar de nuevo.", session: false };
+  }
+  if (error.code === "weak_password") {
+    return { status: 400, message: "Elige una contrasena mas segura e intenta de nuevo.", session: false };
+  }
+  return { status: 503, message: "No se pudo procesar la solicitud de correo. Intenta mas tarde o contacta al administrador.", session: false };
+}
+
 // This client must be isolated from the caller's session. Recovery proves identity
 // with an emailed token, never with an existing browser session or metadata.
 // Supabase shares recovery and magic-link tokens; `type` is not a purpose boundary.
@@ -25,19 +45,18 @@ export async function runPasswordOperation(
         options: { captchaToken: input.captchaToken, emailRedirectTo: `${origin}/auth/confirm` } });
       // Do not expose account existence or issue a session on signup, even if the
       // provider is accidentally configured to auto-confirm new accounts.
-      if (error?.status === 429) return { status: 429, message: "Espera unos minutos antes de intentar de nuevo.", session: false };
-      return { status: 200, message: generic, session: false };
+      return emailRequestResult(error);
     }
     case "forgot": {
-      await auth.resetPasswordForEmail(input.email, {
+      const { error } = await auth.resetPasswordForEmail(input.email, {
         redirectTo: `${origin}/auth/reset-password`, captchaToken: input.captchaToken,
       });
-      return { status: 200, message: generic, session: false };
+      return emailRequestResult(error);
     }
     case "resend": {
-      await auth.resend({ type: "signup", email: input.email,
+      const { error } = await auth.resend({ type: "signup", email: input.email,
         options: { emailRedirectTo: `${origin}/auth/confirm`, captchaToken: input.captchaToken } });
-      return { status: 200, message: generic, session: false };
+      return emailRequestResult(error);
     }
     case "confirm": {
       const { error } = await auth.verifyOtp({ token_hash: input.token_hash, type: "signup" });

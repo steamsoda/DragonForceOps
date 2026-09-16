@@ -45,3 +45,40 @@ Turnstile provider and public site key. Supabase has not yet been switched.
 - Turnstile provider/site-key variables now saved specifically for the `preview`
   Git branch. Use the normal branch release, not the isolated CLI branch, so
   existing Preview auth settings resolve. Supabase and production unchanged.
+- Preview branch commit: `4d2b807` (`v1.17.70`). Secret scan and dependency audit
+  workflows passed. Branch build `dpl_5VGK2MFvSSFLwkNB49aWGdZmyGPU` restored an
+  incremental cache and was canceled; clean retry `dpl_73ALT9Dm4j5oAfiaeNMBrhMkBqyC`
+  is the candidate to verify. No new migrations, accounts or role grants.
+- Candidate is Ready and stable Preview alias points to it. Hosted signup page
+  renders, loads the Cloudflare challenge iframe with the Preview public key,
+  and automatic verification enables submit. Screenshot capture timed out;
+  visual layout and real login/signup/recovery are not yet signed off.
+- Waiting for owner to enter the Preview secret directly into Supabase and save
+  provider=Turnstile with CAPTCHA still enabled. Until that matches the frontend,
+  Preview email-auth submission will fail. Production remains unchanged.
+- Only this follow-up support status is uncommitted; application commit is on
+  origin/preview. No production push.
+
+## Saved Preview provider verification
+
+- Owner saved the Preview secret. Reloaded Supabase confirms Turnstile by
+  Cloudflare, CAPTCHA enabled, leaked-password protection enabled, and no
+  unsaved settings. The secret was not revealed or copied into source/chat.
+- `scripts/test-turnstile-preview-negative.mjs` passed 8 live checks: direct
+  Supabase sign-in/signup/recovery/resend reject invalid tokens with
+  `captcha_failed`; app endpoints reject missing tokens with HTTP 400.
+- Tests use public credentials and a reserved nonexistent email; no account,
+  session, role or email created. Positive real-account sign-in and emailed
+  password reset remain pending the owner's private-window smoke test.
+- Production untouched. This verification script and follow-up note remain local.
+
+## Recovery follow-up
+
+- Preview recovery was blocked by `email_provider_disabled`; the Email provider
+  was off independently of CAPTCHA. Owner enabled it manually and confirmed
+  the reset email arrived. No production settings changed.
+- Signup/recovery/resend previously discarded operational errors. Fixed with
+  safe messages, generic account-existence responses, no raw provider details
+  or new sessions. Added 42 mocked regression cases and three hosted checks.
+- Release verification pending; existing positive delivery result predates patch.
+- Local auth regression suite and clean nonincremental TypeScript check passed.

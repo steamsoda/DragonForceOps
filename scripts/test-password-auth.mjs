@@ -82,6 +82,27 @@ for (const action of ["forgot", "resend"]) {
   assert.equal((await runPasswordOperation(m.auth, { action, email: "person@example.com", captchaToken: "captcha" }, origin)).message, generic);
   assert.equal(m.calls.length, 1);
 }
+for (const [action, method] of [["signup", "signUp"], ["forgot", "resetPasswordForEmail"], ["resend", "resend"]]) {
+  for (const [code, status, expected] of [
+    ["email_provider_disabled", 400, 503], ["unexpected_failure", 500, 503],
+    ["email_address_not_authorized", 400, 503], [undefined, 0, 503],
+    ["new_unknown_error", 400, 503], ["captcha_failed", 400, 400],
+    ["over_email_send_rate_limit", 429, 429], ["over_request_rate_limit", 429, 429],
+    [undefined, 429, 429], ["weak_password", 422, 400],
+    ["user_already_exists", 422, 200], ["email_exists", 422, 200],
+    ["user_not_found", 404, 200], ["email_not_confirmed", 400, 200],
+  ]) {
+    m = mock({ [method]: { error: { code, status, message: "PRIVATE provider details person@example.com" } } });
+    const response = await runPasswordOperation(m.auth, { ...signup, action }, origin);
+    assert.equal(response.status, expected, `${action}: ${code}`);
+    assert.equal(response.session, false);
+    assert.equal(response.next, undefined);
+    assert.equal(JSON.stringify(response).includes("PRIVATE"), false);
+    assert.equal(JSON.stringify(response).includes("person@example.com"), false);
+    assert.equal(response.message === generic, expected === 200);
+    assert.equal(m.calls.length, 1);
+  }
+}
 m = mock();
 result = await runPasswordOperation(m.auth, { ...signup, action: "signin" }, origin);
 assert.equal(result.session, true);

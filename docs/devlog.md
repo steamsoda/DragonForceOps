@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-09-16: Email request error handling
+
+- Signup, recovery and resend now report operational provider failures instead
+  of false success. Safe fixed messages cover CAPTCHA, rate limits and service
+  errors; account-existence responses remain generic and never issue sessions.
+- Added 42 mocked error cases and hosted Preview CAPTCHA-response checks.
+- Owner enabled Preview Email provider and confirmed recovery email delivery.
+  Production remains unchanged; this patch is pending Preview release checks.
+
 ## 2026-09-16: Turnstile migration preparation
 
 - Added explicit per-environment CAPTCHA provider selection; retained hCaptcha

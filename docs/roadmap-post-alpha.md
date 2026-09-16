@@ -7,6 +7,8 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
 ### Current Work: Turnstile Migration (2026-09-16)
 
 - Cloudflare widgets ready; app provider selection implemented in isolation.
+- Preview Turnstile saved; owner restored Email provider and confirmed password
+  recovery email delivery. Operational error reporting fix in verification.
 - Next: Preview provider/secret configuration and authenticated login/recovery
   checks, then separately approved production switch. Production remains hCaptcha.
 - Details: `docs/support/2026-09-16-turnstile.md`.
