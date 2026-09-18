@@ -4,6 +4,19 @@ Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verifi
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
+### Current Work: Security Advisor and Last Login (2026-09-18)
+
+- Inventoried 38 view errors and 81 function warnings. Least-privilege projection
+  replacement rehearsed with 857 regression checks and owner/column/RLS tests.
+  63 focused high-risk checks and 81 unassigned-function probes passed. Guarded
+  RPC execution warnings remain; do not revoke required RLS/application APIs.
+- Blanket invoker conversion failed a rollback-only compatibility experiment:
+  reader players dropped from 535 to zero. Do not apply that blanket fix.
+- Last-login UI for active/pending users with Monterrey timestamps implemented.
+  Narrow event-trigger grant fix rehearsed. Preparing Preview-only v1.17.72;
+  build/hosted checks pending. Production unchanged.
+- Details: `docs/support/2026-09-18-security-advisor.md`.
+
 ### Current Work: Turnstile Migration (2026-09-16)
 
 - Cloudflare widgets ready; app provider selection implemented in isolation.

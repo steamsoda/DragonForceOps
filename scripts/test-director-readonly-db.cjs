@@ -5,7 +5,7 @@ const { randomUUID } = require('node:crypto');
 const { Client } = require('pg');
 if (require.main === module && process.argv.slice(2).some(a => !['--audit', '--installed', '--production'].includes(a))) throw Error('Only --audit, --installed, --production are supported; no persistent mode');
 const production = process.argv.includes('--production');
-const env = parseEnv(fs.readFileSync(production ? '.env.prod.local' : '.env.local', 'utf8'));
+const env = parseEnv(fs.readFileSync(process.env.SECURITY_TEST_ENV_FILE || (production ? '.env.prod.local' : '.env.local'), 'utf8'));
 const ref = production ? 'hjvytfaalnfcqfgbxsmj' : 'eqefgwdsqabnmpnbpqbq';
 const url = new URL(production ? env.SUPABASE_PROD_DB_URL : env.SUPABASE_PREVIEW_DB_URL);
 if (new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname !== `${ref}.supabase.co`
@@ -82,7 +82,7 @@ async function blocked(sql, args = [], allowEmpty = false, codes = ['42501']) {
   finally { await db.query('rollback to savepoint probe; release savepoint probe'); }
   check(safe, `Access not blocked: ${sql}`);
 }
-async function main({ connected = false, transaction = false, installed = false, beforeMigrationSql = [] } = {}) {
+async function main({ connected = false, transaction = false, installed = false, beforeMigrationSql = [], migrationSql = null } = {}) {
   checks = 0;
   if (!connected) await db.connect();
   if (!transaction) await db.query('begin');
@@ -166,6 +166,7 @@ async function main({ connected = false, transaction = false, installed = false,
   for (const [name, sql] of Object.entries(timingQueries)) timingBefore[name] = await serverTiming(sql);
   await owner();
   if (!installed) await db.query(fs.readFileSync(migrationPath, 'utf8'));
+  if (migrationSql !== null) await db.query(migrationSql);
   check(JSON.stringify(await q(reportDefinitionSql)) === JSON.stringify(reportDefinitions), 'Original report body/ACL changed');
   for (const actor of regressionActors) {
     await identity(actor.user_id);

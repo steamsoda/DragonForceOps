@@ -7,6 +7,7 @@ import { formatRoleWithCampus } from "@/lib/auth/role-display";
 import { createClient } from "@/lib/supabase/server";
 import { grantRoleAction, linkCoachUserAction, revokeRoleAction, unlinkCoachUserAction } from "@/server/actions/users";
 import { directorReadOnlyEnabled } from "@/lib/auth/director-readonly-policy";
+import { formatDateTimeMonterrey } from "@/lib/time";
 
 const ALL_ROLES = [
   ...(directorReadOnlyEnabled() ? [{ code: "director_readonly", label: "Director - Solo lectura, sin finanzas" }] : []),
@@ -126,7 +127,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
 
   function formatDate(value: string | null) {
     if (!value) return "Nunca";
-    return new Intl.DateTimeFormat("es-MX", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+    return Number.isNaN(new Date(value).getTime()) ? "No disponible" : formatDateTimeMonterrey(value);
   }
 
   function RoleBadges({ userId, roles }: { userId: string; roles: RoleAssignment[] }) {
@@ -300,7 +301,8 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                 <thead className="bg-amber-50 text-left text-xs uppercase tracking-wide text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
                   <tr>
                     <th className="px-4 py-2">Email</th>
-                    <th className="px-4 py-2">Primer acceso</th>
+                    <th className="px-4 py-2">Cuenta creada</th>
+                    <th className="px-4 py-2" title="Ultimo inicio de sesion registrado, hora de Monterrey">Ultimo acceso (MTY)</th>
                     <th className="px-4 py-2">Asignar acceso</th>
                   </tr>
                 </thead>
@@ -309,6 +311,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
                     <tr key={authUser.id}>
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{authUser.email}</td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(authUser.created_at)}</td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{formatDate(authUser.last_sign_in_at)}</td>
                       <td className="px-4 py-3">
                         <div className="space-y-2"><GrantForm userId={authUser.id} existingRoles={[]} /><CoachLinkForm userId={authUser.id} /></div>
                       </td>
@@ -327,7 +330,7 @@ export default async function UsersAdminPage({ searchParams }: { searchParams: S
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-2">Email</th>
-                  <th className="px-4 py-2">Ultimo acceso</th>
+                  <th className="px-4 py-2" title="Ultimo inicio de sesion registrado, hora de Monterrey">Ultimo acceso (MTY)</th>
                   <th className="px-4 py-2">Roles</th>
                   <th className="px-4 py-2">Asignar acceso</th>
                 </tr>

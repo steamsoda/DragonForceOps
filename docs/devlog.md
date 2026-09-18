@@ -1,5 +1,34 @@
 # Devlog
 
+## 2026-09-18: Security advisor audit and last-login display
+
+- Follow-up: implemented invoker public views over column-restricted internal
+  projections owned by a non-login, non-bypass-RLS role. No raw-table API grants.
+  Migration rehearsal passed 857 checks; owner/column/idempotence/performance
+  contracts passed. All 81 Preview callable definers tested with no-role identity.
+  Required guarded RPC warnings remain; see support note for coverage limits.
+- Preparing Preview-only v1.17.72 with last-login timestamps; production remains
+  v1.17.71. Hosted release checks pending.
+
+- Installed Preview security suite passed 857 checks; focused high-risk role
+  and campus-denial suite passed 63. All fixtures/probes rolled back.
+- Tested blanket invoker approach on players: reader visibility dropped from
+  535 rows to zero. Reverted transaction; projection replacement remains pending.
+- Live production inventory: 80 authenticated definers; no anon/authenticated
+  CREATE on public schema. No persistent DB changes or deployment in this pass.
+
+- Received full exports: 38 view errors and 81 definer-function warnings.
+  Prepared narrow event-trigger EXECUTE revocation; rollback-only Preview
+  fixture rehearsal passed (production helper absent from Preview).
+  No persistent database changes; full authenticated function audit pending.
+
+- Audited 38 production Director read-only views in a read-only transaction;
+  anonymous access denied on every view, no authenticated DML privileges.
+- No security migration applied. Elevated-owner design requires a compatible
+  replacement; full supplied findings are inventoried in the support note.
+- Last-login display extended to pending users and normalized to Monterrey time.
+  See `docs/support/2026-09-18-security-advisor.md`. Local work only.
+
 ## 2026-09-16: Email request error handling
 
 - Signup, recovery and resend now report operational provider failures instead

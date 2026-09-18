@@ -1,11 +1,11 @@
 // Local built app, existing synthetic Preview identity; no writes or token logging.
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
-const { checkPageBody } = require("./preview-director-readonly-validation.cjs");
+const { checkPageBody, targetOrigin } = require("./preview-director-readonly-validation.cjs");
 const state = JSON.parse(fs.readFileSync(".tmp/director-readonly-validation.json", "utf8"));
 assert.equal(state.ref, "eqefgwdsqabnmpnbpqbq");
 assert.equal(state.purpose, "temporary_director_readonly_preview_validation_v1");
-const origin = "http://localhost:3112";
+const origin = targetOrigin(process.env.SECURITY_TEST_ORIGIN || "http://localhost:3112");
 const cookie = state.cookies.map(c => c.name + "=" + c.value).join("; ");
 async function request(route, method = "GET", extra = {}) {
   return fetch(origin + route, { method, redirect: "manual", signal: AbortSignal.timeout(60000),

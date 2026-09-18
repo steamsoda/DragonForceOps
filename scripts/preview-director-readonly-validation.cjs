@@ -119,7 +119,7 @@ async function discoverTeamDetails(client, details) {
 async function main(argv) {
   const options = args(argv);
   safeFiles();
-  const env = parseEnv(fs.readFileSync(path.join(ROOT, ".env.local"), "utf8"));
+  const env = parseEnv(fs.readFileSync(process.env.SECURITY_TEST_ENV_FILE || path.join(ROOT, ".env.local"), "utf8"));
   const api = new URL(env.NEXT_PUBLIC_SUPABASE_URL);
   const dbUrl = new URL(env.SUPABASE_PREVIEW_DB_URL);
   check(api.origin === `https://${REF}.supabase.co`, "preview_api_required");
