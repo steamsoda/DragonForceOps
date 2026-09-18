@@ -1,6 +1,6 @@
 {
   "name": "dragon-force-ops",
-  "version": "1.17.72",
+  "version": "1.17.73",
   "private": true,
   "scripts": {
     "dev": "next dev",

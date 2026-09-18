@@ -13,8 +13,9 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
 - Blanket invoker conversion failed a rollback-only compatibility experiment:
   reader players dropped from 535 to zero. Do not apply that blanket fix.
 - Last-login UI for active/pending users with Monterrey timestamps implemented.
-  Narrow event-trigger grant fix rehearsed. Preparing Preview-only v1.17.72;
-  build/hosted checks pending. Production unchanged.
+  Narrow event-trigger grant fix rehearsed. v1.17.72 Preview migrations installed;
+  exposed view findings zero. v1.17.73 removes anonymous access to optional
+  Preview mobile-lab RPCs. Hosted checks pending. Production unchanged.
 - Details: `docs/support/2026-09-18-security-advisor.md`.
 
 ### Current Work: Turnstile Migration (2026-09-16)

@@ -116,3 +116,17 @@
   TypeScript passed. First local build failed to fetch the existing Google Font;
   network-enabled retry passed compilation, TypeScript and all 76 static pages.
   Hosted checks pending. No production release.
+
+## Installed Preview follow-up
+
+- Preview migrations 20260918190000 and 20260918200000 installed successfully.
+  Advisor-equivalent public catalog check now finds zero definer views.
+- A fresh Preview inventory additionally found anonymous EXECUTE on the two
+  mobile lab functions (absent from production). Their no-role guard does not
+  reject a null auth.uid(), so anonymous EXECUTE is unnecessary exposure.
+- Prepared 20260918210000 to revoke PUBLIC/anon only on those optional functions.
+  Rollback rehearsal confirmed real anonymous invocations are denied, function
+  bodies and authenticated/service grants unchanged, and idempotence. No test
+  notifications were sent. Normal web app has no references to these lab RPCs.
+- Follow-up Preview version v1.17.73 includes this narrow revocation. Production
+  remains untouched. Hosted verification is still pending deployment readiness.

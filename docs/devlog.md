@@ -2,6 +2,11 @@
 
 ## 2026-09-18: Security advisor audit and last-login display
 
+- v1.17.73 follow-up: installed Preview inventory found anonymous EXECUTE on
+  two old mobile lab RPCs (not present in production). Revoke only PUBLIC/anon;
+  rollback tests passed, existing authenticated/service grants preserved.
+  Preview migrations for v1.17.72 succeeded; exposed definer view findings are zero.
+
 - Follow-up: implemented invoker public views over column-restricted internal
   projections owned by a non-login, non-bypass-RLS role. No raw-table API grants.
   Migration rehearsal passed 857 checks; owner/column/idempotence/performance
