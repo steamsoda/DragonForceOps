@@ -1,0 +1,20 @@
+name: Auth Configuration Contract
+
+on:
+  push:
+    branches: [preview, main]
+  pull_request:
+    branches: [preview, main]
+
+permissions:
+  contents: read
+
+jobs:
+  auth-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python scripts/test-auth-config.py

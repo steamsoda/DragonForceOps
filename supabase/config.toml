@@ -1,6 +1,8 @@
 project_id = "hjvytfaalnfcqfgbxsmj"
 
 [auth]
+enable_signup = true
+minimum_password_length = 8
 site_url = "https://dragon-force-ops-steamsodas-projects.vercel.app"
 additional_redirect_urls = [
   "https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app/**",
@@ -8,4 +10,7 @@ additional_redirect_urls = [
 ]
 
 [auth.email]
-enable_signup = false
+# Keep email/password auth aligned with the dashboard. Account creation does not
+# grant an application role; authorization is managed separately in INVICTA.
+enable_signup = true
+enable_confirmations = true

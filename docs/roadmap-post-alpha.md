@@ -6,6 +6,11 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
 
 ### Current Work: Security Advisor and Last Login (2026-09-18)
 
+- Sep 19 auth follow-up: corrected stale email config; CI contract and live
+  settings smoke assertions prepared for v1.17.74 Preview. Owner restored
+  confirmation and 11 negative checks passed. No hosted config sync or production
+  changes. Repeat checks after release; reset cause unproven.
+
 - Inventoried 38 view errors and 81 function warnings. Least-privilege projection
   replacement rehearsed with 857 regression checks and owner/column/RLS tests.
   63 focused high-risk checks and 81 unassigned-function probes passed. Guarded
@@ -15,7 +20,9 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
 - Last-login UI for active/pending users with Monterrey timestamps implemented.
   Narrow event-trigger grant fix rehearsed. v1.17.72 Preview migrations installed;
   exposed view findings zero. v1.17.73 removes anonymous access to optional
-  Preview mobile-lab RPCs. Hosted checks pending. Production unchanged.
+  Preview mobile-lab RPCs. All migrations installed; zero exposed definer views
+  and anonymous-executable definers. Old hosted UI/new DB compatibility passed;
+  final app deployment queued during Vercel's Sep 18 build incident. Production unchanged.
 - Details: `docs/support/2026-09-18-security-advisor.md`.
 
 ### Current Work: Turnstile Migration (2026-09-16)

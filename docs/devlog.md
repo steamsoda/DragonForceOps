@@ -1,6 +1,31 @@
 # Devlog
 
+## 2026-09-19: Prevent email-auth configuration drift
+
+- Preparing v1.17.74 Preview release. Owner restored confirmation; live settings
+  and all 11 CAPTCHA negative checks passed before release. Vercel recovered
+  and v1.17.73 is Ready. Post-deployment auth/role/UI checks remain the gate.
+
+- Corrected stale email signup=false; declared confirmation required and the
+  agreed eight-character minimum. Added parsed TOML CI contract and live public
+  settings assertions to the Preview auth smoke test. No full config push:
+  preserve hosted SMTP, CAPTCHA and Microsoft secrets/settings.
+- Cause of the prior reset is not proven by an audit log. These changes remove
+  conflicting defaults and detect drift, but do not lock dashboard settings.
+- Local changes only; production unchanged. Verify live settings and real
+  sign-in/recovery again after the next Preview deployment.
+- Parsed TOML contract passed. Live read-only check confirms email restored,
+  but mailer_autoconfirm=true: owner must enable Confirm email in Preview.
+  Smoke test stopped before auth requests, as intended. No emails sent.
+
 ## 2026-09-18: Security advisor audit and last-login display
+
+- Release evidence (local follow-up): v1.17.73 Preview DB migrations installed,
+  857 installed checks passed, 15 hosted HTML/RSC pages and 28 mutation denials
+  passed against the existing app/new DB. Local final-build SuperAdmin/Front Desk
+  and last-login timestamp tests passed. Test accounts removed. Vercel's active
+  deployment incident leaves final build dpl_J86H3HZHiLEBJHXr34HXALowUgcW queued;
+  new hosted UI and final browser check still pending. Production unchanged.
 
 - v1.17.73 follow-up: installed Preview inventory found anonymous EXECUTE on
   two old mobile lab RPCs (not present in production). Revoke only PUBLIC/anon;

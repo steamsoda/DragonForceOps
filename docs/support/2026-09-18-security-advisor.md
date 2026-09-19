@@ -130,3 +130,37 @@
   notifications were sent. Normal web app has no references to these lab RPCs.
 - Follow-up Preview version v1.17.73 includes this narrow revocation. Production
   remains untouched. Hosted verification is still pending deployment readiness.
+
+## Release verification, 2026-09-18 21:20 UTC
+
+- Preview branch: 935f5e746d549a9b7086a9f49da399f758caba95 (v1.17.73).
+  Main unchanged: 5a565824db9a2519524bb82ee10446c7202656f1 (v1.17.71).
+- All three new migration versions are installed in Preview. Catalog-equivalent
+  findings: zero exposed public definer views; zero anonymous-executable public
+  definers; 81 authenticated-executable definers remain intentionally guarded.
+  This is a catalog check, not a claim of a refreshed dashboard showing no warnings.
+- Installed (not rehearsed) Preview DB suite passed 857 checks. GitHub migration,
+  dependency-audit and secret-scan jobs passed for the final commit.
+- Existing hosted Preview app passed 15 HTML/RSC pages, restricted routes and
+  28 forged mutation denials against the NEW DB. Temporary identity setup tested
+  no-role denial, grant activation, and same-unrefreshed-JWT revocation. Removed
+  the account and both state files after testing; no emails sent.
+- Final v1.17.73 local production build against Preview configuration passed.
+  Temporary SuperAdmin HTTP test verified both last-login columns and the exact
+  Monterrey timestamp of its actual sign-in. Front Desk Caja/Players rendered;
+  user administration remained denied. That temporary account was also deleted.
+- Isolated browser rendered v1.17.73 read-only Players with populated campuses
+  and groups. Screenshot: .tmp/security-advisor-browser/page-2026-09-18T21-16-58-794Z.png.
+  Local browser logged an untriaged 'Unexpected token <' entry; network traffic
+  also contained local antivirus injection. Do not claim a clean browser console
+  or infer causation. Final hosted browser/interaction check remains a release gate.
+  Local test server and isolated browser were closed.
+- Vercel has an active incident: https://www.vercel-status.com/incidents/bwkmw4hmrgmk
+  starting 20:32 UTC. First upload deployment dpl_CtuKVmUHXmyz24X6juA165ZnZja3
+  stayed queued and was canceled after being superseded. Final Git-based build
+  dpl_J86H3HZHiLEBJHXr34HXALowUgcW uses exact Preview ref/SHA and is in Vercel's
+  SYSTEM queue, not the account concurrency queue.
+  URL: https://dragon-force-37phlz3ca-steamsodas-projects.vercel.app
+- Do not claim the last-login UI is hosted yet. Resume by inspecting the final
+  deployment and stable Preview alias, then repeat hosted final-build checks.
+  No production deployment, auth settings change or academy financial mutation.

@@ -8,6 +8,16 @@ const url = env.NEXT_PUBLIC_SUPABASE_URL;
 assert.equal(url, "https://eqefgwdsqabnmpnbpqbq.supabase.co");
 const apikey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 assert.ok(apikey);
+// Read-only readiness check: a valid CAPTCHA cannot fix a disabled provider.
+const settingsResponse = await fetch(`${url}/auth/v1/settings`, {
+  headers: { apikey }, signal: AbortSignal.timeout(20000),
+});
+assert.equal(settingsResponse.status, 200, "Preview auth settings unavailable");
+const settings = await settingsResponse.json();
+assert.equal(settings.external?.email, true, "Preview email provider is disabled");
+assert.equal(settings.disable_signup, false, "Preview signup is disabled");
+assert.equal(settings.mailer_autoconfirm, false, "Preview must require email confirmation");
+console.log("Preview email provider, signup and confirmation settings passed");
 const email = "turnstile-security-test@example.invalid";
 const captcha = { captcha_token: "invalid-turnstile-security-test" };
 for (const [path, body] of [
