@@ -1,9 +1,24 @@
 # Devlog
 
+## 2026-09-21: Copa Tigres inside Menu POS (v1.17.76)
+
+- Moved the existing installment panel inside Menu POS, above product tiles.
+  Payment buttons, permissions and receipt callbacks are unchanged. No migration.
+- TypeScript and single-panel placement checks passed. Owner approved Preview
+  deployment only; production remains unchanged.
+
 ## 2026-09-21: Copa Tigres fixed installments (v1.17.75 Preview release)
 
 - Owner approved Preview deployment. Release prepared; hosted migration/build
   and installed regression checks must complete before declaring Preview ready.
+- Preview release verified: commit 0e60bf7, Vercel dpl_3x6BJD4PaHrTe2tejhra1z4QQ7Ua
+  Ready. Migration workflow 35667117571 succeeded; installed rollback tests passed
+  27 checks. Auth config, dependency advisory and secret scan workflows succeeded.
+- Existing Preview alias initially stayed on the prior deployment; explicitly
+  reassigned it to dragon-force-audpc4plt-steamsodas-projects.vercel.app and
+  rechecked. Login returned HTTP 200/INVICTA without a server error. Browser
+  control timed out; authenticated checkout and physical printing await owner
+  testing. Production branch and alias were not changed.
 
 - Prepared migration creating Copa Tigres 2026, MXN 1,250, for all active campuses,
   without group restrictions or invented dates. One live charge per enrollment.

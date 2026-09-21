@@ -1680,9 +1680,6 @@ function PosEnrollmentPanel({
         currency={data.currency}
       />
 
-      <CopaTigresPanel enrollmentId={data.enrollmentId} operatorCampusId={operatorCampusId}
-        readOnly={readOnly} onSuccess={onCheckoutSuccess} />
-
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
           <CajaAttendanceSignals data={data} />
@@ -1872,6 +1869,8 @@ function PosEnrollmentPanel({
                 Modo excepcional: muestra productos activos fuera de la elegibilidad normal. Cada cargo requiere un precio configurado y confirmación.
               </p>
             ) : null}
+            <CopaTigresPanel enrollmentId={data.enrollmentId} operatorCampusId={operatorCampusId}
+              readOnly={readOnly} onSuccess={onCheckoutSuccess} />
             {productsLoading ? (
               <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">
                 Preparando catálogo…
