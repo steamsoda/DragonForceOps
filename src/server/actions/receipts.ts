@@ -36,6 +36,8 @@ export type ReceiptPrintResult =
 
 type PaymentRow = {
   id: string;
+  provider_ref: string | null;
+  notes: string | null;
   folio: string | null;
   paid_at: string;
   amount: number;
@@ -97,7 +99,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
 
   const { data: payment } = await supabase
     .from("payments")
-    .select("id, folio, paid_at, amount, currency, method, enrollment_id, enrollments(campuses(name), players(first_name, last_name, birth_date))")
+    .select("id, provider_ref, notes, folio, paid_at, amount, currency, method, enrollment_id, enrollments(campuses(name), players(first_name, last_name, birth_date))")
     .eq("id", paymentId)
     .eq("status", "posted")
     .maybeSingle()
@@ -143,7 +145,9 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
 
   const chargesPaid = (allocations ?? []).length > 0
     ? (allocations ?? []).map((row) => ({
-        description: row.charges?.description ?? "Cargo",
+        description: payment.provider_ref?.startsWith("copa-tigres-") && payment.notes
+          ? `${row.charges?.description ?? "Copa Tigres"} - ${payment.notes}`
+          : row.charges?.description ?? "Cargo",
         amount: row.amount
       }))
     : [{ description: "Abono", amount: payment.amount }];

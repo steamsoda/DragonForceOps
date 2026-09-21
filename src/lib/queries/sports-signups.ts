@@ -1,4 +1,5 @@
 import "server-only";
+import { competitionReservationThreshold } from "@/lib/payments/copa-tigres";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { getPermissionContext } from "@/lib/auth/permissions";
@@ -56,6 +57,7 @@ type SignupTournamentRow = {
 
 type ChargeRow = {
   id: string;
+  copa_tigres_installments?: boolean;
   enrollment_id: string;
   product_id: string | null;
   description: string | null;
@@ -185,6 +187,7 @@ export type CompetitionSignupBucket = {
 };
 
 export type CompetitionSignupPlayerRow = {
+  paymentLabel?: string;
   enrollmentId: string;
   playerId: string;
   playerName: string;
@@ -283,6 +286,7 @@ export type CompetitionSignupDashboardData = {
 };
 
 export type CompetitionSignupDetailPlayerRow = {
+  paymentLabel?: string;
   enrollmentId: string;
   playerId: string;
   playerName: string;
@@ -613,7 +617,7 @@ async function loadChargeRows(admin: SupabaseQueryClient, campusIds: string[]) {
     const { data, error } = await admin
       .from("charges")
       .select(
-        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
+        "id, enrollment_id, product_id, description, amount, copa_tigres_installments, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
       )
       .neq("status", "void")
       .gt("amount", 0)
@@ -645,7 +649,7 @@ async function loadBoardCompetitionChargeRows(
       const { data, error } = await admin
         .from("charges")
         .select(
-          "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
+          "id, enrollment_id, product_id, description, amount, copa_tigres_installments, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
         )
         .neq("status", "void")
         .gt("amount", 0)
@@ -672,7 +676,7 @@ async function loadBoardCompetitionChargeRows(
         const { data, error } = await admin
           .from("charges")
           .select(
-            "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
+            "id, enrollment_id, product_id, description, amount, copa_tigres_installments, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
           )
           .neq("status", "void")
           .gt("amount", 0)
@@ -710,7 +714,7 @@ async function loadChargeRowsForCampus(
     let query = admin
       .from("charges")
       .select(
-        "id, enrollment_id, product_id, description, amount, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
+        "id, enrollment_id, product_id, description, amount, copa_tigres_installments, created_at, products(id, name, charge_types(code)), enrollments!inner(id, player_id, campus_id, players(first_name, last_name, birth_date, gender))"
       )
       .neq("status", "void")
       .gt("amount", 0)
@@ -1062,7 +1066,7 @@ function buildCampusBoard(
 
     for (const charge of campusCharges) {
       const allocation = allocationSummaries.get(charge.id);
-      if (!allocation || allocation.total + 0.009 < charge.amount) continue;
+      if (!allocation || allocation.total + 0.009 < competitionReservationThreshold(charge)) continue;
       if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) continue;
 
       const bucketIds = getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements);
@@ -1076,6 +1080,8 @@ function buildCampusBoard(
         : "Jugador";
       const trainingGroup = trainingGroupByEnrollment.get(enrollment.id) ?? null;
       const playerRow: CompetitionSignupPlayerRow = {
+        paymentLabel: charge.copa_tigres_installments
+          ? (allocation.total >= 1250 ? "Pagado" : "Reservado - pendiente $650") : undefined,
         enrollmentId: enrollment.id,
         playerId: enrollment.player_id,
         playerName,
@@ -1711,7 +1717,7 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
   const matchingChargesAllDates = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
     const allocation = allocationSummaries.get(charge.id);
-    if (!allocation || allocation.total + 0.009 < charge.amount) return false;
+    if (!allocation || allocation.total + 0.009 < competitionReservationThreshold(charge)) return false;
     if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) return false;
     const enrollment = charge.enrollments;
     if (!enrollment) return false;
@@ -1773,6 +1779,8 @@ export async function getCompetitionSignupCategoryDetailData(filters: {
       ? `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim()
       : "Jugador";
     return [{
+      paymentLabel: charge.copa_tigres_installments
+        ? ((allocationSummaries.get(charge.id)?.total ?? 0) >= 1250 ? "Pagado" : "Reservado - pendiente $650") : undefined,
       enrollmentId: enrollment.id,
       playerId: enrollment.player_id,
       playerName,
@@ -1854,7 +1862,7 @@ export async function getCompetitionPaidCallupPlayers(filters: {
   for (const charge of charges) {
     if (charge.enrollments?.campus_id !== campusId) continue;
     const allocation = allocationSummaries.get(charge.id);
-    if (!allocation || allocation.total + 0.009 < charge.amount) continue;
+    if (!allocation || allocation.total + 0.009 < competitionReservationThreshold(charge)) continue;
     if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) {
       continue;
     }
@@ -1926,7 +1934,7 @@ export async function getCompetitionSignupExportData(filters?: {
   const matchingCharges = charges.filter((charge) => {
     if (charge.enrollments?.campus_id !== campusId) return false;
     const allocation = allocationSummaries.get(charge.id);
-    if (!allocation || allocation.total + 0.009 < charge.amount) return false;
+    if (!allocation || allocation.total + 0.009 < competitionReservationThreshold(charge)) return false;
     if (!isPaidDateInFilter(allocation.paidAt, paidDateFilter)) return false;
     if (!getCompetitionBucketIds(charge, productBucketIds, bundleEntitlements).includes(competitionId)) return false;
     const enrollment = charge.enrollments;

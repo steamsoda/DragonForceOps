@@ -26,6 +26,7 @@ import {
   type CajaCartItemInput
 } from "@/server/actions/caja";
 import { createPlayerNoteAction } from "@/server/actions/player-notes";
+import { CopaTigresPanel } from "@/components/caja/copa-tigres-panel";
 import type { PlayerNote } from "@/lib/queries/player-notes";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1416,7 +1417,7 @@ function PosEnrollmentPanel({
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
     stagedItemsTotal;
   const cartTotal = Math.max(grossCartTotal - automaticCreditForStagedItems, 0);
-  const checkoutTotal = cartTotal > 0 ? cartTotal : Math.max(data.balance, 0);
+  const checkoutTotal = cartTotal > 0 ? cartTotal : data.pendingCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0);
   const hasCartSelection = selectedIds.size > 0 || stagedItems.length > 0;
   const hasStagedTuition = stagedItems.some((item) => item.payload.kind === "tuition");
   const submittedPaymentTotal = Math.round((parseMoneyInput(paymentAmount) + (splitMode ? parseMoneyInput(paymentAmount2) : 0)) * 100) / 100;
@@ -1678,6 +1679,9 @@ function PosEnrollmentPanel({
         summary={data.accountCredit}
         currency={data.currency}
       />
+
+      <CopaTigresPanel enrollmentId={data.enrollmentId} operatorCampusId={operatorCampusId}
+        readOnly={readOnly} onSuccess={onCheckoutSuccess} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
@@ -3206,6 +3210,7 @@ function ProductGridPanel({
 
 function errorMessage(code: string): string {
   const messages: Record<string, string> = {
+    copa_tigres_use_installment_payment: "Cobra Copa Tigres desde su panel de reserva o liquidacion en Caja.",
     invalid_form: "Formulario inválido. Verifica el monto y el método.",
     unauthenticated: "Sesión expirada. Por favor inicia sesión de nuevo.",
     enrollment_not_found: "No se encontró la inscripción.",

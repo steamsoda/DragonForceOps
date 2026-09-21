@@ -178,6 +178,10 @@ async function postEnrollmentPaymentInternal(
     parsed.targetChargeIds,
   );
 
+  if (allocations.some((allocation) =>
+    pendingCharges.some((charge) => charge.id === allocation.chargeId && charge.copaTigresInstallments)
+  )) return { ok: false, error: "copa_tigres_use_installment_payment" };
+
   const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const { data: paymentRow, error: paymentError } = await supabase
     .from("payments")

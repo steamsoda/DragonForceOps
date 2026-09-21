@@ -45,6 +45,7 @@ type CreditBalanceRow = {
 
 type ChargeRow = {
   id: string;
+  copa_tigres_installments?: boolean;
   manual_price_override: boolean;
   manual_price_override_reason: string | null;
   manual_price_override_at: string | null;
@@ -172,6 +173,7 @@ export type EnrollmentLedger = {
   accountCredit: AccountCreditSummary;
   charges: Array<{
     id: string;
+    copaTigresInstallments?: boolean;
     manualPriceOverride: boolean;
     manualPriceOverrideReason: string | null;
     manualPriceOverrideAt: string | null;
@@ -317,7 +319,7 @@ export async function getEnrollmentLedger(
 
   let chargeQuery = supabase
     .from("charges")
-    .select("id, manual_price_override, manual_price_override_reason, manual_price_override_at, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
+    .select("id, copa_tigres_installments, manual_price_override, manual_price_override_reason, manual_price_override_at, description, amount, currency, status, due_date, period_month, created_at, charge_types(code, name)")
     .eq("enrollment_id", enrollmentId);
 
   if (chargeScope === "pending") {
@@ -591,6 +593,7 @@ export async function getEnrollmentLedger(
       ].sort((a, b) => b.localeCompare(a));
       return {
         id: row.id,
+        copaTigresInstallments: row.copa_tigres_installments ?? false,
         manualPriceOverride: row.manual_price_override,
         manualPriceOverrideReason: row.manual_price_override_reason,
         manualPriceOverrideAt: row.manual_price_override_at,

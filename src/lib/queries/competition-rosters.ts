@@ -198,6 +198,7 @@ export async function getCompetitionRosterFoundation(
 
 type OrganizerEntryRow = {
   enrollment_id: string;
+  charges: { copa_tigres_installments: boolean; payment_allocations: Array<{ amount: number; payments: { status: string } | null }> } | null;
   enrollments: {
     id: string;
     player_id: string;
@@ -226,6 +227,7 @@ type OrganizerAssignmentRow = {
 };
 
 export type CompetitionRosterOrganizerPlayer = {
+  paymentLabel?: string;
   enrollmentId: string;
   playerId: string;
   playerName: string;
@@ -337,6 +339,7 @@ export type CompetitionRosterOrganizerData = {
 };
 
 export type CompetitionRosterLiveMember = {
+  paymentLabel?: string;
   enrollmentId: string;
   playerName: string;
   publicPlayerId: string | null;
@@ -444,7 +447,7 @@ async function loadConfirmedOrganizerEntries(
   for (let offset = 0; ; offset += pageSize) {
     const result = await admin
       .from("tournament_player_entries")
-      .select("enrollment_id, enrollments(id, player_id, campus_id, status, players(first_name, last_name, birth_date, public_player_id))")
+      .select("enrollment_id, charges(copa_tigres_installments, payment_allocations(amount, payments(status))), enrollments(id, player_id, campus_id, status, players(first_name, last_name, birth_date, public_player_id))")
       .eq("tournament_id", tournamentId)
       .eq("entry_status", "confirmed")
       .range(offset, offset + pageSize - 1)
@@ -621,6 +624,9 @@ export async function getCompetitionRosterOrganizerData(filters: {
     if (assignment && assignment.training_groups?.program !== filters.program) continue;
 
     const player: CompetitionRosterOrganizerPlayer = {
+      paymentLabel: entry.charges?.copa_tigres_installments
+        ? (entry.charges.payment_allocations.reduce((sum, allocation) => sum + (allocation.payments?.status === "posted" ? Number(allocation.amount) : 0), 0) >= 1250 ? "Pagado" : "Reservado - pendiente $650")
+        : undefined,
       enrollmentId: enrollment.id,
       playerId: enrollment.player_id,
       playerName: `${enrollment.players.first_name} ${enrollment.players.last_name}`.trim(),
@@ -895,6 +901,7 @@ export async function getCompetitionRosterOrganizerData(filters: {
         if (player) {
           return [{
             enrollmentId: player.enrollmentId,
+            paymentLabel: player.paymentLabel,
             playerName: player.playerName,
             publicPlayerId: player.publicPlayerId,
             birthYear: player.birthYear,

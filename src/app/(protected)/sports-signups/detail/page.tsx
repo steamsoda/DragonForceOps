@@ -62,7 +62,7 @@ export default async function SportsSignupsDetailPage({ searchParams }: { search
               {detail.campusName}
             </p>
             <p className="text-lg font-semibold text-slate-950 dark:text-slate-50">
-              {detail.totalConfirmed} jugadores pagados confirmados
+              {detail.totalConfirmed} jugadores confirmados
             </p>
             <p className="text-sm text-slate-600 dark:text-slate-300">{detail.totalUnpaid} jugadores no pagados</p>
             {paidFilterLabel ? <p className="text-sm font-medium text-portoBlue">{paidFilterLabel}</p> : null}
@@ -91,11 +91,11 @@ export default async function SportsSignupsDetailPage({ searchParams }: { search
         ) : null}
 
         <RosterSection
-          title="Pagados"
+          title="Confirmados"
           description={paidFilterLabel
             ? "Jugadores confirmados dentro del rango de pago seleccionado."
             : "Jugadores confirmados para esta competencia."}
-          countLabel={`${detail.totalConfirmed} pagados`}
+          countLabel={`${detail.totalConfirmed} confirmados`}
           emptyLabel="No hay jugadores pagados con este filtro."
           players={detail.paidPlayers}
           tone="paid"
@@ -127,6 +127,7 @@ function RosterSection({
   countLabel: string;
   emptyLabel: string;
   players: Array<{
+    paymentLabel?: string;
     enrollmentId: string;
     playerName: string;
     trainingGroupLabel: string;
@@ -157,6 +158,7 @@ function RosterSection({
           {players.map((player) => (
             <article key={player.enrollmentId} className={`rounded-xl border px-4 py-3 dark:bg-slate-950/70 ${cardClass}`}>
               <p className="font-medium text-slate-950 dark:text-slate-50">{player.playerName}</p>
+              {player.paymentLabel && <p className="text-xs text-slate-600">{player.paymentLabel}</p>}
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{player.trainingGroupLabel}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">{player.trainingGroupSubtitle}</p>
             </article>

@@ -4,6 +4,16 @@ Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verifi
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
+### Copa Tigres 2026 Installments (2026-09-21)
+
+- Local implementation: one MXN 1,250 charge; reserve with exactly 600, settle
+  with exactly 650, or pay 1,250 upfront. No credit application for this product.
+- Reservation appears in tournament planning after 600, with payment status.
+- Product creation for both campuses is included in the pending migration.
+- Before release: Preview migration and authenticated checkout/receipt/roster
+  smoke test; owner approval before production. Tournament date still unknown.
+- Global removal of automatic credit application is explicitly a separate pass.
+
 ### Current Work: Security Advisor and Last Login (2026-09-18)
 
 - Sep 19 auth follow-up: corrected stale email config; CI contract and live

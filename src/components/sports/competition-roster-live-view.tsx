@@ -441,6 +441,7 @@ function CompetitionRosterProgramView({ active, tournamentId, campusId, program,
                     <span className="text-xs text-slate-400">{index + 1}</span>
                     <span className="min-w-0 font-medium text-slate-900 dark:text-slate-100">
                       <span className="block truncate">{member.playerName}</span>
+                      {member.paymentLabel && <span className="block text-xs text-slate-600">{member.paymentLabel}</span>}
                       {editMode ? <span className="mt-0.5 block text-xs font-normal text-slate-500">{member.birthYear ?? "-"}</span> : null}
                     </span>
                     {editMode ? (

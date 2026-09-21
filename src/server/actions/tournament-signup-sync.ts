@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { competitionReservationThreshold } from "@/lib/payments/copa-tigres";
 import {
   resolveEntitledProductIds,
   type ProductBundleEntitlementInput,
@@ -8,6 +9,7 @@ import {
 
 type ChargeRow = {
   id: string;
+  copa_tigres_installments?: boolean;
   product_id: string | null;
   amount: number;
   status: string;
@@ -102,7 +104,7 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
       .returns<TournamentRow[]>(),
     admin
       .from("charges")
-      .select("id, product_id, amount, status, created_at")
+      .select("id, product_id, amount, status, created_at, copa_tigres_installments")
       .eq("enrollment_id", enrollmentId)
       .neq("status", "void")
       .not("product_id", "is", null)
@@ -173,7 +175,7 @@ export async function syncCompetitionSignupsForEnrollment(enrollmentId: string):
           entitlements: bundleEntitlements,
         }).includes(tournament.product_id);
       })
-      .filter((charge) => (allocationTotals.get(charge.id) ?? 0) + 0.009 >= charge.amount)
+      .filter((charge) => (allocationTotals.get(charge.id) ?? 0) + 0.009 >= competitionReservationThreshold(charge))
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (paidCharges[0]) fullyPaidChargeByTournament.set(tournament.id, paidCharges[0]);
   }

@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-09-21: Copa Tigres fixed installments (v1.17.75 Preview release)
+
+- Owner approved Preview deployment. Release prepared; hosted migration/build
+  and installed regression checks must complete before declaring Preview ready.
+
+- Prepared migration creating Copa Tigres 2026, MXN 1,250, for all active campuses,
+  without group restrictions or invented dates. One live charge per enrollment.
+- Dedicated Caja confirmation supports 600 then 650, or 1,250 upfront. Database
+  transaction validates role/campus, serializes enrollment payments, reuses retry
+  IDs, and writes allocation, cash-session entry, audit and tournament entry.
+- Deposit reserves a confirmed tournament entry. Board, detail and live team lists
+  distinguish reserved/pending 650 from paid. Existing tournaments retain their
+  full-funding requirement. Receipt/reprint uses persisted installment notes.
+- Automatic and manual credit funding is excluded for this product only. Generic
+  Caja/payment actions reject protected allocations before creating a payment.
+- Preview rollback-only migration/payment test: 26 checks passed, including exact
+  amounts, retry conflicts, no-role/read-only/anonymous/unconfirmed denials and
+  Front Desk campus scope. Deposit survives reconciliation/refresh and routes to
+  exactly one squad. All fixtures and seeded product rolled back.
+- TypeScript and four existing credit/roster/tournament regression scripts passed.
+- Production build passed (existing package-version import/Browserslist warnings).
+- Release gates still pending: install migration in Preview, authenticated browser
+  checkout/reprint/export and roster assignment/refresh test, then owner review.
+  No production product, payment or deployment was changed. Start/deadline date
+  remains pending owner input; no overdue automation is introduced.
+
 ## 2026-09-19: Prevent email-auth configuration drift
 
 - Preparing v1.17.74 Preview release. Owner restored confirmation; live settings

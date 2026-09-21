@@ -22,6 +22,7 @@ const ERROR_LABELS: Record<string, string> = {
   unauthenticated: "Tu sesion no es valida.",
   enrollment_not_found: "Inscripcion no encontrada.",
   no_pending_charges: "No hay cargos pendientes.",
+  copa_tigres_use_installment_payment: "Cobra Copa Tigres desde su panel de reserva o liquidacion en Caja.",
   payment_insert_failed: "No se pudo registrar el pago. Intenta de nuevo.",
   allocation_insert_failed: "No se pudieron guardar las asignaciones. Intenta de nuevo.",
 };

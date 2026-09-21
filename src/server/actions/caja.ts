@@ -782,6 +782,7 @@ export async function getProductsForCajaAction(
     .from("products")
     .select("id, name, charge_type_id, default_amount, requires_pricing_rule_match, has_sizes, sort_order, charge_types(code)")
     .eq("is_active", true)
+    .eq("copa_tigres_installments", false)
     .order("sort_order")
     .returns<ProductRow[]>();
 
@@ -935,6 +936,7 @@ export async function postCajaChargeAction(
     .from("products")
     .select("id, name, charge_type_id, default_amount, requires_pricing_rule_match, has_sizes, charge_types(code)")
     .eq("id", productId)
+    .eq("copa_tigres_installments", false)
     .eq("is_active", true)
     .maybeSingle()
     .returns<ProductLookup | null>();
@@ -1350,7 +1352,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
   }
 
   const pendingCharges = ledger.charges
-    .filter((c) => c.pendingAmount > 0 && c.status !== "void")
+    .filter((c) => c.pendingAmount > 0 && c.status !== "void" && !c.copaTigresInstallments)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .map((c) => ({
       id: c.id,
@@ -1377,7 +1379,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
   const advanceTuitionOptions = planCode
     ? await getAdvanceTuitionOptions(supabase, { planCode, existingPeriodMonths: existingPeriods })
     : [];
-  const payableBalance = pendingCharges.reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
+  const payableBalance = ledger.charges.filter((charge) => charge.status !== "void").reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
   const displayBalance = payableBalance > 0 ? payableBalance : ledger.totals.balance < 0 ? ledger.totals.balance : 0;
   const attendanceRisk = await getCajaAttendanceRisk(ledger.enrollment.playerId);
   const recentNotes = await getPlayerNotesForCaja(ledger.enrollment.playerId, enrollmentId, permissionContext);
@@ -2059,7 +2061,7 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   perf.mark("campus_access");
 
   const pendingCharges = ledger.charges
-    .filter((c) => c.pendingAmount > 0 && c.status !== "void")
+    .filter((c) => c.pendingAmount > 0 && c.status !== "void" && !c.copaTigresInstallments)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (ledger.enrollment.status === "ended" || ledger.enrollment.status === "cancelled") {
@@ -2067,6 +2069,9 @@ export async function postCajaPaymentAction(enrollmentId: string, formData: Form
   }
 
   const targetChargeIds = parsed.targetChargeIds;
+  if (ledger.charges.some((charge) => charge.copaTigresInstallments && targetChargeIds.includes(charge.id))) {
+    return { ok: false, error: "copa_tigres_use_installment_payment" };
+  }
   const targetSet = new Set(targetChargeIds);
   const operatorCampusId = parsed.operatorCampusId ?? campusAccess.defaultCampusId;
   if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {

@@ -730,6 +730,7 @@ export function SportsSignupsBoard({
                               {column.map((player) => (
                                 <p key={player.enrollmentId} className="leading-5">
                                   {player.playerName}
+                                  {player.paymentLabel && <span className="ml-2 text-xs text-slate-500">{player.paymentLabel}</span>}
                                 </p>
                               ))}
                             </div>
@@ -877,7 +878,7 @@ function TrainingGroupSignupCard({
           <div className={nameColumns.length > 1 ? "grid gap-x-5 gap-y-1 sm:grid-cols-2" : "grid grid-cols-1 gap-y-1"}>
             {nameColumns.map((column, columnIndex) => (
               <div key={`${group.key}-column-${columnIndex}`} className="space-y-1">
-                {column.map((player) => <p key={player.enrollmentId}>{player.playerName}</p>)}
+                {column.map((player) => <p key={player.enrollmentId}>{player.playerName}{player.paymentLabel && <span className="ml-2 text-xs text-slate-500">{player.paymentLabel}</span>}</p>)}
               </div>
             ))}
           </div>
