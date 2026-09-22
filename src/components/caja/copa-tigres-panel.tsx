@@ -3,22 +3,28 @@
 import { useEffect, useState } from "react";
 import { getCopaTigresOptionsAction, type CopaTigresOption } from "@/server/actions/copa-tigres";
 import { copaTigresPaymentOptions } from "@/lib/payments/copa-tigres";
+import { useReadOnly } from "@/components/auth/read-only-controls";
 
 export function CopaTigresPanel({ enrollmentId, readOnly, selectedAmount, onSelect }: {
   enrollmentId: string; readOnly: boolean; selectedAmount?: number;
   onSelect: (row: CopaTigresOption, amount: number) => void;
 }) {
+  const roleReadOnly = useReadOnly();
   const [rows, setRows] = useState<CopaTigresOption[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
     let cancelled = false;
     setRows([]);
     setError("");
-    getCopaTigresOptionsAction(enrollmentId)
+    const load: Promise<CopaTigresOption[]> = roleReadOnly
+      ? fetch(`/api/director-readonly/caja?mode=installments&enrollmentId=${encodeURIComponent(enrollmentId)}`, { cache: "no-store" })
+        .then(response => { if (!response.ok) throw new Error("Installments unavailable"); return response.json(); })
+      : getCopaTigresOptionsAction(enrollmentId);
+    load
       .then((value) => { if (!cancelled) setRows(value); })
       .catch(() => { if (!cancelled) setError("No se pudo cargar Copa Tigres. Recarga la cuenta."); });
     return () => { cancelled = true; };
-  }, [enrollmentId]);
+  }, [enrollmentId, roleReadOnly]);
   if (!rows.length && !error) return null;
   return <section className="mb-4 space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
     {error && <p role="alert" className="text-sm text-red-600">{error}</p>}

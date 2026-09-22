@@ -571,6 +571,7 @@ export function ContryRegularizationAccountPanel({
         totalCharges={ledger.totals.totalCharges}
         totalPayments={ledger.totals.totalPayments}
         balance={ledger.totals.balance}
+        charges={ledger.charges}
       />
 
       <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/60">

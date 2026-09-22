@@ -1,24 +1,51 @@
 # Post-Alpha Roadmap 🗺️ Dragon Force Ops (INVICTA)
 
-Last reorganized: 2026-05-06. Last checkpoint: 2026-09-07. Latest release verification: 2026-09-09. Production: `v1.17.67`. Preview: `v1.17.67` (email proof remains parked and excluded from production).
+Last checkpoint: 2026-09-21. Production and Preview: `v1.17.77`, commit `9244cde3b683110f55936d5496dfc479163b2a0a`. Both remote branches verified at this commit. See `docs/checkpoints/2026-09-21-v1.17.77.md` for release evidence and remaining work.
 
 This file is the active planning roadmap. Detailed shipped notes belong in `docs/devlog.md`.
 
-### Copa Tigres 2026 Installments (2026-09-21)
+### Explicit Credit Transition (Local, In Progress)
 
-- Mixed-cart follow-up implemented locally: stage the installment with ordinary
-  items and complete one atomic checkout/receipt. 32 rollback-only DB checks
-  passed; hosted Preview rollout and end-to-end browser/printing review pending.
+- Local Caja integration, explicit selector/receipt flow, automatic-path retirement,
+  charge-funded collection balances and durable pending-checkout recovery are now
+  implemented. Existing financial history is preserved; hosted behavior is unchanged.
+- Latest checks: 90 rollback-only Preview DB checks and 33 disposable local
+  concurrency/API/browser checks, including Front Desk mixed checkout and
+  fresh-browser recovery after losing a committed response.
+  Calculation, action, recovery and adapter regression suites also pass.
+- Standalone credit recovery now passes fresh-browser lost-response tests, with
+  exact replay and no invented cash. Pending standalone/Caja operations mutually
+  block competing spending. Role-revocation and changed-command checks pass.
+- Director resolution of another operator's pending attempt is implemented locally,
+  with required reason, immutable audit, saved-receipt recovery and no financial
+  movement. Read-only/Front Desk mutation denial and checkout races are tested.
+- Remaining: complete release workflow matrix, then coordinated Preview approval/
+  deployment and hosted/printer testing.
+  Do not deploy the app independently of its seven explicit-credit migrations.
+- Plan and audit map: `docs/planning/explicit-credit-transition.md`.
 
-- Local implementation: one MXN 1,250 charge; reserve with exactly 600, settle
+### Copa Tigres 2026 Installments (Shipped, 2026-09-21)
+
+- Mixed-cart checkout shipped to Preview and production. Stage one installment
+  with ordinary items and complete one atomic checkout/receipt. Installed Preview
+  tests passed 33 rollback-only checks; owner accepted Preview and production.
+
+- One MXN 1,250 charge; reserve with exactly 600, settle
   with exactly 650, or pay 1,250 upfront. No credit application for this product.
 - Reservation appears in tournament planning after 600, with payment status.
-- Product creation for both campuses is included in the pending migration.
-- Before release: Preview migration and authenticated checkout/receipt/roster
-  smoke test; owner approval before production. Tournament date still unknown.
+- Both migrations installed in production; active product and both campus
+  tournaments verified read-only. No production test payments posted.
+- Tournament start date and final-payment deadline still need owner input.
+  No new overdue automation was introduced.
 - Global removal of automatic credit application is explicitly a separate pass.
 
-### Current Work: Security Advisor and Last Login (2026-09-18)
+### Security Advisor and Last Login (Shipped)
+
+- v1.17.72-v1.17.74 are included in the verified production/Preview release.
+  Last-login display and scoped security/auth fixes are shipped. Notes below
+  describe historical verification stages, not current deployment blockers.
+- Guarded RPC warnings remain a documented review item, not a claim of zero
+  current Advisor findings. No fresh full security inventory in this checkpoint.
 
 - Sep 19 auth follow-up: corrected stale email config; CI contract and live
   settings smoke assertions prepared for v1.17.74 Preview. Owner restored
@@ -39,7 +66,11 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
   final app deployment queued during Vercel's Sep 18 build incident. Production unchanged.
 - Details: `docs/support/2026-09-18-security-advisor.md`.
 
-### Current Work: Turnstile Migration (2026-09-16)
+### Turnstile Migration (Shipped)
+
+- Production switched to Turnstile; owner confirmed production sign-in and
+  password-reset delivery. Email auth is no longer parked. The preparation
+  notes below are historical; hosted settings were not re-audited today.
 
 - Cloudflare widgets ready; app provider selection implemented in isolation.
 - Preview Turnstile saved; owner restored Email provider and confirmed password
@@ -48,7 +79,12 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
   checks, then separately approved production switch. Production remains hCaptcha.
 - Details: `docs/support/2026-09-16-turnstile.md`.
 
-### Current Local Work: Director Read-Only Parity
+### Director Read-Only Parity (Shipped)
+
+- Shared Director operational interface shipped and owner accepted production.
+  Individual financial details are visible; consolidated monetary totals remain
+  withheld. Mutations and excluded administrative/repair routes remain blocked.
+  The local-stage notes below are historical, not pending deployment work.
 
 - Remaining implementation completed locally, not deployed: shared Director
   operational screens, Caja/profile workflows, sports, trials, uniforms,
@@ -66,7 +102,11 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
   Production remains separate; full visual parity is not signed off yet.
 - Jugadores performance remains deferred.
 - Details: `docs/support/2026-09-15-director-parity.md`.
-### Current Local Work: Quick Group Changes (2026-09-15)
+### Quick Group Changes (Shipped)
+
+- Owner accepted production. Cambiar grupo remains in Jugadores; the Caja button
+  was removed at the owner's request. Earlier dual-placement notes below record
+  development history and do not describe the final shipped placement.
 
 - Implemented: shared Cambiar grupo panel in Jugadores and Caja, explicit confirmation,
   out-of-year destinations, scoped Field Admin search, and atomic audited moves.
@@ -108,6 +148,12 @@ Full pre-reorg roadmap snapshot is preserved at:
 - ⚠️ Needs spec or decision
 
 ## Current Release State
+
+- Authoritative current state: production and Preview are `v1.17.77` at `9244cde`.
+  Copa migrations, auth contract, dependency audit and secret scan workflows
+  passed. Actual production and Preview aliases were verified after deployment.
+- The following v1.17.67 and v1.16 entries are historical snapshots only;
+  they do not supersede this checkpoint or the later read-only visibility policy.
 
 - Current production line: `v1.17.67` adds the isolated non-financial Porto viewer and database/API authorization hardening. Installed-policy checks (123), staff receipt-search regression and public login/anonymous denial checks passed. Rita's actual sign-in and dedicated role grant remain pending; no access granted by deployment.
 - Current Preview line: `v1.17.67` adds the non-financial Porto viewer and authorization hardening. Vercel, Preview migration and security workflows passed; deployed authenticated denial/read/revocation checks passed. The older email proof remains parked; Rita has no production grant.
@@ -304,18 +350,15 @@ Detailed model, audit map, and safety boundaries: `docs/planning/training-groups
 
 These are the highest-value items to consider next. Keep this list short: usually 3-5 active decisions or edits.
 
-Immediate priority (2026-09-09): Rita access with **no financial information**, superseding the earlier finance-visible demonstration plan. v1.17.67 is deployed to production and Preview with an isolated `/porto` operational viewer, confirmed-email-only `porto_viewer` role, mutation/raw-table restrictions, and repairs to overly broad authenticated reads/RPCs. Production installed-policy tests passed 123 checks plus staff receipt regression and public HTTP tests; Preview authenticated access/read/revocation tests passed. See `docs/support/2026-09-09-porto-viewer-security.md` and devlog sessions 340-342.
-
-Next for Porto: Rita must test her own Microsoft sign-in before her confirmed account is assigned the dedicated role; never substitute Director or Front Desk. Validate her production session after the owner-authorized grant. Resend/SMTP remains parked if Microsoft works. Keep the two moderate runtime Excel dependency advisories tracked separately; no high/critical runtime findings remain in this release.
-
-September 7 incident pass: receipt fix deployed through Preview to production as `v1.17.66`; deployed database-role, campus, folio and pagination checks passed. Front Desk physical-print verification remains with the user. J5's October 31 end date and Damian DF-0634's confirmed $1,700 payment correction are applied and audited in production (devlog sessions 336-337).
+Priority reset at the 2026-09-21 checkpoint. Copa Tigres is shipped and accepted.
+Director read-only parity and email/Turnstile access are shipped, not pending
+release tasks. Start new implementation only after the owner selects its scope.
 
 | Status | Item | Why it matters | Reference |
 |---|---|---|---|
-| 🟡 | Program/Nivel deprecation and tournament-squad transition | Production through `v1.17.33` and accepted Preview through `v1.17.37` contain independent live squads, dynamic routing, the `Equipos` view/export, professor reporting, and the completed weekly `Rol de juegos` lane. Dormant legacy Nivel containment remains open. | Nueva Inscripcion, Jugadores, Inscripciones Torneos, `docs/planning/training-groups-model-analysis.md` |
-| 🔴 | Historical assignment-review matcher replacement | Replace the contained attendance-settings repair matcher before using it to auto-apply suggestions to existing unassigned players. | Configuracion Grupos, production audit 2026-08-06 |
-| 🟡 | Production assignment review and repair | After group matching is independent of B1/B2 metadata, review 9 unassigned players and 9 YOB-range mismatches individually; do not rewrite historical attendance. | Configuracion Grupos, production audit 2026-08-06 |
-| 🔴 | Attendance special-day and cancellation workflow | Resume after the attendance display and enrollment/group integrity passes. | Checkpoint 2026-07-11, Asistencia lane |
+| Open | Automatic credit application review | Owner requested a separate global pass. Audit entry points and define explicit application without changing valid historical payments or credit. Copa already excludes credit. | Checkpoint 2026-09-21 |
+| Deferred | Jugadores performance | Reproduce slow loading with real roles, measure bottlenecks, then optimize. | Director parity follow-up |
+| Needs owner input | Copa Tigres dates | Confirm tournament start and final-payment deadline; reminders/enforcement require separate scope. | Copa Tigres 2026 |
 
 **How `Now` Works**
 
@@ -327,6 +370,14 @@ September 7 incident pass: receipt fix deployed through Preview to production as
 ## Next
 
 Important, but not necessarily the next edit.
+
+This table retains historical delivery references. Invited-player handling,
+ordinary tournament squads, coach reporting, re-enrollment and product date
+editing have shipped since these entries were written; they are not pending
+deployment. Only their explicitly remaining enhancements belong in the backlog.
+Old assignment-review counts require a fresh audit before any account changes.
+Legacy matcher/Nivel cleanup and older attendance follow-ups are parked, not
+current priorities. The September 21 checkpoint supersedes old release labels.
 
 | Status | Item | Notes |
 |---|---|---|

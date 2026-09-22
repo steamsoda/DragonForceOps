@@ -1,6 +1,8 @@
 "use client";
 
 import { createPerfTimer } from "@/lib/perf/timing";
+import type { CreditReceipt } from "@/lib/finance/explicit-credit";
+import type { ExplicitCheckoutReceipt } from "@/lib/finance/explicit-checkout";
 
 declare global {
   interface Window {
@@ -193,6 +195,7 @@ function divider(char = "-", width = 42): string {
 }
 
 export type ReceiptData = {
+  explicitCheckout?: ExplicitCheckoutReceipt;
   playerName: string;
   campusName: string;
   birthYear: number | null;
@@ -414,6 +417,7 @@ async function sendToQZ(printerName: string, items: QZDataItem[], perf?: PerfTim
 }
 
 export async function printReceipt(printerName: string, data: ReceiptData): Promise<void> {
+  if (data.explicitCheckout) return printExplicitCheckoutReceipt(printerName, data.explicitCheckout);
   const perf = createPerfTimer("printer.receipt");
   try {
     const logo = await fetchLogoESCPOS();
@@ -440,6 +444,60 @@ export async function printReceipt(printerName: string, data: ReceiptData): Prom
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {
   const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildCorte(data, logo));
+}
+
+export async function printCreditReceipt(printerName: string, receipt: CreditReceipt): Promise<void> {
+  const money = (value: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: receipt.currency }).format(value);
+  const date = new Date(receipt.occurredAt).toLocaleString("es-MX", { timeZone: "America/Monterrey" });
+  const logo = await fetchLogoESCPOS();
+  const items: QZDataItem[] = [];
+  for (const copy of ["COPIA CLIENTE", "COPIA ACADEMIA"]) {
+    items.push(...buildReceiptHeader(receipt.campusName, logo),
+      t(center("APLICACION DE CREDITO") + "\n"),
+      t(`Alumno: ${receipt.playerName}\nFecha: ${date}\n`),
+      t(`Operacion: ${receipt.operationId}\n`), t(divider() + "\n"));
+    for (const line of receipt.lines) {
+      items.push(t(`${line.description}\n`), t(row("Credito aplicado", money(line.creditApplied)) + "\n"),
+        t(row("Pendiente del cargo", money(line.pendingAfter)) + "\n"));
+    }
+    items.push(t(divider("=") + "\n"), t(row("DINERO RECIBIDO", money(receipt.moneyReceived)) + "\n"),
+      t(row("CREDITO UTILIZADO", money(receipt.creditApplied)) + "\n"),
+      t(row("Credito disponible", money(receipt.creditRemaining)) + "\n"),
+      t(row("Cargos pendientes", money(receipt.pendingChargesTotal)) + "\n"),
+      t(center(copy) + "\n\n\n\n"), t(`${GS}V\x00`));
+  }
+  await sendToQZ(printerName, items);
+}
+
+export async function printExplicitCheckoutReceipt(printerName: string, receipt: ExplicitCheckoutReceipt): Promise<void> {
+  const money = (value: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: receipt.currency }).format(value);
+  const date = (value: string) => new Date(value).toLocaleString("es-MX", { timeZone: "America/Monterrey", hour12: false });
+  const methods = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", stripe_360player: "Stripe / 360Player", other: "Otro" };
+  const logo = await fetchLogoESCPOS();
+  const items: QZDataItem[] = [];
+  for (const copy of ["COPIA CLIENTE", "COPIA ACADEMIA"]) {
+    items.push(...buildReceiptHeader(receipt.operatorCampusName, logo),
+      t(`Alumno: ${receipt.playerName}\nCampus alumno: ${receipt.campusName}\n`),
+      t(`Registrado: ${date(receipt.occurredAt)}\nOperacion: ${receipt.operationId}\n`));
+    if (receipt.payments.length > 0) items.push(t(`Fecha de pago: ${date(receipt.paidAt)}\n`));
+    items.push(t(divider() + "\n"));
+    for (const line of receipt.lines) {
+      items.push(t(`${line.description}\n`), t(row("Dinero aplicado", money(line.moneyReceived)) + "\n"),
+        t(row("Credito aplicado", money(line.creditApplied)) + "\n"),
+        t(row("Pendiente del cargo", money(line.pendingAfter)) + "\n"));
+    }
+    items.push(t(divider() + "\n"));
+    for (const payment of receipt.payments) {
+      items.push(t(row(methods[payment.method], money(payment.amount)) + "\n"),
+        t(`Folio: ${payment.folio ?? payment.id}\n`));
+    }
+    items.push(t(divider("=") + "\n"), t(row("DINERO RECIBIDO", money(receipt.moneyReceived)) + "\n"),
+      t(row("CREDITO UTILIZADO", money(receipt.creditApplied)) + "\n"),
+      t(row("Credito disponible", money(receipt.creditRemaining)) + "\n"),
+      t(row("Cargos pendientes", money(receipt.pendingChargesTotal)) + "\n"),
+      t(center(copy) + "\n\n\n\n"), t(`${GS}V\x00`));
+  }
+  await sendToQZ(printerName, items);
 }
 
 export type TrialClassTicketData = {

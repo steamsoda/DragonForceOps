@@ -1,4 +1,6 @@
 import { PageShell } from "@/components/ui/page-shell";
+import { ExplicitCreditPanel } from "@/components/caja/explicit-credit-panel";
+import { getPrinterName } from "@/lib/queries/settings";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ReadOnlyActionLink } from "@/components/auth/read-only-action-link";
@@ -100,6 +102,8 @@ export default async function ChargesPage({
   if (!ledger) notFound();
 
   const isDirector = permissionContext.isDirectorReadOnly || permissionContext.isDirector;
+  const creditPrinter = !permissionContext.isDirectorReadOnly && (permissionContext.isDirector || permissionContext.isFrontDesk)
+    ? await getPrinterName() : "";
   const diagnostics = (!permissionContext.isDirectorReadOnly && permissionContext.isSuperAdmin)
     ? await getEnrollmentFinanceDiagnostics(enrollmentId, permissionContext)
     : null;
@@ -183,6 +187,7 @@ export default async function ChargesPage({
       ]}
     >
       <div className="space-y-5">
+        {(isDirector || permissionContext.isFrontDesk) && <ExplicitCreditPanel enrollmentId={enrollmentId} printerName={creditPrinter} />}
         {successMessage ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {successMessage}
@@ -217,6 +222,7 @@ export default async function ChargesPage({
           totalCharges={ledger.totals.totalCharges}
           totalPayments={ledger.totals.totalPayments}
           balance={ledger.totals.balance}
+          charges={ledger.charges}
         />
 
         {diagnostics ? (

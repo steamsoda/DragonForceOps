@@ -164,13 +164,14 @@ export async function clearPendingFollowUpIfResolved(
   supabase: Awaited<ReturnType<typeof createClient>>,
   enrollmentId: string
 ) {
-  const { data } = await supabase
-    .from("v_enrollment_balances")
+  const { data, error } = await supabase
+    .from("v_enrollment_collection_balances")
     .select("balance")
     .eq("enrollment_id", enrollmentId)
     .maybeSingle<{ balance: number | null }>();
 
-  if ((data?.balance ?? 0) > 0.009) return;
+  // Missing/denied finance data must never clear a follow-up as if debt were zero.
+  if (error || !data || data.balance == null || data.balance > 0.009) return;
 
   await supabase
     .from("enrollments")

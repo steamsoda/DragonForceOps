@@ -1,6 +1,214 @@
 # Devlog
 
-## 2026-09-21: Copa Tigres mixed-cart checkout (v1.17.77, Preview release)
+## 2026-09-22: Isolate automated receipt printing from physical QZ
+
+- The authenticated checkout test previously reached real QZ auto-printing and
+  caused local trust prompts. Added a test-only immutable QZ stub capturing jobs
+  in memory in every context, plus WebSocket denial except exact local Next HMR
+  paths, blocked QZ script loading and disabled service workers.
+- Isolation regression passed for blocked QZ sockets, allowed local development
+  sockets, captured jobs, reloads and fresh contexts. Full synthetic authenticated
+  suite passed 77 checks, including decoded receipt-content capture. Expected
+  failed-request diagnostics come from deliberate lost-response testing.
+- No application printing behavior changed. No deployment or persistent hosted
+  changes; physical receipt testing remains deferred.
+
+## 2026-09-22: Explicit-credit final local release review
+
+- No new blocking defect identified for a controlled Preview release. Fresh
+  action/arithmetic/access suites, 90 rollback-only Preview DB checks and 76 local
+  authenticated browser/concurrency checks passed; temporary fixtures were cleaned.
+- Recorded coordinated seven-migration/app deployment and recovery restrictions in
+  `docs/planning/explicit-credit-release-review.md`. No runtime code changed here.
+- Hosted full-workflow acceptance remains after Preview deployment. Owner deferred
+  physical printing until back at the office. No commit, deployment or persistent
+  hosted change in this review; production approval remains separate.
+
+## 2026-09-22: Director resolution of pending operations (local)
+
+- Added Operaciones pendientes under Credito de la cuenta. A Director can recover
+  an existing receipt or close an old unsaved attempt after confirmation/reason.
+  The database serializes against in-flight checkout, preserves the original
+  operator, records an immutable audit and blocks late submission of closed attempts.
+- No payment, credit or allocation writes occur during resolution. Repeated
+  resolution returns the same result; Front Desk/read-only writes are denied.
+- Passed 76 combined local real-role/API/concurrency/browser checks, including
+  Director and read-only mobile UI, plus 21 resolution-action checks and 90
+  rollback-only Preview DB regressions.
+- Fixed credit/recovery/Copa Tigres read-only loading through protected GET
+  readers; kept POST denial and reviewed enrollment/campus scope enforcement.
+- Final production build and TypeScript passed with existing nonblocking warnings.
+- No hosted changes or deployment. Seven migrations now form the coordinated
+  release. Release-matrix, hosted and physical-printer checks remain.
+
+## 2026-09-22: Standalone explicit-credit recovery (local)
+
+- Added private staged commands for standalone credit applications. Fresh-browser
+  recovery restores the original selection, and retries return the saved receipt.
+  Changed operators cannot submit a previous review; other operators cannot read
+  its private command. Pending standalone and Caja operations block each other.
+- Verified lost-response recovery with real local Auth/PostgREST and Front Desk UI:
+  200 credit applied once, no cash payment created, original receipt acknowledged.
+- Passed 45 combined local checks and an overlapping 35-check API/concurrency run
+  with additional role-revocation/cross-campus/tampered-command/malformed-stage coverage. Existing
+  90 rollback-only Preview DB, 53 action/receipt and 21 synthetic browser checks pass.
+- Production and hosted Preview unchanged. Another-operator resolution and hosted/
+  physical-printer checks remain release gates; six migrations must ship together.
+- Full Next.js webpack build including TypeScript passed; existing warnings only.
+
+## 2026-09-22: Explicit-credit concurrency and durable recovery (local)
+
+- Added private staged checkout recovery across browser/device changes for the
+  original authorized operator. Committed receipts remain recoverable after baja;
+  new inactive-enrollment payments remain blocked. Another operator cannot replace
+  an unresolved attempt. No automatic credit movement was reintroduced.
+- Added charge-funded collection views and updated collection/profile status so
+  unused credit cannot make unpaid tuition appear settled. Kept canonical accounting
+  history intact; corrected remaining copy implying automatic credit application.
+- Ninety rollback-only Preview DB checks and 33 disposable local concurrency/API/
+  browser checks pass, including Front Desk mixed checkout and a lost committed
+  response recovered in a fresh browser without duplicate payment. All
+  synthetic containers are removed after testing. Local arithmetic/adapter/action
+  regressions and TypeScript pass. Detailed evidence and remaining release gates:
+  `docs/planning/explicit-credit-transition.md`.
+- No commit, push, persistent hosted changes or production deployment.
+- Full Next.js webpack build passed after clearing the generated TypeScript cache
+  and retrying with a 10 GB heap; the initial 8 GB attempt ran out of memory during
+  type checking. Existing version-import warning remains. No compiler checks skipped.
+
+## 2026-09-21: Explicit checkout recovery and workflow regression (local)
+
+- Added tab-scoped pending checkout recovery keyed to verified operator/account.
+  Reload restores a frozen retry; unavailable storage blocks a new submission.
+  Changed operators cannot submit the recovered command. Known failures refresh
+  prices; ambiguous results cannot silently become a fresh payment request.
+- Removed obsolete non-atomic Caja payment action and dead UI handler.
+- Hardened immutable receipt lookup and added 10 access checks. Added 8 recovery
+  checks; 15 adapter checks and desktop/mobile page-refresh tests pass.
+- Expanded Preview rollback-only DB tests to 83 passing checks, including
+  annulment, cash refunds and non-spending historical reconciliation. Existing
+  43 action/receipt checks, 60 funding checks and TypeScript pass.
+- Full Next.js webpack build passes with existing version-import/Browserslist warnings.
+- No production/hosted changes. Cross-tab/device recovery, authenticated end-to-end
+  flows, balance-display audit and concurrency remain release gates.
+
+## 2026-09-21: Caja explicit-credit integration (local only)
+
+- Connected reviewed Caja carts to atomic checkout, with trusted server plans,
+  zero-default selected credit, immutable retry payloads and saved receipt printing.
+- Added credit selection/history to Caja and historical enrollment charges.
+- Added coordinated automation-retirement migration; removed write-on-read and
+  obsolete normalization/checkout actions. No existing financial rows repaired.
+- Passed 75 rollback-only Preview DB checks with retirement, 14 adapter checks,
+  43 action/receipt checks, 60 funding-model checks and TypeScript. Synthetic
+  desktop/mobile review and uncertain retry tests passed; screenshots inspected.
+- Full Next.js webpack build passed with existing version-import/Browserslist warnings.
+- No deployment or persistent database changes. Remaining release gates are
+  tracked in docs/planning/explicit-credit-transition.md.
+
+## 2026-09-21: Atomic explicit checkout (local, not wired)
+
+- Added service-only checkout transaction for existing/staged ordinary and Copa
+  charges, exact split payments and selected explicit credit. Safe unallocated
+  tuition repricing is included; staged tuition cannot leave earlier monthly debt.
+- Authorization also runs on replay. Private immutable receipt stores the full
+  payload, actor/campuses, per-charge funding and tender facts. Changed retries
+  fail rather than creating another payment. No legacy remainder sweep.
+- Charge creation, credit applications, payments, allocations, cash entries,
+  tournament/uniform settlement, follow-up cleanup, receipt and audit are atomic.
+  Automatic credit is suppressed only inside this new checkout; live paths remain
+  unchanged. No new endpoint/UI is mounted or deployed.
+- Added snapshot-only checkout printing with both folios/methods, separate money
+  and credit totals, outstanding charges and available credit, in Monterrey time.
+- 71 rollback-only Preview DB checks passed; temporary migration/test actor
+  cleanup verified. 41 action/receipt tests passed, including failed print/retry.
+  The 60 calculation checks (500 generated cases) and TypeScript also passed.
+  Full app build/browser suites were not rerun for this unmounted backend chunk.
+  Concurrent race tests, full authenticated browser integration and physical
+  printing remain pending. No production writes, commit or deployment.
+
+## 2026-09-21: Explicit checkout funding contract (local, not wired)
+
+- Added strict, zero-default per-line credit calculation for existing and staged
+  cart lines. New money plus chosen credit must equal the reviewed collection;
+  no silent payment normalization. Split tender retains exact amounts/methods.
+- Supports credit-only review with no new payment, partial ordinary collection,
+  and money-only Copa installments in mixed carts. Expected balance/target checks
+  reject stale review, duplicate UUID targets and invalid/sub-cent amounts.
+- 60 checks passed, including 500 generated carts checking per-tender and per-line
+  cent conservation. Existing 34 credit-action/receipt checks and TypeScript pass.
+- This subpass is calculation/validation only. Atomic checkout transaction,
+  authenticated integration and automatic-path retirement remain outstanding.
+  No live UI wiring, database changes, deployment or commit; no full build or
+  database/browser suite rerun for this isolated module.
+
+## 2026-09-21: Explicit-credit selector and receipt flow (local, not mounted)
+
+- Added a shared dialog with zero-default charge selection, exact credit amounts,
+  separate debt/credit totals, review before confirmation and stale-state refresh.
+  Unknown outcomes preserve the same request ID/payload; edits/dismissal remain
+  blocked until retry resolves. Read-only viewers may explore but cannot submit.
+- Scoped read action bypasses the old write-on-read Caja loader. Confirm action
+  validates role/debug/schema and uses authenticated RPC claims. Private recent
+  receipt reads occur only after enrollment ledger authorization.
+- Receipt snapshots now include player/campus names. Dedicated QZ credit receipts
+  print money received separately from credit used, with client/academy copies.
+  Reprinting uses saved values; printer errors never repeat credit application.
+- 34 mocked action/schema/printing tests passed. 21 synthetic browser checks passed
+  at 1280x900 and 390x844, including uncertainty/stale balance, history reprint,
+  zero selection, Copa exclusion and reader confirmation denial. Screenshots
+  inspected; no horizontal overflow. Temporary harness server/browser closed.
+- Updated real-role Preview database rehearsal passed 46 checks, all DDL/fixtures
+  rolled back. TypeScript and full webpack build passed; pre-existing named-version
+  import and stale Browserslist warnings remain. Physical printing not tested.
+- Component deliberately not mounted in Caja yet. Remaining: ordinary/Copa mixed
+  money-plus-credit checkout, retirement of all automatic paths, historical-account
+  entry points, debt/credit display and coordinated authenticated release tests.
+- No commit, deployment, persistent Preview migration or production change.
+
+## 2026-09-21: Explicit-credit foundation (local, not deployed)
+
+- Owner approved explicit application after the read-only audit. Added an
+  authenticated, role/campus-checked per-charge credit transaction and private
+  receipt snapshots. Exact reviewed amounts, stale-state checks, source-payment
+  integrity and command-based idempotency prevent silent changes to the selection.
+- Credit-only operation writes no payments or cash entries. Applications,
+  tournament/uniform settlement, follow-up cleanup and audit commit together.
+  Copa remains prohibited. Historical accounts can be explicitly settled without
+  changing their enrollment status.
+- Preview rehearsal passed 45 checks, including forced late rollback, partial
+  credit, receipt stability, role/campus/revocation, source-integrity failures,
+  tournament registration and historical accounts. DDL and fixtures rolled back.
+- Existing installed Copa mixed-cart suite passed 33 checks and rolled back.
+  Node syntax check and diff whitespace checks passed. No frontend edits/build.
+- Foundation only: automatic paths, UI, ordinary money-plus-credit checkout and
+  balance display are NOT switched over. No commit, push, hosted migration or
+  production changes. Two-session concurrency and browser tests remain pending.
+- Plan: `docs/planning/explicit-credit-transition.md`. Existing local checkpoint
+  documentation preserved. Do not deploy until the coordinated transition passes.
+
+## 2026-09-21: Production checkpoint (v1.17.77)
+
+- Main and Preview verified at `9244cde3b683110f55936d5496dfc479163b2a0a`.
+- Production deployment `dpl_HFMhJmERU8bbyHS4J7oFFhj5BawC` and Preview deployment
+  `dpl_FLwcDjWz4ZqGbJqZpxVJjixGd1jj` Ready; actual aliases verified at release.
+- Production migration workflow `35671368260`, auth contract, dependency audit
+  and secret scan succeeded. Both Copa migrations installed; product MXN 1,250,
+  both active campus tournaments and checkout table verified read-only.
+- Installed Preview regression passed 33 rollback-only checks. Owner accepted
+  Preview, approved production, and confirmed production works. No production
+  test payments posted; no separate physical-print claim.
+- Reconciled stale roadmap release labels for Director read-only parity,
+  email/Turnstile, security/last-login, quick group changes and Copa Tigres.
+  Historical session notes below remain chronological evidence, not current
+  release blockers. Earlier features were not fully re-audited in this checkpoint.
+- Remaining priorities: separate automatic-credit design/audit, deferred
+  Jugadores performance, and owner-supplied Copa dates/final-payment deadline.
+- Documentation only, local until the next approved commit; no new deployment,
+  application change, configuration change or database write.
+- Evidence and scope: `docs/checkpoints/2026-09-21-v1.17.77.md`.
+
+## 2026-09-21: Copa Tigres mixed-cart checkout (v1.17.77, shipped)
 
 - Copa buttons now stage one replaceable installment in the ordinary Caja cart.
   Tuition/products may be paid alongside it, with one itemized receipt and the
@@ -20,8 +228,8 @@
 - TypeScript and existing credit-funded checkout, tournament sync performance,
   roster-refresh and historical-sync regression scripts passed.
 - Production build passed; existing version-import/Browserslist warnings remain.
-- Pending: Preview migration/deployment and authenticated mixed-cart/physical
-  receipt verification. Release targets Preview only; production unchanged.
+- Release completed in Preview and production; installed Preview suite passed
+  33 checks and owner confirmed both environments. See checkpoint above.
 
 ## 2026-09-21: Copa Tigres inside Menu POS (v1.17.76)
 

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createPerfTimer } from "@/lib/perf/timing";
 import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
+import type { ExplicitCheckoutReceipt } from "@/lib/finance/explicit-checkout";
 
 const METHOD_LABELS: Record<string, string> = {
   cash: "Efectivo",
@@ -15,6 +16,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 type ReceiptData = {
+  explicitCheckout?: ExplicitCheckoutReceipt;
   playerName: string;
   campusName: string;
   birthYear: number | null;
@@ -110,6 +112,26 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
     return { ok: false, error: "receipt_not_found" };
   }
   perf.mark("payment_load");
+
+  if (payment.provider_ref?.startsWith("explicit-cart-")) {
+    const match = /^explicit-cart-([0-9a-f-]{36})-[01]$/i.exec(payment.provider_ref);
+    if (!match) return { ok: false, error: "receipt_not_found" };
+    const { data, error } = await createAdminClient().from("explicit_cart_checkouts").select("receipt")
+      .eq("id", match[1]).eq("enrollment_id", payment.enrollment_id).maybeSingle();
+    const saved = data?.receipt as ExplicitCheckoutReceipt | undefined;
+    if (error || !saved || saved.operationId !== match[1] || saved.enrollmentId !== payment.enrollment_id
+      || !Array.isArray(saved.payments) || !saved.payments.some(part => part.id === payment.id)) return { ok: false, error: "receipt_not_found" };
+    const first = saved.payments[0], second = saved.payments[1];
+    const date = new Date(saved.paidAt);
+    return { ok: true, receipt: {
+      explicitCheckout: saved, playerName: saved.playerName, campusName: saved.operatorCampusName, birthYear: null,
+      currency: saved.currency, amount: saved.moneyReceived, remainingBalance: saved.pendingChargesTotal,
+      creditAppliedAmount: saved.creditApplied, chargesPaid: saved.lines.map(line => ({ description: line.description, amount: line.moneyReceived })),
+      paymentId: first.id, folio: first.folio, method: METHOD_LABELS[first.method] ?? first.method,
+      splitPayment: second ? { method: METHOD_LABELS[second.method] ?? second.method, amount: second.amount } : undefined,
+      date: formatDateMonterrey(date), time: formatTimeMonterrey(date),
+    } };
+  }
 
   if (payment.provider_ref?.startsWith("copa-cart-")) {
     // Payment RLS above must authorize this user before the protected snapshot read.

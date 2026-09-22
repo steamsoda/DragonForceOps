@@ -95,8 +95,8 @@ export function EnrollmentCreateForm({
         <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reingreso</p>
           <p className="text-sm text-slate-700">
-            La baja y toda la cuenta anterior se conservan. Al confirmar, cualquier credito historico se aplicara por
-            antiguedad a cargos pendientes de esa cuenta; el remanente seguira visible y auditable.
+            La baja y toda la cuenta anterior se conservan. Los cargos pendientes y el credito permanecen en esa
+            cuenta; el reingreso no aplica ni transfiere credito.
           </p>
           {returningAccountSummary ? (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -313,8 +313,8 @@ export function EnrollmentCreateForm({
             className="mt-0.5"
           />
           <span>
-            Confirmo que revise la cuenta anterior y el grupo de reingreso. El credito se aplicara primero a los cargos
-            historicos pendientes y la nueva inscripcion conservara todo el historial.
+            Confirmo que revise la cuenta anterior y el grupo de reingreso. Los cargos y el credito anteriores
+            se conservan sin aplicacion automatica.
           </span>
         </label>
       ) : null}

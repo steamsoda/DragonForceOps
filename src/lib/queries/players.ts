@@ -637,13 +637,14 @@ export async function listBajas(filters: BajaListFilters) {
   const { data: rows } = await query.returns<Array<BajaEnrollmentRow & { id: string }>>();
 
   const endedEnrollmentIds = (rows ?? []).map((row) => row.id);
-  const { data: endedBalanceRows } = endedEnrollmentIds.length
+  const { data: endedBalanceRows, error: endedBalanceError } = endedEnrollmentIds.length
     ? await supabase
-        .from("v_enrollment_balances")
+        .from("v_enrollment_collection_balances")
         .select("enrollment_id, balance")
         .in("enrollment_id", endedEnrollmentIds)
         .returns<ListBalanceRow[]>()
-    : { data: [] as ListBalanceRow[] };
+    : { data: [] as ListBalanceRow[], error: null };
+  if (endedBalanceError) throw new Error("archive_collection_balance_unavailable");
   const endedBalanceMap = new Map((endedBalanceRows ?? []).map((row) => [row.enrollment_id, row.balance]));
 
   // Deduplicate: keep only most recent ended enrollment per player; exclude active players
@@ -787,11 +788,12 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
   await Promise.all([
     includeFinance && enrollmentIds.length > 0
       ? supabase
-          .from("v_enrollment_balances")
+          .from("v_enrollment_collection_balances")
           .select("enrollment_id, total_charges, total_payments, balance")
           .in("enrollment_id", enrollmentIds)
           .returns<EnrollmentBalanceRow[]>()
-          .then(({ data }) => {
+          .then(({ data, error }) => {
+            if (error) throw new Error("profile_balance_unavailable");
             balancesByEnrollment = new Map((data ?? []).map((row) => [row.enrollment_id, row]));
           })
       : Promise.resolve(),
@@ -862,7 +864,7 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
     if (context?.isDirectorReadOnly && !activeEnrollmentLedger) throw new Error("profile_account_unavailable");
   }
 
-  if (context?.isDirectorReadOnly && includeFinance && enrollmentIds.some(id => !balancesByEnrollment.has(id))) {
+  if (includeFinance && enrollmentIds.some(id => !balancesByEnrollment.has(id))) {
     throw new Error("profile_balance_unavailable");
   }
 

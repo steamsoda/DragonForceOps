@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { assertDebugWritesAllowed } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
-import { normalizeRemainingPostedCreditAllocations } from "@/server/actions/payment-allocation-normalization";
 
 type AuditLogLookup = {
   id: string;
@@ -77,8 +76,7 @@ export async function reverseAuditLogEntryAction(formData: FormData): Promise<vo
     const { error } = await supabase.from("payments").update({ status: "void" }).eq("id", recordId);
     if (error) redirect("/admin/actividad?err=reverse_failed");
 
-    const normalizationResult =
-      enrollmentId ? await normalizeRemainingPostedCreditAllocations(supabase, enrollmentId) : null;
+    const normalizationResult = { insertedAllocationCount: 0, insertedAllocationAmount: 0 };
 
     await writeAuditLog(supabase, {
       actorUserId: user.id,

@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
-import { completeCopaCartCheckout, resumeCopaCartCheckout } from "@/lib/payments/copa-cart-server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
+import { reviewExplicitCart, saveExplicitCart, getExplicitCartRecoveryActor, getExplicitCartRecoveryState, acknowledgeExplicitCart, type PreparedExplicitCart } from "@/lib/payments/explicit-cart-server";
+
+import { ExplicitCheckoutError, quoteExplicitCheckout } from "@/lib/finance/explicit-checkout";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEnrollmentLedger } from "@/lib/queries/billing";
@@ -15,7 +17,6 @@ import {
   normalizePeriodMonth,
   formatPeriodMonthLabel,
 } from "@/lib/pricing/plans";
-import { parsePaymentFormData } from "@/lib/validations/payment";
 import { writeAuditLog } from "@/lib/audit";
 import { applyEarlyBirdDiscountIfEligible } from "@/server/actions/payments";
 import { PRODUCT_GROUPS } from "@/lib/product-groups";
@@ -30,10 +31,8 @@ import {
 } from "@/server/actions/payment-posting";
 import { formatDateMonterrey, formatTimeMonterrey, getMonterreyDateString, parseMonterreyDateTimeInput } from "@/lib/time";
 import { resolveActiveIncident, type ActiveIncident } from "@/lib/incidents";
-import { allocateChargesWithPriority } from "@/lib/payments/allocation";
 import { createPerfTimer } from "@/lib/perf/timing";
 import {
-  getReusablePaymentRemainder,
   type AccountCreditSummary,
 } from "@/lib/finance/account-credit";
 import {
@@ -43,7 +42,6 @@ import {
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
 import { getPlayerAttendanceRiskByPlayerIds, type PlayerAttendanceRisk } from "@/lib/queries/attendance";
 import { getPermissionContext } from "@/lib/auth/permissions";
-import { mayAutomaticallyApplyCajaCredit } from "@/lib/auth/director-presentation";
 import { directorAccountReader } from "@/lib/auth/director-account-reader";
 import { canAccessEnrollmentRecord } from "@/lib/auth/permissions";
 import { getPlayerNotesForCaja, type PlayerNote } from "@/lib/queries/player-notes";
@@ -1369,35 +1367,7 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
   // The canonical ledger has already verified the real read-only session and enrollment scope.
   const supabase = permissionContext?.isDirectorReadOnly ? createAdminClient() : await createClient();
 
-  const hasPendingCharge = ledger.charges.some(
-    (charge) => charge.status !== "void" && charge.pendingAmount > 0.009,
-  );
-  const canAccessEnrollment =
-    permissionContext
-      ? await canAccessEnrollmentRecord(enrollmentId, permissionContext)
-      : false;
-  if (
-    permissionContext &&
-    ledger.accountCredit.hasExplicitCredit &&
-    hasPendingCharge &&
-    mayAutomaticallyApplyCajaCredit(permissionContext, canAccessEnrollment, await isDebugWriteBlocked())
-  ) {
-    const admin = createAdminClient();
-    const { error: creditApplyError } = await admin.rpc("auto_apply_enrollment_credit_fifo", {
-      p_enrollment_id: enrollmentId,
-      p_actor_id: permissionContext.user.id,
-      p_application_key: crypto.randomUUID(),
-      p_notes: "Credito aplicado automaticamente al abrir Caja.",
-    });
-    if (creditApplyError) {
-      console.error("[getEnrollmentForCajaAction] automatic credit application failed", {
-        enrollmentId,
-        error: creditApplyError,
-      });
-    } else {
-      ledger = (await getEnrollmentLedger(enrollmentId)) ?? ledger;
-    }
-  }
+  // Reading an account never consumes either explicit or historical credit.
 
   const pendingCharges = ledger.charges
     .filter((c) => c.pendingAmount > 0 && c.status !== "void" && !c.copaTigresInstallments)
@@ -1563,107 +1533,6 @@ export async function getEnrollmentForCajaAction(enrollmentId: string): Promise<
 
 // ── Post payment from Caja (returns result, does not redirect) ────────────────
 
-export async function applyCajaCreditAction(
-  enrollmentId: string,
-  formData: FormData,
-): Promise<CajaCreditApplyResult> {
-  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-
-  const targetChargeIds =
-    formData.get("targetChargeIds")?.toString().split(",").map((value) => value.trim()).filter(Boolean) ?? [];
-  const requestedAmount = Number.parseFloat(formData.get("amount")?.toString() ?? "");
-  const applicationKey = formData.get("applicationKey")?.toString().trim() ?? "";
-
-  if (targetChargeIds.length === 0 || !Number.isFinite(requestedAmount) || requestedAmount <= 0 || !applicationKey) {
-    return { ok: false, error: "invalid_form" };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) return { ok: false, error: "unauthenticated" };
-
-  const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger) return { ok: false, error: "enrollment_not_found" };
-  if (ledger.enrollment.status === "ended" || ledger.enrollment.status === "cancelled") {
-    return { ok: false, error: "enrollment_inactive" };
-  }
-  if (!ledger.accountCredit.hasExplicitCredit) return { ok: false, error: "no_available_credit" };
-
-  const targetSet = new Set(targetChargeIds);
-  const targetCharges = ledger.charges.filter(
-    (charge) => targetSet.has(charge.id) && charge.status !== "void" && charge.pendingAmount > 0,
-  );
-  if (targetCharges.length !== targetSet.size) return { ok: false, error: "invalid_target_charge" };
-
-  const targetPendingAmount = targetCharges.reduce(
-    (sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100,
-    0,
-  );
-  const amountToApply = Math.min(
-    Math.round(requestedAmount * 100) / 100,
-    targetPendingAmount,
-    ledger.accountCredit.explicitAvailableAmount,
-  );
-  if (amountToApply <= 0.009) return { ok: false, error: "no_applicable_credit" };
-
-  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .rpc("apply_enrollment_credit_to_charges", {
-      p_enrollment_id: enrollmentId,
-      p_charge_ids: Array.from(targetSet),
-      p_requested_amount: amountToApply,
-      p_actor_id: user.id,
-      p_application_key: applicationKey,
-      p_notes: "Caja: credito aplicado a cargos seleccionados",
-    })
-    .returns<Array<{ applied_amount: number; application_count: number }>>();
-
-  if (error) {
-    const message = error.message || "";
-    if (message.includes("no_applicable_credit")) return { ok: false, error: "no_applicable_credit" };
-    if (message.includes("invalid_target_charge")) return { ok: false, error: "invalid_target_charge" };
-    if (message.includes("enrollment_inactive")) return { ok: false, error: "enrollment_inactive" };
-    return { ok: false, error: "credit_apply_failed" };
-  }
-
-  const creditResultRows = Array.isArray(data) ? data : [];
-  const appliedAmount = Math.round(Number(creditResultRows[0]?.applied_amount ?? 0) * 100) / 100;
-  const applicationCount = Number(creditResultRows[0]?.application_count ?? 0);
-  if (appliedAmount <= 0.009 || applicationCount <= 0) return { ok: false, error: "no_applicable_credit" };
-
-  await writeAuditLog(admin, {
-    actorUserId: user.id,
-    actorEmail: user.email ?? null,
-    action: "account_credit.applied",
-    tableName: "enrollment_credit_applications",
-    recordId: applicationKey,
-    afterData: {
-      enrollment_id: enrollmentId,
-      target_charge_ids: Array.from(targetSet),
-      applied_amount: appliedAmount,
-      application_count: applicationCount,
-      source: "caja",
-    },
-  });
-
-  await writeEnrollmentAnomalyAuditTrail({
-    enrollmentId,
-    actorUserId: user.id,
-    actorEmail: user.email ?? null,
-    triggerAction: "account_credit.applied.caja",
-    before: anomalyBefore,
-  });
-
-  await revalidatePaymentSurfaces(ledger);
-  const updatedData = await getEnrollmentForCajaAction(enrollmentId);
-  if (!updatedData) return { ok: false, error: "reload_failed" };
-
-  return { ok: true, updatedData, appliedAmount, applicationCount };
-}
 
 export async function voidCajaChargeAction(
   enrollmentId: string,
@@ -1939,507 +1808,92 @@ export async function cashRefundCajaChargeAction(
   };
 }
 
-async function rollbackCreatedCajaCheckoutCharges(
-  enrollmentId: string,
-  chargeIds: string[],
-) {
-  if (chargeIds.length === 0) return;
-  const admin = createAdminClient();
-  const { error } = await admin.rpc("rollback_unpaid_caja_checkout_charges", {
-    p_enrollment_id: enrollmentId,
-    p_charge_ids: chargeIds,
-  });
-  if (error) {
-    console.error("[checkoutCajaCartAction] staged charge rollback failed", {
-      enrollmentId,
-      chargeIds,
-      error,
-    });
-  }
-}
 
-export async function checkoutCajaCartAction(
-  enrollmentId: string,
-  formData: FormData
-): Promise<CajaCheckoutResult> {
-  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const method = formData.get("method")?.toString() ?? "";
-  const notes = formData.get("notes")?.toString() ?? "";
-  const method2 = formData.get("method2")?.toString() ?? "";
-  const targetChargeIdsRaw = formData.get("targetChargeIds")?.toString().trim() ?? "";
-  const existingTargetChargeIds = targetChargeIdsRaw ? targetChargeIdsRaw.split(",").filter(Boolean) : [];
-  const cartItems = parseCheckoutCartItems(formData.get("cartItems")?.toString() ?? "[]");
 
-  if (cartItems === null) return { ok: false, error: "invalid_form" };
-
-  if (cartItems.some((item) => item.kind === "copa_tigres")) {
-    const context = await getPermissionContext();
-    if (!context?.hasOperationalAccess || !(await canAccessEnrollmentRecord(enrollmentId, context))) {
-      return { ok: false, error: "unauthorized" };
-    }
-    const installments = cartItems.filter((item) => item.kind === "copa_tigres");
-    if (installments.length !== 1 || cartItems.length > 50) return { ok: false, error: "invalid_form" };
-    const resumed = await resumeCopaCartCheckout(enrollmentId, formData, context);
-    if (resumed) return resumed;
-    const preparedCharges: PreparedCajaCharge[] = [];
-    for (const item of cartItems) {
-      if (item.kind === "copa_tigres") continue;
-      if (item.kind === "tuition") {
-        const result = await createResolvedAdvanceTuitionCharge(context.supabase, {
-          enrollmentId, periodMonth: item.periodMonth, userId: context.user.id,
-          coveredArrearChargeIds: existingTargetChargeIds, preparedCharges,
-        });
-        if (!result.ok) return result;
-      } else {
-        const input = new FormData();
-        input.set("productId", item.productId);
-        if (item.amount) input.set("amount", String(item.amount));
-        if (item.size) input.set("size", item.size);
-        if (item.goalkeeper) input.set("goalkeeper", "1");
-        if (item.uniformFulfillmentMode) input.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
-        if (item.catalogException) input.set("catalogException", "1");
-        if (item.exceptionConfirmed) input.set("exceptionConfirmed", "1");
-        const result = await resolveCajaProductCharge(enrollmentId, input, undefined, preparedCharges);
-        if (!result.ok) return result;
-      }
-    }
-    return completeCopaCartCheckout(enrollmentId, formData, context, installments[0], preparedCharges);
-  }
-
-  const createdChargeIds: string[] = [];
-  const checkoutChargeIds: string[] = [];
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) return { ok: false, error: "unauthenticated" };
-
-  for (const item of cartItems) {
-    if (item.kind === "copa_tigres") return { ok: false, error: "invalid_form" };
-    if (item.kind === "tuition") {
-      const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
-        enrollmentId,
-        periodMonth: item.periodMonth,
-        userId: user.id,
-        coveredArrearChargeIds: [...existingTargetChargeIds, ...checkoutChargeIds],
-      });
-      if (!tuitionResult.ok) {
-        await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-        return tuitionResult;
-      }
-      checkoutChargeIds.push(tuitionResult.newChargeId);
-      if (tuitionResult.mode === "created") createdChargeIds.push(tuitionResult.newChargeId);
+async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
+  context: NonNullable<Awaited<ReturnType<typeof getPermissionContext>>>): Promise<PreparedExplicitCart> {
+  const items = parseCheckoutCartItems(String(form.get("cartItems") ?? "[]"));
+  let keys: string[];
+  try { keys = JSON.parse(String(form.get("cartKeys") ?? "[]")); } catch { throw new ExplicitCheckoutError("invalid_checkout"); }
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!items || items.length > 50 || !Array.isArray(keys) || keys.length !== items.length
+    || keys.some(key => typeof key !== "string" || !uuid.test(key)) || new Set(keys).size !== keys.length) throw new ExplicitCheckoutError("invalid_checkout");
+  const ledger = await getEnrollmentLedger(enrollmentId);
+  if (!ledger || ledger.enrollment.status !== "active") throw new ExplicitCheckoutError("invalid_checkout");
+  const rawTargets = String(form.get("targetChargeIds") ?? "");
+  const targets = rawTargets ? rawTargets.split(",") : items.length ? []
+    : ledger.charges.filter(c => c.pendingAmount > 0 && c.status !== "void" && !c.copaTigresInstallments).map(c => c.id);
+  if (new Set([...keys, ...targets]).size !== keys.length + targets.length || targets.some(id => !uuid.test(id))) throw new ExplicitCheckoutError("invalid_checkout");
+  const snapshot: PreparedExplicitCart["snapshot"] = {
+    enrollmentId, currency: ledger.enrollment.currency, availableCredit: ledger.accountCredit.explicitAvailableAmount,
+    lines: targets.map(id => {
+      const charge = ledger.charges.find(c => c.id === id && c.status !== "void" && !c.copaTigresInstallments && c.pendingAmount > 0);
+      if (!charge) throw new ExplicitCheckoutError("checkout_changed");
+      return { key: id, chargeId: id, description: charge.description, pending: charge.pendingAmount,
+        due: charge.pendingAmount, kind: "ordinary" as const, creditAllowed: true };
+    }),
+  };
+  const charges: PreparedExplicitCart["charges"] = [];
+  for (const [index, item] of items.entries()) {
+    const key = keys[index];
+    if (item.kind === "copa_tigres") {
+      const { data: product, error } = await context.supabase.from("products").select("id,name,charge_type_id")
+        .eq("id", item.productId).eq("is_active", true).eq("copa_tigres_installments", true).maybeSingle();
+      if (error || !product) throw new ExplicitCheckoutError("checkout_changed");
+      const existing = await context.supabase.from("charges").select("id").eq("enrollment_id", enrollmentId)
+        .eq("product_id", item.productId).neq("status", "void").maybeSingle();
+      if (existing.error) throw new ExplicitCheckoutError("checkout_changed");
+      const existingId = existing.data?.id;
+      const prior = existingId ? ledger.charges.find(c => c.id === existingId) : null;
+      if (existing.data && !prior) throw new ExplicitCheckoutError("checkout_changed");
+      snapshot.lines.push({ key, chargeId: prior?.id ?? null, description: product.name, pending: prior?.pendingAmount ?? 1250,
+        due: item.amount, kind: "copa_tigres", creditAllowed: false });
+      if (!prior) charges.push({ key, id: key, product_id: product.id, charge_type_id: product.charge_type_id,
+        description: product.name, amount: 1250, currency: "MXN" });
       continue;
     }
-
-    const chargeForm = new FormData();
-    chargeForm.set("productId", item.productId);
-    if (item.amount) chargeForm.set("amount", item.amount.toFixed(2));
-    if (item.size) chargeForm.set("size", item.size);
-    if (item.goalkeeper) chargeForm.set("goalkeeper", "1");
-    if (item.uniformFulfillmentMode) chargeForm.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
-    if (item.catalogException) chargeForm.set("catalogException", "1");
-    if (item.exceptionConfirmed) chargeForm.set("exceptionConfirmed", "1");
-    chargeForm.set("suppressAudit", "1");
-    chargeForm.set("skipReload", "1");
-
-    const chargeResult = await postCajaChargeAction(enrollmentId, chargeForm);
-    if (!chargeResult.ok) {
-      await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-      return chargeResult;
+    const prepared: PreparedCajaCharge[] = [];
+    if (item.kind === "tuition") {
+      const result = await createResolvedAdvanceTuitionCharge(context.supabase, { enrollmentId, periodMonth: item.periodMonth,
+        userId: context.user.id, coveredArrearChargeIds: targets, preparedCharges: prepared });
+      if (!result.ok) throw new ExplicitCheckoutError("checkout_changed");
+    } else {
+      const input = new FormData(); input.set("productId", item.productId);
+      if (item.amount != null) input.set("amount", String(item.amount));
+      if (item.size) input.set("size", item.size);
+      if (item.goalkeeper) input.set("goalkeeper", "1");
+      if (item.uniformFulfillmentMode) input.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
+      if (item.catalogException) input.set("catalogException", "1");
+      if (item.exceptionConfirmed) input.set("exceptionConfirmed", "1");
+      const result = await resolveCajaProductCharge(enrollmentId, input, undefined, prepared);
+      if (!result.ok) throw new ExplicitCheckoutError("checkout_changed");
     }
-
-    if (chargeResult.newChargeId) {
-      createdChargeIds.push(chargeResult.newChargeId);
-      checkoutChargeIds.push(chargeResult.newChargeId);
-    }
+    if (prepared.length !== 1) throw new ExplicitCheckoutError("invalid_checkout");
+    const plan = prepared[0];
+    charges.push({ ...plan, id: plan.existing ? plan.id : key, key });
+    snapshot.lines.push({ key, chargeId: null, description: String(plan.description), pending: Number(plan.amount),
+      due: Number(plan.amount), kind: "ordinary", creditAllowed: true });
   }
-
-  const checkoutLedger = await getEnrollmentLedger(enrollmentId);
-  if (!checkoutLedger) {
-    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-    return { ok: false, error: "ledger_failed" };
-  }
-
-  const checkoutChargeIdSet = new Set([...existingTargetChargeIds, ...checkoutChargeIds]);
-  const checkoutCharges =
-    checkoutChargeIdSet.size > 0
-      ? checkoutLedger.charges.filter((charge) => checkoutChargeIdSet.has(charge.id))
-      : checkoutLedger.charges;
-  const requiredCheckoutTotal = checkoutCharges
-    .filter((charge) => charge.status !== "void" && charge.pendingAmount > 0)
-    .reduce((sum, charge) => Math.round((sum + charge.pendingAmount) * 100) / 100, 0);
-
-  if (requiredCheckoutTotal <= 0.009) {
-    const updatedData = await getEnrollmentForCajaAction(enrollmentId);
-    if (!updatedData) return { ok: false, error: "reload_failed" };
-    const appliedAmount = checkoutCharges.reduce(
-      (sum, charge) => Math.round((sum + charge.creditAppliedAmount) * 100) / 100,
-      0,
-    );
-    return { ok: true, creditOnly: true, updatedData, appliedAmount };
-  }
-
-  const parsedPayment = parsePaymentFormData(formData);
-  if (!parsedPayment) {
-    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-    return { ok: false, error: "invalid_form" };
-  }
-
-  const paymentForm = new FormData();
-  const requestedFirstAmount = parsedPayment.amount;
-  const normalizedFirstAmount = parsedPayment.split
-    ? Math.min(Math.round(requestedFirstAmount * 100) / 100, requiredCheckoutTotal)
-    : requiredCheckoutTotal;
-  const normalizedSecondAmount = parsedPayment.split
-    ? Math.round((requiredCheckoutTotal - normalizedFirstAmount) * 100) / 100
-    : 0;
-  if (parsedPayment.split && (normalizedFirstAmount <= 0.009 || normalizedSecondAmount <= 0.009)) {
-    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-    return { ok: false, error: "invalid_split_amount" };
-  }
-
-  paymentForm.set("amount", normalizedFirstAmount.toFixed(2));
-  paymentForm.set("method", method);
-  const operatorCampusId = formData.get("operatorCampusId")?.toString().trim() ?? "";
-  if (operatorCampusId) paymentForm.set("operatorCampusId", operatorCampusId);
-  if (notes) paymentForm.set("notes", notes);
-  if (parsedPayment.split) {
-    paymentForm.set("amount2", normalizedSecondAmount.toFixed(2));
-    paymentForm.set("method2", method2);
-  }
-  const paidAt = formData.get("paidAt")?.toString().trim() ?? "";
-  if (paidAt) paymentForm.set("paidAt", paidAt);
-  paymentForm.set("targetChargeIds", [...existingTargetChargeIds, ...checkoutChargeIds].join(","));
-
-  const paymentResult = await postCajaPaymentAction(enrollmentId, paymentForm);
-  if (!paymentResult.ok && createdChargeIds.length > 0) {
-    await rollbackCreatedCajaCheckoutCharges(enrollmentId, createdChargeIds);
-  }
-
-  return paymentResult;
+  quoteExplicitCheckout(snapshot);
+  return { snapshot, charges };
 }
 
-export async function postCajaPaymentAction(enrollmentId: string, formData: FormData): Promise<CajaPaymentResult> {
-  const perf = createPerfTimer("caja.payment_post");
-  if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
-  const parsed = parsePaymentFormData(formData);
-  if (!parsed) return { ok: false, error: "invalid_form" };
-  perf.mark("parse_and_debug_guard");
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
-  if (userError || !user) return { ok: false, error: "unauthenticated" };
-  perf.mark("auth_user");
-
-  const ledger = await getEnrollmentLedger(enrollmentId);
-  if (!ledger) return { ok: false, error: "enrollment_not_found" };
-  perf.mark("ledger_load");
-  const campusAccess = await getOperationalCampusAccess();
-  if (!campusAccess) return { ok: false, error: "unauthenticated" };
-  perf.mark("campus_access");
-
-  const pendingCharges = ledger.charges
-    .filter((c) => c.pendingAmount > 0 && c.status !== "void" && !c.copaTigresInstallments)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-  if (ledger.enrollment.status === "ended" || ledger.enrollment.status === "cancelled") {
-    return { ok: false, error: "enrollment_inactive" };
-  }
-
-  const targetChargeIds = parsed.targetChargeIds;
-  if (ledger.charges.some((charge) => charge.copaTigresInstallments && targetChargeIds.includes(charge.id))) {
-    return { ok: false, error: "copa_tigres_use_installment_payment" };
-  }
-  const targetSet = new Set(targetChargeIds);
-  const operatorCampusId = parsed.operatorCampusId ?? campusAccess.defaultCampusId;
-  if (!operatorCampusId || !canAccessCampus(campusAccess, operatorCampusId)) {
-    return { ok: false, error: "invalid_form" };
-  }
-  const recordedAt = new Date().toISOString();
-  const paidAt = parsed.paidAtRaw ? parseMonterreyDateTimeInput(parsed.paidAtRaw) : recordedAt;
-  if (!paidAt) return { ok: false, error: "invalid_form" };
-
-  // ── Sweep unallocated credit from prior payments (FIFO) ───────────────────
-  // Any prior payment that was not fully allocated (e.g. from an overpayment)
-  // gets applied to pending charges before the new payment, so that a charge
-  // already covered by a credit does not re-surface as outstanding.
-  const effectivePending = new Map<string, number>(
-    pendingCharges.map((c) => [c.id, c.pendingAmount])
-  );
-  const priorAllocations: Array<{ paymentId: string; chargeId: string; amount: number }> = [];
-  for (const prior of ledger.payments) {
-    let available = getReusablePaymentRemainder({
-      status: prior.status,
-      amount: prior.amount,
-      allocatedAmount: prior.allocatedAmount,
-      explicitCreditOriginalAmount: prior.explicitCreditOriginalAmount,
-      chargeCashRefundedAmount: prior.chargeCashRefundedAmount,
-    });
-    if (available <= 0) continue;
-    for (const charge of pendingCharges) {
-      if (available <= 0) break;
-      const ep = effectivePending.get(charge.id) ?? 0;
-      if (ep <= 0) continue;
-      const alloc = Math.round(Math.min(available, ep) * 100) / 100;
-      priorAllocations.push({ paymentId: prior.id, chargeId: charge.id, amount: alloc });
-      effectivePending.set(charge.id, Math.round((ep - alloc) * 100) / 100);
-      available = Math.round((available - alloc) * 100) / 100;
-    }
-  }
-  const effectiveCharges = pendingCharges
-    .map((c) => ({ ...c, pendingAmount: effectivePending.get(c.id) ?? 0 }))
-    .filter((c) => c.pendingAmount > 0);
-
-  // ── Allocate new payment(s) ───────────────────────────────────────────────
-  // Helper: runs a FIFO allocation pass, consuming from `available` map
-  const available = new Map(effectiveCharges.map(c => [c.id, c.pendingAmount]));
-  const firstPassCharges = effectiveCharges.map((charge) => ({
-    id: charge.id,
-    pendingAmount: available.get(charge.id) ?? 0,
-  }));
-  const firstPass = allocateChargesWithPriority(parsed.amount, firstPassCharges, targetSet);
-  for (const allocation of firstPass.allocations) {
-    const pending = available.get(allocation.chargeId) ?? 0;
-    available.set(allocation.chargeId, Math.round((pending - allocation.amount) * 100) / 100);
-  }
-  const allocations1 = firstPass.allocations;
-
-  const secondPassCharges = effectiveCharges.map((charge) => ({
-    id: charge.id,
-    pendingAmount: available.get(charge.id) ?? 0,
-  }));
-  const secondPass = parsed.split
-    ? allocateChargesWithPriority(parsed.split.amount, secondPassCharges, [])
-    : { allocations: [] as Array<{ chargeId: string; amount: number }> };
-  const allocations2 = secondPass.allocations;
-  perf.mark("prepare_allocations");
-
-  const providerRef = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const { data: paymentRow, error: paymentError } = await supabase
-    .from("payments")
-    .insert({
-      enrollment_id: enrollmentId,
-      paid_at: paidAt,
-      method: parsed.method,
-      amount: parsed.amount,
-      currency: ledger.enrollment.currency,
-      status: "posted",
-      operator_campus_id: operatorCampusId,
-      provider_ref: providerRef,
-      external_source: "manual",
-      notes: parsed.notes,
-      created_by: user.id
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (paymentError || !paymentRow) {
-    console.error("[postCajaPaymentAction] payment insert failed:", paymentError);
-    return { ok: false, error: "payment_insert_failed" };
-  }
-  perf.mark("payment_insert");
-
-  // Insert second payment row if split
-  let paymentRow2Id: string | null = null;
-  if (parsed.split) {
-    const { data: p2, error: p2Error } = await supabase
-      .from("payments")
-      .insert({
-        enrollment_id: enrollmentId,
-        paid_at: paidAt,
-        method: parsed.split.method,
-        amount: parsed.split.amount,
-        currency: ledger.enrollment.currency,
-        status: "posted",
-        operator_campus_id: operatorCampusId,
-        provider_ref: `${providerRef}-b`,
-        external_source: "manual",
-        notes: parsed.notes,
-        created_by: user.id
-      })
-      .select("id")
-      .single<{ id: string }>();
-
-    if (p2Error || !p2) {
-      await supabase.from("payments").delete().eq("id", paymentRow.id);
-      return { ok: false, error: "payment_insert_failed" };
-    }
-    paymentRow2Id = p2.id;
-  }
-  perf.mark("split_payment_insert");
-
-  // Insert allocations for prior unallocated credit first
-  if (priorAllocations.length > 0) {
-    const { error: priorAllocError } = await supabase.from("payment_allocations").insert(
-      priorAllocations.map((a) => ({
-        payment_id: a.paymentId,
-        charge_id: a.chargeId,
-        amount: a.amount
-      }))
-    );
-    if (priorAllocError) {
-      await supabase.from("payments").delete().eq("id", paymentRow.id);
-      if (paymentRow2Id) await supabase.from("payments").delete().eq("id", paymentRow2Id);
-      return { ok: false, error: "allocation_insert_failed" };
-    }
-  }
-  perf.mark("prior_allocations_insert");
-
-  if (allocations1.length > 0) {
-    const { error: allocationError } = await supabase.from("payment_allocations").insert(
-      allocations1.map((a) => ({
-        payment_id: paymentRow.id,
-        charge_id: a.chargeId,
-        amount: a.amount
-      }))
-    );
-    if (allocationError) {
-      await supabase.from("payments").delete().eq("id", paymentRow.id);
-      if (paymentRow2Id) await supabase.from("payments").delete().eq("id", paymentRow2Id);
-      return { ok: false, error: "allocation_insert_failed" };
-    }
-  }
-  perf.mark("primary_allocations_insert");
-
-  if (paymentRow2Id && allocations2.length > 0) {
-    const { error: allocationError2 } = await supabase.from("payment_allocations").insert(
-      allocations2.map((a) => ({
-        payment_id: paymentRow2Id!,
-        charge_id: a.chargeId,
-        amount: a.amount
-      }))
-    );
-    if (allocationError2) {
-      await supabase.from("payments").delete().eq("id", paymentRow.id);
-      await supabase.from("payments").delete().eq("id", paymentRow2Id);
-      return { ok: false, error: "allocation_insert_failed" };
-    }
-  }
-  perf.mark("split_allocations_insert");
-
-  const allAllocatedCharges = [
-    ...priorAllocations.map((a) => ({ chargeId: a.chargeId, amount: a.amount })),
-    ...allocations1,
-    ...allocations2
-  ];
-  await applyEarlyBirdDiscountIfEligible(supabase, enrollmentId, allAllocatedCharges, ledger, user.id);
-  perf.mark("early_discount_check");
-
-  // ── Link cash payments to open session ────────────────────────────────────
-  const paymentsToLink: Array<{ id: string; amount: number; method: string }> = [
-    { id: paymentRow.id, amount: parsed.amount, method: parsed.method },
-    ...(paymentRow2Id && parsed.split ? [{ id: paymentRow2Id, amount: parsed.split.amount, method: parsed.split.method }] : [])
-  ];
-  const sessionWarning = await linkCashPaymentsToOpenSession(supabase, operatorCampusId, paymentsToLink, user.id);
-  const folio = await fetchPaymentFolio(supabase, paymentRow.id);
-  perf.mark("cash_session_and_folio");
-
-  await writePostedPaymentAudit(supabase, {
-    actorUserId: user.id,
-    actorEmail: user.email ?? null,
-    recordId: paymentRow.id,
-    enrollmentId,
-    amount: parsed.amount,
-    method: parsed.method,
-    source: "caja",
-    externalSource: "manual",
-    split: !!parsed.split,
-    paidAt,
-    recordedAt,
-    folio,
-  });
-  perf.mark("audit_log");
-
-  const pendingAmountByCharge = new Map(pendingCharges.map((charge) => [charge.id, charge.pendingAmount]));
-  const allocatedByCharge = new Map<string, number>();
-  for (const allocation of allAllocatedCharges) {
-    allocatedByCharge.set(
-      allocation.chargeId,
-      Math.round(((allocatedByCharge.get(allocation.chargeId) ?? 0) + allocation.amount) * 100) / 100
-    );
-  }
-  const settledChargeIds = Array.from(allocatedByCharge.entries())
-    .filter(([chargeId, allocated]) => allocated + 0.009 >= (pendingAmountByCharge.get(chargeId) ?? Number.POSITIVE_INFINITY))
-    .map(([chargeId]) => chargeId);
-
-  await syncPaidUniformOrders(supabase, {
-    settledChargeIds,
-    actorUserId: user.id,
-    soldAt: paidAt,
-  });
-  perf.mark("uniform_sync");
-
-  await clearPendingFollowUpIfResolved(supabase, enrollmentId);
-  const affectedTournamentIds = await syncPaidCompetitionSignupsForCharges(
-    enrollmentId,
-    Array.from(new Set(allAllocatedCharges.map((allocation) => allocation.chargeId))),
-  );
-  perf.mark("followup_and_competition_sync");
-
-  await revalidatePaymentSurfaces(ledger);
-  if (affectedTournamentIds.length > 0) {
-    revalidatePath("/director-deportivo");
-    revalidatePath("/tournaments");
-    for (const tournamentId of affectedTournamentIds) {
-      revalidatePath(`/tournaments/${tournamentId}`);
-    }
-  }
-  perf.mark("revalidate");
-  const refreshedLedger = await getEnrollmentLedger(enrollmentId);
-  perf.mark("refresh_ledger");
-
-  const totalPaid = parsed.split ? parsed.amount + parsed.split.amount : parsed.amount;
-  const newBalance = refreshedLedger?.totals.balance ?? Math.max(ledger.totals.balance - totalPaid, 0);
-
-  const chargeMap = new Map(pendingCharges.map((c) => [c.id, c.description]));
-  const chargesPaid = [...allocations1, ...allocations2]
-    .filter((a) => a.amount > 0)
-    .map((a) => ({ description: chargeMap.get(a.chargeId) ?? "Cargo", amount: a.amount }));
-  const newlyFundedChargeIds = new Set([...allocations1, ...allocations2].map((allocation) => allocation.chargeId));
-  const creditAppliedAmount = pendingCharges
-    .filter((charge) => newlyFundedChargeIds.has(charge.id))
-    .reduce((sum, charge) => Math.round((sum + charge.creditAppliedAmount) * 100) / 100, 0);
-
-  const splitPayment = parsed.split
-    ? { amount: parsed.split.amount, method: parsed.split.method }
-    : undefined;
-  perf.end({
-    pendingChargeCount: pendingCharges.length,
-    targetChargeCount: targetChargeIds.length,
-    priorAllocationCount: priorAllocations.length,
-    newAllocationCount: allocations1.length + allocations2.length,
-    settledChargeCount: settledChargeIds.length,
-    splitPayment: Boolean(parsed.split),
-    method: parsed.method,
-    affectedTournamentCount: affectedTournamentIds.length,
-    cashSessionWarning: sessionWarning,
-  });
-
-  return {
-    ok: true,
-    paymentId: paymentRow.id,
-    folio,
-    amount: totalPaid,
-    playerName: ledger.enrollment.playerName,
-    campusName: ledger.enrollment.campusName,
-    birthYear: ledger.enrollment.birthYear,
-    method: parsed.method,
-    splitPayment,
-    remainingBalance: newBalance,
-    creditAppliedAmount,
-    currency: ledger.enrollment.currency,
-    sessionWarning,
-    competitionRosterSyncPending: affectedTournamentIds.length > 0,
-    chargesPaid,
-    paidAt,
-    date: formatDateMonterrey(paidAt),
-    time: formatTimeMonterrey(paidAt)
-  };
+export async function reviewExplicitCajaCartAction(enrollmentId: string, form: FormData) {
+  return reviewExplicitCart(enrollmentId, form, resolveExplicitCajaCart);
 }
 
+export async function getExplicitCajaRecoveryActorAction(enrollmentId: string) {
+  return getExplicitCartRecoveryActor(enrollmentId);
+}
 
+export async function getExplicitCajaRecoveryStateAction(enrollmentId: string) {
+  return getExplicitCartRecoveryState(enrollmentId);
+}
+
+export async function acknowledgeExplicitCajaCartAction(enrollmentId: string, requestId: string) {
+  return acknowledgeExplicitCart(enrollmentId, requestId);
+}
+
+export async function checkoutCajaCartAction(enrollmentId: string, form: FormData) {
+  return saveExplicitCart(enrollmentId, form, resolveExplicitCajaCart);
+}

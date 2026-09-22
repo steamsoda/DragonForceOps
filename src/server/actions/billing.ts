@@ -15,7 +15,6 @@ import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { parseMonterreyDateTimeInput } from "@/lib/time";
 import { captureEnrollmentAnomalySnapshot, writeEnrollmentAnomalyAuditTrail } from "@/server/actions/finance-anomaly-monitoring";
-import { normalizeRemainingPostedCreditAllocations } from "@/server/actions/payment-allocation-normalization";
 import { syncCompetitionSignupsForEnrollment } from "@/server/actions/tournament-signup-sync";
 
 type TeamAssignmentRow = {
@@ -711,13 +710,6 @@ export async function reassignPaymentAction(
     return { ok: false, error: error?.message ?? resultRow?.error_code ?? "reassign_failed" };
   }
 
-  const admin = createAdminClient();
-  await admin.rpc("auto_apply_enrollment_credit_fifo", {
-    p_enrollment_id: enrollmentId,
-    p_actor_id: workflowContext.user.id,
-    p_application_key: crypto.randomUUID(),
-    p_notes: "Credito remanente aplicado automaticamente despues de una correccion de concepto.",
-  });
 
   const { data: destinationChargeRows } = await supabase
     .from("charges")
@@ -908,7 +900,7 @@ export async function voidPaymentAction(
 
   if (voidError) redirect(`${BASE}?err=void_failed`);
 
-  const normalizationResult = await normalizeRemainingPostedCreditAllocations(supabase, enrollmentId);
+  const normalizationResult = { insertedAllocationCount: 0, insertedAllocationAmount: 0 };
 
   await writeAuditLog(supabase, {
     actorUserId: user.id,

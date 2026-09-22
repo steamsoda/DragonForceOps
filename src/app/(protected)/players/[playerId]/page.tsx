@@ -8,6 +8,7 @@ import { getPlayerDetail } from "@/lib/queries/players";
 import { getUniformOrdersAction } from "@/server/actions/uniforms";
 import { UniformOrdersSection } from "@/components/players/uniform-orders-section";
 import { LedgerSummaryCards } from "@/components/billing/ledger-summary-cards";
+import { outstandingChargeAmount } from "@/lib/finance/collection-balance";
 import { ChargesLedgerTable } from "@/components/billing/charges-ledger-table";
 import { PaymentsTable } from "@/components/billing/payments-table";
 import { EnrollmentIncidentsSection } from "@/components/billing/enrollment-incidents-section";
@@ -325,7 +326,7 @@ export default async function PlayerDetailPage({
   const incidentSummary = activeIncidentSummary(activeIncident);
   const primaryGuardian = player.guardians[0] ?? null;
   const uniformSummary = getUniformSummary(uniformOrders);
-  const profileBalance = canViewFinanceDetails ? activeLedger?.totals.balance ?? activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0 : 0;
+  const profileBalance = canViewFinanceDetails ? (activeLedger ? outstandingChargeAmount(activeLedger.charges) : activeEnrollment?.balance ?? archiveEnrollment?.balance ?? 0) : 0;
   const financeDiagnostics =
     isSuperAdmin && activeEnrollmentId
       ? await getEnrollmentFinanceDiagnostics(activeEnrollmentId, permissionContext)
@@ -760,6 +761,7 @@ export default async function PlayerDetailPage({
                 totalCharges={activeLedger.totals.totalCharges}
                 totalPayments={activeLedger.totals.totalPayments}
                 balance={activeLedger.totals.balance}
+                charges={activeLedger.charges}
               />
 
               {financeDiagnostics ? (

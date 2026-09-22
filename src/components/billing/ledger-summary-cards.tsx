@@ -1,17 +1,21 @@
+import { outstandingChargeAmount } from "@/lib/finance/collection-balance";
+
 type LedgerSummaryCardsProps = {
   currency: string;
   totalCharges: number;
   totalPayments: number;
   balance: number;
+  charges?: ReadonlyArray<{ status: string; pendingAmount: number }>;
 };
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
 }
 
-export function LedgerSummaryCards({ currency, totalCharges, totalPayments, balance }: LedgerSummaryCardsProps) {
-  const balanceLabel = balance > 0 ? "Saldo pendiente" : balance < 0 ? "Crédito en cuenta" : "Al corriente";
-  const balanceValue = balance !== 0 ? formatMoney(Math.abs(balance), currency) : "—";
+export function LedgerSummaryCards({ currency, totalCharges, totalPayments, balance, charges }: LedgerSummaryCardsProps) {
+  const displayed = charges ? outstandingChargeAmount(charges) : balance;
+  const balanceLabel = charges ? (displayed > 0 ? "Cargos pendientes" : "Cargos cubiertos") : "Saldo contable";
+  const balanceValue = formatMoney(displayed, currency);
 
   const cards = [
     {
@@ -28,7 +32,7 @@ export function LedgerSummaryCards({ currency, totalCharges, totalPayments, bala
     }
   ];
 
-  const balanceColor = balance > 0 ? "text-rose-600" : balance < 0 ? "text-emerald-600" : "text-slate-900 dark:text-slate-100";
+  const balanceColor = displayed > 0 ? "text-rose-600" : "text-slate-900 dark:text-slate-100";
 
   return (
     <div className="grid gap-3 md:grid-cols-3">

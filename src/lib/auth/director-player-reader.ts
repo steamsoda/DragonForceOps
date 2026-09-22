@@ -18,7 +18,7 @@ export async function directorPlayerReader(context: PermissionContext, playerId:
   if (!ids.length) return null;
   const admin = createAdminClient();
   const playerTables = new Set(["players", "player_guardians", "player_notes"]);
-  const enrollmentTables = new Set(["team_assignments", "training_group_assignments", "enrollment_incidents", "v_enrollment_balances"]);
+  const enrollmentTables = new Set(["team_assignments", "training_group_assignments", "enrollment_incidents", "v_enrollment_balances", "v_enrollment_collection_balances"]);
   return {
     from(table: string) {
       if (!playerTables.has(table) && !enrollmentTables.has(table) && table !== "enrollments") throw new Error("unsupported_profile_relation");

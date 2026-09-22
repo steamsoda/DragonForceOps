@@ -29,10 +29,9 @@ type EnrollmentRow = {
 type TuitionChargeRow = {
   id: string;
   enrollment_id: string;
-  amount: number;
+  balance: number;
   period_month: string | null;
   due_date: string | null;
-  payment_allocations: Array<{ amount: number }> | null;
 };
 
 type TeamAssignmentRow = {
@@ -224,11 +223,11 @@ async function loadTuitionCharges(enrollmentIds: string[], selectedMonth: string
 
     for (let offset = 0; ; offset += pageSize) {
       let query = admin
-        .from("charges")
-        .select("id, enrollment_id, amount, period_month, due_date, charge_types!inner(code), payment_allocations(amount)")
+        .from("v_charge_collection_balances")
+        .select("id:charge_id, enrollment_id, balance, period_month, due_date")
         .in("enrollment_id", enrollmentChunk)
-        .eq("charge_types.code", "monthly_tuition")
-        .neq("status", "void")
+        .eq("charge_type_code", "monthly_tuition")
+        .order("charge_id")
         .range(offset, offset + pageSize - 1);
 
       if (selectedMonth) query = query.eq("period_month", toPeriodMonth(selectedMonth));
@@ -319,8 +318,7 @@ export async function getPendingTuitionDashboardData(filters: { campusId?: strin
   const pendingMonthsByEnrollment = new Map<string, PendingTuitionMonth[]>();
   for (const charge of charges) {
     if (!charge.period_month) continue;
-    const allocated = (charge.payment_allocations ?? []).reduce((sum, allocation) => sum + Number(allocation.amount ?? 0), 0);
-    const pendingAmount = roundMoney(Number(charge.amount ?? 0) - allocated);
+    const pendingAmount = roundMoney(Number(charge.balance));
     if (pendingAmount <= 0.009) continue;
 
     const months = pendingMonthsByEnrollment.get(charge.enrollment_id) ?? [];

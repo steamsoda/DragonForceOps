@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { useCajaReads } from "./use-caja-reads";
+import { ExplicitCartDialog } from "./explicit-cart-dialog";
+import { loadCartRecovery } from "@/lib/finance/explicit-cart-recovery";
+import { ExplicitCreditPanel } from "./explicit-credit-panel";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { PrintReceiptButton } from "./print-receipt-button";
 import { type ReceiptData } from "@/lib/printer";
 import type { AccessibleCampus } from "@/lib/auth/campuses";
 import {
-  postCajaPaymentAction,
   postCajaChargeAction,
   voidCajaChargeAction,
   cashRefundCajaChargeAction,
   createAdvanceTuitionAction,
-  checkoutCajaCartAction,
+  getExplicitCajaRecoveryStateAction,
   type CajaPlayerResult,
   type CajaEnrollmentData,
   type CajaRecentCharge,
@@ -150,7 +152,7 @@ function AccountCreditPanel({
             Saldo a favor disponible: {formatMoney(summary.explicitAvailableAmount, currency)}
           </p>
           <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-            Se aplica automaticamente, del cargo mas antiguo al mas reciente. Caja solo cobrara la diferencia.
+            Sin aplicar. Elige los cargos y confirma el importe antes de utilizarlo.
           </p>
         </div>
         {summary.explicitAppliedAmount > 0 ? (
@@ -246,10 +248,7 @@ function RecentChargesPanel({
       }
 
       const released = result.releasedPaymentAmount + result.reopenedCreditAmount;
-      const destinationMessage =
-        result.autoAppliedCreditAmount > 0
-          ? `${formatMoney(result.autoAppliedCreditAmount, data.currency)} se aplicaron automaticamente a otros cargos pendientes.`
-          : "No habia otro cargo pendiente; el saldo a favor quedo disponible para el siguiente cargo.";
+      const destinationMessage = "El saldo a favor queda disponible, sin aplicarse a otros cargos.";
       setMessage(
         released > 0
           ? `Cargo anulado. Se liberaron ${formatMoney(released, data.currency)} como saldo a favor. ${destinationMessage}`
@@ -299,7 +298,7 @@ function RecentChargesPanel({
       }
 
       const creditNote = result.reopenedCreditAmount > 0
-        ? ` ${formatMoney(result.reopenedCreditAmount, data.currency)} de saldo previo se reabrieron y se aplicaron por antiguedad.`
+        ? ` ${formatMoney(result.reopenedCreditAmount, data.currency)} de saldo previo quedaron disponibles, sin aplicarse a otros cargos.`
         : "";
       setMessage(
         `Reembolso registrado: entrega ${formatMoney(result.cashRefundAmount, data.currency)} en efectivo. El cargo quedo anulado y el Corte Diario ya incluye la salida.${creditNote}`,
@@ -342,11 +341,7 @@ function RecentChargesPanel({
         </div>
         {data.recentCharges.map((charge) => {
           const releasedAmount = charge.allocatedAmount + charge.creditAppliedAmount;
-          const otherPendingAmount = data.pendingCharges
-            .filter((pendingCharge) => pendingCharge.id !== charge.id)
-            .reduce((sum, pendingCharge) => Math.round((sum + pendingCharge.pendingAmount) * 100) / 100, 0);
-          const predictedAutoApply = Math.min(releasedAmount, otherPendingAmount);
-          const predictedAvailable = Math.max(releasedAmount - predictedAutoApply, 0);
+          const predictedAvailable = data.accountCredit.explicitAvailableAmount + releasedAmount;
           const isExpanded = expandedAction?.chargeId === charge.id;
           const actionMode = isExpanded ? expandedAction.mode : null;
 
@@ -411,14 +406,10 @@ function RecentChargesPanel({
               </div>
               {actionMode === "void" ? (
                 <div className="space-y-3 border-t border-rose-100 bg-rose-50/60 px-4 py-4 dark:border-rose-900/30 dark:bg-rose-950/10">
-                  <div className="grid gap-3 text-xs sm:grid-cols-3">
+                  <div className="grid gap-3 text-xs sm:grid-cols-2">
                     <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
                       <p className="text-slate-500">Monto que se libera</p>
                       <p className="mt-1 font-semibold text-slate-900">{formatMoney(releasedAmount, charge.currency)}</p>
-                    </div>
-                    <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
-                      <p className="text-slate-500">Aplicacion automatica estimada</p>
-                      <p className="mt-1 font-semibold text-slate-900">{formatMoney(predictedAutoApply, charge.currency)}</p>
                     </div>
                     <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
                       <p className="text-slate-500">Saldo a favor que quedaria</p>
@@ -427,7 +418,7 @@ function RecentChargesPanel({
                   </div>
                   <p className="text-xs text-rose-800">
                     El pago original y sus otras aplicaciones no cambian. Solo se libera lo aplicado a este cargo.
-                    El cargo queda anulado y el saldo a favor se usa por antiguedad.
+                    El cargo queda anulado y el saldo a favor permanece disponible.
                   </p>
                   <label className="block space-y-1 text-xs">
                     <span className="font-semibold text-slate-700">Motivo de anulacion</span>
@@ -446,7 +437,7 @@ function RecentChargesPanel({
                       onChange={(event) => setConfirmed(event.target.checked)}
                       className="mt-0.5 h-4 w-4 rounded border-rose-300"
                     />
-                    Confirmo que seleccione el cargo correcto y revise como se aplicara el saldo a favor.
+                    Confirmo que seleccione el cargo correcto y revise el saldo a favor que quedara disponible.
                   </label>
                   {error ? <p className="rounded-md bg-white px-3 py-2 text-xs text-rose-700">{error}</p> : null}
                   <WriteButton
@@ -930,18 +921,6 @@ export function CajaClient({
     });
   }
 
-  function handlePaymentSubmit(player: CajaPlayerResult, enrollmentId: string, formData: FormData) {
-    if (readOnly) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await postCajaPaymentAction(enrollmentId, formData);
-      if (!result.ok) {
-        setError(errorMessage(result.error));
-        return;
-      }
-      setView({ tag: "success", receipt: result, player });
-    });
-  }
 
   function goToAddCharge(player: CajaPlayerResult, data: CajaEnrollmentData) {
     setError(null);
@@ -1040,6 +1019,7 @@ export function CajaClient({
           data={view.data}
           allowedCampuses={allowedCampuses}
           defaultCampusId={defaultCampusId}
+          printerName={printerName}
           onCancel={reset}
           onDataUpdate={(updatedData) => setView({ tag: "enrollment", player: view.player, data: updatedData })}
           onCheckoutSuccess={(receipt) => setView({ tag: "success", receipt, player: view.player })}
@@ -1300,7 +1280,7 @@ type StagedCartItem = {
 };
 
 function makeCartItemId() {
-  return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return crypto.randomUUID();
 }
 
 function PosEnrollmentPanel({
@@ -1308,6 +1288,7 @@ function PosEnrollmentPanel({
   data,
   allowedCampuses,
   defaultCampusId,
+  printerName,
   onCancel,
   onDataUpdate,
   onCheckoutSuccess
@@ -1316,6 +1297,7 @@ function PosEnrollmentPanel({
   data: CajaEnrollmentData;
   allowedCampuses: AccessibleCampus[];
   defaultCampusId: string | null;
+  printerName: string;
   onCancel: () => void;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
   onCheckoutSuccess: (receipt: Extract<CajaPaymentResult, { ok: true }>) => void;
@@ -1351,7 +1333,32 @@ function PosEnrollmentPanel({
   const [exceptionConfirmationOpen, setExceptionConfirmationOpen] = useState(false);
   const [exceptionAcknowledged, setExceptionAcknowledged] = useState(false);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
-  const checkoutAttempt = useRef<{ fingerprint: string; id: string } | null>(null);
+  const [reviewForm, setReviewForm] = useState<FormData | null>(null);
+  const [recoveryActor, setRecoveryActor] = useState<string | null>(null);
+  const [recoveryRevision, setRecoveryRevision] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    setRecoveryActor(null);
+    if (!readOnly) getExplicitCajaRecoveryStateAction(data.enrollmentId).then(state => {
+      if (!alive) return;
+      if (!state) throw Error("forbidden");
+      if (state.blocked) {
+        setPanelError("Otro operador tiene un cobro pendiente de confirmar para esta cuenta. Debe recuperar el resultado antes de iniciar otro cobro.");
+        return;
+      }
+      const actor = state.actorId;
+      let pending: FormData | null;
+      if (state.recovery) {
+        pending = new FormData();
+        state.recovery.fields.forEach(([key, value]) => pending!.set(key, value));
+        pending.set("recoverySnapshot", JSON.stringify(state.recovery.snapshot));
+      } else pending = loadCartRecovery(actor, data.enrollmentId);
+      if (pending) setReviewForm(pending);
+      setRecoveryActor(actor);
+    }).catch(() => { if (alive) setPanelError("No se pudo revisar si hay un cobro pendiente de confirmar. Recarga la cuenta antes de cobrar."); });
+    return () => { alive = false; };
+  }, [data.enrollmentId, readOnly, recoveryRevision]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1411,14 +1418,10 @@ function PosEnrollmentPanel({
   const selectedCharges = data.pendingCharges.filter((charge) => selectedIds.has(charge.id));
   const stagedItemsTotal = stagedItems.reduce((sum, item) => sum + item.amount, 0);
   const copaItem = stagedItems.find((item) => item.payload.kind === "copa_tigres");
-  const automaticCreditForStagedItems = Math.min(
-    data.accountCredit.explicitAvailableAmount,
-    stagedItems.filter((item) => item.payload.kind !== "copa_tigres").reduce((sum, item) => sum + item.amount, 0),
-  );
   const grossCartTotal =
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
     stagedItemsTotal;
-  const cartTotal = Math.max(grossCartTotal - automaticCreditForStagedItems, 0);
+  const cartTotal = grossCartTotal;
   const checkoutTotal = cartTotal > 0 ? cartTotal : data.pendingCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0);
   const hasCartSelection = selectedIds.size > 0 || stagedItems.length > 0;
   const hasStagedTuition = stagedItems.some((item) => item.payload.kind === "tuition");
@@ -1603,6 +1606,7 @@ function PosEnrollmentPanel({
 
   function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!recoveryActor || reviewForm) return;
     if (readOnly) return;
     setPanelError(null);
     if (requiresCashPayment && (!paymentMethod || (splitMode && !paymentMethod2))) {
@@ -1630,40 +1634,18 @@ function PosEnrollmentPanel({
       }
       formData.set("targetChargeIds", Array.from(selectedIds).join(","));
       formData.set("cartItems", JSON.stringify(stagedItems.map((item) => item.payload)));
-      if (copaItem) {
-        const fingerprint = JSON.stringify(Array.from(formData.entries()));
-        if (checkoutAttempt.current?.fingerprint !== fingerprint) {
-          checkoutAttempt.current = { fingerprint, id: crypto.randomUUID() };
-        }
-        formData.set("checkoutRequestId", checkoutAttempt.current.id);
-      }
-
-      let result: Awaited<ReturnType<typeof checkoutCajaCartAction>>;
-      try {
-        result = await checkoutCajaCartAction(data.enrollmentId, formData);
-      } catch {
-        setPanelError("No se pudo confirmar el cobro. Reintenta sin cambiar el carrito para recuperar el mismo pago.");
-        return;
-      }
-      if (!result.ok) {
-        setPanelError(errorMessage(result.error));
-        return;
-      }
-
-      clearCart();
-      if ("creditOnly" in result) {
-        setPanelError(
-          `El saldo a favor cubrio ${formatMoney(result.appliedAmount, data.currency)}. No se registro un pago nuevo.`,
-        );
-        onDataUpdate(result.updatedData);
-        return;
-      }
-      onCheckoutSuccess(result);
+      formData.set("cartKeys", JSON.stringify(stagedItems.map(item => item.id)));
+      setReviewForm(formData);
     });
   }
 
   return (
     <div className="space-y-4">
+      {reviewForm && recoveryActor && <ExplicitCartDialog actorId={recoveryActor} enrollmentId={data.enrollmentId} form={reviewForm} printerName={printerName}
+        onClose={() => setReviewForm(null)} onSaved={() => { clearCart(); void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />}
+      <ExplicitCreditPanel enrollmentId={data.enrollmentId} printerName={printerName}
+        onRecoveryResolved={() => { setPanelError(null); setRecoveryRevision(value => value + 1); }}
+        onApplied={() => { void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
           <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
@@ -2171,18 +2153,6 @@ function PosEnrollmentPanel({
               </ul>
             )}
             <div className="space-y-2 border-t border-slate-100 px-4 py-3">
-              {hasCartSelection && automaticCreditForStagedItems > 0 ? (
-                <>
-                  <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                    <span>Subtotal de cargos</span>
-                    <span>{formatMoney(grossCartTotal, data.currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                    <span>Saldo a favor aplicado automáticamente</span>
-                    <span>-{formatMoney(automaticCreditForStagedItems, data.currency)}</span>
-                  </div>
-                </>
-              ) : null}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   {hasCartSelection ? "Total a cobrar" : "Saldo a cobrar"}
@@ -2201,11 +2171,6 @@ function PosEnrollmentPanel({
             <div>
               <p className="font-medium text-slate-800 dark:text-slate-200">
                 {hasCartSelection ? "Cobro actual" : "Cobrar todo"}
-              </p>
-              <p className="text-xs text-slate-400">
-                {hasCartSelection
-                  ? "Los cargos seleccionados se cobran primero y el excedente sigue FIFO."
-                  : "Pago rápido del saldo pendiente completo."}
               </p>
             </div>
 
@@ -2248,7 +2213,7 @@ function PosEnrollmentPanel({
                   />
                   {!splitMode ? (
                     <p className="text-xs text-slate-500">
-                      Corresponde exactamente a los cargos pendientes después de aplicar el saldo a favor.
+                      Total pendiente antes del credito que elijas en la revision del cobro.
                     </p>
                   ) : null}
                 </label>
@@ -2259,7 +2224,7 @@ function PosEnrollmentPanel({
               </div>
             ) : (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
-                El saldo a favor cubre este cobro. Al confirmar no se registrará un pago nuevo.
+                No hay importe pendiente en este cobro.
               </div>
             )}
 
@@ -2358,13 +2323,13 @@ function PosEnrollmentPanel({
             <div className="flex gap-3">
               <WriteButton
                 type="submit"
-                disabled={!payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
+                disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
                 className="flex-1 rounded-lg bg-portoBlue py-2.5 text-sm font-semibold text-white hover:bg-portoDark disabled:opacity-50"
               >
                 {isCheckoutPending
                   ? "Procesando…"
                   : !requiresCashPayment
-                    ? "Aplicar saldo a favor"
+                    ? "Revisar cobro"
                     : hasCartSelection
                       ? "Cobrar carrito"
                       : "Cobrar todo"}
