@@ -33,12 +33,15 @@ async function scenario(fn) {
   await db.connect();
   await db.query("begin;set local lock_timeout='3s';set local statement_timeout='30s'");
   const autoBefore = (await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def;
-  for (const file of ['20260922010000_explicit_credit_selection_foundation.sql', '20260922020000_explicit_cart_checkout.sql']) {
+  const installed = process.argv.includes('--installed');
+  const tableBefore = (await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name;
+  if (installed) assert.ok(tableBefore, 'Installed Preview checkout required');
+  for (const file of installed ? [] : ['20260922010000_explicit_credit_selection_foundation.sql', '20260922020000_explicit_cart_checkout.sql']) {
     await db.query(fs.readFileSync(`supabase/migrations/${file}`, 'utf8'));
   }
   check((await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def === autoBefore, 'No global automatic function change');
   const retired = process.argv.includes('--retired');
-  if (retired) for (const file of ['20260922030000_retire_automatic_credit.sql', '20260922040000_explicit_credit_collection_balances.sql', '20260922050000_explicit_checkout_recovery.sql', '20260922060000_standalone_credit_recovery.sql', '20260922070000_director_operation_resolution.sql']) {
+  if (retired && !installed) for (const file of ['20260922030000_retire_automatic_credit.sql', '20260922040000_explicit_credit_collection_balances.sql', '20260922050000_explicit_checkout_recovery.sql', '20260922060000_standalone_credit_recovery.sql', '20260922070000_director_operation_resolution.sql']) {
     await db.query(fs.readFileSync(`supabase/migrations/${file}`, 'utf8'));
   }
   const e = (await q("select e.id,e.campus_id from enrollments e where e.status='active' and not exists(select 1 from enrollment_credits c where c.enrollment_id=e.id and c.status='open') and not exists(select 1 from charges c where c.enrollment_id=e.id and c.copa_tigres_installments and c.status<>'void') and exists(select 1 from training_group_assignments a where a.enrollment_id=e.id and a.end_date is null) order by e.id limit 1"))[0];
@@ -303,7 +306,7 @@ async function scenario(fn) {
     check((await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def === autoBefore, 'Existing automation unchanged after all scenarios');
   }
   await db.query('rollback');
-  check((await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name === null, 'Temporary migration rolled back');
+  check((await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name === tableBefore, 'Original installed schema state preserved');
   check((await q('select 1 from auth.users where id=$1', [actor])).length === 0, 'Temporary actor rolled back');
   console.log(`PASS ${checks} atomic checkout database checks. All DDL and fixtures rolled back; no production writes or emails.`);
 })().catch(async error => {
