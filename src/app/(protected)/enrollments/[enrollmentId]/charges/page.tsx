@@ -265,6 +265,8 @@ export default async function ChargesPage({
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Cargos</h2>
           <ChargesLedgerTable
             rows={ledger.charges}
+            enrollmentId={enrollmentId}
+            printerName={creditPrinter}
             voidChargeAction={voidCharge}
             repriceChargeAction={repriceCharge}
             restoreChargePriceAction={restoreChargePrice}

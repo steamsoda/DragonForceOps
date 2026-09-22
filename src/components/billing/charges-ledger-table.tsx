@@ -1,5 +1,7 @@
 import { WriteButton } from "@/components/auth/read-only-controls";
 import { formatDateTimeMonterrey } from "@/lib/time";
+import { cancellationLabel } from "@/lib/finance/charge-operation-receipt";
+import { PrintChargeOperationButton } from "./print-charge-operation-button";
 
 type ChargeItem = {
   id: string;
@@ -46,6 +48,8 @@ type ChargeItem = {
 };
 
 type ChargesLedgerTableProps = {
+  enrollmentId?: string;
+  printerName?: string;
   rows: ChargeItem[];
   voidChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
   repriceChargeAction?: (chargeId: string, fd: FormData) => Promise<void>;
@@ -91,11 +95,13 @@ function getChargeStatusLabel(effectiveStatus: string) {
 
 export function ChargesLedgerTable({
   rows,
+  enrollmentId,
+  printerName = "",
   voidChargeAction,
   repriceChargeAction,
   restoreChargePriceAction,
 }: ChargesLedgerTableProps) {
-  const hasActions = Boolean(voidChargeAction || repriceChargeAction || restoreChargePriceAction);
+  const hasActions = Boolean(enrollmentId || voidChargeAction || repriceChargeAction || restoreChargePriceAction);
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
       <table className="w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
@@ -310,15 +316,18 @@ export function ChargesLedgerTable({
                           {voidChargeAction && !isProtectedPaidCharge ? (
                             <details className="group relative">
                           <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
-                            Anular
+                            {cancellationLabel(row.allocatedAmount + row.creditAppliedAmount)}
                           </summary>
                           <form
                             action={voidChargeAction.bind(null, row.id)}
-                            className="absolute right-0 z-10 mt-1 w-60 rounded-md border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+                            className="mt-2 w-60 rounded-md border border-slate-200 bg-white p-3 text-left dark:border-slate-700 dark:bg-slate-800"
                           >
                             <p className="mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">Motivo de anulacion</p>
                             <p className="mb-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-                              Si este cargo tiene pagos, el monto aplicado quedara como credito visible en la cuenta.
+                              {row.allocatedAmount + row.creditAppliedAmount > 0
+                                ? `Quedarán ${formatMoney(row.allocatedAmount + row.creditAppliedAmount, row.currency)} como crédito disponible. No se entregará efectivo ni se aplicará automáticamente a otros cargos.`
+                                : "Sin movimiento de dinero ni generación de crédito."}
+                              {row.creditAppliedAmount > 0 && ` Incluye ${formatMoney(row.creditAppliedAmount, row.currency)} de crédito previo restaurado.`}
                             </p>
                             <input
                               name="reason"
@@ -330,7 +339,9 @@ export function ChargesLedgerTable({
                               type="submit"
                               className="w-full rounded bg-rose-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                             >
-                              Confirmar anulacion
+                              {row.allocatedAmount + row.creditAppliedAmount > 0
+                                ? `Confirmar crédito de ${formatMoney(row.allocatedAmount + row.creditAppliedAmount, row.currency)}`
+                                : "Confirmar cancelación sin crédito"}
                             </WriteButton>
                           </form>
                             </details>
@@ -345,7 +356,9 @@ export function ChargesLedgerTable({
                           ) : null}
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">-</span>
+                        row.status === "void" && enrollmentId
+                          ? <PrintChargeOperationButton enrollmentId={enrollmentId} chargeId={row.id} printerName={printerName} />
+                          : <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
                   ) : null}

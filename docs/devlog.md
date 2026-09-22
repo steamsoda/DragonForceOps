@@ -1,5 +1,30 @@
 # Devlog
 
+## 2026-09-22: Charge cancellation/refund clarity and receipts (local)
+
+- Caja and account charge actions distinguish cancellation into credit from a cash
+  refund; unpaid cancellations promise no credit. Confirmations show the funded
+  amount and distinguish restored prior credit. Removed stale wording suggesting
+  automatic credit application. Payment-record annulment is explicitly separate.
+- New migration `20260922080000_charge_operation_receipts.sql` wraps the existing
+  service-only financial routines without replacing their allocation logic.
+  Each operation saves its original outcome atomically in a private RLS table;
+  failure to store the receipt rolls back the financial operation. Service callers
+  cannot update/delete receipts or bypass the wrappers through the core routines.
+- On-demand printing/reprinting in Caja and account history reads only the saved
+  snapshot through a role/campus-scoped, no-store GET. Includes original charge,
+  payment references, operator, Monterrey dates, cash returned and new/restored
+  credit. Historical operations without snapshots are not reconstructed.
+- Reuses QZ transport and customer/academy copies; no auto-print or physical
+  printer testing. Print retries cannot submit the financial operation again.
+- Account cancellation confirmations expand inline to prevent table clipping.
+- Passed 111 rollback-only Preview database checks, 17 receipt access/content and
+  mocked-print checks, and 10 isolated desktop/mobile browser checks. All database
+  rehearsal changes rolled back; no persistent hosted changes or deployment.
+- Full webpack production-mode build and TypeScript passed after removing only
+  stale generated `.next/cache/.tsbuildinfo`; cached TypeScript had exhausted its
+  heap. No checks were disabled. Shared QZ-isolation regression also passed.
+
 ## 2026-09-22: Isolate automated receipt printing from physical QZ
 
 - The authenticated checkout test previously reached real QZ auto-printing and

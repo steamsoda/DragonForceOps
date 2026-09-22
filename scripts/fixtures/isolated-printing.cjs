@@ -23,7 +23,10 @@ async function isolatePrinting(context, appOrigin) {
     Object.defineProperty(window, 'qz', { value: Object.freeze({
       websocket: Object.freeze({ isActive: () => true, connect: async () => { throw Error('Real QZ disabled'); } }),
       configs: Object.freeze({ create: (printer, options) => ({ printer, options }) }),
-      print: async (config, items) => { jobs.push(JSON.parse(JSON.stringify({ config, items }))); },
+      print: async (config, items) => {
+        if (window.__testPrintFailure) throw Error('Synthetic printer failure');
+        jobs.push(JSON.parse(JSON.stringify({ config, items })));
+      },
     }), writable: false, configurable: false });
   });
   return audit;

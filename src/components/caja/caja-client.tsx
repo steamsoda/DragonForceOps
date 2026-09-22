@@ -9,6 +9,8 @@ import { ExplicitCreditPanel } from "./explicit-credit-panel";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { PrintReceiptButton } from "./print-receipt-button";
+import { PrintChargeOperationButton } from "@/components/billing/print-charge-operation-button";
+import { cancellationLabel } from "@/lib/finance/charge-operation-receipt";
 import { type ReceiptData } from "@/lib/printer";
 import type { AccessibleCampus } from "@/lib/auth/campuses";
 import {
@@ -188,10 +190,12 @@ function getMonterreyDateTimeLocalValue() {
 function RecentChargesPanel({
   data,
   operatorCampusId,
+  printerName,
   onDataUpdate,
 }: {
   data: CajaEnrollmentData;
   operatorCampusId: string;
+  printerName: string;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
 }) {
   const readOnly = useReadOnly();
@@ -317,7 +321,7 @@ function RecentChargesPanel({
         <div>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Ultimos cargos</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Anula para dejar saldo a favor o registra un reembolso en efectivo sobre el producto correcto.
+            Cancelación: crédito disponible. Reembolso: devolución de efectivo.
           </p>
         </div>
         <Link
@@ -382,7 +386,7 @@ function RecentChargesPanel({
                       onClick={() => (actionMode === "void" ? setExpandedAction(null) : openConfirmation(charge.id, "void"))}
                       className="w-full rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                     >
-                      {actionMode === "void" ? "Cancelar" : "Anular cargo"}
+                      {actionMode === "void" ? "Cerrar" : cancellationLabel(releasedAmount)}
                     </button>
                   ) : !charge.canCashRefund ? (
                     <span className="inline-block w-full rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-400 dark:border-slate-700">
@@ -395,20 +399,21 @@ function RecentChargesPanel({
                       onClick={() => (actionMode === "cash_refund" ? setExpandedAction(null) : openConfirmation(charge.id, "cash_refund"))}
                       className="w-full rounded-md border border-amber-400 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50"
                     >
-                      {actionMode === "cash_refund" ? "Cancelar" : "Reembolso en efectivo"}
+                      {actionMode === "cash_refund" ? "Cerrar" : "Reembolsar en efectivo"}
                     </button>
                   ) : charge.cashRefundedAt ? (
                     <span className="inline-block w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
                       {formatMoney(charge.cashRefundAmount, charge.currency)} reembolsados
                     </span>
                   ) : null}
+                  {charge.status === "void" && <PrintChargeOperationButton enrollmentId={data.enrollmentId} chargeId={charge.id} printerName={printerName} />}
                 </div>
               </div>
               {actionMode === "void" ? (
                 <div className="space-y-3 border-t border-rose-100 bg-rose-50/60 px-4 py-4 dark:border-rose-900/30 dark:bg-rose-950/10">
                   <div className="grid gap-3 text-xs sm:grid-cols-2">
                     <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
-                      <p className="text-slate-500">Monto que se libera</p>
+                      <p className="text-slate-500">Crédito que queda disponible</p>
                       <p className="mt-1 font-semibold text-slate-900">{formatMoney(releasedAmount, charge.currency)}</p>
                     </div>
                     <div className="rounded-md border border-rose-200 bg-white px-3 py-2">
@@ -417,8 +422,10 @@ function RecentChargesPanel({
                     </div>
                   </div>
                   <p className="text-xs text-rose-800">
-                    El pago original y sus otras aplicaciones no cambian. Solo se libera lo aplicado a este cargo.
-                    El cargo queda anulado y el saldo a favor permanece disponible.
+                    {releasedAmount > 0
+                      ? "Se cancelará este cargo. No se entregará efectivo. El crédito quedará disponible, sin aplicarse automáticamente a otros cargos."
+                      : "Se cancelará este cargo sin movimiento de dinero ni generación de crédito."}
+                    {charge.creditAppliedAmount > 0 && ` Incluye ${formatMoney(charge.creditAppliedAmount, charge.currency)} de crédito previo que se restaura.`}
                   </p>
                   <label className="block space-y-1 text-xs">
                     <span className="font-semibold text-slate-700">Motivo de anulacion</span>
@@ -446,7 +453,7 @@ function RecentChargesPanel({
                     onClick={() => submitVoid(charge)}
                     className="rounded-md bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isPending ? "Anulando y aplicando saldo..." : "Confirmar anulacion"}
+                    {isPending ? "Cancelando cargo..." : releasedAmount > 0 ? `Confirmar crédito de ${formatMoney(releasedAmount, charge.currency)}` : "Confirmar cancelación sin crédito"}
                   </WriteButton>
                 </div>
               ) : actionMode === "cash_refund" ? (
@@ -468,6 +475,7 @@ function RecentChargesPanel({
                   <p className="text-xs text-amber-900">
                     Solo se revierte este cargo. El pago y sus demas productos no cambian. La salida queda registrada
                     como monto negativo en la sesion de Caja y en el Corte Diario.
+                    {charge.creditAppliedAmount > 0 && " El crédito previo se restaura; no se entrega en efectivo ni se aplica automáticamente."}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block space-y-1 text-xs">
@@ -495,7 +503,7 @@ function RecentChargesPanel({
                   <WriteButton type="button" disabled={isPending || !reason.trim() || !refundedAt || !confirmed}
                     onClick={() => submitCashRefund(charge)}
                     className="rounded-md bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">
-                    {isPending ? "Registrando salida de efectivo..." : "Confirmar reembolso en efectivo"}
+                    {isPending ? "Registrando salida de efectivo..." : `Confirmar reembolso de ${formatMoney(charge.allocatedAmount, charge.currency)}`}
                   </WriteButton>
                 </div>
               ) : null}
@@ -2409,7 +2417,7 @@ function PosEnrollmentPanel({
 
       <CajaOperationalNotesPanel data={data} onDataUpdate={onDataUpdate} />
 
-      <RecentChargesPanel data={data} operatorCampusId={operatorCampusId} onDataUpdate={onDataUpdate} />
+      <RecentChargesPanel data={data} operatorCampusId={operatorCampusId} printerName={printerName} onDataUpdate={onDataUpdate} />
     </div>
   );
 }

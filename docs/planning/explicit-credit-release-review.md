@@ -1,13 +1,42 @@
 # Explicit Credit Release Review
 
 Date: 2026-09-22
-Scope: local explicit-credit transition; no deployment or persistent hosted changes.
+Scope: explicit-credit transition deployed to Preview only; production unchanged.
 
 ## Review Disposition
 
 The reviewed source has no newly identified blocking defect for a controlled
 Preview release. This is not production acceptance. Hosted workflow checks remain
 necessary, and the owner has deferred physical receipt printing until back at the office.
+
+## Preview Deployment Result
+
+- Released v1.17.78 from commit `7bf106e0d877c39e8c5cb55003924b8a97e8eefe`.
+- Ready deployment: `dpl_GCfFtuXjd4o7XQGFZh8Z9Fm8Vwo5`.
+- Stable Preview alias explicitly assigned to
+  `dragon-force-66178eugr-steamsodas-projects.vercel.app` after the clean rebuild.
+- All seven migrations are installed on Preview `eqefgwdsqabnmpnbpqbq`;
+  private-table RLS and retired automatic-credit application verified.
+- Installed-schema regression: 90 rollback-only database checks passed.
+- Hosted smoke: 38 checks passed across Director, Front Desk and Director Read
+  Only, including account/Caja/roster reads, protected read-only panels and denied
+  mutation probes. The synthetic identity and its roles were deleted; no customer
+  financial writes or emails were made by these smoke checks.
+- Migration, auth-contract, dependency-audit and secret-scan workflows passed.
+- Initial Turbopack cloud build ran out of memory. Webpack passed locally, but
+  Windows denied Vercel packaging symlinks. A cached webpack cloud retry stalled
+  and was cancelled; the same commit built successfully without cache, with full
+  TypeScript checks enabled. No incomplete local artifact was uploaded.
+- Production main remains `9244cde3b683110f55936d5496dfc479163b2a0a`; its existing
+  Ready deployment remains `dpl_HFMhJmERU8bbyHS4J7oFFhj5BawC`.
+- Preview is available for acceptance testing. The full hosted operational
+  workflows listed below and physical receipt printing remain pending before a
+  separately approved production release. Hosted smoke is not full financial
+  workflow acceptance.
+
+Printing clarification: QZ connection/security behavior was not changed. Receipt
+contents for explicit-credit/mixed checkouts changed in this Preview release;
+production printing and receipts were not deployed or altered by this release.
 
 ## Policy And Security Checks
 

@@ -254,14 +254,14 @@ export function PaymentsTable({
                             prefetch={false}
                             className="inline-flex rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/20"
                           >
-                            Reembolsar
+                            Reembolsar pago
                           </Link>
                         ) : (
                           <span
                             className="inline-flex rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-400"
                             title={getRefundBlockedReason(row.refundBlockedReason) ?? undefined}
                           >
-                            Reembolsar
+                            Reembolsar pago
                           </span>
                         )}
                         {(!allowReassignment || !row.canReassign) ? (
@@ -287,13 +287,14 @@ export function PaymentsTable({
                     {row.status === "posted" ? (
                       <details className="group">
                         <summary className="cursor-pointer list-none rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-900/20">
-                          Anular
+                          Anular registro de pago
                         </summary>
                         <form
                           action={voidPaymentAction.bind(null, row.id)}
                           className="absolute right-0 z-10 mt-1 w-60 rounded-md border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800"
                         >
                           <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">Motivo de anulacion</p>
+                          <p className="mb-2 text-xs text-slate-600">Corrige un pago registrado por error y retira sus aplicaciones. No es una devolución de efectivo ni una cancelación de cargo para generar crédito.</p>
                           <input
                             name="reason"
                             required
@@ -304,7 +305,7 @@ export function PaymentsTable({
                             type="submit"
                             className="w-full rounded bg-rose-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                           >
-                            Confirmar anulacion
+                            Confirmar anulación del pago
                           </WriteButton>
                         </form>
                       </details>

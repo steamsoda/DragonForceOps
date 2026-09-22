@@ -3,6 +3,7 @@
 import { createPerfTimer } from "@/lib/perf/timing";
 import type { CreditReceipt } from "@/lib/finance/explicit-credit";
 import type { ExplicitCheckoutReceipt } from "@/lib/finance/explicit-checkout";
+import { operationReceiptLines, type ChargeOperationReceipt } from "@/lib/finance/charge-operation-receipt";
 
 declare global {
   interface Window {
@@ -444,6 +445,20 @@ export async function printReceipt(printerName: string, data: ReceiptData): Prom
 export async function printCorte(printerName: string, data: CorteData): Promise<void> {
   const logo = await fetchLogoESCPOS();
   await sendToQZ(printerName, buildCorte(data, logo));
+}
+
+export async function printChargeOperationReceipt(printerName: string, receipt: ChargeOperationReceipt): Promise<void> {
+  const logo = await fetchLogoESCPOS();
+  const items: QZDataItem[] = [];
+  for (const copy of ["COPIA CLIENTE", "COPIA ACADEMIA"]) {
+    items.push(...buildReceiptHeader(receipt.operatorCampusName ?? receipt.campusName, logo));
+    for (const line of operationReceiptLines(receipt)) {
+      // User-entered reasons/names must never become ESC/POS commands.
+      items.push(t(line.replace(/[\x00-\x1f\x7f]/g, " ") + "\n"));
+    }
+    items.push(t(center(copy) + "\n\n\n\n"), t(`${GS}V\x00`));
+  }
+  await sendToQZ(printerName, items);
 }
 
 export async function printCreditReceipt(printerName: string, receipt: CreditReceipt): Promise<void> {

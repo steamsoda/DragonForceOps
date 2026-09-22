@@ -41,6 +41,9 @@ async function scenario(fn) {
   }
   check((await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def === autoBefore, 'No global automatic function change');
   const retired = process.argv.includes('--retired');
+  const operationReceipts = process.argv.includes('--operation-receipts');
+  const operationReceiptBefore = (await q("select to_regclass('public.charge_operation_receipts') t"))[0].t;
+  if (operationReceipts && !operationReceiptBefore) await db.query(fs.readFileSync('supabase/migrations/20260922080000_charge_operation_receipts.sql', 'utf8'));
   if (retired && !installed) for (const file of ['20260922030000_retire_automatic_credit.sql', '20260922040000_explicit_credit_collection_balances.sql', '20260922050000_explicit_checkout_recovery.sql', '20260922060000_standalone_credit_recovery.sql', '20260922070000_director_operation_resolution.sql']) {
     await db.query(fs.readFileSync(`supabase/migrations/${file}`, 'utf8'));
   }
@@ -272,6 +275,15 @@ async function scenario(fn) {
       const result = (await q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id, cup, actor, 'Rollback-only annulment']))[0];
       check(Number(result.released_payment_amount) === 100 && Number(result.reopened_credit_amount) === 300, 'Annulment preserves cash-origin and reopened-credit facts');
       check(Number(result.auto_applied_credit_amount) === 0 && Number(result.remaining_credit_amount) === 400, 'Annulment leaves all released credit available');
+      if (operationReceipts) {
+        const receipt = (await q('select receipt from charge_operation_receipts where charge_id=$1', [cup]))[0].receipt;
+        check(receipt.creditGenerated === 100 && receipt.creditRestored === 300 && receipt.cashReturned === 0, 'Saved cancellation separates new and restored credit');
+        check(receipt.paymentReferences.length === 1 && receipt.operator && receipt.playerName, 'Receipt retains original payment, player and operator');
+        await denied(() => q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id, cup, actor, 'Duplicate']), 'charge_not_pending');
+        await owner();
+        await q("update charges set description='Changed later' where id=$1", [cup]);
+        check(JSON.stringify((await q('select receipt from charge_operation_receipts where charge_id=$1', [cup]))[0].receipt) === JSON.stringify(receipt), 'Reprint snapshot does not change with account edits');
+      }
       await owner();
       check((await q('select 1 from enrollment_credit_applications where charge_id=$1', [tuition])).length === 0, 'Annulment does not pay unrelated tuition');
     });
@@ -283,7 +295,56 @@ async function scenario(fn) {
       const result = (await q('select * from record_charge_cash_refund($1,$2,$3,$4,now(),$5,null)', [e.id, cup, e.campus_id, actor, 'Rollback-only refund']))[0];
       check(Number(result.cash_refund_amount) === 100 && Number(result.reopened_credit_amount) === 300, 'Cash refund returns only money and reopens selected credit');
       check(Number(result.auto_applied_credit_amount) === 0 && Number(result.remaining_credit_amount) === 300, 'Refund does not spend reopened credit');
+      if (operationReceipts) {
+        const receipt = (await q('select receipt from charge_operation_receipts where charge_id=$1', [cup]))[0].receipt;
+        check(receipt.cashReturned === 100 && receipt.creditRestored === 300 && receipt.creditGenerated === 0, 'Refund snapshot separates cash from restored credit');
+        check(receipt.operationId === result.refund_id && receipt.operatorCampusName, 'Refund references the real cash operation');
+      }
     });
+    if (operationReceipts) {
+      await scenario(async () => {
+        const payment = (await q("insert into payments(enrollment_id,paid_at,method,amount,currency,status,operator_campus_id,created_by) values($1,now(),'card',100,'MXN','posted',$2,$3) returning id", [e.id,e.campus_id,actor]))[0].id;
+        await q('insert into payment_allocations(payment_id,charge_id,amount) values($1,$2,100)', [payment,cup]);
+        await q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id,cup,actor,'Partial payment']);
+        const receipt = (await q('select receipt from charge_operation_receipts where charge_id=$1', [cup]))[0].receipt;
+        check(receipt.chargeAmount === 400 && receipt.creditGenerated === 100 && receipt.creditRestored === 0, 'Partial cancellation creates only actual funded credit');
+      });
+      await scenario(async () => {
+        await q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id, cup, actor, 'Unpaid test']);
+        const receipt = (await q('select receipt from charge_operation_receipts where charge_id=$1', [cup]))[0].receipt;
+        check(receipt.cashReturned === 0 && receipt.creditRestored === 0 && receipt.creditGenerated === 0, 'Unpaid cancellation does not invent credit');
+      });
+      await scenario(async () => {
+        await call(payload([line(cup, 400)], [], [{ method: 'card', amount: 400 }]));
+        await owner();
+        await q('alter table charge_operation_receipts add constraint simulate_storage_failure check(false) not valid');
+        await denied(() => q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id, cup, actor, 'Atomic failure']), 'simulate_storage_failure');
+        check((await q('select status from charges where id=$1', [cup]))[0].status === 'pending', 'Receipt failure rolls back cancellation');
+        check(Number((await q('select sum(amount) total from payment_allocations where charge_id=$1', [cup]))[0].total) === 400, 'Receipt failure preserves payment allocations');
+      });
+      await scenario(async () => {
+        for (const role of ['anon','authenticated']) {
+          await db.query(`set local role ${role}`);
+          await denied(() => q('select * from charge_operation_receipts'), 'permission denied');
+          await denied(() => q('select * from void_charge_to_explicit_credit($1,$2,$3,$4)', [e.id,cup,actor,'Forbidden']), 'permission denied');
+          await owner();
+        }
+        await db.query('set local role service_role');
+        await denied(() => q("update charge_operation_receipts set receipt='{}'"), 'permission denied');
+        await denied(() => q('select * from void_charge_to_explicit_credit_core($1,$2,$3,$4)', [e.id,cup,actor,'Forbidden']), 'permission denied');
+      });
+      await scenario(async () => {
+        if (!(await q("select 1 from cash_sessions where campus_id=$1 and status='open'", [e.campus_id])).length) {
+          await q('insert into cash_sessions(campus_id,opened_by) values($1,$2)', [e.campus_id,actor]);
+        }
+        await call(payload([line(cup,400)],[],[{method:'card',amount:400}]));
+        await owner();
+        await q('alter table charge_operation_receipts add constraint simulate_storage_failure check(false) not valid');
+        await denied(() => q('select * from record_charge_cash_refund($1,$2,$3,$4,now(),$5,null)', [e.id,cup,e.campus_id,actor,'Atomic refund failure']), 'simulate_storage_failure');
+        check((await q('select status from charges where id=$1', [cup]))[0].status === 'pending', 'Receipt failure rolls back cash refund');
+        check((await q('select 1 from charge_cash_refunds where charge_id=$1', [cup])).length === 0, 'No orphan cash refund after receipt failure');
+      });
+    }
     await scenario(async () => {
       await q("update enrollments set status='ended' where id=$1", [e.id]);
       await q("select set_config('request.jwt.claims',$1,true)", [JSON.stringify({ sub: actor, role: 'service_role' })]);
@@ -308,6 +369,7 @@ async function scenario(fn) {
   await db.query('rollback');
   check((await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name === tableBefore, 'Original installed schema state preserved');
   check((await q('select 1 from auth.users where id=$1', [actor])).length === 0, 'Temporary actor rolled back');
+  if (operationReceipts) check((await q("select to_regclass('public.charge_operation_receipts') t"))[0].t === operationReceiptBefore, 'Receipt schema state preserved after rollback');
   console.log(`PASS ${checks} atomic checkout database checks. All DDL and fixtures rolled back; no production writes or emails.`);
 })().catch(async error => {
   try { await db.query('rollback'); } catch {}

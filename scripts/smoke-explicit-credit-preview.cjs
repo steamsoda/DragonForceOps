@@ -4,6 +4,7 @@ const {parseEnv}=require('node:util'),{randomUUID}=require('node:crypto');
 const {Client}=require('pg');
 const {createClient}=require('@supabase/supabase-js');
 const {createServerClient}=require('@supabase/ssr');
+const {version}=require('../package.json');
 const env=parseEnv(fs.readFileSync('../director-parity/.env.local','utf8'));
 const ref='eqefgwdsqabnmpnbpqbq',origin='https://dragon-force-ops-git-preview-steamsodas-projects.vercel.app';
 assert.equal(env.NEXT_PUBLIC_SUPABASE_URL,`https://${ref}.supabase.co`);
@@ -21,8 +22,12 @@ async function request(route,method='GET') {
 (async()=>{
   assert.ok(!fs.existsSync(stateFile),'Previous synthetic identity needs cleanup');
   await db.connect();
-  const e=(await db.query("select id,campus_id from enrollments where status='active' order by id limit 1")).rows[0];
+  const e=(await db.query("select e.id,e.campus_id from enrollments e where e.status='active' and exists(select 1 from charges c where c.enrollment_id=e.id) order by e.id limit 1")).rows[0];
   check(!!e,'Preview enrollment for read checks');
+  const charge=(await db.query('select id from charges where enrollment_id=$1 order by id limit 1',[e.id])).rows[0];
+  const receiptPath=`/api/charge-operation-receipt?enrollmentId=${e.id}&chargeId=${charge.id}`;
+  const anonymous=await fetch(origin+receiptPath,{redirect:'manual',signal:AbortSignal.timeout(30000)});
+  check([301,302,303,307,308,401,403].includes(anonymous.status),'Anonymous receipt access denied');
   const email=`credit-preview-${runId}@fcportodragonforcemty.com`;
   const created=await admin.auth.admin.createUser({email,email_confirm:true,app_metadata:{purpose,runId}});
   check(!created.error&&created.data.user?.id,'Synthetic identity created without email');userId=created.data.user.id;
@@ -39,7 +44,20 @@ async function request(route,method='GET') {
     for(const path of ['/caja','/players','/sports-signups',`/enrollments/${e.id}/charges`]) {
       const response=await request(path);const body=await response.text();
       check(response.status===200&&!body.includes('NEXT_REDIRECT')&&!body.includes('Application error: a server-side exception'),`${role} ${path.replace(e.id,':id')} loads`);
-      check(body.includes('1.17.78'),`${role} sees deployed version`);
+      check(body.includes(version),`${role} sees deployed version`);
+    }
+    const receiptResponse=await request(receiptPath);
+    if(role==='director_readonly') {
+      check(receiptResponse.status===403,'Hosted reader cannot call the print endpoint');
+    } else {
+      const saved=(await db.query('select 1 from charge_operation_receipts where charge_id=$1',[charge.id])).rowCount>0;
+      check(receiptResponse.status===(saved?200:404),`${role} receipt route checks saved history only`);
+      check(receiptResponse.headers.get('cache-control')?.includes('no-store'), 'Financial receipt response not cached');
+    }
+    if(role==='front_desk') {
+      const other=(await db.query('select c.id,e.id enrollment_id from charges c join enrollments e on e.id=c.enrollment_id where e.campus_id<>$1 limit 1',[e.campus_id])).rows[0];
+      check(!!other,'Cross-campus fixture exists');
+      check((await request(`/api/charge-operation-receipt?enrollmentId=${other.enrollment_id}&chargeId=${other.id}`)).status===403,'Cross-campus receipt denied');
     }
     if(role==='director_readonly') {
       for(const mode of ['credit','operations','installments']) {
