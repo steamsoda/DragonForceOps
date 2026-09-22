@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
+import { completeCopaCartCheckout, resumeCopaCartCheckout } from "@/lib/payments/copa-cart-server";
 import { canAccessCampus, getOperationalCampusAccess } from "@/lib/auth/campuses";
 import { isDebugWriteBlocked } from "@/lib/auth/debug-view";
 import { createClient } from "@/lib/supabase/server";
@@ -220,6 +222,7 @@ export type CajaCreditApplyResult =
   | { ok: false; error: string };
 
 export type CajaCartItemInput =
+  | { kind: "copa_tigres"; productId: string; amount: number }
   | {
       kind: "product";
       productId: string;
@@ -306,6 +309,13 @@ function parseCheckoutCartItems(raw: string): CajaCartItemInput[] | null {
   for (const item of parsed) {
     if (!item || typeof item !== "object") return null;
     const kind = (item as { kind?: unknown }).kind;
+
+    if (kind === "copa_tigres") {
+      const value = item as { productId?: unknown; amount?: unknown };
+      if (typeof value.productId !== "string" || ![600, 650, 1250].includes(Number(value.amount))) return null;
+      items.push({ kind, productId: value.productId, amount: Number(value.amount) });
+      continue;
+    }
 
     if (kind === "tuition") {
       const periodMonth =
@@ -571,6 +581,8 @@ async function isProductAvailableForEnrollment(
   return restrictionRows.some((row) => activeGroupIds.has(row.training_group_id));
 }
 
+type PreparedCajaCharge = Record<string, unknown> & { id: string };
+
 async function createResolvedAdvanceTuitionCharge(
   supabase: Awaited<ReturnType<typeof createClient>>,
   {
@@ -580,6 +592,7 @@ async function createResolvedAdvanceTuitionCharge(
     requiredCampusId,
     historicalPricingDateTimeRaw,
     coveredArrearChargeIds = [],
+    preparedCharges,
   }: {
     enrollmentId: string;
     periodMonth: string;
@@ -587,6 +600,7 @@ async function createResolvedAdvanceTuitionCharge(
     requiredCampusId?: string;
     historicalPricingDateTimeRaw?: string;
     coveredArrearChargeIds?: string[];
+    preparedCharges?: PreparedCajaCharge[];
   }
 ) {
   const normalizedPeriodMonth = normalizePeriodMonth(periodMonth);
@@ -680,6 +694,22 @@ async function createResolvedAdvanceTuitionCharge(
     enrollment.scholarship_status,
     enrollment.custom_scholarship_amount,
   );
+
+  if (preparedCharges) {
+    if (existingCharge?.data && existingPeriodCharges[0].allocatedAmount > 0.009) {
+      return { ok: false as const, error: "tuition_existing_allocated" };
+    }
+    const id = existingCharge?.data?.id ?? randomUUID();
+    preparedCharges.push({ id, existing: Boolean(existingCharge?.data),
+      expected_amount: existingCharge?.data?.amount ?? null,
+      charge_type_id: chargeTypeResult.data.id, period_month: normalizedPeriodMonth,
+      description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`,
+      amount: existingCharge?.data?.manual_price_override ? Number(existingCharge.data.amount) : resolvedAmount,
+      pricing_rule_id: existingCharge?.data?.manual_price_override ? existingCharge.data.pricing_rule_id : tuitionQuote.pricingRuleId,
+      currency: tuitionQuote.plan.currency ?? enrollment.pricing_plans?.currency ?? "MXN" });
+    return { ok: true as const, newChargeId: id, amount: resolvedAmount,
+      description: `Mensualidad ${formatPeriodMonthLabel(normalizedPeriodMonth)}`, mode: "created" as const };
+  }
 
   if (existingCharge?.data) {
     if (existingPeriodCharges[0].allocatedAmount > 0.009) {
@@ -885,6 +915,13 @@ export async function postCajaChargeAction(
   formData: FormData,
   requiredCampusId?: string,
 ): Promise<CajaChargeResult> {
+  return resolveCajaProductCharge(enrollmentId, formData, requiredCampusId);
+}
+
+async function resolveCajaProductCharge(
+  enrollmentId: string, formData: FormData, requiredCampusId?: string,
+  preparedCharges?: PreparedCajaCharge[],
+): Promise<CajaChargeResult> {
   if (await isDebugWriteBlocked()) return { ok: false, error: "debug_read_only" };
   const productId = formData.get("productId")?.toString().trim() ?? "";
   const suppressAudit = formData.get("suppressAudit") === "1";
@@ -953,8 +990,9 @@ export async function postCajaChargeAction(
     return { ok: false, error: "catalog_exception_forbidden" };
   }
   let createdChargeId: string | undefined;
-  const anomalyBefore = await captureEnrollmentAnomalySnapshot(enrollmentId);
+  const anomalyBefore = preparedCharges ? null : await captureEnrollmentAnomalySnapshot(enrollmentId);
   if (isTuition) {
+    if (preparedCharges) return { ok: false, error: "invalid_form" };
     if (!periodMonthRaw) return { ok: false, error: "invalid_form" };
 
     const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
@@ -1055,6 +1093,16 @@ export async function postCajaChargeAction(
     const sizePart = size ? ` - Talla ${size}` : "";
     const goalkeeperPart = goalkeeper ? " (Portero)" : "";
     const description = `${product.name}${sizePart}${goalkeeperPart}`;
+
+    if (preparedCharges) {
+      const id = randomUUID();
+      preparedCharges.push({ id, charge_type_id: product.charge_type_id, product_id: productId,
+        size, is_goalkeeper: product.has_sizes ? goalkeeper : null,
+        uniform_fulfillment_mode: isUniform ? (uniformFulfillmentMode ?? "pending_order") : null,
+        description, amount: resolvedAmount, currency,
+        catalog_exception: catalogException, configured_price_options: configuredExceptionPrices });
+      return { ok: true, newChargeId: id };
+    }
 
       const { data: newCharge, error: chargeError } = await supabase
         .from("charges")
@@ -1924,6 +1972,40 @@ export async function checkoutCajaCartAction(
 
   if (cartItems === null) return { ok: false, error: "invalid_form" };
 
+  if (cartItems.some((item) => item.kind === "copa_tigres")) {
+    const context = await getPermissionContext();
+    if (!context?.hasOperationalAccess || !(await canAccessEnrollmentRecord(enrollmentId, context))) {
+      return { ok: false, error: "unauthorized" };
+    }
+    const installments = cartItems.filter((item) => item.kind === "copa_tigres");
+    if (installments.length !== 1 || cartItems.length > 50) return { ok: false, error: "invalid_form" };
+    const resumed = await resumeCopaCartCheckout(enrollmentId, formData, context);
+    if (resumed) return resumed;
+    const preparedCharges: PreparedCajaCharge[] = [];
+    for (const item of cartItems) {
+      if (item.kind === "copa_tigres") continue;
+      if (item.kind === "tuition") {
+        const result = await createResolvedAdvanceTuitionCharge(context.supabase, {
+          enrollmentId, periodMonth: item.periodMonth, userId: context.user.id,
+          coveredArrearChargeIds: existingTargetChargeIds, preparedCharges,
+        });
+        if (!result.ok) return result;
+      } else {
+        const input = new FormData();
+        input.set("productId", item.productId);
+        if (item.amount) input.set("amount", String(item.amount));
+        if (item.size) input.set("size", item.size);
+        if (item.goalkeeper) input.set("goalkeeper", "1");
+        if (item.uniformFulfillmentMode) input.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
+        if (item.catalogException) input.set("catalogException", "1");
+        if (item.exceptionConfirmed) input.set("exceptionConfirmed", "1");
+        const result = await resolveCajaProductCharge(enrollmentId, input, undefined, preparedCharges);
+        if (!result.ok) return result;
+      }
+    }
+    return completeCopaCartCheckout(enrollmentId, formData, context, installments[0], preparedCharges);
+  }
+
   const createdChargeIds: string[] = [];
   const checkoutChargeIds: string[] = [];
   const supabase = await createClient();
@@ -1934,6 +2016,7 @@ export async function checkoutCajaCartAction(
   if (userError || !user) return { ok: false, error: "unauthenticated" };
 
   for (const item of cartItems) {
+    if (item.kind === "copa_tigres") return { ok: false, error: "invalid_form" };
     if (item.kind === "tuition") {
       const tuitionResult = await createResolvedAdvanceTuitionCharge(supabase, {
         enrollmentId,

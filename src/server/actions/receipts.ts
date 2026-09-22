@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getPermissionContext } from "@/lib/auth/permissions";
 import { createPerfTimer } from "@/lib/perf/timing";
 import { formatDateMonterrey, formatTimeMonterrey } from "@/lib/time";
@@ -109,6 +110,25 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
     return { ok: false, error: "receipt_not_found" };
   }
   perf.mark("payment_load");
+
+  if (payment.provider_ref?.startsWith("copa-cart-")) {
+    // Payment RLS above must authorize this user before the protected snapshot read.
+    const { data: checkout, error } = await createAdminClient().from("copa_cart_checkouts")
+      .select("receipt").eq("enrollment_id", payment.enrollment_id).contains("payment_ids", [payment.id]).single();
+    if (error || !checkout) return { ok: false, error: "receipt_not_found" };
+    const saved = checkout.receipt;
+    const date = new Date(saved.paidAt);
+    return { ok: true, receipt: {
+      playerName: `${payment.enrollments.players.first_name} ${payment.enrollments.players.last_name}`,
+      campusName: payment.enrollments.campuses?.name ?? "-",
+      birthYear: getBirthYear(payment.enrollments.players.birth_date), currency: payment.currency,
+      amount: saved.amount, chargesPaid: saved.chargesPaid, remainingBalance: saved.remainingBalance,
+      creditAppliedAmount: saved.creditAppliedAmount, method: METHOD_LABELS[saved.method] ?? saved.method,
+      splitPayment: saved.splitPayment ? { amount: saved.splitPayment.amount,
+        method: METHOD_LABELS[saved.splitPayment.method] ?? saved.splitPayment.method } : undefined,
+      paymentId: saved.paymentId, folio: saved.folio, date: formatDateMonterrey(date), time: formatTimeMonterrey(date),
+    } };
+  }
 
   const [{ data: allocations }, { data: charges }, { data: payments }] = await Promise.all([
     supabase

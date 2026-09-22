@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-09-21: Copa Tigres mixed-cart checkout (v1.17.77, Preview release)
+
+- Copa buttons now stage one replaceable installment in the ordinary Caja cart.
+  Tuition/products may be paid alongside it, with one itemized receipt and the
+  existing split-method controls. Credit estimates exclude the Copa line.
+- Existing Caja product eligibility/pricing and tuition quotes prepare charge
+  plans without writing. A service-role-only RPC validates the actor/campus and
+  commits charges, scoped ordinary credit, payments/allocations, cash entries,
+  uniforms, tournament reservation and audit records in one transaction.
+- Exact full-cart payment required; no partial Copa allocation or overpayment.
+  Enrollment lock and stable request fingerprint handle repeated submissions.
+  Receipt snapshots are private and only loaded after payment RLS authorization;
+  initial printing and reprinting share the same breakdown.
+- Preview rollback rehearsal passed 32 checks: mixed tuition/uniform/reservation,
+  split methods, settlement/upfront, explicit-credit isolation, under/overpayment,
+  late failure rollback, idempotency, role/campus and unconfirmed-user denials.
+  No test data or migration was committed to the hosted database.
+- TypeScript and existing credit-funded checkout, tournament sync performance,
+  roster-refresh and historical-sync regression scripts passed.
+- Production build passed; existing version-import/Browserslist warnings remain.
+- Pending: Preview migration/deployment and authenticated mixed-cart/physical
+  receipt verification. Release targets Preview only; production unchanged.
+
 ## 2026-09-21: Copa Tigres inside Menu POS (v1.17.76)
 
 - Moved the existing installment panel inside Menu POS, above product tiles.

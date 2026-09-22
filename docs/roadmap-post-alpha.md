@@ -6,6 +6,10 @@ This file is the active planning roadmap. Detailed shipped notes belong in `docs
 
 ### Copa Tigres 2026 Installments (2026-09-21)
 
+- Mixed-cart follow-up implemented locally: stage the installment with ordinary
+  items and complete one atomic checkout/receipt. 32 rollback-only DB checks
+  passed; hosted Preview rollout and end-to-end browser/printing review pending.
+
 - Local implementation: one MXN 1,250 charge; reserve with exactly 600, settle
   with exactly 650, or pay 1,250 upfront. No credit application for this product.
 - Reservation appears in tournament planning after 600, with payment status.

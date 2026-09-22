@@ -1351,6 +1351,7 @@ function PosEnrollmentPanel({
   const [exceptionConfirmationOpen, setExceptionConfirmationOpen] = useState(false);
   const [exceptionAcknowledged, setExceptionAcknowledged] = useState(false);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
+  const checkoutAttempt = useRef<{ fingerprint: string; id: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1409,9 +1410,10 @@ function PosEnrollmentPanel({
 
   const selectedCharges = data.pendingCharges.filter((charge) => selectedIds.has(charge.id));
   const stagedItemsTotal = stagedItems.reduce((sum, item) => sum + item.amount, 0);
+  const copaItem = stagedItems.find((item) => item.payload.kind === "copa_tigres");
   const automaticCreditForStagedItems = Math.min(
     data.accountCredit.explicitAvailableAmount,
-    stagedItemsTotal,
+    stagedItems.filter((item) => item.payload.kind !== "copa_tigres").reduce((sum, item) => sum + item.amount, 0),
   );
   const grossCartTotal =
     selectedCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0) +
@@ -1628,8 +1630,21 @@ function PosEnrollmentPanel({
       }
       formData.set("targetChargeIds", Array.from(selectedIds).join(","));
       formData.set("cartItems", JSON.stringify(stagedItems.map((item) => item.payload)));
+      if (copaItem) {
+        const fingerprint = JSON.stringify(Array.from(formData.entries()));
+        if (checkoutAttempt.current?.fingerprint !== fingerprint) {
+          checkoutAttempt.current = { fingerprint, id: crypto.randomUUID() };
+        }
+        formData.set("checkoutRequestId", checkoutAttempt.current.id);
+      }
 
-      const result = await checkoutCajaCartAction(data.enrollmentId, formData);
+      let result: Awaited<ReturnType<typeof checkoutCajaCartAction>>;
+      try {
+        result = await checkoutCajaCartAction(data.enrollmentId, formData);
+      } catch {
+        setPanelError("No se pudo confirmar el cobro. Reintenta sin cambiar el carrito para recuperar el mismo pago.");
+        return;
+      }
       if (!result.ok) {
         setPanelError(errorMessage(result.error));
         return;
@@ -1869,8 +1884,16 @@ function PosEnrollmentPanel({
                 Modo excepcional: muestra productos activos fuera de la elegibilidad normal. Cada cargo requiere un precio configurado y confirmación.
               </p>
             ) : null}
-            <CopaTigresPanel enrollmentId={data.enrollmentId} operatorCampusId={operatorCampusId}
-              readOnly={readOnly} onSuccess={onCheckoutSuccess} />
+            <CopaTigresPanel enrollmentId={data.enrollmentId}
+              readOnly={readOnly || isCheckoutPending} selectedAmount={copaItem?.amount}
+              onSelect={(row, amount) => {
+                setStagedItems((items) => [...items.filter((item) => item.payload.kind !== "copa_tigres"), {
+                  id: makeCartItemId(), label: row.name,
+                  detail: `${amount === 600 ? "Reserva" : amount === 650 ? "Liquidacion" : "Pago completo"} - saldo del torneo: $${row.pending - amount}`,
+                  amount, payload: { kind: "copa_tigres", productId: row.productId, amount },
+                }]);
+                setPanelError(null);
+              }} />
             {productsLoading ? (
               <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-400">
                 Preparando catálogo…
@@ -3209,6 +3232,9 @@ function ProductGridPanel({
 
 function errorMessage(code: string): string {
   const messages: Record<string, string> = {
+    copa_cart_changed: "El saldo cambio. Revisa y actualiza el carrito antes de cobrar.",
+    copa_cart_failed: "No se guardo el cobro. Revisa el carrito e intenta nuevamente.",
+    copa_cart_receipt: "Pago guardado. Reintenta sin modificar el carrito para recuperar el recibo sin duplicar el cobro.",
     copa_tigres_use_installment_payment: "Cobra Copa Tigres desde su panel de reserva o liquidacion en Caja.",
     invalid_form: "Formulario inválido. Verifica el monto y el método.",
     unauthenticated: "Sesión expirada. Por favor inicia sesión de nuevo.",

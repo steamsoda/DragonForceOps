@@ -1,0 +1,92 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),{parseEnv}=require('node:util');
+const {randomUUID}=require('node:crypto'),{Client}=require('pg');
+const env=parseEnv(fs.readFileSync('../director-parity/.env.local','utf8'));
+assert.equal(env.NEXT_PUBLIC_SUPABASE_URL,'https://eqefgwdsqabnmpnbpqbq.supabase.co');
+const url=new URL(env.SUPABASE_PREVIEW_DB_URL);url.searchParams.delete('sslmode');
+assert.ok(url.hostname==='db.eqefgwdsqabnmpnbpqbq.supabase.co'||decodeURIComponent(url.username)==='postgres.eqefgwdsqabnmpnbpqbq');
+const db=new Client({connectionString:url.href,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:15000});
+const q=async(sql,args=[])=>(await db.query(sql,args)).rows;
+let checks=0;const check=(value,label)=>{assert.ok(value,label);checks++;};
+async function owner(){await db.query('reset role');await q("select set_config('request.jwt.claims','{}',true),set_config('request.jwt.claim.sub','',true)");}
+async function call(actor,enrollment,campus,request,payload,fingerprint='test'){
+ await owner();await q("select set_config('request.jwt.claims','{\"role\":\"service_role\"}',true)");await db.query('set local role service_role');
+ return (await q('select public.checkout_copa_cart($1,$2,$3,$4,$5,$6) result',[actor,enrollment,campus,request,fingerprint,payload]))[0].result;
+}
+async function denied(fn,message){await db.query('savepoint denied');let error;try{await fn();}catch(e){error=e;}finally{await db.query('rollback to savepoint denied;release savepoint denied');}check(error&&(!message||error.message.includes(message)),message||'expected denial');}
+(async()=>{
+ await db.connect();await db.query("begin;set local lock_timeout='3s';set local statement_timeout='30s'");
+ if(process.argv.includes('--installed')){
+  check((await q("select 1 from supabase_migrations.schema_migrations where version='20260921210000'")).length===1,'Installed migration exists');
+ }else{
+  await db.query(fs.readFileSync('supabase/migrations/20260921210000_copa_tigres_cart_checkout.sql','utf8'));
+ }
+ const e=(await q("select e.id,e.campus_id from enrollments e where e.status='active' and not exists(select 1 from enrollment_credits cr where cr.enrollment_id=e.id and cr.status='open') and exists(select 1 from training_group_assignments a where a.enrollment_id=e.id and a.end_date is null) order by e.id limit 1"))[0];
+ const actor=randomUUID(),product=(await q('select id from products where copa_tigres_installments'))[0].id;
+ await q('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())',[actor,`copa-cart-${actor}@example.invalid`]);
+ await q("insert into user_roles(user_id,role_id) select $1,id from app_roles where code='superadmin'",[actor]);
+ const uniformType=(await q("select id from charge_types where code='uniform_training'"))[0].id;
+ const tuitionType=(await q("select id from charge_types where code='monthly_tuition'"))[0].id;
+ const tuition=(await q("insert into charges(enrollment_id,charge_type_id,description,amount,currency,status,created_by) values($1,$2,'Test tuition',700,'MXN','pending',$3) returning id",[e.id,tuitionType,actor]))[0].id;
+ const credit=(await q("insert into enrollment_credits(enrollment_id,campus_id,source_workflow,original_amount,reason,created_by) values($1,$2,'manual_admin_credit',200,'test',$3) returning id",[e.id,e.campus_id,actor]))[0].id;
+ const uniform=randomUUID();
+ const payload={copa:{productId:product,amount:600},charges:[{id:uniform,charge_type_id:uniformType,description:'Test uniform',amount:800,currency:'MXN',uniform_fulfillment_mode:'pending_order',size:'M'}],targets:[tuition],payments:[{amount:500,method:'card'},{amount:1400,method:'cash'}]};
+ const request=randomUUID();
+ await db.query('savepoint full_upfront');
+ const fullRequest=randomUUID();
+ await call(actor,e.id,e.campus_id,fullRequest,{copa:{productId:product,amount:1250},charges:[],targets:[],payments:[{amount:1250,method:'card'}]});
+ await owner();
+ const fullReceipt=(await q('select receipt from copa_cart_checkouts where id=$1',[fullRequest]))[0].receipt;
+ check(Number(fullReceipt.amount)===1250 && Number(fullReceipt.creditAppliedAmount)===0,'Upfront payment ignores credit');
+ check((await q('select 1 from enrollment_credit_applications where credit_id=$1',[credit])).length===0,'Copa-only checkout leaves credit untouched');
+ await db.query('rollback to savepoint full_upfront;release savepoint full_upfront');
+ const failedRequest=randomUUID();
+ await denied(()=>call(actor,e.id,e.campus_id,failedRequest,{...payload,payments:[{amount:500,method:'card'},{amount:1400,method:'invalid'}]}),'invalid input value');
+ await owner();
+ check((await q("select 1 from payments where provider_ref like $1",[`copa-cart-${failedRequest}-%`])).length===0,'Second tender failure rolls back first payment');
+ await denied(()=>call(actor,e.id,e.campus_id,request,{...payload,payments:[{amount:1899,method:'cash'}]}),'copa_cart_changed');
+ await owner();
+ check((await q('select 1 from charges where id=$1',[uniform])).length===0,'Underpayment rolls back staged charge');
+ check((await q('select 1 from charges where enrollment_id=$1 and product_id=$2',[e.id,product])).length===0,'Underpayment rolls back Copa charge');
+ check((await q('select 1 from enrollment_credit_applications where credit_id=$1',[credit])).length===0,'Underpayment rolls back credit');
+ await denied(()=>call(actor,e.id,e.campus_id,randomUUID(),{...payload,payments:[{amount:2000,method:'cash'}]}),'copa_cart_changed');
+ const result=await call(actor,e.id,e.campus_id,request,payload);
+ check((await call(actor,e.id,e.campus_id,request,payload)).payment_id===result.payment_id,'Retry returns same receipt');
+ await denied(()=>call(actor,e.id,e.campus_id,request,payload,'different'),'request_conflict');
+ await owner();
+ const receipt=(await q('select receipt from copa_cart_checkouts where id=$1',[request]))[0].receipt;
+ check(Number(receipt.amount)===1900,'Mixed checkout total');
+ check(Number(receipt.creditAppliedAmount)===200,'Only ordinary credit included');
+ check(receipt.chargesPaid.length===3,'One itemized receipt');
+ check(receipt.chargesPaid[0].description.includes('saldo $650'),'Reservation balance persisted');
+ check((await q('select 1 from uniform_orders where charge_id=$1',[uniform])).length===1,'Uniform order created');
+ const copa=(await q('select id from charges where enrollment_id=$1 and product_id=$2',[e.id,product]))[0].id;
+ check((await q('select 1 from enrollment_credit_applications where charge_id=$1',[copa])).length===0,'Copa receives no credit');
+ check(Number((await q('select sum(amount) amount from payment_allocations where charge_id=$1',[copa]))[0].amount)===600,'Split tender fully funds reservation');
+ check((await q("select 1 from tournament_player_entries where charge_id=$1 and entry_status='confirmed'",[copa])).length===1,'Mixed payment reserves tournament');
+ check(Number((await q('select sum(amount) amount from payment_allocations where charge_id=$1',[uniform]))[0].amount)===600,'Uniform gets only its remaining cash');
+ check(Number((await q('select sum(amount) amount from payment_allocations where charge_id=$1',[tuition]))[0].amount)===700,'Tuition settled');
+ check((await q('select charge_id from enrollment_credit_applications where credit_id=$1',[credit])).every(r=>r.charge_id===uniform),'No credit leaks to unrelated debt');
+ await denied(()=>call(actor,e.id,e.campus_id,randomUUID(),{...payload,charges:[],targets:[],payments:[{amount:600,method:'card'}]}),'copa_cart_changed');
+ await call(actor,e.id,e.campus_id,randomUUID(),{copa:{productId:product,amount:650},charges:[],targets:[],payments:[{amount:650,method:'card'}]});
+ await owner();
+ check(Number((await q('select sum(amount) amount from payment_allocations where charge_id=$1',[copa]))[0].amount)===1250,'Settlement totals exactly 1250');
+ for(const role of ['anon','authenticated']) check(!(await q("select has_function_privilege($1,'public.checkout_copa_cart(uuid,uuid,uuid,uuid,text,jsonb)','execute') allowed",[role]))[0].allowed,`${role} cannot submit trusted plans`);
+ check(!(await q("select has_table_privilege('authenticated','public.copa_cart_checkouts','select') allowed"))[0].allowed,'Receipt snapshots not exposed to raw authenticated reads');
+ await q('delete from user_roles where user_id=$1',[actor]);
+ await denied(()=>call(actor,e.id,e.campus_id,request,payload),'forbidden');
+ await owner();
+ await q("insert into user_roles(user_id,role_id,campus_id) select $1,id,$2 from app_roles where code='front_desk'",[actor,e.campus_id]);
+ check((await call(actor,e.id,e.campus_id,request,payload)).payment_id===result.payment_id,'Front Desk own-campus retry allowed');
+ await owner();
+ const otherCampus=(await q('select id from campuses where is_active and id<>$1 limit 1',[e.campus_id]))[0].id;
+ await denied(()=>call(actor,e.id,otherCampus,request,payload),'forbidden');
+ await owner();
+ await q('update auth.users set email_confirmed_at=null where id=$1',[actor]);
+ await denied(()=>call(actor,e.id,e.campus_id,request,payload),'forbidden');
+ await owner();
+ await q('update auth.users set email_confirmed_at=now() where id=$1',[actor]);
+ await q('delete from user_roles where user_id=$1',[actor]);
+ await q("insert into user_roles(user_id,role_id) select $1,id from app_roles where code='director_readonly'",[actor]);
+ await denied(()=>call(actor,e.id,e.campus_id,request,payload),'forbidden');
+ console.log(`PASS ${checks} mixed-cart checks; rollback follows.`);
+})().catch(e=>{console.error(e.code||'',e.message,e.where||'');process.exitCode=1}).finally(async()=>{await db.query('rollback').catch(()=>{});await db.end();console.log('Preview transaction rolled back.');});
