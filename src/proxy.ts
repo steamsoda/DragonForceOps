@@ -60,6 +60,12 @@ export async function proxy(request: NextRequest) {
   // Refresh session on every other request so cookies stay up to date.
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
+    const access = await supabase.rpc("invicta_account_access_allowed");
+    if (access.error || access.data !== true) {
+      if (pathname === "/api/auth/signout" && request.method === "POST") return supabaseResponse;
+      return withSessionCookies(NextResponse.json({ message: "Acceso no disponible. Contacta al administrador." },
+        { status: access.error ? 503 : 403, headers: { "Cache-Control": "no-store" } }));
+    }
     const { data: roles, error } = await supabase.from("user_roles")
       .select("app_roles(code)").eq("user_id", user.id)
       .returns<{ app_roles: { code: string } | null }[]>();

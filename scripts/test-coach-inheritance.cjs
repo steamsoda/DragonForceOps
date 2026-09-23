@@ -1,0 +1,18 @@
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const mod={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/coaches/types.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:mod,exports:mod.exports});
+const {summarizeCoachTournamentChanges:summarize}=mod.exports;
+const sources=[{groupId:'g1',coaches:[{coachId:'a',primary:true},{coachId:'b',primary:false}]},{groupId:'g2',coaches:[{coachId:'a',primary:false},{coachId:'b',primary:true}]}];
+const squad={id:'combined',mode:'inherited',sourceGroups:sources};
+const commands=sources.map(g=>({groupId:g.groupId,expected:g.coaches,coaches:[{coachId:'c',primary:true}],expectedTournaments:[squad,{...squad,id:'manual',mode:'manual'}]}));
+let result=summarize(commands);
+assert.equal(result.length,1);
+assert.equal(result[0].before.length,2);
+assert.ok(result[0].before.every(c=>c.primary));
+assert.equal(result[0].after.length,1);
+assert.equal(result[0].after[0].coachId,'c');
+result=summarize([commands[0]]);
+assert.equal(result[0].after.length,3);
+result=summarize(commands.map(c=>({...c,coaches:[]})));
+assert.equal(result[0].after.length,0);
+console.log('PASS 7 combined-team inheritance assertions');

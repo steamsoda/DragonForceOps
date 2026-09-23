@@ -18,9 +18,11 @@ let codes = ['director_readonly'];
 let roleError = null;
 let authenticated = true;
 let verified = true;
+let accountAllowed = true;
+let accountError = null;
 const response = (kind, status = 200) => ({ kind, status, cookies: { set() {}, getAll: () => [] } });
 const supabase = {
-  rpc: async name => { assert.equal(name, 'is_director_readonly'); return { data: verified, error: null }; },
+  rpc: async name => { if (name === 'invicta_account_access_allowed') return { data: accountAllowed, error: accountError }; assert.equal(name, 'is_director_readonly'); return { data: verified, error: null }; },
   auth: { getUser: async () => ({ data: { user: authenticated ? { id: 'reader' } : null } }) },
   from: table => {
     assert.equal(table, 'user_roles');
@@ -60,6 +62,16 @@ function request(method, pathname) {
   roleError = { message: 'unavailable' };
   assert.equal((await proxy(request('POST', '/players'))).status, 503);
   roleError = null;
+  accountAllowed = false;
+  for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) {
+    for (const path of ['/players', '/profesores', '/api/payments', '/admin/users']) {
+      assert.equal((await proxy(request(method, path))).status, 403, `Blocked account: ${method} ${path}`);
+    }
+  }
+  assert.equal((await proxy(request('POST', '/api/auth/signout'))).kind, 'next');
+  accountAllowed = true; accountError = { message: 'unavailable' };
+  assert.equal((await proxy(request('GET', '/players'))).status, 503);
+  accountError = null;
   authenticated = false;
   assert.equal((await proxy(request('POST', '/auth/create-account'))).kind, 'next');
   console.log('Proxy role boundary passed: mutation and financial denial, logout, staff and auth flow preservation.');

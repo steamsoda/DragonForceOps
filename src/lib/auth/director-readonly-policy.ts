@@ -13,6 +13,7 @@ export function directorReadOnlyEnabled(env: NodeJS.ProcessEnv = process.env) {
 
 // Populate only after each normal page and its data loaders pass nonfinancial review.
 export const DIRECTOR_READONLY_REVIEWED_ROUTES: readonly RegExp[] = [
+  /^\/profesores\/?$/,
   /^\/inicio\/?$/,
   /^\/(?:caja|dashboard|new-enrollments|datos-faltantes|trial-classes|uniforms)\/?$/,
   /^\/dashboard\/new-enrollments\/?$/,

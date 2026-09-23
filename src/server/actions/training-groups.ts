@@ -46,25 +46,31 @@ async function requireTrainingGroupManager() {
 
 async function syncGroupCoaches(params: {
   admin: ReturnType<typeof createAdminClient>;
+  actorUserId: string;
   trainingGroupId: string;
   coachIds: string[];
   primaryCoachId: string | null;
 }) {
   const uniqueCoachIds = [...new Set(params.coachIds.filter(Boolean))];
-  await params.admin.from("training_group_coaches").delete().eq("training_group_id", params.trainingGroupId);
-  if (uniqueCoachIds.length === 0) return;
-
   const primaryCoachId = uniqueCoachIds.includes(params.primaryCoachId ?? "")
     ? params.primaryCoachId
     : uniqueCoachIds[0];
 
-  await params.admin.from("training_group_coaches").insert(
-    uniqueCoachIds.map((coachId) => ({
-      training_group_id: params.trainingGroupId,
-      coach_id: coachId,
-      is_primary: coachId === primaryCoachId,
-    }))
-  );
+  const prior = await params.admin.from("training_group_coaches")
+    .select("id, coach_id, is_primary").eq("training_group_id", params.trainingGroupId).order("coach_id");
+  if (prior.error) throw new Error("No se pudieron verificar las asignaciones actuales.");
+  const expected = (prior.data ?? []).map(row => ({ coachId: row.coach_id, primary: row.is_primary, linkId: row.id }));
+  const coaches = uniqueCoachIds.map(coachId => ({ coachId, primary: coachId === primaryCoachId }));
+  if (expected.length === coaches.length && expected.every(row => coaches.some(next => next.coachId === row.coachId && next.primary === row.primary))) return;
+  const directory = await params.admin.rpc("profesor_directory", { p_actor: params.actorUserId });
+  if (directory.error) throw new Error("No se pudo verificar el impacto en torneos.");
+  const expectedTournaments = (directory.data?.groups as Array<{ id: string; tournaments: unknown[] }> | undefined)?.find(group => group.id === params.trainingGroupId)?.tournaments ?? [];
+  const result = await params.admin.rpc("manage_coach_groups", {
+    p_actor: params.actorUserId,
+    p_commands: [{ groupId: params.trainingGroupId, expected, coaches, expectedTournaments }],
+    p_reason: "Configuracion de grupo",
+  });
+  if (result.error) throw new Error("No se cambiaron los profesores. Revisa asignaciones y equipos de torneo en Profesores.");
 }
 
 async function upsertTrainingGroupAssignment(params: {
@@ -248,7 +254,7 @@ export async function createTrainingGroupAction(formData: FormData) {
 
   if (error || !created) redirect("/attendance/settings?err=create_failed");
 
-  await syncGroupCoaches({ admin, trainingGroupId: created.id, coachIds, primaryCoachId });
+  await syncGroupCoaches({ admin, actorUserId: context.user.id, trainingGroupId: created.id, coachIds, primaryCoachId });
 
   await writeAuditLog(admin, {
     actorUserId: context.user.id,
@@ -318,7 +324,7 @@ export async function updateTrainingGroupAction(groupId: string, formData: FormD
 
   if (error) redirect("/attendance/settings?err=update_failed");
 
-  await syncGroupCoaches({ admin, trainingGroupId: groupId, coachIds, primaryCoachId });
+  await syncGroupCoaches({ admin, actorUserId: context.user.id, trainingGroupId: groupId, coachIds, primaryCoachId });
 
   await writeAuditLog(admin, {
     actorUserId: context.user.id,

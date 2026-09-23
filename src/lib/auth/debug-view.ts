@@ -138,6 +138,9 @@ export const getDebugViewContext = cache(async function getDebugViewContext(): P
 
   if (error || !user) return null;
 
+  const access = await supabase.rpc("invicta_account_access_allowed");
+  if (access.error || access.data !== true) return null;
+
   const actorRoleRows = await loadRoleRows(supabase, admin, user.id);
   const actor = buildResolvedUser(user.id, user.email ?? null, actorRoleRows);
   if (actor.roleCodes.includes(APP_ROLES.DIRECTOR_READONLY)) {

@@ -32,6 +32,9 @@ async function scenario(fn) {
 (async () => {
   await db.connect();
   await db.query("begin;set local lock_timeout='3s';set local statement_timeout='30s'");
+  if (process.argv.includes('--with-profesores')) {
+    await db.query(fs.readFileSync('supabase/migrations/20260923010000_profesores_foundation.sql', 'utf8'));
+  }
   const autoBefore = (await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def;
   const installed = process.argv.includes('--installed');
   const tableBefore = (await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name;
