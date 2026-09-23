@@ -29,6 +29,13 @@ export function loadCartRecovery(actorId: string, enrollmentId: string): FormDat
   return form;
 }
 
-export function clearCartRecovery(actorId: string, enrollmentId: string) {
+export function clearCartRecovery(actorId: string, enrollmentId: string, requestId?: string) {
+  if (requestId) {
+    const current = sessionStorage.getItem(key(actorId, enrollmentId));
+    if (!current) return;
+    const fields = new FormData();
+    for (const [name, value] of JSON.parse(current).fields) fields.set(name, value);
+    if (JSON.parse(String(fields.get("explicitCommand"))).requestId !== requestId) return;
+  }
   sessionStorage.removeItem(key(actorId, enrollmentId));
 }

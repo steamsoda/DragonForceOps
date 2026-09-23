@@ -1,11 +1,13 @@
 import { createSign } from "crypto";
 import { getPermissionContext } from "@/lib/auth/permissions";
+import { createCheckoutTrace } from "@/lib/perf/checkout-timing";
 
 
 export async function POST(req: Request) {
+  const trace = createCheckoutTrace(req.headers.get("x-checkout-trace"));
   // Authentication alone is not authority to sign printer commands.
   try {
-    const context = await getPermissionContext();
+    const context = await trace.run("authorization", () => getPermissionContext());
     if (!context) return new Response("Unauthorized", { status: 401 });
     if (!context.hasOperationalAccess) return new Response("Forbidden", { status: 403 });
   } catch {
@@ -32,10 +34,12 @@ export async function POST(req: Request) {
 
   let signature: string;
   try {
-    const sign = createSign("SHA512");
-    sign.update(message);
-    sign.end();
-    signature = sign.sign(privateKey, "base64");
+    signature = await trace.run("sign", async () => {
+      const sign = createSign("SHA512");
+      sign.update(message as string);
+      sign.end();
+      return sign.sign(privateKey, "base64");
+    });
   } catch {
     return new Response("Printer signing unavailable", { status: 500 });
   }

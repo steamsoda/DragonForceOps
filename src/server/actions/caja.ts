@@ -1811,14 +1811,14 @@ export async function cashRefundCajaChargeAction(
 
 
 async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
-  context: NonNullable<Awaited<ReturnType<typeof getPermissionContext>>>): Promise<PreparedExplicitCart> {
+  context: NonNullable<Awaited<ReturnType<typeof getPermissionContext>>>, trace?: import("@/lib/perf/checkout-timing").CheckoutTrace): Promise<PreparedExplicitCart> {
   const items = parseCheckoutCartItems(String(form.get("cartItems") ?? "[]"));
   let keys: string[];
   try { keys = JSON.parse(String(form.get("cartKeys") ?? "[]")); } catch { throw new ExplicitCheckoutError("invalid_checkout"); }
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!items || items.length > 50 || !Array.isArray(keys) || keys.length !== items.length
     || keys.some(key => typeof key !== "string" || !uuid.test(key)) || new Set(keys).size !== keys.length) throw new ExplicitCheckoutError("invalid_checkout");
-  const ledger = await getEnrollmentLedger(enrollmentId);
+  const ledger = trace ? await trace.run("ledger", () => getEnrollmentLedger(enrollmentId)) : await getEnrollmentLedger(enrollmentId);
   if (!ledger || ledger.enrollment.status !== "active") throw new ExplicitCheckoutError("invalid_checkout");
   const rawTargets = String(form.get("targetChargeIds") ?? "");
   const targets = rawTargets ? rawTargets.split(",") : items.length ? []
@@ -1854,8 +1854,9 @@ async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
     }
     const prepared: PreparedCajaCharge[] = [];
     if (item.kind === "tuition") {
-      const result = await createResolvedAdvanceTuitionCharge(context.supabase, { enrollmentId, periodMonth: item.periodMonth,
+      const prepare = () => createResolvedAdvanceTuitionCharge(context.supabase, { enrollmentId, periodMonth: item.periodMonth,
         userId: context.user.id, coveredArrearChargeIds: targets, preparedCharges: prepared });
+      const result = trace ? await trace.run("prepare_item", prepare) : await prepare();
       if (!result.ok) throw new ExplicitCheckoutError("checkout_changed");
     } else {
       const input = new FormData(); input.set("productId", item.productId);
@@ -1865,7 +1866,8 @@ async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
       if (item.uniformFulfillmentMode) input.set("uniformFulfillmentMode", item.uniformFulfillmentMode);
       if (item.catalogException) input.set("catalogException", "1");
       if (item.exceptionConfirmed) input.set("exceptionConfirmed", "1");
-      const result = await resolveCajaProductCharge(enrollmentId, input, undefined, prepared);
+      const prepare = () => resolveCajaProductCharge(enrollmentId, input, undefined, prepared);
+      const result = trace ? await trace.run("prepare_item", prepare) : await prepare();
       if (!result.ok) throw new ExplicitCheckoutError("checkout_changed");
     }
     if (prepared.length !== 1) throw new ExplicitCheckoutError("invalid_checkout");
@@ -1890,8 +1892,8 @@ export async function getExplicitCajaRecoveryStateAction(enrollmentId: string) {
   return getExplicitCartRecoveryState(enrollmentId);
 }
 
-export async function acknowledgeExplicitCajaCartAction(enrollmentId: string, requestId: string) {
-  return acknowledgeExplicitCart(enrollmentId, requestId);
+export async function acknowledgeExplicitCajaCartAction(enrollmentId: string, requestId: string, traceId?: string) {
+  return acknowledgeExplicitCart(enrollmentId, requestId, traceId);
 }
 
 export async function checkoutCajaCartAction(enrollmentId: string, form: FormData) {

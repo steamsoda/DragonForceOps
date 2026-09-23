@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { parseEnv } = require('node:util');
 const { randomUUID } = require('node:crypto');
 const { Client } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const env = parseEnv(fs.readFileSync('../director-parity/.env.local', 'utf8'));
 assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, 'https://eqefgwdsqabnmpnbpqbq.supabase.co');
 const url = new URL(env.SUPABASE_PREVIEW_DB_URL);
@@ -10,6 +11,14 @@ assert.ok(url.hostname === 'db.eqefgwdsqabnmpnbpqbq.supabase.co' || decodeURICom
 url.searchParams.delete('sslmode');
 const db = new Client({ connectionString: url.href, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 });
 const q = async (sql, args = []) => (await db.query(sql, args)).rows;
+const traceAuth = process.argv.includes('--authenticated-trace');
+const traceState = '.tmp/checkout-trace-identity.json';
+const traceRun = randomUUID(), timings = [];
+let traceUser, traceAdmin;
+async function measured(stage, fn) {
+  const start = performance.now();
+  const result = await fn(); timings.push({ stage, ms: Math.round(performance.now() - start) }); return result;
+}
 let checks = 0;
 const check = (condition, message) => { assert.ok(condition, message); checks++; };
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -31,7 +40,30 @@ async function scenario(fn) {
 
 (async () => {
   await db.connect();
+  if (traceAuth) {
+    assert.ok(!fs.existsSync(traceState), 'Prior synthetic trace identity needs cleanup');
+    traceAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const email = `checkout-trace-${traceRun}@fcportodragonforcemty.com`;
+    const created = await traceAdmin.auth.admin.createUser({ email, email_confirm: true, app_metadata: { purpose: 'checkout_rollback_trace', run: traceRun } });
+    assert.ok(!created.error && created.data.user?.id, 'Synthetic auth identity created without email');
+    traceUser = created.data.user.id;
+    fs.mkdirSync('.tmp', { recursive: true }); fs.writeFileSync(traceState, JSON.stringify({ userId: traceUser, run: traceRun }));
+    const link = await traceAdmin.auth.admin.generateLink({ type: 'magiclink', email });
+    assert.ok(!link.error, 'Local proof generated, no email');
+    const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const session = await client.auth.verifyOtp({ token_hash: link.data.properties.hashed_token, type: 'magiclink' });
+    assert.ok(!session.error && session.data.user?.id === traceUser, 'Real Preview authentication');
+    const verified = await measured('auth_user_verification', () => client.auth.getUser());
+    assert.equal(verified.data.user?.id, traceUser);
+  }
   await db.query("begin;set local lock_timeout='3s';set local statement_timeout='30s'");
+  const compactReceipts = process.argv.includes('--compact-receipts');
+  const checkoutDefinition = async () => (await q("select pg_get_functiondef('public.checkout_explicit_cart(uuid,uuid,uuid,uuid,jsonb)'::regprocedure) def"))[0].def;
+  const compactBefore = compactReceipts ? await checkoutDefinition() : null;
+  const reliability = process.argv.includes('--reliability');
+  const ackDefinition = async () => (await q("select pg_get_functiondef('public.acknowledge_explicit_cart(uuid,uuid)'::regprocedure) def"))[0].def;
+  const ackBefore = reliability ? await ackDefinition() : null;
+  if (reliability) await db.query(fs.readFileSync('supabase/migrations/20260923030000_checked_checkout_acknowledgement.sql', 'utf8'));
   if (process.argv.includes('--with-profesores')) {
     await db.query(fs.readFileSync('supabase/migrations/20260923010000_profesores_foundation.sql', 'utf8'));
   }
@@ -52,8 +84,8 @@ async function scenario(fn) {
   }
   const e = (await q("select e.id,e.campus_id from enrollments e where e.status='active' and not exists(select 1 from enrollment_credits c where c.enrollment_id=e.id and c.status='open') and not exists(select 1 from charges c where c.enrollment_id=e.id and c.copa_tigres_installments and c.status<>'void') and exists(select 1 from training_group_assignments a where a.enrollment_id=e.id and a.end_date is null) order by e.id limit 1"))[0];
   assert.ok(e, 'Need Preview fixture enrollment');
-  const actor = randomUUID();
-  await q('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())', [actor, `checkout-${actor}@example.invalid`]);
+  const actor = traceUser ?? randomUUID();
+  if (!traceUser) await q('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())', [actor, `checkout-${actor}@example.invalid`]);
   async function role(code, campus = null) {
     await owner(); await q('delete from user_roles where user_id=$1', [actor]);
     if (code) await q('insert into user_roles(user_id,role_id,campus_id) select $1,id,$3 from app_roles where code=$2', [actor, code, campus]);
@@ -97,7 +129,75 @@ async function scenario(fn) {
       (select count(*) from uniform_orders)::int uniforms,
       (select count(*) from explicit_cart_checkouts)::int receipts`, [e.id]))[0];
   }
+  if (compactReceipts) {
+    const migration = fs.readFileSync('supabase/migrations/20260923020000_compact_checkout_receipt_birth_year.sql', 'utf8');
+    const privileges = async () => (await q("select proacl::text acl from pg_proc where oid='public.checkout_explicit_cart(uuid,uuid,uuid,uuid,jsonb)'::regprocedure"))[0].acl;
+    const savedDigest = async () => (await q("select md5(coalesce(string_agg(id::text||receipt::text,'' order by id),'')) digest from public.explicit_cart_checkouts"))[0].digest;
+    const beforeDigest = await savedDigest(), beforeAcl = await privileges();
+    await scenario(async () => {
+      const legacy = await call(base);
+      check(!Object.hasOwn(legacy, 'birthYear'), 'Baseline legacy receipt lacks saved category');
+      await owner();
+      await db.query(migration);
+      check(JSON.stringify(await call(base)) === JSON.stringify(legacy), 'Migration preserves legacy same-request receipt replay exactly');
+    });
+    await owner();
+    await db.query(migration);
+    check(await savedDigest() === beforeDigest, 'Migration leaves all historical snapshots unchanged');
+    check(await privileges() === beforeAcl, 'Checkout execution grants unchanged');
+    const addition = "\n    'birthYear',(select extract(year from birth_date)::integer from public.players where id=e.player_id),";
+    check((await checkoutDefinition()).replace(addition, '') === compactBefore, 'Only snapshot birthYear changed; all guards and accounting logic preserved');
+    await denied(() => db.query(migration), 'checkout_receipt_birth_year_drift');
+    await scenario(async () => {
+      await role('front_desk', e.campus_id);
+      const expected = (await q('select extract(year from p.birth_date)::integer yob from enrollments e join players p on p.id=e.player_id where e.id=$1', [e.id]))[0].yob;
+      const receipt = await call(base);
+      check(Object.hasOwn(receipt, 'birthYear') && receipt.birthYear === expected, 'New Front Desk receipt snapshots authoritative birth year');
+      check(JSON.stringify(await call(base)) === JSON.stringify(receipt), 'New receipt recovery retains identical snapshot and category');
+    });
+  }
+  if (traceAuth) {
+    assert.ok(reliability, 'Tracing requires checked acknowledgement rehearsal');
+    for (let i = 0; i < 3; i++) await scenario(async () => {
+      await role('front_desk', e.campus_id);
+      await q("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)", [JSON.stringify({ sub: actor, role: 'authenticated' }), actor]);
+      await db.query('set local role authenticated');
+      const scoped = await measured('front_desk_rls_charge_read', () => q('select id from public.charges where id=$1', [tuition]));
+      check(scoped.length === 1, 'Authenticated Front Desk sees scoped synthetic charge');
+      await owner();
+      await q("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)", [JSON.stringify({ sub: actor, role: 'service_role' }), actor]);
+      await db.query('set local role service_role');
+      const data = payload([line(tuition, 700)], [], [{ method: 'card', amount: 700 }]);
+      await measured('stage_rpc', () => q('select stage_explicit_cart($1,$2,$3,$4,$5,$6)', [actor, e.id, e.campus_id, data.command.requestId, JSON.stringify(data), JSON.stringify({})]));
+      const rows = await measured('checkout_rpc', () => q('select checkout_explicit_cart($1,$2,$3,$4,$5) result', [actor, e.id, e.campus_id, data.command.requestId, JSON.stringify(data)]));
+      check(rows[0].result.moneyReceived === 700, 'Trace checkout uses verified Front Desk actor');
+      await measured('acknowledge_rpc', () => q('select acknowledge_explicit_cart($1,$2)', [actor, data.command.requestId]));
+    });
+  }
   await denied(() => call(base, actor, e.campus_id, 'authenticated'), 'permission denied');
+  if (reliability) await scenario(async () => {
+    await role('front_desk', e.campus_id);
+    const service = async () => {
+      await owner();
+      await q("select set_config('request.jwt.claims',$1,true),set_config('request.jwt.claim.sub',$2,true)", [JSON.stringify({ sub: actor, role: 'service_role' }), actor]);
+      await db.query('set local role service_role');
+    };
+    const ack = async () => { await service(); return q('select acknowledge_explicit_cart($1,$2)', [actor, base.command.requestId]); };
+    await service();
+    await q('select stage_explicit_cart($1,$2,$3,$4,$5,$6)', [actor, e.id, e.campus_id, base.command.requestId, JSON.stringify(base), JSON.stringify({})]);
+    await denied(ack, 'acknowledgement_unconfirmed');
+    await call(base);
+    await ack(); await ack(); await owner();
+    check((await q('select state from explicit_cart_intents where id=$1', [base.command.requestId]))[0].state === 'completed', 'Front Desk acknowledgement confirmed and idempotent');
+    for (const code of ['director_readonly', 'field_admin', null]) {
+      await role(code); await denied(ack, 'forbidden');
+    }
+    const wrongCampus = (await q('select id from campuses where id<>$1 and is_active limit 1', [e.campus_id]))[0].id;
+    await role('front_desk', wrongCampus); await denied(ack, 'forbidden');
+    await role('front_desk', e.campus_id);
+    await q("update auth.users set banned_until=now()+interval '1 day' where id=$1", [actor]);
+    await denied(ack, 'forbidden');
+  });
   await denied(() => call(base, actor, e.campus_id, 'anon'), 'permission denied');
   for (const code of [null, 'director_readonly', 'porto_viewer', 'field_admin']) {
     await role(code); await denied(() => call(base), 'forbidden');
@@ -370,11 +470,29 @@ async function scenario(fn) {
     check((await q("select pg_get_functiondef('public.auto_apply_enrollment_credit_fifo(uuid,uuid,uuid,text)'::regprocedure) def"))[0].def === autoBefore, 'Existing automation unchanged after all scenarios');
   }
   await db.query('rollback');
+  if (compactReceipts) check(await checkoutDefinition() === compactBefore, 'Compact migration and test changes rolled back');
+  if (reliability) check(await ackDefinition() === ackBefore, 'Acknowledgement migration rolled back');
   check((await q("select to_regclass('public.explicit_cart_checkouts') table_name"))[0].table_name === tableBefore, 'Original installed schema state preserved');
-  check((await q('select 1 from auth.users where id=$1', [actor])).length === 0, 'Temporary actor rolled back');
+  if (!traceUser) check((await q('select 1 from auth.users where id=$1', [actor])).length === 0, 'Temporary actor rolled back');
   if (operationReceipts) check((await q("select to_regclass('public.charge_operation_receipts') t"))[0].t === operationReceiptBefore, 'Receipt schema state preserved after rollback');
   console.log(`PASS ${checks} atomic checkout database checks. All DDL and fixtures rolled back; no production writes or emails.`);
+  if (traceAuth) {
+    fs.writeFileSync('.tmp/checkout-front-desk-traces.json', JSON.stringify({ environment: 'Preview', scope: 'Rollback-only SQL RPCs for authenticated synthetic Front Desk; not full hosted action latency or printer latency', timings }, null, 2));
+    console.log(JSON.stringify({ timings }));
+  }
 })().catch(async error => {
   try { await db.query('rollback'); } catch {}
   console.error(error.message); process.exitCode = 1;
-}).finally(() => db.end());
+}).finally(async () => {
+  try {
+    if (traceUser) {
+      await db.query('rollback');
+      const found = await traceAdmin.auth.admin.getUserById(traceUser);
+      assert.equal(found.data.user?.app_metadata?.run, traceRun);
+      assert.equal((await q('select count(*)::int n from user_roles where user_id=$1', [traceUser]))[0].n, 0);
+      const removed = await traceAdmin.auth.admin.deleteUser(traceUser); assert.ok(!removed.error, 'Synthetic identity removed');
+      assert.equal((await q('select count(*)::int n from auth.users where id=$1', [traceUser]))[0].n, 0);
+      fs.unlinkSync(traceState); console.log('Synthetic authenticated identity removed; no persistent roles or financial fixtures.');
+    }
+  } finally { await db.end(); }
+});

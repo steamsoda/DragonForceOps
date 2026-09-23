@@ -3,6 +3,9 @@
 import { createPerfTimer } from "@/lib/perf/timing";
 import type { CreditReceipt } from "@/lib/finance/explicit-credit";
 import type { ExplicitCheckoutReceipt } from "@/lib/finance/explicit-checkout";
+import { checkoutReceiptLines } from "@/lib/finance/checkout-receipt";
+import { runPrintAttempt } from "@/lib/printer-attempts";
+import { createCheckoutTrace, type CheckoutTrace } from "@/lib/perf/checkout-timing";
 import { operationReceiptLines, type ChargeOperationReceipt } from "@/lib/finance/charge-operation-receipt";
 
 declare global {
@@ -13,21 +16,24 @@ declare global {
 }
 
 let loadPromise: Promise<void> | null = null;
+let connectionPromise: Promise<void> | null = null;
 
 function loadQZScript(): Promise<void> {
   if (loadPromise) return loadPromise;
   if (typeof window === "undefined") return Promise.reject(new Error("Server-side"));
   if (window.qz) return Promise.resolve();
 
-  loadPromise = new Promise((resolve, reject) => {
+  const pending = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "/qz-tray.js";
-    script.onload = () => (window.qz ? resolve() : reject(new Error("QZ loaded but window.qz missing")));
-    script.onerror = () => reject(new Error("Could not load /qz-tray.js - make sure the file is in /public"));
+    const failed = () => { script.remove(); reject(new Error("Could not load QZ Tray")); };
+    script.onload = () => window.qz ? resolve() : failed();
+    script.onerror = failed;
     document.head.appendChild(script);
   });
-
-  return loadPromise;
+  loadPromise = pending;
+  void pending.catch(() => { if (loadPromise === pending) loadPromise = null; });
+  return pending;
 }
 
 const QZ_CERTIFICATE = (process.env.NEXT_PUBLIC_QZ_CERTIFICATE ?? "").replace(/\\n/g, "\n").trim();
@@ -37,17 +43,19 @@ export async function connectQZ(): Promise<void> {
   const qz = window.qz;
 
   if (qz.websocket.isActive()) return;
+  if (connectionPromise) return connectionPromise;
 
   if (QZ_CERTIFICATE) {
     qz.security.setCertificatePromise((resolve: (v: string) => void) => resolve(QZ_CERTIFICATE));
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise((toSign: string) =>
       (resolve: (sig: string) => void, reject: (err: Error) => void) => {
-        fetch("/api/sign-qz", {
+        const trace = createCheckoutTrace();
+        trace.run("sign", () => fetch("/api/sign-qz", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-checkout-trace": trace.id },
           body: JSON.stringify({ message: toSign }),
-        })
+        }))
           .then((res) => {
             if (!res.ok) return res.text().then((text) => reject(new Error(text)));
             return res.text().then(resolve);
@@ -61,7 +69,9 @@ export async function connectQZ(): Promise<void> {
     qz.security.setSignaturePromise((_toSign: string) => (resolve: (sig: string) => void) => resolve(""));
   }
 
-  await qz.websocket.connect({ retries: 3, delay: 1 });
+  const pending = qz.websocket.connect({ retries: 3, delay: 1 }) as Promise<void>;
+  connectionPromise = pending;
+  try { await pending; } finally { if (connectionPromise === pending) connectionPromise = null; }
 }
 
 type QZDataItem =
@@ -408,12 +418,12 @@ function buildCorte(corte: CorteData, logoESCPOS: string | null): QZDataItem[] {
 
 type PerfTimer = ReturnType<typeof createPerfTimer>;
 
-async function sendToQZ(printerName: string, items: QZDataItem[], perf?: PerfTimer): Promise<void> {
-  await connectQZ();
+async function sendToQZ(printerName: string, items: QZDataItem[], perf?: PerfTimer, trace?: CheckoutTrace): Promise<void> {
+  if (trace) await trace.run("connect", () => connectQZ()); else await connectQZ();
   perf?.mark("qz_connect");
   const qz = window.qz;
   const config = qz.configs.create(printerName, { encoding: "Cp1252" });
-  await qz.print(config, items);
+  if (trace) await trace.run("print", () => qz.print(config, items)); else await qz.print(config, items);
   perf?.mark("qz_print");
 }
 
@@ -484,35 +494,18 @@ export async function printCreditReceipt(printerName: string, receipt: CreditRec
   await sendToQZ(printerName, items);
 }
 
-export async function printExplicitCheckoutReceipt(printerName: string, receipt: ExplicitCheckoutReceipt): Promise<void> {
-  const money = (value: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: receipt.currency }).format(value);
-  const date = (value: string) => new Date(value).toLocaleString("es-MX", { timeZone: "America/Monterrey", hour12: false });
-  const methods = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", stripe_360player: "Stripe / 360Player", other: "Otro" };
-  const logo = await fetchLogoESCPOS();
-  const items: QZDataItem[] = [];
-  for (const copy of ["COPIA CLIENTE", "COPIA ACADEMIA"]) {
-    items.push(...buildReceiptHeader(receipt.operatorCampusName, logo),
-      t(`Alumno: ${receipt.playerName}\nCampus alumno: ${receipt.campusName}\n`),
-      t(`Registrado: ${date(receipt.occurredAt)}\nOperacion: ${receipt.operationId}\n`));
-    if (receipt.payments.length > 0) items.push(t(`Fecha de pago: ${date(receipt.paidAt)}\n`));
-    items.push(t(divider() + "\n"));
-    for (const line of receipt.lines) {
-      items.push(t(`${line.description}\n`), t(row("Dinero aplicado", money(line.moneyReceived)) + "\n"),
-        t(row("Credito aplicado", money(line.creditApplied)) + "\n"),
-        t(row("Pendiente del cargo", money(line.pendingAfter)) + "\n"));
+export async function printExplicitCheckoutReceipt(printerName: string, receipt: ExplicitCheckoutReceipt, traceId?: string): Promise<void> {
+  return runPrintAttempt(receipt.operationId, printerName, async () => {
+    const trace = createCheckoutTrace(traceId);
+    const logo = await trace.run("logo", () => fetchLogoESCPOS());
+    const items: QZDataItem[] = [];
+    for (const copy of ["COPIA CLIENTE", "COPIA ACADEMIA"]) {
+      items.push(...buildReceiptHeader(receipt.operatorCampusName, logo));
+      for (const line of checkoutReceiptLines(receipt)) items.push(t(line + "\n"));
+      items.push(t(center(copy) + "\n\n\n\n"), t(`${GS}V\x00`));
     }
-    items.push(t(divider() + "\n"));
-    for (const payment of receipt.payments) {
-      items.push(t(row(methods[payment.method], money(payment.amount)) + "\n"),
-        t(`Folio: ${payment.folio ?? payment.id}\n`));
-    }
-    items.push(t(divider("=") + "\n"), t(row("DINERO RECIBIDO", money(receipt.moneyReceived)) + "\n"),
-      t(row("CREDITO UTILIZADO", money(receipt.creditApplied)) + "\n"),
-      t(row("Credito disponible", money(receipt.creditRemaining)) + "\n"),
-      t(row("Cargos pendientes", money(receipt.pendingChargesTotal)) + "\n"),
-      t(center(copy) + "\n\n\n\n"), t(`${GS}V\x00`));
-  }
-  await sendToQZ(printerName, items);
+    await sendToQZ(printerName, items, undefined, trace);
+  });
 }
 
 export type TrialClassTicketData = {

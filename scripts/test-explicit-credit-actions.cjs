@@ -85,7 +85,12 @@ function setRole(flags) { context = { user: { id }, roleCodes: [], ...flags, sup
   check(!(await actions.loadExplicitCredit(id)).ok && adminReads === before, 'No private receipt access without ledger authorization');
 
   let printed, failPrinting = false;
-  const printer = load('src/lib/printer.ts', { '@/lib/perf/timing': { createPerfTimer: () => ({ mark() {}, end() {} }) } }, {
+  const printer = load('src/lib/printer.ts', {
+    ...require('./fixtures/reliability-modules.cjs')(),
+    '@/lib/perf/timing': { createPerfTimer: () => ({ mark() {}, end() {} }) },
+    '@/lib/finance/checkout-receipt': load('src/lib/finance/checkout-receipt.ts', {}),
+    '@/lib/finance/charge-operation-receipt': load('src/lib/finance/charge-operation-receipt.ts', { zod: require('zod') }),
+  }, {
     process: { env: {} }, btoa: text => Buffer.from(text, 'binary').toString('base64'),
     window: { qz: { websocket: { isActive: () => true }, configs: { create: () => ({}) }, print: async (_, items) => { if (failPrinting) throw Error('printer unavailable'); printed = items; } } },
   });
@@ -103,14 +108,14 @@ function setRole(flags) { context = { user: { id }, roleCodes: [], ...flags, sup
   const beforePrintCalls = calls.length;
   await printer.printExplicitCheckoutReceipt('test', checkoutReceipt);
   const checkoutText = printed.map(item => item.format === 'base64' ? Buffer.from(item.data, 'base64').toString('latin1') : item.data).join('');
-  check(checkoutText.includes('Uniforme') && checkoutText.includes('Dinero aplicado') && checkoutText.includes('Credito aplicado'), 'Mixed receipt prints charge funding');
+  check(/Uniforme[^\n]*700\.00/.test(checkoutText) && /Credito aplicado[^\n]*200\.00/.test(checkoutText), 'Mixed receipt prints covered amount and credit funding');
   check(checkoutText.includes('Efectivo') && checkoutText.includes('Tarjeta') && checkoutText.includes('TEST-001') && checkoutText.includes('TEST-002'), 'Both tender methods and folios printed');
   check(/DINERO RECIBIDO[^\n]*500\.00/.test(checkoutText) && /CREDITO UTILIZADO[^\n]*200\.00/.test(checkoutText), 'Money and credit totals not conflated');
-  check(/Credito disponible[^\n]*100\.00/.test(checkoutText) && /Cargos pendientes[^\n]*650\.00/.test(checkoutText), 'Snapshot debt and available credit printed separately');
+  check(/Credito disponible[^\n]*100\.00/.test(checkoutText) && /Pendiente en cuenta[^\n]*650\.00/.test(checkoutText), 'Snapshot debt and available credit printed separately');
   check(checkoutText.includes('Linda Vista') && checkoutText.includes('Contry') && checkoutText.includes('Fecha de pago:') && checkoutText.includes('17:00'), 'Receiving/student campuses and Monterrey payment time');
   const mixedPrint = JSON.stringify(printed), savedReceipt = JSON.stringify(checkoutReceipt);
   failPrinting = true;
-  await assert.rejects(() => printer.printExplicitCheckoutReceipt('test', checkoutReceipt), /printer unavailable/);
+  await assert.rejects(() => printer.printExplicitCheckoutReceipt('test', checkoutReceipt), /print_failed/);
   failPrinting = false; await printer.printExplicitCheckoutReceipt('test', checkoutReceipt);
   check(JSON.stringify(printed) === mixedPrint && JSON.stringify(checkoutReceipt) === savedReceipt && calls.length === beforePrintCalls, 'Print failure and retry do not rewrite receipt or repeat finance actions');
   await printer.printExplicitCheckoutReceipt('test', { ...checkoutReceipt, moneyReceived: 0, payments: [],

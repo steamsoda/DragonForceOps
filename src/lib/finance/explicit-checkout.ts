@@ -69,6 +69,7 @@ export type ExplicitCheckoutReceipt = {
   occurredAt: string;
   paidAt: string;
   playerName: string;
+  birthYear?: number | null;
   campusName: string;
   operatorCampusName: string;
   currency: string;

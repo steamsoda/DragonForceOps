@@ -15,9 +15,11 @@ const request = '22222222-2222-4222-8222-222222222222';
 const snapshot = { enrollmentId: id, currency: 'MXN', availableCredit: 200,
   lines: [{ key: id, chargeId: id, description: 'Tuition', pending: 700, due: 700, kind: 'ordinary', creditAllowed: true }] };
 let context = null, access = true, debug = false, prior = null, intent = null, rpcError = null, network = false;
+let lookupError = null, ackError = null;
 let reads = 0, resolves = 0, calls = [], checks = 0;
 const check = (value, message) => { assert.ok(value, message); checks++; };
 const adapter = load('src/lib/payments/explicit-cart-server.ts', {
+  ...require('./fixtures/reliability-modules.cjs')(),
   'server-only': {}, 'node:crypto': require('node:crypto'), zod: require('zod'),
   'next/cache': { revalidatePath() { throw Error('cache offline'); } },
   '@/lib/auth/permissions': { getPermissionContext: async () => context, canAccessEnrollmentRecord: async () => access },
@@ -25,9 +27,13 @@ const adapter = load('src/lib/payments/explicit-cart-server.ts', {
   '@/lib/time': { parseMonterreyDateTimeInput: value => value === 'valid' ? '2026-09-21T18:00:00Z' : null },
   '@/lib/finance/explicit-checkout': domain,
   '@/lib/supabase/admin': { createAdminClient: () => ({ from: table => {
-    reads++; const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: table === 'explicit_cart_intents' ? intent : prior, error: null }) }; return q;
+    reads++; const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: table === 'explicit_cart_intents' ? intent : prior, error: lookupError }) }; return q;
   }, rpc: async (name, args) => {
     calls.push({ name, args }); if (network) throw Error('private network detail');
+    if (name === 'acknowledge_explicit_cart') {
+      if (!ackError && intent) intent.state = 'completed';
+      return { data: null, error: ackError };
+    }
     return { data: { operationId: request }, error: name === 'checkout_explicit_cart' ? rpcError : null };
   } }) },
 });
@@ -77,5 +83,20 @@ form.set('checkoutActorId', id);
   intent.actor_id = request;
   const other = await adapter.getExplicitCartRecoveryState(id);
   check(other.blocked && other.recovery === null, 'Other operator blocked without exposing pending payload');
+  intent.actor_id = id;
+  check((await adapter.acknowledgeExplicitCart(id, request)).ok && intent.state === 'completed', 'Checked acknowledgement verifies completed state');
+  check((await adapter.acknowledgeExplicitCart(id, request)).ok, 'Repeated acknowledgement idempotent');
+  intent.state = 'pending'; ackError = { message: 'private failure' };
+  check(!(await adapter.acknowledgeExplicitCart(id, request)).ok && intent.state === 'pending', 'Returned RPC error cannot masquerade as success'); ackError = null;
+  lookupError = { message: 'private lookup failure' }; const beforeAck = calls.length;
+  check(!(await adapter.acknowledgeExplicitCart(id, request)).ok && calls.length === beforeAck, 'Lookup error does not acknowledge'); lookupError = null;
+  network = true;
+  check(!(await adapter.acknowledgeExplicitCart(id, request)).ok, 'Lost acknowledgement response remains unconfirmed'); network = false;
+  access = false;
+  check((await adapter.acknowledgeExplicitCart(id, request)).error === 'forbidden', 'Acknowledgement rechecks revoked campus access'); access = true;
+  context.isDirectorReadOnly = true;
+  check((await adapter.acknowledgeExplicitCart(id, request)).error === 'forbidden', 'Acknowledgement denies downgraded reader'); context.isDirectorReadOnly = false;
+  intent = null;
+  check(!(await adapter.acknowledgeExplicitCart(id, request)).ok, 'Missing intent cannot be silently acknowledged');
   console.log(`PASS ${checks} explicit cart adapter checks.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -5,6 +5,7 @@ import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { useCajaReads } from "./use-caja-reads";
 import { ExplicitCartDialog } from "./explicit-cart-dialog";
 import { loadCartRecovery } from "@/lib/finance/explicit-cart-recovery";
+import { createCheckoutTrace } from "@/lib/perf/checkout-timing";
 import { ExplicitCreditPanel } from "./explicit-credit-panel";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
@@ -1650,7 +1651,7 @@ function PosEnrollmentPanel({
   return (
     <div className="space-y-4">
       {reviewForm && recoveryActor && <ExplicitCartDialog actorId={recoveryActor} enrollmentId={data.enrollmentId} form={reviewForm} printerName={printerName}
-        onClose={() => setReviewForm(null)} onSaved={() => { clearCart(); void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />}
+        onClose={() => setReviewForm(null)} onSaved={traceId => { clearCart(); void createCheckoutTrace(traceId).run("account_refresh", () => reads.account(data.enrollmentId)).then(next => { if (next) onDataUpdate(next); }).catch(() => { /* Refresh failure cannot undo a saved payment. */ }); }} />}
       <ExplicitCreditPanel enrollmentId={data.enrollmentId} printerName={printerName}
         onRecoveryResolved={() => { setPanelError(null); setRecoveryRevision(value => value + 1); }}
         onApplied={() => { void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />

@@ -124,7 +124,7 @@ export async function getReceiptForPrintAction(paymentId: string): Promise<Recei
     const first = saved.payments[0], second = saved.payments[1];
     const date = new Date(saved.paidAt);
     return { ok: true, receipt: {
-      explicitCheckout: saved, playerName: saved.playerName, campusName: saved.operatorCampusName, birthYear: null,
+      explicitCheckout: saved, playerName: saved.playerName, campusName: saved.operatorCampusName, birthYear: saved.birthYear ?? null,
       currency: saved.currency, amount: saved.moneyReceived, remainingBalance: saved.pendingChargesTotal,
       creditAppliedAmount: saved.creditApplied, chargesPaid: saved.lines.map(line => ({ description: line.description, amount: line.moneyReceived })),
       paymentId: first.id, folio: first.folio, method: METHOD_LABELS[first.method] ?? first.method,

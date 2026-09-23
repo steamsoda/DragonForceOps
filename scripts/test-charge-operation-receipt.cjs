@@ -21,6 +21,8 @@ const route=load('src/app/api/charge-operation-receipt/route.ts',{
 },{URL});
 const jobs=[];
 const printer=load('src/lib/printer.ts',{
+  ...require('./fixtures/reliability-modules.cjs')(),
+  '@/lib/finance/checkout-receipt':load('src/lib/finance/checkout-receipt.ts',{}),
   '@/lib/perf/timing':{createPerfTimer:()=>({mark(){}})},'@/lib/finance/charge-operation-receipt':domain,
 },{process:{env:{}},btoa:v=>Buffer.from(v,'binary').toString('base64'),window:{qz:{websocket:{isActive:()=>true},configs:{create:()=>({})},print:async(config,items)=>jobs.push(items)}}});
 (async()=>{

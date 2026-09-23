@@ -7,6 +7,8 @@ import { quoteExplicitCheckout, prepareExplicitCheckout, type ExplicitCheckoutSn
   type ExplicitCheckoutReceipt, type ExplicitCheckoutCommand } from "@/lib/finance/explicit-checkout";
 import { parseCreditAmount } from "@/lib/finance/explicit-credit";
 import { printExplicitCheckoutReceipt } from "@/lib/printer";
+import { getPrintStatus, isPrintPending, isPrinterBusy, subscribePrintStatus } from "@/lib/printer-attempts";
+import { createCheckoutTrace } from "@/lib/perf/checkout-timing";
 import { useReadOnly } from "@/components/auth/read-only-controls";
 import { saveCartRecovery, clearCartRecovery } from "@/lib/finance/explicit-cart-recovery";
 
@@ -25,11 +27,16 @@ function message(code: string) {
 }
 
 export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, onClose, onSaved }: {
-  actorId: string; enrollmentId: string; form: FormData; printerName: string; onClose: () => void; onSaved: () => void;
+  actorId: string; enrollmentId: string; form: FormData; printerName: string; onClose: () => void; onSaved: (traceId?: string) => void;
 }) {
   const readOnly = useReadOnly();
   const dialog = useRef<HTMLDialogElement>(null), busy = useRef(false), attempt = useRef<FormData | null>(null);
   const autoPrinted = useRef(false);
+  const recovered = useRef(form.has("recoverySnapshot")), saveAttempted = useRef(false), mounted = useRef(true);
+  const trace = useRef(createCheckoutTrace(form.get("diagnosticTraceId")));
+  const ackAttempt = useRef(0), ackConfirmed = useRef(false);
+  const [ackState, setAckState] = useState<"pending" | "unconfirmed" | "done">("pending");
+  const [, updatePrint] = useState(0);
   const [snapshot, setSnapshot] = useState<ExplicitCheckoutSnapshot | null>(null);
   const [credit, setCredit] = useState<Record<string, string>>({});
   const [first, setFirst] = useState(String(form.get("amount") ?? ""));
@@ -39,6 +46,11 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
   const [receipt, setReceipt] = useState<ExplicitCheckoutReceipt | null>(null);
   const [reload, setReload] = useState(0);
   const split = form.has("amount2");
+  useEffect(() => {
+    mounted.current = true;
+    const unsubscribe = subscribePrintStatus(() => updatePrint(value => value + 1));
+    return () => { mounted.current = false; unsubscribe(); };
+  }, []);
   useEffect(() => { if (!dialog.current?.open) dialog.current?.showModal(); }, []);
   useEffect(() => {
     let alive = true; setSnapshot(null); setError(null); setCredit({});
@@ -52,7 +64,9 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
       setPhase("uncertain"); setError(message("checkout_uncertain"));
       return;
     }
-    reviewExplicitCajaCartAction(enrollmentId, form).then(result => {
+    const reviewed = new FormData(); form.forEach((value, key) => reviewed.set(key, value));
+    reviewed.set("diagnosticTraceId", trace.current.id);
+    trace.current.run("review", () => reviewExplicitCajaCartAction(enrollmentId, reviewed)).then(result => {
       if (!alive) return;
       if (result.ok) setSnapshot(result.snapshot); else setError(message(result.error));
     }).catch(() => { if (alive) setError(message("checkout_review_failed")); });
@@ -73,8 +87,9 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
   const locked = saving || phase === "uncertain" || phase === "confirm";
   const methodNames: Record<string, string> = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", stripe_360player: "360Player", other: "Otro" };
   useEffect(() => {
-    if (receipt && !autoPrinted.current && !receipt.payments.some(payment => payment.method === "stripe_360player")) {
-      autoPrinted.current = true; void print();
+    if (receipt && !autoPrinted.current && !recovered.current && getPrintStatus(receipt.operationId) === "idle"
+      && !receipt.payments.some(payment => payment.method === "stripe_360player")) {
+      autoPrinted.current = true; void print(false);
     }
   }, [receipt]);
   function review() {
@@ -87,6 +102,7 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
       const plan = prepareExplicitCheckout(snapshot, { requestId: crypto.randomUUID(), creditSelection: selection, payments });
       const next = new FormData(); form.forEach((value, key) => next.set(key, value));
       next.set("checkoutActorId", actorId);
+      next.set("diagnosticTraceId", trace.current.id);
       next.set("explicitCommand", JSON.stringify(plan.command)); attempt.current = next;
       setError(null); setPhase("confirm");
     } catch { setError(message("payment_total_mismatch")); }
@@ -96,13 +112,16 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
     try { saveCartRecovery(actorId, enrollmentId, attempt.current, snapshot); }
     catch { setError("No se pudo guardar la recuperacion del cobro en este navegador. No se envio un nuevo cobro; conserva esta ventana y reintenta."); return; }
     busy.current = true; setSaving(true); setError(null);
+    if (saveAttempted.current) recovered.current = true;
+    saveAttempted.current = true;
     try {
-      const result = await checkoutCajaCartAction(enrollmentId, attempt.current);
+      const result = await trace.current.run("save_response", () => checkoutCajaCartAction(enrollmentId, attempt.current!));
       if (result.ok) {
-        try { await acknowledgeExplicitCajaCartAction(enrollmentId, result.receipt.operationId); } catch { /* Acknowledgement failure keeps server recovery available. */ }
-        try { clearCartRecovery(actorId, enrollmentId); } catch { /* The saved request remains safe to replay. */ }
+        recovered.current ||= result.recovered;
         setReceipt(result.receipt); setPhase("saved");
-        try { onSaved(); } catch { /* A refresh cannot change a committed receipt. */ }
+        void trace.current.run("saved_ui", () => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+        void acknowledge(result.receipt.operationId);
+        try { onSaved(trace.current.id); } catch { /* A refresh cannot change a committed receipt. */ }
       } else {
         const unresolved = result.uncertain || result.error === "checkout_request_conflict" || result.error === "forbidden";
         if (!unresolved) clearCartRecovery(actorId, enrollmentId);
@@ -112,13 +131,31 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
     } catch { setError(message("checkout_uncertain")); setPhase("uncertain"); }
     finally { busy.current = false; setSaving(false); }
   }
-  async function print() {
-    if (!receipt || readOnly || busy.current) return;
-    busy.current = true; setSaving(true);
-    try { await printExplicitCheckoutReceipt(printerName, receipt); setError(null); }
-    catch { setError("El cobro esta guardado. No se pudo imprimir; puedes reintentar la impresion."); }
-    finally { busy.current = false; setSaving(false); }
+  async function acknowledge(requestId: string) {
+    const current = ++ackAttempt.current;
+    if (mounted.current) setAckState("pending");
+    const timer = setTimeout(() => {
+      if (mounted.current && !ackConfirmed.current && ackAttempt.current === current) setAckState("unconfirmed");
+    }, 10000);
+    try {
+      const result = await acknowledgeExplicitCajaCartAction(enrollmentId, requestId, trace.current.id);
+      if (result.ok) {
+        ackConfirmed.current = true;
+        try { clearCartRecovery(actorId, enrollmentId, requestId); } catch { /* Safe original-request recovery can remain. */ }
+        if (mounted.current) setAckState("done");
+      } else if (mounted.current && !ackConfirmed.current && ackAttempt.current === current) setAckState("unconfirmed");
+    } catch {
+      if (mounted.current && !ackConfirmed.current && ackAttempt.current === current) setAckState("unconfirmed");
+    } finally { clearTimeout(timer); }
   }
+  async function print(manual = true) {
+    if (!receipt || readOnly || isPrintPending(receipt.operationId)) return;
+    if (manual && (recovered.current || getPrintStatus(receipt.operationId) !== "idle")
+      && !window.confirm("El cobro ya esta guardado. Verifica si el comprobante ya salio: reimprimir puede generar otra copia. Continuar?")) return;
+    try { await printExplicitCheckoutReceipt(printerName, receipt, trace.current.id); }
+    catch { /* Independent printer status retains late completion outside the dialog. */ }
+  }
+  const printStatus = receipt ? getPrintStatus(receipt.operationId) : "idle";
   return <dialog ref={dialog} onCancel={event => { event.preventDefault(); if (!saving && phase !== "uncertain") onClose(); }}
     className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border border-slate-200 p-0 backdrop:bg-black/40">
     <div className="flex items-center justify-between border-b px-5 py-4"><h2 className="text-lg font-semibold">{receipt ? "Cobro registrado" : "Revisar cobro"}</h2>
@@ -127,11 +164,19 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {!snapshot && !error && <p>Cargando cargos...</p>}
       {receipt ? <>
+        {ackState !== "done" && <div role="status" className="text-sm text-amber-800">
+          <p>{ackState === "pending" ? "Cobro guardado. Confirmando cierre de la operacion..." : "Cobro guardado. Cierre pendiente de confirmar; no vuelvas a cobrar."}</p>
+          {ackState === "unconfirmed" && <button type="button" disabled={readOnly} onClick={() => void acknowledge(receipt.operationId)} className="mt-2 rounded border px-3 py-2">Reintentar confirmacion</button>}
+        </div>}
         <p className="text-sm">Operacion: {receipt.operationId}</p>
         {receipt.lines.map(line => <div key={line.key} className="border-b pb-2 text-sm"><p className="font-medium">{line.description}</p><p>Dinero: {fmt(line.moneyReceived)} · Credito: {fmt(line.creditApplied)} · Pendiente: {fmt(line.pendingAfter)}</p></div>)}
         <p>Dinero recibido: <strong>{fmt(receipt.moneyReceived)}</strong></p><p>Credito utilizado: {fmt(receipt.creditApplied)}</p>
         <p>Credito disponible: {fmt(receipt.creditRemaining)}</p><p>Cargos pendientes: {fmt(receipt.pendingChargesTotal)}</p>
-        <button type="button" disabled={saving || readOnly} onClick={print} className="flex items-center gap-2 rounded border px-4 py-2 disabled:opacity-40"><Printer size={16} />Imprimir comprobante</button>
+        <p role="status" className="text-sm">{printStatus === "printing" ? "Cobro guardado. Enviando comprobante..."
+          : printStatus === "unknown" ? "Cobro guardado. Impresion sin confirmar; revisa la impresora antes de reimprimir."
+          : printStatus === "failed" ? "Cobro guardado. No se confirmo la impresion."
+          : printStatus === "sent" ? "Comprobante enviado a la impresora." : isPrinterBusy(printerName) ? "Cobro guardado. Hay otra impresion pendiente en esta impresora." : recovered.current ? "Cobro recuperado. Verifica el comprobante antes de reimprimir." : ""}</p>
+        <button type="button" disabled={readOnly || isPrintPending(receipt.operationId) || isPrinterBusy(printerName)} onClick={() => void print()} className="flex items-center gap-2 rounded border px-4 py-2 disabled:opacity-40"><Printer size={16} />Imprimir comprobante</button>
       </> : <>
         {snapshot && <><p className="text-sm">Credito disponible: <strong>{fmt(snapshot.availableCredit)}</strong></p>
           <div className="space-y-3">{snapshot.lines.map(line => <div key={line.key} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b pb-3">
