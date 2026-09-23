@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-09-22: v1.18.1 Profesores hosted verification
+
+- Preview v1.18.0 passed 14 hosted checks: real create/save/refresh, assignment
+  persistence, read-only controls and forged RPC denial, departure, existing JWT
+  denial, hosted-session denial and provider ban. All synthetic records removed.
+- Fixed smoke hydration/accessible-label timing checks; no application persistence
+  defect found. Corrected nullable surname display so old records do not show null.
+- Clean-cache build 6tVUwy2M2fNRom5ve8KvkDfCAvxP succeeded; explicitly reassigned
+  the stale Preview alias. Cancelled superseded cached build. All four release
+  workflows passed; installed-schema regression passed 57 checks.
+- v1.18.1 carries the surname polish and reproducible hosted test improvements.
+  Production remains cfa091d / v1.17.79; no production migration or staff mutation.
+
 ## 2026-09-22: v1.18.0 Profesores Preview release preparation
 
 - Final role/auth regression and 57 rollback-only coach DB checks passed.

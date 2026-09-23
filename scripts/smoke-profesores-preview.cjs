@@ -12,7 +12,7 @@ const db=new Client({connectionString:url.href,ssl:{rejectUnauthorized:false},co
 const admin=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const stateFile='.tmp/profesores-smoke.json',purpose='profesores_preview_smoke';
 const state={ref,purpose,runId:randomUUID(),users:[],coaches:[],group:null};
-let browser,started=false,checks=0;const check=(v,m)=>{assert.ok(v,m);checks++;};
+let browser,activePage,started=false,checks=0;const check=(v,m)=>{assert.ok(v,m);checks++;};
 const persist=()=>fs.writeFileSync(stateFile,JSON.stringify(state));
 const q=async(sql,args=[])=>(await db.query(sql,args)).rows;
 async function identity(role){
@@ -31,10 +31,12 @@ async function browserFor(account){
  await context.routeWebSocket('**/*',socket=>socket.close());
  await context.route('**/qz-tray.js',route=>route.abort());
  await context.addCookies(account.cookies.map(c=>({name:c.name,value:c.value,domain:new URL(origin).hostname,path:'/',secure:true,sameSite:'Lax'})));
- const page=await context.newPage();page.setDefaultTimeout(30000);
+ const page=await context.newPage();activePage=page;page.setDefaultTimeout(30000);
+ page.on('pageerror',e=>console.error('Browser runtime:',e.message));
  const response=await page.goto(origin+'/profesores',{waitUntil:'domcontentloaded'});
  check(response.status()===200,'Hosted Profesores loads');
  await page.getByRole('heading',{name:'Profesores',exact:true}).waitFor();
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Nuevo profesor')&&Object.keys(b).some(k=>k.startsWith('__reactProps')&&typeof b[k]?.onClick==='function')));
  return {context,page};
 }
 (async()=>{
@@ -48,7 +50,7 @@ async function browserFor(account){
  await page.getByRole('button',{name:'Nuevo profesor',exact:true}).click();
  await page.getByLabel('Nombre',{exact:true}).fill(label);
  await page.getByLabel('Apellidos',{exact:true}).fill('Temporal');
- await page.getByLabel('Campus base',{exact:true}).selectOption(campus);
+ await page.getByLabel('Campus base').selectOption(campus);
  await page.getByRole('button',{name:'Revisar cambios',exact:true}).click();
  await page.getByRole('button',{name:'Confirmar cambios',exact:true}).click();
  await page.getByRole('dialog').waitFor({state:'hidden'});
@@ -57,6 +59,7 @@ async function browserFor(account){
  state.coaches.push(coach);persist();check(true,'Created coach immediately visible after save');
  await q('update coaches set user_id=$1 where id=$2',[departing.id,coach]);
  await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Nuevo profesor')&&Object.keys(b).some(k=>k.startsWith('__reactProps')&&typeof b[k]?.onClick==='function')));
  await page.getByRole('button',{name:`Asignar grupos a ${label} Temporal`,exact:true}).click();
  const groupRow=page.getByRole('dialog').locator('.divide-y > div').filter({has:page.getByText(label,{exact:true})});
  await groupRow.getByRole('checkbox').check();
@@ -64,7 +67,7 @@ async function browserFor(account){
  await page.getByRole('button',{name:'Revisar cambios',exact:true}).click();
  await page.getByRole('button',{name:'Confirmar cambios',exact:true}).click();
  await page.getByRole('dialog').waitFor({state:'hidden'});
- await page.locator('article').filter({has:page.getByRole('heading',{name:`${label} Temporal`,exact:true})}).getByText(label,{exact:true}).waitFor();
+ await page.locator('article').filter({has:page.getByRole('heading',{name:`${label} Temporal`,exact:true})}).locator('li').filter({hasText:label}).waitFor();
  check((await q('select 1 from training_group_coaches where training_group_id=$1 and coach_id=$2',[state.group,coach])).length===1,'Assignment persisted and refreshed');
  const ro=await browserFor(reader);
  check(await ro.page.getByRole('button',{name:'Nuevo profesor',exact:true}).isDisabled(),'Reader create disabled');
@@ -85,7 +88,7 @@ async function browserFor(account){
  const oldRequest=await fetch(origin+'/profesores',{headers:{Cookie:departing.cookies.map(c=>`${c.name}=${c.value}`).join('; ')},redirect:'manual',signal:AbortSignal.timeout(30000)});
  check(oldRequest.status!==200,'Old hosted session denied');
  console.log(`PASS ${checks} hosted Profesores persistence/read-only/revocation checks`);
-})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(async()=>{
+})().catch(async e=>{console.error(e.message);if(started){console.error('Synthetic links:',await q('select coach_id,training_group_id from training_group_coaches where training_group_id=$1',[state.group]));console.error('Synthetic visible rows:',await activePage?.locator('article').filter({hasText:`SMOKE ${state.runId.slice(0,8)}`}).allTextContents());}await activePage?.screenshot({path:'.tmp/profesores-hosted-failure.png'}).catch(()=>{});process.exitCode=1}).finally(async()=>{
  await browser?.close();
  if(!started){await db.end();return;}
  try{

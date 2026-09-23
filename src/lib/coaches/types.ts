@@ -5,7 +5,7 @@ export type CoachTournament = {
 };
 export type CoachGroup = { id: string; name: string; program: string; status: string; campusId: string; startTime: string | null; endTime: string | null; coaches: CoachLink[]; tournaments: CoachTournament[] };
 export type Coach = {
-  id: string; firstName: string; lastName: string; campusId: string | null;
+  id: string; firstName: string; lastName: string | null; campusId: string | null;
   active: boolean; linked: boolean; email: string | null; roles: string[];
   protected: boolean; version: string; departureVersion: string | null;
   providerPending: boolean;

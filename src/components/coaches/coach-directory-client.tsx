@@ -9,7 +9,7 @@ import { replaceCoachInGroup, summarizeCoachTournamentChanges, type Coach, type 
 type Mode = "save" | "groups" | "replace" | "depart";
 const field = "w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white";
 const button = "inline-flex min-h-9 items-center justify-center gap-2 rounded border border-slate-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600";
-const coachName = (coach: Coach) => `${coach.firstName} ${coach.lastName}`;
+const coachName = (coach: Coach) => [coach.firstName, coach.lastName].filter(Boolean).join(" ");
 const time = (value: string | null) => value ? new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).format(new Date(`2000-01-01T${value}Z`)) : "Sin horario";
 
 export function CoachDirectoryClient({ data }: { data: CoachDirectory }) {

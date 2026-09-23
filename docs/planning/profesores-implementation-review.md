@@ -4,7 +4,9 @@ Reference: INV-PLAN-002A r1. Reviewed 2026-09-22.
 
 Status: user approved Preview release. Local implementation/security checks
 completed. Preview migration installed transactionally after schema baseline and
-exact pending-migration verification. Hosted smoke checks pending deployment.
+exact pending-migration verification. Hosted smoke passed 14 persistence,
+read-only and existing-session/provider-revocation checks. Synthetic records
+and accounts were removed. Stable Preview alias was explicitly corrected.
 No existing coach/account changed; production remains untouched.
 The handed-off planning document remains unchanged. Tickets and the
 Grupos y horarios feature are outside this implementation scope.
@@ -52,9 +54,9 @@ Grupos y horarios feature are outside this implementation scope.
 
 ## Remaining review gates
 
-- Live browser/auth-provider tests now have Preview release approval and use
-  temporary test accounts. SQL checks simulate an existing authenticated JWT
-  identity; they are not proof of hosted provider-session revocation.
+- Preview hosted tests confirmed real save/refresh, database denial of an old
+  issued JWT, hosted-session denial and the provider ban on a synthetic account.
+  Production release still requires separate approval.
 - User amendment on 2026-09-22 supersedes r1's inheritance restriction: active
   inherited tournament squads follow the new training-group coaches. Review
   shows before/after responsibility and unstaffed teams. Manual assignments and
