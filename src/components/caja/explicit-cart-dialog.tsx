@@ -11,6 +11,7 @@ import { getPrintStatus, isPrintPending, isPrinterBusy, subscribePrintStatus } f
 import { createCheckoutTrace } from "@/lib/perf/checkout-timing";
 import { useReadOnly } from "@/components/auth/read-only-controls";
 import { saveCartRecovery, clearCartRecovery } from "@/lib/finance/explicit-cart-recovery";
+import type { SavedCheckout } from "./checkout-receipt-panel";
 
 function message(code: string) {
   const messages: Record<string, string> = {
@@ -26,10 +27,12 @@ function message(code: string) {
   return messages[code] ?? "No se pudo preparar el cobro. Revisa los importes o actualiza los cargos.";
 }
 
-export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, onClose, onSaved }: {
+export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, onClose, onSaved, onComplete }: {
   actorId: string; enrollmentId: string; form: FormData; printerName: string; onClose: () => void; onSaved: (traceId?: string) => void;
+  onComplete?: (saved: SavedCheckout) => void;
 }) {
   const readOnly = useReadOnly();
+  const fast = form.get("checkoutMode") === "fast";
   const dialog = useRef<HTMLDialogElement>(null), busy = useRef(false), attempt = useRef<FormData | null>(null);
   const autoPrinted = useRef(false);
   const recovered = useRef(form.has("recoverySnapshot")), saveAttempted = useRef(false), mounted = useRef(true);
@@ -51,7 +54,7 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
     const unsubscribe = subscribePrintStatus(() => updatePrint(value => value + 1));
     return () => { mounted.current = false; unsubscribe(); };
   }, []);
-  useEffect(() => { if (!dialog.current?.open) dialog.current?.showModal(); }, []);
+  useEffect(() => { if (!fast && !dialog.current?.open) dialog.current?.showModal(); }, []);
   useEffect(() => {
     let alive = true; setSnapshot(null); setError(null); setCredit({});
     if (form.has("recoverySnapshot") && reload === 0) {
@@ -64,6 +67,14 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
       setPhase("uncertain"); setError(message("checkout_uncertain"));
       return;
     }
+    if (fast) {
+      try {
+        const displayed = JSON.parse(String(form.get("displayedSnapshot"))) as ExplicitCheckoutSnapshot;
+        quoteExplicitCheckout(displayed);
+        attempt.current = form; setSnapshot(displayed);
+      } catch { setError(message("checkout_changed")); }
+      return;
+    }
     const reviewed = new FormData(); form.forEach((value, key) => reviewed.set(key, value));
     reviewed.set("diagnosticTraceId", trace.current.id);
     trace.current.run("review", () => reviewExplicitCajaCartAction(enrollmentId, reviewed)).then(result => {
@@ -72,6 +83,9 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
     }).catch(() => { if (alive) setError(message("checkout_review_failed")); });
     return () => { alive = false; };
   }, [enrollmentId, form, reload]);
+  useEffect(() => {
+    if (fast && snapshot && !saveAttempted.current && !recovered.current && !readOnly) void save();
+  }, [snapshot]);
   let quote: ReturnType<typeof quoteExplicitCheckout> | null = null;
   const selection = Object.entries(credit).flatMap(([key, value]) => value.trim() === "" || parseCreditAmount(value) === 0 ? [] : [{ key, amount: parseCreditAmount(value) ?? NaN }]);
   try { if (snapshot) quote = quoteExplicitCheckout(snapshot, selection); } catch { /* Invalid inputs keep confirmation disabled. */ }
@@ -118,15 +132,19 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
       const result = await trace.current.run("save_response", () => checkoutCajaCartAction(enrollmentId, attempt.current!));
       if (result.ok) {
         recovered.current ||= result.recovered;
-        setReceipt(result.receipt); setPhase("saved");
         void trace.current.run("saved_ui", () => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
-        void acknowledge(result.receipt.operationId);
         try { onSaved(trace.current.id); } catch { /* A refresh cannot change a committed receipt. */ }
+        if (onComplete) {
+          onComplete({ receipt: result.receipt, actorId, recovered: recovered.current, traceId: trace.current.id });
+        } else {
+          setReceipt(result.receipt); setPhase("saved");
+          void acknowledge(result.receipt.operationId);
+        }
       } else {
         const unresolved = result.uncertain || result.error === "checkout_request_conflict" || result.error === "forbidden";
         if (!unresolved) clearCartRecovery(actorId, enrollmentId);
         setError(message(result.error)); setPhase(unresolved ? "uncertain" : "edit");
-        if (!unresolved) { attempt.current = null; setSnapshot(null); setReload(n => n + 1); }
+        if (!unresolved) { attempt.current = null; if (!fast) { setSnapshot(null); setReload(n => n + 1); } }
       }
     } catch { setError(message("checkout_uncertain")); setPhase("uncertain"); }
     finally { busy.current = false; setSaving(false); }
@@ -156,6 +174,12 @@ export function ExplicitCartDialog({ actorId, enrollmentId, form, printerName, o
     catch { /* Independent printer status retains late completion outside the dialog. */ }
   }
   const printStatus = receipt ? getPrintStatus(receipt.operationId) : "idle";
+  if (fast) return <section className="mx-auto max-w-3xl space-y-5 border-y py-8" aria-busy={saving}>
+    <h2 className="text-xl font-semibold">{phase === "uncertain" ? "Pago pendiente de confirmar" : error ? "Revisa el cobro" : "Procesando pago..."}</h2>
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {phase === "uncertain" ? <button type="button" disabled={saving || readOnly} onClick={() => void save()} className="rounded bg-portoBlue px-4 py-3 text-white disabled:opacity-40">{saving ? "Confirmando..." : "Reintentar mismo cobro"}</button>
+      : error && !saving && <button type="button" onClick={onClose} className="rounded border px-4 py-3">Regresar al alumno</button>}
+  </section>;
   return <dialog ref={dialog} onCancel={event => { event.preventDefault(); if (!saving && phase !== "uncertain") onClose(); }}
     className="w-[calc(100%-2rem)] max-w-2xl max-h-[90dvh] overflow-y-auto rounded-lg border border-slate-200 p-0 backdrop:bg-black/40">
     <div className="flex items-center justify-between border-b px-5 py-4"><h2 className="text-lg font-semibold">{receipt ? "Cobro registrado" : "Revisar cobro"}</h2>

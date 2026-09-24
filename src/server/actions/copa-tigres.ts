@@ -9,7 +9,7 @@ import { getEnrollmentLedger } from "@/lib/queries/billing";
 import { getReceiptForPrintAction } from "@/server/actions/receipts";
 import type { CajaPaymentResult } from "@/server/actions/caja";
 
-export type CopaTigresOption = { productId: string; name: string; paid: number; pending: number };
+export type CopaTigresOption = { productId: string; name: string; paid: number; pending: number; chargeId?: string | null };
 
 export async function getCopaTigresOptionsAction(enrollmentId: string): Promise<CopaTigresOption[]> {
   const ctx = await getPermissionContext();
@@ -29,7 +29,7 @@ export async function getCopaTigresOptionsAction(enrollmentId: string): Promise<
     const chargeId = charges?.find((charge) => charge.product_id === product.id)?.id;
     const charge = ledger.charges.find((row) => row.id === chargeId);
     const paid = charge?.allocatedAmount ?? 0;
-    return { productId: product.id, name: product.name, paid, pending: 1250 - paid };
+    return { productId: product.id, name: product.name, paid, pending: 1250 - paid, chargeId: chargeId ?? null };
   });
 }
 

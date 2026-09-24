@@ -108,7 +108,7 @@ export async function saveExplicitCart(enrollmentId: string, form: FormData, res
         const validated = validateExplicitCheckout(prepared.snapshot, command);
         payload = { command: validated.command, charges: prepared.charges, paidAt,
           notes: String(form.get("notes") ?? "").trim() || null, clientFingerprint: fingerprint };
-        const recoveryFields = [...fields, "explicitCommand", "checkoutActorId", "method", "method2", "amount", "amount2"];
+        const recoveryFields = [...fields, "explicitCommand", "checkoutActorId", "method", "method2", "amount", "amount2", "checkoutMode", "diagnosticTraceId"];
         recovery = { snapshot: prepared.snapshot, fields: recoveryFields.filter(key => form.has(key)).map(key => [key, String(form.get(key))]) };
       }
       const staged = await trace.run("stage", async () => await admin.rpc("stage_explicit_cart", { p_actor: context.user.id, p_enrollment: enrollmentId,

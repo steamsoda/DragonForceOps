@@ -2,6 +2,16 @@ const fs = require('node:fs'), path = require('node:path'), http = require('node
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { isolatePrinting } = require('./fixtures/isolated-printing.cjs');
 const output = path.resolve('.tmp/checkout-reliability-ui');
+const fast = process.argv.includes('--fast');
+const savedHeading = fast ? 'Pago registrado' : 'Cobro registrado';
+const closeButton = fast ? 'Regresar al alumno' : 'Cerrar';
+async function submit(page) {
+  if (fast) await page.getByRole('button', { name: 'Cobrar todo', exact: true }).click();
+  else {
+    await page.getByRole('button', { name: 'Revisar importes' }).click();
+    await page.getByRole('button', { name: 'Confirmar cobro' }).click();
+  }
+}
 let pending, requests, receipts, browser, server, checks = 0;
 const check = (ok, name) => { assert.ok(ok, name); checks++; };
 const traces = [];
@@ -38,16 +48,17 @@ const traces = [];
   });
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  const startUrl = origin + (fast ? '/?fast' : '/');
   browser = await chromium.launch({ channel: 'chrome', headless: true });
   for (const width of [1280,390]) {
     pending = null; requests = []; receipts = new Map();
     const context = await browser.newContext({ viewport: { width, height: 900 }, serviceWorkers: 'block' });
     await isolatePrinting(context,origin);
     const page = await context.newPage(), errors = []; page.on('pageerror', error => errors.push(error.message));
-    await page.clock.install(); await page.goto(origin);
-    await page.getByRole('button',{name:'Revisar importes'}).click(); await page.getByRole('button',{name:'Confirmar cobro'}).click();
-    await page.getByRole('heading',{name:'Cobro registrado'}).waitFor();
-    check(await page.getByRole('button',{name:'Cerrar',exact:true}).isEnabled(), 'Saved payment closable while ack/print unresolved');
+    await page.clock.install(); await page.goto(startUrl);
+    await submit(page);
+    await page.getByRole('heading',{name:savedHeading}).waitFor();
+    check(await page.getByRole('button',{name:closeButton,exact:true}).isEnabled(), 'Saved payment closable while ack/print unresolved');
     check(await page.evaluate(() => window.fixture.saved === 1 && window.fixture.prints === 1 && sessionStorage.length === 1), 'Saved callback happens before ack and recovery retained');
     await page.clock.runFor(31000);
     await page.getByText(/Impresion sin confirmar/).waitFor();
@@ -61,28 +72,28 @@ const traces = [];
     await page.evaluate(() => window.fixture.rejectAck());
     check(await page.getByRole('button',{name:'Reintentar confirmacion'}).count() === 0, 'Late failed ack cannot overwrite checked success');
     traces.push({ width, case: 'ack-print-stall', events: await page.evaluate(() => window.fixture.events) });
-    await page.getByRole('button',{name:'Cerrar',exact:true}).click();
+    await page.getByRole('button',{name: fast ? 'Siguiente alumno' : closeButton,exact:true}).click();
     await page.evaluate(() => window.fixture.resolvePrint());
     check(await page.getByRole('heading',{name:'Cuenta'}).isVisible() && await page.evaluate(() => window.fixture.prints) === 1, 'Late print completion after close creates no extra job');
 
-    pending = null; requests = []; receipts = new Map(); await page.goto(origin);
+    pending = null; requests = []; receipts = new Map(); await page.goto(startUrl);
     await page.evaluate(() => { window.fixture.ackMode = 'error'; window.fixture.printMode = 'ok'; });
-    await page.getByRole('button',{name:'Revisar importes'}).click(); await page.getByRole('button',{name:'Confirmar cobro'}).click();
+    await submit(page);
     await page.getByRole('button',{name:'Reintentar confirmacion'}).waitFor();
     await page.reload(); await page.getByRole('button',{name:'Reintentar mismo cobro'}).waitFor();
     await page.evaluate(() => window.fixture.ackMode = 'ok');
     await page.getByRole('button',{name:'Reintentar mismo cobro'}).click();
-    await page.getByRole('heading',{name:'Cobro registrado'}).waitFor();
+    await page.getByRole('heading',{name:savedHeading}).waitFor();
     await page.waitForFunction(() => sessionStorage.length === 0);
     check(await page.evaluate(() => window.fixture.prints) === 0 && receipts.size === 1 && new Set(requests).size === 1, 'Recovered saved request never auto-prints or creates money twice');
     page.once('dialog', dialog => dialog.dismiss()); await page.getByRole('button',{name:'Imprimir comprobante'}).click();
     check(await page.evaluate(() => window.fixture.prints) === 0, 'Recovered print requires explicit duplicate-paper confirmation');
-    pending = null; requests = []; receipts = new Map(); await page.goto(origin);
+    pending = null; requests = []; receipts = new Map(); await page.goto(startUrl);
     await page.evaluate(() => { window.fixture.checkoutMode = 'lost'; window.fixture.ackMode = 'ok'; });
-    await page.getByRole('button',{name:'Revisar importes'}).click(); await page.getByRole('button',{name:'Confirmar cobro'}).click();
+    await submit(page);
     await page.getByRole('button',{name:'Reintentar mismo cobro'}).waitFor();
-    check(await page.getByRole('button',{name:'Cerrar',exact:true}).isDisabled(), 'Ambiguous financial outcome remains locked');
-    await page.getByRole('button',{name:'Reintentar mismo cobro'}).click(); await page.getByRole('heading',{name:'Cobro registrado'}).waitFor();
+    check(fast ? await page.getByRole('button',{name:closeButton,exact:true}).count() === 0 : await page.getByRole('button',{name:closeButton,exact:true}).isDisabled(), 'Ambiguous financial outcome remains locked');
+    await page.getByRole('button',{name:'Reintentar mismo cobro'}).click(); await page.getByRole('heading',{name:savedHeading}).waitFor();
     check(receipts.size === 1 && new Set(requests).size === 1 && await page.evaluate(() => window.fixture.prints) === 0, 'Lost response recovery preserves original request without automatic print');
     check(errors.length === 0, errors.join('\n')); await context.close();
   }

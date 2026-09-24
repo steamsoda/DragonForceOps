@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useReadOnly, WriteButton } from "@/components/auth/read-only-controls";
 import { useCajaReads } from "./use-caja-reads";
 import { ExplicitCartDialog } from "./explicit-cart-dialog";
+import { CheckoutReceiptPanel, type SavedCheckout } from "./checkout-receipt-panel";
+import { prepareFastCheckoutForm } from "@/lib/finance/fast-checkout";
+import type { ExplicitCheckoutSnapshot } from "@/lib/finance/explicit-checkout";
 import { loadCartRecovery } from "@/lib/finance/explicit-cart-recovery";
-import { createCheckoutTrace } from "@/lib/perf/checkout-timing";
 import { ExplicitCreditPanel } from "./explicit-credit-panel";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
@@ -757,6 +759,7 @@ type DrilldownStep =
   | { step: "players"; meta: CajaDrilldownMeta; campusId: string; campusName: string; birthYear: number; players: CajaPlayerResult[] | null };
 
 type View =
+  | { tag: "explicit-success"; saved: SavedCheckout; player: CajaPlayerResult }
   | { tag: "idle" }
   | { tag: "searching"; query: string }
   | { tag: "results"; query: string; results: CajaPlayerResult[] }
@@ -802,6 +805,7 @@ export function CajaClient({
     };
   });
   const [query, setQuery] = useState("");
+  const [lastCheckout, setLastCheckout] = useState<Extract<View, { tag: "explicit-success" }> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const reads = useCajaReads(setError);
@@ -1032,10 +1036,18 @@ export function CajaClient({
           onCancel={reset}
           onDataUpdate={(updatedData) => setView({ tag: "enrollment", player: view.player, data: updatedData })}
           onCheckoutSuccess={(receipt) => setView({ tag: "success", receipt, player: view.player })}
+          onExplicitCheckoutSuccess={(saved) => {
+            setLastCheckout({ tag: "explicit-success", saved: { ...saved, recovered: true }, player: view.player });
+            setView({ tag: "explicit-success", saved, player: view.player });
+          }}
         />
       )}
 
       {/* Success / receipt */}
+      {view.tag === "explicit-success" && <CheckoutReceiptPanel key={view.saved.receipt.operationId} saved={view.saved} printerName={printerName}
+        onBack={() => goBackToPlayer(view.player)} onNext={reset} />}
+      {lastCheckout && (view.tag === "idle" || view.tag === "results") && <button type="button" onClick={() => setView(lastCheckout)}
+        className="rounded border border-slate-300 px-4 py-2 text-sm">Ultimo comprobante: {lastCheckout.saved.receipt.playerName}</button>}
       {view.tag === "success" && (
         <ReceiptPanel
           receipt={view.receipt}
@@ -1286,6 +1298,7 @@ type StagedCartItem = {
   detail?: string | null;
   amount: number;
   payload: CajaCartItemInput;
+  copa?: { pending: number; chargeId: string | null };
 };
 
 function makeCartItemId() {
@@ -1300,7 +1313,8 @@ function PosEnrollmentPanel({
   printerName,
   onCancel,
   onDataUpdate,
-  onCheckoutSuccess
+  onCheckoutSuccess,
+  onExplicitCheckoutSuccess
 }: {
   player: CajaPlayerResult;
   data: CajaEnrollmentData;
@@ -1310,6 +1324,7 @@ function PosEnrollmentPanel({
   onCancel: () => void;
   onDataUpdate: (updatedData: CajaEnrollmentData) => void;
   onCheckoutSuccess: (receipt: Extract<CajaPaymentResult, { ok: true }>) => void;
+  onExplicitCheckoutSuccess: (saved: SavedCheckout) => void;
 }) {
   const readOnly = useReadOnly();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1343,6 +1358,7 @@ function PosEnrollmentPanel({
   const [exceptionAcknowledged, setExceptionAcknowledged] = useState(false);
   const [isCheckoutPending, startCheckoutTransition] = useTransition();
   const [reviewForm, setReviewForm] = useState<FormData | null>(null);
+  const openingCheckout = useRef(false);
   const [recoveryActor, setRecoveryActor] = useState<string | null>(null);
   const [recoveryRevision, setRecoveryRevision] = useState(0);
 
@@ -1432,9 +1448,10 @@ function PosEnrollmentPanel({
     stagedItemsTotal;
   const cartTotal = grossCartTotal;
   const checkoutTotal = cartTotal > 0 ? cartTotal : data.pendingCharges.reduce((sum, charge) => sum + charge.pendingAmount, 0);
+  const primaryPaymentAmount = splitMode ? paymentAmount : checkoutTotal > 0 ? checkoutTotal.toFixed(2) : "";
   const hasCartSelection = selectedIds.size > 0 || stagedItems.length > 0;
   const hasStagedTuition = stagedItems.some((item) => item.payload.kind === "tuition");
-  const submittedPaymentTotal = Math.round((parseMoneyInput(paymentAmount) + (splitMode ? parseMoneyInput(paymentAmount2) : 0)) * 100) / 100;
+  const submittedPaymentTotal = Math.round((parseMoneyInput(primaryPaymentAmount) + (splitMode ? parseMoneyInput(paymentAmount2) : 0)) * 100) / 100;
   const hasFullStagedTuitionPayment = !hasStagedTuition || submittedPaymentTotal + 0.009 >= cartTotal;
   const requiresCashPayment = checkoutTotal > 0.009;
   const payableNow = requiresCashPayment || stagedItems.length > 0;
@@ -1613,9 +1630,9 @@ function PosEnrollmentPanel({
     resetConfigurator(null);
   }
 
-  function handleCheckoutSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!recoveryActor || reviewForm) return;
+  function handleCheckoutSubmit(e?: React.FormEvent<HTMLFormElement>, useCredit = false) {
+    e?.preventDefault();
+    if (!recoveryActor || reviewForm || openingCheckout.current) return;
     if (readOnly) return;
     setPanelError(null);
     if (requiresCashPayment && (!paymentMethod || (splitMode && !paymentMethod2))) {
@@ -1630,9 +1647,10 @@ function PosEnrollmentPanel({
       setPanelError("La mensualidad adelantada requiere que las mensualidades pendientes anteriores sigan seleccionadas en este recibo.");
       return;
     }
+    openingCheckout.current = true;
     startCheckoutTransition(async () => {
       const formData = new FormData();
-      formData.set("amount", paymentAmount);
+      formData.set("amount", primaryPaymentAmount);
       formData.set("method", paymentMethod);
       formData.set("operatorCampusId", operatorCampusId);
       if (paymentNotes.trim()) formData.set("notes", paymentNotes.trim());
@@ -1641,17 +1659,41 @@ function PosEnrollmentPanel({
         formData.set("amount2", paymentAmount2);
         formData.set("method2", paymentMethod2);
       }
-      formData.set("targetChargeIds", Array.from(selectedIds).join(","));
+      const targets = hasCartSelection ? selectedCharges : data.pendingCharges;
+      formData.set("targetChargeIds", targets.map(charge => charge.id).join(","));
       formData.set("cartItems", JSON.stringify(stagedItems.map((item) => item.payload)));
       formData.set("cartKeys", JSON.stringify(stagedItems.map(item => item.id)));
-      setReviewForm(formData);
+      if (useCredit) { setReviewForm(formData); return; }
+      const snapshot: ExplicitCheckoutSnapshot = {
+        enrollmentId: data.enrollmentId, currency: data.currency, availableCredit: data.accountCredit.explicitAvailableAmount,
+        lines: [
+          ...targets.map(charge => ({ key: charge.id, chargeId: charge.id, description: charge.description,
+            pending: charge.pendingAmount, due: charge.pendingAmount, kind: "ordinary" as const, creditAllowed: true })),
+          ...stagedItems.map(item => ({ key: item.id, chargeId: item.copa?.chargeId ?? null, description: item.label,
+            pending: item.copa?.pending ?? item.amount, due: item.amount,
+            kind: item.payload.kind === "copa_tigres" ? "copa_tigres" as const : "ordinary" as const, creditAllowed: item.payload.kind !== "copa_tigres" })),
+        ],
+      };
+      try { setReviewForm(prepareFastCheckoutForm(recoveryActor, snapshot, formData, crypto.randomUUID())); }
+      catch (error) {
+        if (process.env.NODE_ENV === "development") console.warn("[checkout-preparation]", error instanceof Error ? error.message : "invalid_checkout");
+        openingCheckout.current = false;
+        setPanelError("Los importes no coinciden con el cobro. Revisa los montos y vuelve a enviar.");
+      }
     });
   }
 
+  if (reviewForm && recoveryActor) return <ExplicitCartDialog actorId={recoveryActor} enrollmentId={data.enrollmentId} form={reviewForm} printerName={printerName}
+    onClose={() => {
+      openingCheckout.current = false; setReviewForm(null);
+      if (reviewForm.get("checkoutMode") === "fast") {
+        clearCart(); setRecoveryRevision(value => value + 1);
+        void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); });
+      }
+    }} onSaved={() => clearCart()} onComplete={onExplicitCheckoutSuccess} />;
+
   return (
     <div className="space-y-4">
-      {reviewForm && recoveryActor && <ExplicitCartDialog actorId={recoveryActor} enrollmentId={data.enrollmentId} form={reviewForm} printerName={printerName}
-        onClose={() => setReviewForm(null)} onSaved={traceId => { clearCart(); void createCheckoutTrace(traceId).run("account_refresh", () => reads.account(data.enrollmentId)).then(next => { if (next) onDataUpdate(next); }).catch(() => { /* Refresh failure cannot undo a saved payment. */ }); }} />}
       <ExplicitCreditPanel enrollmentId={data.enrollmentId} printerName={printerName}
         onRecoveryResolved={() => { setPanelError(null); setRecoveryRevision(value => value + 1); }}
         onApplied={() => { void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />
@@ -1882,6 +1924,7 @@ function PosEnrollmentPanel({
                   id: makeCartItemId(), label: row.name,
                   detail: `${amount === 600 ? "Reserva" : amount === 650 ? "Liquidacion" : "Pago completo"} - saldo del torneo: $${row.pending - amount}`,
                   amount, payload: { kind: "copa_tigres", productId: row.productId, amount },
+                  copa: { pending: row.pending, chargeId: row.chargeId ?? null },
                 }]);
                 setPanelError(null);
               }} />
@@ -2207,7 +2250,7 @@ function PosEnrollmentPanel({
                     min="0.01"
                     required
                     readOnly={!splitMode}
-                    value={paymentAmount}
+                    value={primaryPaymentAmount}
                     onChange={(event) => {
                       if (!splitMode) return;
                       const firstAmount = Math.min(parseMoneyInput(event.target.value), checkoutTotal);
@@ -2222,7 +2265,7 @@ function PosEnrollmentPanel({
                   />
                   {!splitMode ? (
                     <p className="text-xs text-slate-500">
-                      Total pendiente antes del credito que elijas en la revision del cobro.
+                      Importe total seleccionado.
                     </p>
                   ) : null}
                 </label>
@@ -2330,6 +2373,8 @@ function PosEnrollmentPanel({
             </label>
 
             <div className="flex gap-3">
+              <WriteButton type="button" disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod}
+                onClick={() => handleCheckoutSubmit(undefined, true)} className="rounded border border-portoBlue px-4 py-2.5 text-sm font-semibold text-portoBlue disabled:opacity-40">Usar credito</WriteButton>
               <WriteButton
                 type="submit"
                 disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
