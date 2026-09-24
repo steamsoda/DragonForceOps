@@ -85,6 +85,7 @@ async function context(width = 1280) {
   try { await page.getByText('Synthetic Hosted checkout', { exact: true }).first().waitFor(); }
   catch (error) { fs.writeFileSync('.tmp/checkout-hosted-failure.txt', await page.locator('body').innerText()); throw error; }
   check(!page.url().includes('/login'), 'Real authenticated Front Desk Caja loads');
+  check((await page.locator('body').innerText()).includes(`v${evidence.version}`), 'Hosted page serves the expected release version');
   await page.getByRole('button', { name: 'Mostrar catalogo completo', exact: true })
     .or(page.getByRole('button', { name: 'Mostrar catálogo completo', exact: true }))
     .or(page.getByRole('button', { name: 'Reintentar mismo cobro', exact: true })).waitFor();
@@ -230,7 +231,7 @@ async function cleanup() {
       await route.abort('failed');
     } else await route.continue();
   });
-  await page.getByRole('button', { name: fastFlow ? 'Cobrar carrito' : 'Confirmar cobro', exact: true }).click();
+  await page.getByRole('button', { name: fastFlow ? 'Cobrar' : 'Confirmar cobro', exact: true }).click();
   await page.getByRole('button', { name: 'Reintentar mismo cobro', exact: true }).waitFor();
   check(dropped, 'Committed new-tuition response lost with concurrent identical request');
   check((await q('select count(*)::int n from payments where enrollment_id=$1', [f.enrollment]))[0].n === (fastFlow ? 3 : 2), 'Concurrent new-tuition checkout adds one payment only');
@@ -249,7 +250,7 @@ async function cleanup() {
       await page.getByRole('button', { name: 'Regresar al alumno', exact: true }).click();
       await page.getByRole('button', { name: 'Agregar al cobro', exact: true }).click();
       await page.getByText('Tarjeta', { exact: true }).click();
-      await page.getByRole('button', { name: 'Usar credito', exact: true }).click();
+      await page.getByRole('button', { name: 'Usar crédito', exact: true }).click();
       await page.locator('input[aria-label^="Credito para"]').first().fill(String(credit));
       await page.getByRole('button', { name: 'Revisar importes', exact: true }).click();
       const creditStarted = Date.now();
@@ -263,6 +264,7 @@ async function cleanup() {
     await q("insert into charges(enrollment_id,charge_type_id,description,amount,currency,status) select $1,id,'Synthetic split tuition',700,'MXN','pending' from charge_types where code='monthly_tuition'", [f.enrollment]);
     await page.getByRole('button', { name: 'Regresar al alumno', exact: true }).click();
     await page.getByText('Tarjeta', { exact: true }).click();
+    check(await page.getByRole('button', { name: 'Usar crédito', exact: true }).isDisabled(), 'Zero available credit cannot enter the credit flow');
     await splitPayment(page, 6);
     return;
   }

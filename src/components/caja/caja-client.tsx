@@ -9,6 +9,7 @@ import { prepareFastCheckoutForm } from "@/lib/finance/fast-checkout";
 import type { ExplicitCheckoutSnapshot } from "@/lib/finance/explicit-checkout";
 import { loadCartRecovery } from "@/lib/finance/explicit-cart-recovery";
 import { ExplicitCreditPanel } from "./explicit-credit-panel";
+import { CreditPaymentChoice } from "./credit-payment-choice";
 import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { AttendanceRiskBadge } from "@/components/attendance/attendance-risk-badge";
 import { PrintReceiptButton } from "./print-receipt-button";
@@ -1361,6 +1362,12 @@ function PosEnrollmentPanel({
   const openingCheckout = useRef(false);
   const [recoveryActor, setRecoveryActor] = useState<string | null>(null);
   const [recoveryRevision, setRecoveryRevision] = useState(0);
+  const [refreshingAccount, setRefreshingAccount] = useState(false);
+  const accountRefresh = useRef(0);
+  const availableCredit = !refreshingAccount && (recoveryActor || readOnly)
+    && Number.isFinite(data.accountCredit.explicitAvailableAmount) && data.accountCredit.explicitAvailableAmount >= 0
+    ? data.accountCredit.explicitAvailableAmount : null;
+  useEffect(() => () => { accountRefresh.current++; }, [data.enrollmentId]);
 
   useEffect(() => {
     let alive = true;
@@ -1634,6 +1641,7 @@ function PosEnrollmentPanel({
     e?.preventDefault();
     if (!recoveryActor || reviewForm || openingCheckout.current) return;
     if (readOnly) return;
+    if (useCredit && (availableCredit === null || availableCredit <= 0)) return;
     setPanelError(null);
     if (requiresCashPayment && (!paymentMethod || (splitMode && !paymentMethod2))) {
       setPanelError("Selecciona el método de pago antes de cobrar.");
@@ -1683,20 +1691,34 @@ function PosEnrollmentPanel({
     });
   }
 
+  async function refreshAccount() {
+    const request = ++accountRefresh.current;
+    setRefreshingAccount(true);
+    try {
+      const next = await reads.account(data.enrollmentId);
+      if (request !== accountRefresh.current) return;
+      if (!next) throw new Error("account_unavailable");
+      onDataUpdate(next);
+      setRefreshingAccount(false);
+    } catch {
+      if (request === accountRefresh.current) setPanelError("No se pudo actualizar el credito disponible. Recarga la cuenta antes de usar credito.");
+    }
+  }
+
   if (reviewForm && recoveryActor) return <ExplicitCartDialog actorId={recoveryActor} enrollmentId={data.enrollmentId} form={reviewForm} printerName={printerName}
     onClose={() => {
       openingCheckout.current = false; setReviewForm(null);
       if (reviewForm.get("checkoutMode") === "fast") {
         clearCart(); setRecoveryRevision(value => value + 1);
-        void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); });
+        void refreshAccount();
       }
     }} onSaved={() => clearCart()} onComplete={onExplicitCheckoutSuccess} />;
 
   return (
     <div className="space-y-4">
       <ExplicitCreditPanel enrollmentId={data.enrollmentId} printerName={printerName}
-        onRecoveryResolved={() => { setPanelError(null); setRecoveryRevision(value => value + 1); }}
-        onApplied={() => { void reads.account(data.enrollmentId).then(next => { if (next) onDataUpdate(next); }); }} />
+        onRecoveryResolved={() => { setPanelError(null); setRecoveryRevision(value => value + 1); void refreshAccount(); }}
+        onApplied={() => { void refreshAccount(); }} />
       <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-4">
         <div>
           <PlayerProfileLink playerId={player.playerId || data.playerId} playerName={data.playerName} />
@@ -2272,6 +2294,9 @@ function PosEnrollmentPanel({
                 <div className="space-y-1 text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-300">Método</span>
                   <MethodToggleGroup value={paymentMethod} onChange={setPaymentMethod} disabled={isCheckoutPending} />
+                  <CreditPaymentChoice available={availableCredit} currency={data.currency}
+                    disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod}
+                    onChoose={() => handleCheckoutSubmit(undefined, true)} />
                 </div>
               </div>
             ) : (
@@ -2373,8 +2398,6 @@ function PosEnrollmentPanel({
             </label>
 
             <div className="flex gap-3">
-              <WriteButton type="button" disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod}
-                onClick={() => handleCheckoutSubmit(undefined, true)} className="rounded border border-portoBlue px-4 py-2.5 text-sm font-semibold text-portoBlue disabled:opacity-40">Usar credito</WriteButton>
               <WriteButton
                 type="submit"
                 disabled={!recoveryActor || !payableNow || isCheckoutPending || !hasPrimaryMethod || !hasSecondaryMethod || !hasFullStagedTuitionPayment || !hasCoveredStagedTuitionArrears}
@@ -2385,7 +2408,7 @@ function PosEnrollmentPanel({
                   : !requiresCashPayment
                     ? "Revisar cobro"
                     : hasCartSelection
-                      ? "Cobrar carrito"
+                      ? "Cobrar"
                       : "Cobrar todo"}
               </WriteButton>
               <button
