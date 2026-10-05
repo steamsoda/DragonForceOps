@@ -778,7 +778,7 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
   const enrollmentIds = visibleEnrollmentRows.map((row) => row.id);
   const activeEnrollmentRow = visibleEnrollmentRows.find((row) => row.status === "active");
 
-  let balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
+  const balancesByEnrollment = new Map<string, EnrollmentBalanceRow>();
   let teamAssignment: TeamAssignmentDetailRow | null = null;
   let competitionAssignments: TeamAssignmentDetailRow[] = [];
   let trainingGroupAssignment: TrainingGroupAssignmentDetailRow | null = null;
@@ -787,15 +787,22 @@ export async function getPlayerDetail(playerId: string, options: { includeFinanc
 
   await Promise.all([
     includeFinance && enrollmentIds.length > 0
-      ? supabase
-          .from("v_enrollment_collection_balances")
-          .select("enrollment_id, total_charges, total_payments, balance")
-          .in("enrollment_id", enrollmentIds)
-          .returns<EnrollmentBalanceRow[]>()
-          .then(({ data, error }) => {
-            if (error) throw new Error("profile_balance_unavailable");
-            balancesByEnrollment = new Map((data ?? []).map((row) => [row.enrollment_id, row]));
-          })
+      ? (async () => {
+          // Equality lets Postgres scope the aggregate view before expensive RLS
+          // checks. Keep reads sequential to bound load for long enrollment histories.
+          for (const enrollmentId of enrollmentIds) {
+            const { data, error } = await supabase
+              .from("v_enrollment_collection_balances")
+              .select("enrollment_id, total_charges, total_payments, balance")
+              .eq("enrollment_id", enrollmentId)
+              .maybeSingle()
+              .returns<EnrollmentBalanceRow | null>();
+            if (error || !data || data.enrollment_id !== enrollmentId) {
+              throw new Error("profile_balance_unavailable");
+            }
+            balancesByEnrollment.set(enrollmentId, data);
+          }
+        })()
       : Promise.resolve(),
     activeEnrollmentRow
       ? supabase
