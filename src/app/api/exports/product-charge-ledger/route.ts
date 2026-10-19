@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildProductChargeLedgerWorkbook } from "@/lib/exports/product-charge-ledger-workbook";
 import { getProductChargeLedgerExportData } from "@/lib/queries/products";
+import { getProductSalesExportData } from "@/lib/queries/product-sales";
+import { buildProductSalesWorkbook } from "@/lib/exports/product-sales-workbook";
 import { createClient } from "@/lib/supabase/server";
 import { getMonterreyDayBounds, parseDateOnlyInput } from "@/lib/time";
 
@@ -27,12 +29,25 @@ export async function GET(request: Request) {
   const rawTo = searchParams.get("paidTo")?.trim() ?? "";
   const paidFrom = rawFrom ? parseDateOnlyInput(rawFrom) : null;
   const paidTo = rawTo ? parseDateOnlyInput(rawTo) : null;
+  const salesOnly = searchParams.get("mode") === "sales";
+  const campusId = searchParams.get("campusId")?.trim() ?? "";
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (!productId || (rawFrom && !paidFrom) || (rawTo && !paidTo) || (paidFrom && paidTo && paidFrom > paidTo)) {
+  if (!uuid.test(productId) || (salesOnly && campusId && !uuid.test(campusId)) || (rawFrom && !paidFrom) || (rawTo && !paidTo) || (paidFrom && paidTo && paidFrom > paidTo)) {
     return NextResponse.json({ message: "Filtros invalidos." }, { status: 400 });
   }
 
   try {
+    if (salesOnly) {
+      const sales = await getProductSalesExportData(productId, campusId, paidFrom, paidTo);
+      if (!sales) return NextResponse.json({ message: "Sin permisos o producto inexistente." }, { status: 403 });
+      const buffer = await buildProductSalesWorkbook(sales).xlsx.writeBuffer();
+      return new NextResponse(new Uint8Array(buffer), { headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="ventas-${slugify(sales.productName)}-${exportDate()}.xlsx"`,
+        "Cache-Control": "no-store",
+      } });
+    }
     const data = await getProductChargeLedgerExportData({
       productId,
       paidFrom,
