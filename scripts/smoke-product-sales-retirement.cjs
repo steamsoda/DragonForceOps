@@ -26,6 +26,8 @@ async function assign(code) {
 (async () => {
   assert.ok(!fs.existsSync(marker),'Previous test identity needs cleanup');
   const products = await checked(admin.from('products').select('id,name,sales_enabled,is_active'));
+  const tournaments = await checked(admin.from('tournaments').select('product_id,campus_id,is_active,end_date'));
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Monterrey'}).format(new Date());
   const targets = products.filter(p => retired.includes(p.name));
   assert.equal(targets.length, production ? 5 : 3);
   assert.ok(targets.every(p => !p.sales_enabled && p.is_active));
@@ -84,7 +86,10 @@ async function assign(code) {
           for(const name of ['Rosa Power Cup 13 Edicion','Superliga Regia 17 Edicion','McAllen Cup 2026']){
             const product = products.find(p=>p.name===name);
             await page.goto(`${origin}/sports-signups?campus=${campus.id}&competition=product%3A${product.id}`,{waitUntil:'domcontentloaded',timeout:90000});
-            await page.getByRole('heading',{name,exact:true}).waitFor({timeout:60000});
+            const visible = tournaments.some(t=>t.product_id===product.id && t.campus_id===campus.id && t.is_active && (!t.end_date || t.end_date>=today));
+            const heading = page.getByRole('heading',{name,exact:true});
+            if(visible) await heading.waitFor({timeout:60000});
+            else { assert.equal(await heading.count(),0); console.log(`PASS ${name} remains unavailable under existing tournament dates/status`); }
           }
           console.log(`PASS sports listings preserved ${campus.code}`);
         }

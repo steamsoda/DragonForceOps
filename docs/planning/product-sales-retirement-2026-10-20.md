@@ -71,4 +71,10 @@ Trigger is not an exposed callable RPC and grants no additional data access.
    then deploy the tested commit and repeat hosted read-only checks. Do not
    deploy app without its migration or ship any unrelated dirty files.
 
-No hosted deployment success is claimed yet. No real financial test writes.
+Preview v1.19.1 d0dd409 built successfully; all CI workflows passed. Front Desk
+and Director catalog checks passed both campuses. Hosted sports check found
+Preview Superliga 17 ended September 23 (unlike production October 30); v1.19.2
+corrects the test to honor existing tournament dates rather than requiring an
+expired tournament to appear. No application behavior changed in that follow-up.
+The Preview friendly alias initially remained on v1.19.0 and was explicitly
+updated to the new Ready deployment before testing. No real financial test writes.
