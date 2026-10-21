@@ -810,6 +810,7 @@ export async function getProductsForCajaAction(
     .from("products")
     .select("id, name, charge_type_id, default_amount, requires_pricing_rule_match, has_sizes, sort_order, charge_types(code)")
     .eq("is_active", true)
+    .eq("sales_enabled", true)
     .eq("copa_tigres_installments", false)
     .order("sort_order")
     .returns<ProductRow[]>();
@@ -973,6 +974,7 @@ async function resolveCajaProductCharge(
     .eq("id", productId)
     .eq("copa_tigres_installments", false)
     .eq("is_active", true)
+    .eq("sales_enabled", true)
     .maybeSingle()
     .returns<ProductLookup | null>();
 
@@ -1837,7 +1839,7 @@ async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
   for (const [index, item] of items.entries()) {
     const key = keys[index];
     if (item.kind === "copa_tigres") {
-      const { data: product, error } = await context.supabase.from("products").select("id,name,charge_type_id")
+      const { data: product, error } = await context.supabase.from("products").select("id,name,charge_type_id,sales_enabled")
         .eq("id", item.productId).eq("is_active", true).eq("copa_tigres_installments", true).maybeSingle();
       if (error || !product) throw new ExplicitCheckoutError("checkout_changed");
       const existing = await context.supabase.from("charges").select("id").eq("enrollment_id", enrollmentId)
@@ -1846,6 +1848,7 @@ async function resolveExplicitCajaCart(enrollmentId: string, form: FormData,
       const existingId = existing.data?.id;
       const prior = existingId ? ledger.charges.find(c => c.id === existingId) : null;
       if (existing.data && !prior) throw new ExplicitCheckoutError("checkout_changed");
+      if (!prior && !product.sales_enabled) throw new ExplicitCheckoutError("checkout_changed");
       snapshot.lines.push({ key, chargeId: prior?.id ?? null, description: product.name, pending: prior?.pendingAmount ?? 1250,
         due: item.amount, kind: "copa_tigres", creditAllowed: false });
       if (!prior) charges.push({ key, id: key, product_id: product.id, charge_type_id: product.charge_type_id,

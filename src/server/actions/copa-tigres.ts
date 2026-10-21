@@ -19,17 +19,19 @@ export async function getCopaTigresOptionsAction(enrollmentId: string): Promise<
   if (!ledger) return [];
   const admin = createAdminClient();
   const { data: products, error } = await admin.from("products")
-    .select("id,name").eq("is_active", true).eq("copa_tigres_installments", true);
+    .select("id,name,sales_enabled").eq("is_active", true).eq("copa_tigres_installments", true);
   if (error) throw new Error("No se pudo cargar Copa Tigres.");
   const { data: charges, error: chargeError } = await admin.from("charges")
     .select("id,product_id").eq("enrollment_id", enrollmentId)
     .eq("copa_tigres_installments", true).neq("status", "void");
   if (chargeError) throw new Error("No se pudo cargar el saldo de Copa Tigres.");
-  return (products ?? []).map((product) => {
+  return (products ?? []).flatMap((product) => {
     const chargeId = charges?.find((charge) => charge.product_id === product.id)?.id;
     const charge = ledger.charges.find((row) => row.id === chargeId);
     const paid = charge?.allocatedAmount ?? 0;
-    return { productId: product.id, name: product.name, paid, pending: 1250 - paid, chargeId: chargeId ?? null };
+    // A retired product is not a new sale; keep only an existing unpaid obligation.
+    if (!product.sales_enabled && (!charge || charge.pendingAmount <= 0)) return [];
+    return [{ productId: product.id, name: product.name, paid, pending: 1250 - paid, chargeId: chargeId ?? null }];
   });
 }
 
