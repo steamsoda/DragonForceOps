@@ -98,6 +98,12 @@ type AllocationSummary = {
   paidAt: string | null;
 };
 
+type CreditApplicationRow = {
+  charge_id: string;
+  amount: number;
+  applied_at: string;
+};
+
 type ActiveEnrollmentRow = {
   id: string;
   player_id: string;
@@ -812,6 +818,28 @@ async function loadAllocationSummaries(admin: SupabaseQueryClient, chargeIds: st
         allocationSummaries.set(allocation.charge_id, {
           total: roundMoney(current.total + allocation.amount),
           paidAt: !current.paidAt || paidAt > current.paidAt ? paidAt : current.paidAt,
+        });
+      }
+      if ((data?.length ?? 0) < 500) break;
+    }
+    // Match the ledger and tournament-registration sync: applied credit settles
+    // a charge too. Unused credit is not funding; reversals remove applications.
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await admin
+        .from("enrollment_credit_applications")
+        .select("charge_id, amount, applied_at")
+        .in("charge_id", chunk)
+        .order("id")
+        .range(offset, offset + 499)
+        .returns<CreditApplicationRow[]>();
+
+      if (error) throw error;
+
+      for (const application of data ?? []) {
+        const current = allocationSummaries.get(application.charge_id) ?? { total: 0, paidAt: null };
+        allocationSummaries.set(application.charge_id, {
+          total: roundMoney(current.total + Number(application.amount)),
+          paidAt: !current.paidAt || application.applied_at > current.paidAt ? application.applied_at : current.paidAt,
         });
       }
       if ((data?.length ?? 0) < 500) break;
